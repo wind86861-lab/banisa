@@ -49,7 +49,7 @@ export const updatePassword = async (userId: string, currentPassword: string, ne
         throw new AppError('Admin not found', 404, ErrorCodes.NOT_FOUND);
     }
 
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!isPasswordValid) {
         throw new AppError('Hozirgi parol noto\'g\'ri', 400, ErrorCodes.VALIDATION_ERROR);
     }
@@ -57,7 +57,7 @@ export const updatePassword = async (userId: string, currentPassword: string, ne
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({
         where: { id: userId },
-        data: { password: hashedPassword },
+        data: { passwordHash: hashedPassword },
     });
 
     return { success: true };

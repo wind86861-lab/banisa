@@ -1,37 +1,40 @@
 import prisma from '../../config/database';
 import { AppError, ErrorCodes } from '../../utils/errors';
-import { ClinicStatus } from '@prisma/client';
 
 // 1. List clinics with filters, search, sort
 export const listClinics = async (query: any) => {
-    const { 
-        page = 1, 
-        limit = 10, 
-        search, 
-        status, 
-        region, 
+    const {
+        page = 1,
+        limit = 10,
+        search,
+        status,
+        region,
         type,
+        source,
         minRating,
         sort = 'createdAt:desc'
     } = query;
-    
+
     const skip = (Number(page) - 1) * Number(limit);
-    
+
     // Build where clause
     let where: any = {};
-    
+
+    // Filter by source
+    if (source && source !== 'all') where.source = source;
+
     // Filter by status
-    if (status) where.status = status;
-    
+    if (status && status !== 'all') where.status = status;
+
     // Filter by region
     if (region) where.region = { contains: region, mode: 'insensitive' };
-    
+
     // Filter by type
     if (type) where.type = type;
-    
+
     // Filter by minimum rating
     if (minRating) where.averageRating = { gte: parseFloat(minRating) };
-    
+
     // Search by name or address
     if (search && search.length >= 2) {
         where.OR = [
@@ -41,11 +44,11 @@ export const listClinics = async (query: any) => {
             { district: { contains: search, mode: 'insensitive' } },
         ];
     }
-    
+
     // Parse sort
     const [sortField, sortOrder] = sort.split(':');
     const orderBy: any = {};
-    
+
     // Handle special sort cases
     if (sortField === 'appointments') {
         // Sort by appointment count will be handled after fetching
@@ -55,7 +58,7 @@ export const listClinics = async (query: any) => {
     } else {
         orderBy[sortField] = sortOrder === 'desc' ? 'desc' : 'asc';
     }
-    
+
     const [clinics, total] = await Promise.all([
         prisma.clinic.findMany({
             where,
@@ -74,7 +77,7 @@ export const listClinics = async (query: any) => {
         }),
         prisma.clinic.count({ where })
     ]);
-    
+
     // Sort by appointment count if requested
     let sortedClinics = clinics;
     if (sortField === 'appointments') {
@@ -84,7 +87,7 @@ export const listClinics = async (query: any) => {
             return sortOrder === 'desc' ? bCount - aCount : aCount - bCount;
         });
     }
-    
+
     return {
         clinics: sortedClinics,
         meta: {
@@ -110,24 +113,28 @@ export const getClinicById = async (id: string) => {
             }
         }
     });
-    
+
     if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);
-    
+
     return clinic;
 };
 
-// 3. Create clinic
+// 3. Create clinic (admin-created → immediately APPROVED)
 export const createClinic = async (data: any, adminId: string) => {
-    // Parse dates
     const parsed: any = { ...data };
     if (parsed.licenseIssuedAt) parsed.licenseIssuedAt = new Date(parsed.licenseIssuedAt);
     if (parsed.licenseExpiresAt) parsed.licenseExpiresAt = new Date(parsed.licenseExpiresAt);
-    
-    return prisma.clinic.create({
+
+    return (prisma.clinic as any).create({
         data: {
             ...parsed,
-            status: 'PENDING',
+            source: 'ADMIN_CREATED',
+            status: 'APPROVED',
+            isActive: true,
             approvedById: adminId,
+            createdBy: adminId,
+            reviewedAt: new Date(),
+            reviewedBy: adminId,
         }
     });
 };
@@ -136,11 +143,11 @@ export const createClinic = async (data: any, adminId: string) => {
 export const updateClinic = async (id: string, data: any) => {
     const clinic = await prisma.clinic.findUnique({ where: { id } });
     if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);
-    
+
     const parsed: any = { ...data };
     if (parsed.licenseIssuedAt) parsed.licenseIssuedAt = new Date(parsed.licenseIssuedAt);
     if (parsed.licenseExpiresAt) parsed.licenseExpiresAt = new Date(parsed.licenseExpiresAt);
-    
+
     return prisma.clinic.update({
         where: { id },
         data: parsed
@@ -151,7 +158,7 @@ export const updateClinic = async (id: string, data: any) => {
 export const deleteClinic = async (id: string) => {
     const clinic = await prisma.clinic.findUnique({ where: { id } });
     if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);
-    
+
     return prisma.clinic.update({
         where: { id },
         data: { isActive: false }
@@ -162,30 +169,123 @@ export const deleteClinic = async (id: string) => {
 export const setActiveStatus = async (id: string, isActive: boolean) => {
     const clinic = await prisma.clinic.findUnique({ where: { id } });
     if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);
-    
+
     return prisma.clinic.update({
         where: { id },
         data: { isActive }
     });
 };
 
-// 8 & 9. Update clinic status (approve/reject)
-export const updateClinicStatus = async (
-    id: string, 
-    status: string, 
-    rejectionReason?: string,
-    approvedById?: string
-) => {
-    const clinic = await prisma.clinic.findUnique({ where: { id } });
-    if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);
-    
-    return prisma.clinic.update({
+// 8. Approve self-registered clinic → creates CLINIC_ADMIN users from pendingPersons
+export const approveClinic = async (id: string, adminId: string) => {
+    const clinic = await (prisma.clinic as any).findUnique({ where: { id } });
+    if (!clinic) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
+    if (!['PENDING', 'IN_REVIEW'].includes(clinic.status)) {
+        throw new AppError('Bu klinikani tasdiqlash mumkin emas', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    return (prisma.$transaction as any)(async (tx: any) => {
+        const updated = await tx.clinic.update({
+            where: { id },
+            data: {
+                status: 'APPROVED',
+                isActive: true,
+                reviewedAt: new Date(),
+                reviewedBy: adminId,
+                approvedById: adminId,
+                rejectionReason: null,
+            },
+        });
+
+        // Create CLINIC_ADMIN users from stored person data
+        // Only the primary person (first) gets clinicId linked (@unique constraint)
+        const persons: any[] = clinic.pendingPersons ?? [];
+        for (let i = 0; i < persons.length; i++) {
+            const person = persons[i];
+            const isPrimary = person.isPrimary === true || i === 0;
+            const existing = await tx.user.findFirst({ where: { phone: person.phone } });
+            if (!existing) {
+                await tx.user.create({
+                    data: {
+                        phone: person.phone,
+                        email: person.email ?? null,
+                        passwordHash: person.passwordHash,
+                        firstName: person.firstName,
+                        lastName: person.lastName,
+                        role: 'CLINIC_ADMIN',
+                        status: 'APPROVED',
+                        isActive: true,
+                        ...(isPrimary && { clinicId: id }),
+                    },
+                });
+            } else {
+                await tx.user.update({
+                    where: { id: existing.id },
+                    data: {
+                        role: 'CLINIC_ADMIN',
+                        status: 'APPROVED',
+                        ...(isPrimary && { clinicId: id }),
+                    },
+                });
+            }
+        }
+
+        return updated;
+    });
+};
+
+// 9. Reject clinic
+export const rejectClinic = async (id: string, reason: string, adminId: string) => {
+    const clinic = await (prisma.clinic as any).findUnique({ where: { id } });
+    if (!clinic) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
+    if (!['PENDING', 'IN_REVIEW'].includes(clinic.status)) {
+        throw new AppError('Bu klinikani rad etish mumkin emas', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    return (prisma.clinic as any).update({
         where: { id },
         data: {
-            status: status as ClinicStatus,
-            ...(rejectionReason && { rejectionReason }),
-            ...(approvedById && status === 'APPROVED' && { approvedById }),
-        }
+            status: 'REJECTED',
+            isActive: false,
+            rejectionReason: reason,
+            reviewedAt: new Date(),
+            reviewedBy: adminId,
+        },
+    });
+};
+
+// 10. Reopen rejected clinic → back to PENDING
+export const reopenClinic = async (id: string) => {
+    const clinic = await (prisma.clinic as any).findUnique({ where: { id } });
+    if (!clinic) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
+    if (clinic.status !== 'REJECTED') {
+        throw new AppError('Faqat rad etilgan klinikalarni qayta ochish mumkin', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    return (prisma.clinic as any).update({
+        where: { id },
+        data: { status: 'PENDING', rejectionReason: null, reviewedAt: null, reviewedBy: null },
+    });
+};
+
+// 11. Update status (SUSPENDED, DELETED, IN_REVIEW, BLOCKED)
+export const updateClinicStatus = async (
+    id: string,
+    status: string,
+    rejectionReason?: string,
+    adminId?: string
+) => {
+    const clinic = await (prisma.clinic as any).findUnique({ where: { id } });
+    if (!clinic) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
+
+    return (prisma.clinic as any).update({
+        where: { id },
+        data: {
+            status,
+            ...(rejectionReason !== undefined && { rejectionReason }),
+            ...(status === 'IN_REVIEW' && { reviewedAt: null }),
+            ...(adminId && { reviewedBy: adminId }),
+        },
     });
 };
 
@@ -195,24 +295,24 @@ export const bulkSetActiveStatus = async (ids: string[], isActive: boolean) => {
         where: { id: { in: ids } },
         data: { isActive }
     });
-    
+
     return { count: result.count };
 };
 
 // 25. Export to CSV
 export const exportClinicsToCSV = async (query: any) => {
     const { status, region, type } = query;
-    
+
     let where: any = {};
     if (status) where.status = status;
     if (region) where.region = { contains: region, mode: 'insensitive' };
     if (type) where.type = type;
-    
+
     const clinics = await prisma.clinic.findMany({ where });
-    
+
     // CSV headers
     const headers = ['ID', 'Name (UZ)', 'Name (RU)', 'Type', 'Status', 'Region', 'District', 'Phone', 'Email', 'Rating', 'Reviews', 'Created At'];
-    
+
     // CSV rows
     const rows = clinics.map(c => [
         c.id,
@@ -228,13 +328,13 @@ export const exportClinicsToCSV = async (query: any) => {
         c.reviewCount,
         c.createdAt.toISOString()
     ]);
-    
+
     // Generate CSV
     const csv = [
         headers.join(','),
         ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     ].join('\n');
-    
+
     return csv;
 };
 
@@ -244,7 +344,7 @@ export const exportClinicsToCSV = async (query: any) => {
 export const getClinicServices = async (clinicId: string) => {
     const clinic = await prisma.clinic.findUnique({ where: { id: clinicId } });
     if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);
-    
+
     const [diagnosticServices, surgicalServices] = await Promise.all([
         prisma.clinicDiagnosticService.findMany({
             where: { clinicId, isActive: true },
@@ -255,7 +355,7 @@ export const getClinicServices = async (clinicId: string) => {
             include: { surgicalService: true }
         })
     ]);
-    
+
     return {
         diagnostic: diagnosticServices.map(s => s.diagnosticService),
         surgical: surgicalServices.map(s => s.surgicalService)
@@ -266,7 +366,7 @@ export const getClinicServices = async (clinicId: string) => {
 export const getClinicDoctors = async (clinicId: string) => {
     const clinic = await prisma.clinic.findUnique({ where: { id: clinicId } });
     if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);
-    
+
     return prisma.doctor.findMany({
         where: { clinicId, isActive: true },
         orderBy: { createdAt: 'desc' }
@@ -277,7 +377,7 @@ export const getClinicDoctors = async (clinicId: string) => {
 export const getClinicStats = async (clinicId: string) => {
     const clinic = await prisma.clinic.findUnique({ where: { id: clinicId } });
     if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);
-    
+
     const [
         totalAppointments,
         completedAppointments,
@@ -297,7 +397,7 @@ export const getClinicStats = async (clinicId: string) => {
             _avg: { rating: true }
         })
     ]);
-    
+
     return {
         appointments: {
             total: totalAppointments,
@@ -317,7 +417,7 @@ export const getClinicStats = async (clinicId: string) => {
 export const getClinicReviews = async (clinicId: string) => {
     const clinic = await prisma.clinic.findUnique({ where: { id: clinicId } });
     if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);
-    
+
     return prisma.review.findMany({
         where: { clinicId, isActive: true },
         include: { user: { select: { id: true, firstName: true, lastName: true } } },
@@ -329,22 +429,22 @@ export const getClinicReviews = async (clinicId: string) => {
 export const deleteReview = async (reviewId: string) => {
     const review = await prisma.review.findUnique({ where: { id: reviewId } });
     if (!review) throw new AppError('Review not found', 404, ErrorCodes.NOT_FOUND);
-    
+
     // Soft delete - just mark as inactive
     await prisma.review.update({
         where: { id: reviewId },
         data: { isActive: false }
     });
-    
+
     // Recalculate clinic rating
     const clinicReviews = await prisma.review.findMany({
         where: { clinicId: review.clinicId, isActive: true }
     });
-    
+
     const avgRating = clinicReviews.length > 0
         ? clinicReviews.reduce((sum, r) => sum + r.rating, 0) / clinicReviews.length
         : 0;
-    
+
     await prisma.clinic.update({
         where: { id: review.clinicId },
         data: {
@@ -352,6 +452,6 @@ export const deleteReview = async (reviewId: string) => {
             reviewCount: clinicReviews.length
         }
     });
-    
+
     return { success: true };
 };

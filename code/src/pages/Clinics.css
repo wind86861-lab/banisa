@@ -2324,3 +2324,420 @@
     color: #ef4444;
     background: #fef2f2;
 }
+
+/* ─── Clinics Tab Navigation ───────────────────────────────────────────────── */
+.clinics-tabs-nav {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    background: white;
+    border-radius: 14px;
+    padding: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    width: fit-content;
+}
+
+.cl-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    white-space: nowrap;
+}
+
+.cl-tab-btn:hover {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.cl-tab-btn.active {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.cl-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background: #ef4444;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.cl-tab-btn.active .cl-tab-badge {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ─── Registration Tab Content ─────────────────────────────────────────────── */
+.reg-status-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.reg-status-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+}
+
+.reg-status-chip.active {
+    border-color: currentColor;
+    font-weight: 600;
+}
+
+.reg-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.reg-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.15s;
+    cursor: default;
+}
+
+.reg-row:last-child {
+    border-bottom: none;
+}
+
+.reg-row:hover {
+    background: #f9fafb;
+}
+
+.reg-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: white;
+}
+
+.reg-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.reg-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 3px;
+}
+
+.reg-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 5px;
+}
+
+.reg-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.reg-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.reg-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all 0.15s;
+}
+
+.reg-btn-view {
+    border-color: #e5e7eb;
+    background: white;
+    color: #374151;
+}
+
+.reg-btn-view:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.reg-btn-approve {
+    border-color: #10b981;
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.reg-btn-approve:hover {
+    background: #d1fae5;
+}
+
+.reg-btn-reject {
+    border-color: #ef4444;
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.reg-btn-reject:hover {
+    background: #fee2e2;
+}
+
+.reg-btn-review {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.reg-btn-review:hover {
+    background: #dbeafe;
+}
+
+.reg-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.reg-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #9ca3af;
+}
+
+.reg-empty .reg-empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+}
+
+.reg-empty h3 {
+    font-size: 16px;
+    color: #6b7280;
+    margin-bottom: 6px;
+}
+
+/* Detail Modal for Registrations */
+.reg-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.reg-detail-item {
+    padding: 12px 14px;
+    background: #f8faff;
+    border-radius: 10px;
+}
+
+.reg-detail-item.full {
+    grid-column: 1 / -1;
+}
+
+.reg-detail-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #9ca3af;
+    margin-bottom: 4px;
+}
+
+.reg-detail-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1f2937;
+}
+
+/* Source badge on clinic table rows */
+.source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    margin-left: 6px;
+}
+
+/* ─── Standalone btn-icon (icon-only button in table rows) ────────────────── */
+.btn-icon {
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.btn-icon:hover {
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+    color: #374151;
+}
+
+.btn-icon.danger {
+    color: #6b7280;
+}
+
+.btn-icon.danger:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.btn-icon:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ─── Service/Clinic name cell in table ────────────────────────────────────── */
+.service-name-cell {
+    display: flex;
+    align-items: center;
+}
+
+/* ─── Catalog view wrapper ─────────────────────────────────────────────────── */
+.catalog-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* ─── Detail section (drawer body sections) ────────────────────────────────── */
+.detail-section {
+    margin-bottom: 18px;
+}
+
+.detail-section h4 {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #9ca3af;
+    margin: 0 0 10px;
+}
+
+/* ─── Cat badge large (type tag in drawer) ─────────────────────────────────── */
+.cat-badge-lg {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 14px;
+    border-radius: 20px;
+    background: #f1f5f9;
+    color: #374151;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* ─── Actions cell in table rows ───────────────────────────────────────────── */
+.actions-cell {
+    white-space: nowrap;
+}
+
+/* ─── Status badge large ───────────────────────────────────────────────────── */
+.status-badge-lg {
+    font-size: 13px !important;
+    padding: 5px 12px !important;
+}
+
+/* ─── Form Sections (ClinicsPage form) ────────────────────────────────────── */
+.form-section {
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.form-section:last-of-type {
+    border-bottom: none;
+}
+
+.form-section h3 {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #9ca3af;
+    margin: 0 0 14px;
+}
+
+.form-row.two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.btn-cancel {
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    color: #374151;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.15s;
+}
+
+.btn-cancel:hover {
+    background: #f3f4f6;
+}

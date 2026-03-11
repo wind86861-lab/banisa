@@ -1,9 +1,11 @@
 // Central API service — all backend calls go through here
+// VULN-03: access token lives in module memory, NOT localStorage
+import axiosInstance, { setAccessToken, getAccessToken, clearAccessToken } from '../shared/api/axios';
 
 const BASE_URL = '/api';
 
 const getHeaders = () => {
-    const token = localStorage.getItem('token');
+    const token = getAccessToken();
     return {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -24,23 +26,49 @@ export const authApi = {
     login: async (email, password) => {
         const res = await fetch(`${BASE_URL}/auth/login`, {
             method: 'POST',
-            headers: getHeaders(),
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ email, password }),
         });
         const data = await handleResponse(res);
-        if (data.data?.token) {
-            localStorage.setItem('token', data.data.token);
+        if (data.data?.accessToken) {
+            setAccessToken(data.data.accessToken);
         }
         return data.data;
     },
 
-    logout: () => {
-        localStorage.removeItem('token');
+    loginWithPhone: async (phone, password) => {
+        const res = await fetch(`${BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ phone, password }),
+        });
+        const data = await handleResponse(res);
+        if (data.accessToken) {
+            setAccessToken(data.accessToken);
+        }
+        return data;
+    },
+
+    logout: async () => {
+        clearAccessToken();
+        // Tell server to clear the HttpOnly refresh-token cookie
+        await fetch(`${BASE_URL}/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+        }).catch(() => { });
     },
 
     me: async () => {
-        const res = await fetch(`${BASE_URL}/auth/me`, { headers: getHeaders() });
-        return handleResponse(res);
+        // Use axios instance — auto-refresh interceptor handles 401 on page reload
+        const res = await axiosInstance.get('/auth/me');
+        return res.data;
+    },
+
+    clinicStatus: async () => {
+        const res = await axiosInstance.get('/clinic/status');
+        return res.data;
     },
 };
 
@@ -197,8 +225,12 @@ export const clinicsApi = {
         if (params.status) query.set('status', params.status);
         if (params.region) query.set('region', params.region);
         if (params.type) query.set('type', params.type);
-        const res = await fetch(`${BASE_URL}/clinics?${query}`, { headers: getHeaders() });
-        return handleResponse(res);
+        if (params.source) query.set('source', params.source);
+        if (params.sort) query.set('sort', params.sort);
+        const res = await fetch(`${BASE_URL}/admin/clinics?${query}`, { headers: getHeaders() });
+        const data = await handleResponse(res);
+        // admin endpoint returns { clinics, meta } — normalize to { data, meta }
+        return { data: data.data || [], meta: data.meta || {} };
     },
 
     getById: async (id) => {

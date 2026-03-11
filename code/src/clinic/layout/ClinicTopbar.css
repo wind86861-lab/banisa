@@ -1,0 +1,42 @@
+/* ─── Clinic Topbar additions ────────────────────────────────────────────── */
+
+.clinic-page-title span {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
+}
+
+.clinic-topbar-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00C9A7, #0A9E82);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.clinic-user-menu {
+    cursor: default;
+}
+
+.clinic-notif-btn {
+    position: relative;
+}
+
+.clinic-topbar-logout {
+    color: var(--text-muted);
+    padding: 8px;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.clinic-topbar-logout:hover {
+    color: var(--color-danger);
+    background: rgba(252, 105, 106, 0.1);
+}

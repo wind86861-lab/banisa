@@ -30,11 +30,17 @@ router.patch('/:id/activate', adminClinicsController.activate);
 // 7. Deactivate clinic
 router.patch('/:id/deactivate', adminClinicsController.deactivate);
 
-// 8. Approve pending clinic
-router.patch('/:id/approve', adminClinicsController.approve);
+// 8. Approve pending/in-review clinic
+router.post('/:id/approve', adminClinicsController.approve);
 
-// 9. Reject pending clinic
-router.patch('/:id/reject', adminClinicsController.reject);
+// 9. Reject pending/in-review clinic
+router.post('/:id/reject', adminClinicsController.reject);
+
+// 10. Reopen rejected clinic → back to PENDING
+router.post('/:id/reopen', adminClinicsController.reopen);
+
+// 11. Update status (IN_REVIEW, SUSPENDED, DELETED, BLOCKED)
+router.patch('/:id/status', adminClinicsController.updateStatus);
 
 // 23. Bulk activate clinics
 router.post('/bulk-activate', validate(bulkActionSchema), adminClinicsController.bulkActivate);

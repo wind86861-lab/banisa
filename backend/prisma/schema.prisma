@@ -14,24 +14,40 @@ enum Role {
   SUPER_ADMIN
   CLINIC_ADMIN
   PATIENT
+  PENDING_CLINIC
+}
+
+enum UserStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  firstName String
-  lastName  String
-  role      Role     @default(PATIENT)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String     @id @default(uuid())
+  phone        String     @unique
+  email        String?
+  passwordHash String
+  firstName    String?
+  lastName     String?
+  role         Role       @default(PATIENT)
+  status       UserStatus @default(PENDING)
+  isActive     Boolean    @default(true)
+  clinicId     String?    @unique
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   diagnosticServices DiagnosticService[] @relation("CreatedBy")
   surgicalServices   SurgicalService[]   @relation("SurgicalCreatedBy")
 
   appointments Appointment[]
   reviews      Review[]
+
+  @@index([phone])
+  @@index([status])
+  @@index([role])
 }
 
 model ServiceCategory {
@@ -206,11 +222,19 @@ enum RiskLevel {
   HIGH
 }
 
+enum ClinicSource {
+  ADMIN_CREATED
+  SELF_REGISTERED
+}
+
 enum ClinicStatus {
   PENDING
+  IN_REVIEW
   APPROVED
   REJECTED
   BLOCKED
+  SUSPENDED
+  DELETED
 }
 
 enum ClinicType {
@@ -284,20 +308,30 @@ model Clinic {
   averageRating Float? @default(0)
   reviewCount   Int    @default(0)
 
+  // Source tracking
+  source      ClinicSource @default(ADMIN_CREATED)
+  createdBy   String?      // Super Admin ID (ADMIN_CREATED)
+  submittedAt DateTime?    // When self-registration was submitted
+  reviewedAt  DateTime?    // When approved/rejected
+  reviewedBy  String?      // Admin user ID who reviewed
+
   // Documents
-  registrationNumber String    @unique
-  taxId              String    @unique
-  licenseNumber      String
+  registrationNumber String?
+  taxId              String?
+  licenseNumber      String?
   licenseIssuedAt    DateTime?
   licenseExpiresAt   DateTime?
   licenseIssuedBy    String?
 
   // Admin contact
-  adminFirstName String
-  adminLastName  String
-  adminEmail     String
-  adminPhone     String
+  adminFirstName String?
+  adminLastName  String?
+  adminEmail     String?
+  adminPhone     String?
   adminPosition  String?
+
+  // Persons data (stored until approval for SELF_REGISTERED)
+  pendingPersons Json?
 
   // Moderation
   rejectionReason String?
@@ -316,8 +350,10 @@ model Clinic {
   updatedAt DateTime @updatedAt
 
   @@index([status])
+  @@index([source])
   @@index([region])
   @@index([type])
+  @@index([createdAt])
 }
 
 model Doctor {
@@ -391,6 +427,7 @@ model Review {
 }
 
 model ClinicDiagnosticService {
+  id                  String   @id @default(uuid())
   clinicId            String
   diagnosticServiceId String
   isActive            Boolean  @default(true)
@@ -398,11 +435,81 @@ model ClinicDiagnosticService {
 
   clinic            Clinic            @relation(fields: [clinicId], references: [id])
   diagnosticService DiagnosticService @relation("DiagnosticServiceClinicLinks", fields: [diagnosticServiceId], references: [id])
+  customization     ServiceCustomization?
 
-  @@id([clinicId, diagnosticServiceId])
+  @@unique([clinicId, diagnosticServiceId])
   @@index([clinicId])
   @@index([diagnosticServiceId])
   @@index([isActive])
+}
+
+// ─── SERVICE CUSTOMIZATION ──────────────────────────────────────────────────
+model ServiceCustomization {
+  id                       String   @id @default(uuid())
+  clinicServiceId          String   @unique
+
+  // Custom naming (optional — falls back to DiagnosticService fields if null)
+  customNameUz             String?
+  customNameRu             String?
+
+  // Custom descriptions
+  customDescriptionUz      String?  @db.Text
+  customDescriptionRu      String?  @db.Text
+
+  // Benefits / features (JSONB array)
+  benefits                 Json?
+
+  // Preparation instructions (clinic-specific)
+  preparationUz            String?  @db.Text
+  preparationRu            String?  @db.Text
+
+  // Custom category / tags
+  customCategory           String?
+  tags                     String[]
+
+  // Duration & scheduling
+  estimatedDurationMinutes Int?
+  availableDays            String[]
+  availableTimeSlots       Json?
+
+  // Booking requirements
+  requiresAppointment      Boolean  @default(true)
+  requiresPrepayment       Boolean  @default(false)
+  prepaymentPercentage     Int?
+
+  // Display metadata
+  isHighlighted            Boolean  @default(false)
+  displayOrder             Int?
+
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  clinicService            ClinicDiagnosticService @relation(fields: [clinicServiceId], references: [id], onDelete: Cascade)
+  images                   ServiceImage[]
+
+  @@index([clinicServiceId])
+  @@index([customCategory])
+  @@index([isHighlighted])
+  @@index([displayOrder])
+}
+
+// ─── SERVICE IMAGES ─────────────────────────────────────────────────────────
+model ServiceImage {
+  id              String   @id @default(uuid())
+  customizationId String
+
+  url             String
+  alt             String?
+  order           Int      @default(0)
+  isPrimary       Boolean  @default(false)
+
+  uploadedAt      DateTime @default(now())
+
+  customization   ServiceCustomization @relation(fields: [customizationId], references: [id], onDelete: Cascade)
+
+  @@index([customizationId])
+  @@index([order])
+  @@index([isPrimary])
 }
 
 model ClinicSurgicalService {
@@ -523,4 +630,112 @@ enum CheckupCategory {
   BASIC          // Bazaviy (umumiy)
   SPECIALIZED    // Ixtisoslashgan (kardio, gastro, etc.)
   AGE_BASED      // Yosh guruhi (40+, ayollar, etc.)
+}
+
+enum RegistrationStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model ClinicRegistrationRequest {
+  id     String             @id @default(uuid())
+  status RegistrationStatus @default(PENDING)
+
+  // Step 1 - Basic info
+  nameUz        String
+  nameRu        String?
+  nameEn        String?
+  clinicType    String
+  foundedYear   Int?
+  descriptionUz String   @db.Text
+  descriptionRu String?  @db.Text
+  logoUrl       String?
+
+  // Step 2 - Location
+  regionId      String
+  districtId    String
+  streetAddress String
+  addressUz     String
+  addressRu     String?
+  zipCode       String?
+  googleMapsUrl String?
+  landmark      String?
+  latitude      Float?
+  longitude     Float?
+
+  // Step 3 - Contacts
+  primaryPhone   String
+  secondaryPhone String?
+  emergencyPhone String?
+  email          String
+  website        String?
+  telegram       String?
+  instagram      String?
+  facebook       String?
+  youtube        String?
+
+  // Step 4 - Working hours (JSON)
+  workingHours    Json
+  isAlwaysOpen    Boolean @default(false)
+  lunchBreakStart String?
+  lunchBreakEnd   String?
+  holidayNotes    String? @db.Text
+
+  // Step 5 - Services
+  selectedServices Json @default("[]")
+
+  // Step 6 - Admin persons (array)
+  persons      ClinicRegistrationPerson[]
+
+  // Step 7 - Documents
+  licenseUrl    String?
+  licenseNumber String
+  licenseExpiry String
+  inn           String
+  legalName     String
+  legalAddress  String
+  legalForm     String?
+  certificates  Json    @default("[]")
+
+  // Step 8 - Payment
+  bankName          String
+  bankAccountNumber String
+  mfo               String
+  oked              String?
+  vatNumber         String?
+  paymentMethods    Json   @default("[]")
+  invoiceEmail      String?
+
+  // Moderation
+  rejectionReason String? @db.Text
+  reviewedById    String?
+  reviewedAt      DateTime?
+  notes           String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+model ClinicRegistrationPerson {
+  id            String                   @id @default(uuid())
+  requestId     String
+  request       ClinicRegistrationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  firstName    String
+  lastName     String
+  middleName   String?
+  position     String
+  phone        String
+  email        String?
+  passwordHash String
+  isPrimary    Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([requestId])
+  @@index([phone])
 }

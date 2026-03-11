@@ -19,7 +19,8 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
         }
 
         const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, env.JWT_SECRET) as { id: string; role: string };
+        // VULN-03: use dedicated access-token secret
+        const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as { id: string; role: string };
 
         const user = await prisma.user.findUnique({
             where: { id: decoded.id },

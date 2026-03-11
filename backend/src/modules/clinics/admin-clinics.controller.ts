@@ -75,11 +75,11 @@ export const deactivate = async (req: AuthRequest, res: Response, next: NextFunc
     }
 };
 
-// 8. Approve clinic
+// 8. Approve clinic (SELF_REGISTERED workflow)
 export const approve = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const clinic = await adminClinicsService.updateClinicStatus(req.params.id as string, 'APPROVED', undefined, req.user!.id);
-        sendSuccess(res, clinic, null, 'Clinic approved successfully');
+        const clinic = await adminClinicsService.approveClinic(req.params.id as string, req.user!.id);
+        sendSuccess(res, clinic, null, 'Klinika tasdiqlandi');
     } catch (error) {
         next(error);
     }
@@ -89,8 +89,30 @@ export const approve = async (req: AuthRequest, res: Response, next: NextFunctio
 export const reject = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const { reason } = req.body;
-        const clinic = await adminClinicsService.updateClinicStatus(req.params.id as string, 'REJECTED', reason, req.user!.id);
-        sendSuccess(res, clinic, null, 'Clinic rejected successfully');
+        if (!reason) throw new AppError('Rad etish sababi kiritilishi shart', 400, ErrorCodes.VALIDATION_ERROR);
+        const clinic = await adminClinicsService.rejectClinic(req.params.id as string, reason, req.user!.id);
+        sendSuccess(res, clinic, null, 'Klinika rad etildi');
+    } catch (error) {
+        next(error);
+    }
+};
+
+// 10. Reopen rejected clinic
+export const reopen = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const clinic = await adminClinicsService.reopenClinic(req.params.id as string);
+        sendSuccess(res, clinic, null, 'Klinika qayta ko\'rib chiqishga yuborildi');
+    } catch (error) {
+        next(error);
+    }
+};
+
+// 11. Update clinic status (SUSPENDED, DELETED, IN_REVIEW)
+export const updateStatus = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const { status, rejectionReason } = req.body;
+        const clinic = await adminClinicsService.updateClinicStatus(req.params.id as string, status, rejectionReason, req.user!.id);
+        sendSuccess(res, clinic, null, 'Status yangilandi');
     } catch (error) {
         next(error);
     }

@@ -32,8 +32,11 @@ yarn-error.log*
 Thumbs.db
 
 # Prisma
-backend/prisma/migrations/
+# Note: migrations should be committed for deployment
 
 # Temporary files
 *.tmp
 .cache/
+
+# Uploaded files (user-submitted documents)
+backend/uploads/
