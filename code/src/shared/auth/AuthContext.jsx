@@ -23,10 +23,19 @@ export const AuthProvider = ({ children }) => {
       const existingUser = tokenStorage.getUser();
 
       if (existingToken && existingUser) {
-        setAccessToken(existingToken);
-        setUser(existingUser);
-        setIsLoading(false);
-        return;
+        // Client-side expiry check — decode WITHOUT verifying signature
+        try {
+          const payload = JSON.parse(atob(existingToken.split('.')[1]));
+          const isExpired = payload.exp && payload.exp * 1000 < Date.now();
+          if (!isExpired) {
+            setAccessToken(existingToken);
+            setUser(existingUser);
+            setIsLoading(false);
+            return;
+          }
+        } catch { /* malformed token — fall through to cookie refresh */ }
+        // Token expired or malformed — clear and attempt cookie refresh below
+        tokenStorage.clear();
       }
 
       // 2. Cookie orqali refresh — singleton promise (StrictMode fix)

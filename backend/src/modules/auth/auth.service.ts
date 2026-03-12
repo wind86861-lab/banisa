@@ -14,7 +14,7 @@ const BCRYPT_ROUNDS = 12;
 
 // VULN-03: separate secrets + short-lived access token
 export const generateAccessToken = (payload: { id: string; role: string; status: string }): string =>
-    jwt.sign(payload, env.JWT_ACCESS_SECRET as jwt.Secret, { expiresIn: '15m' } as jwt.SignOptions);
+    jwt.sign(payload, env.JWT_ACCESS_SECRET as jwt.Secret, { expiresIn: env.NODE_ENV === 'production' ? '15m' : '1h' } as jwt.SignOptions);
 
 export const generateRefreshToken = (payload: { id: string }): string =>
     jwt.sign(payload, env.JWT_REFRESH_SECRET as jwt.Secret, { expiresIn: '7d' } as jwt.SignOptions);
