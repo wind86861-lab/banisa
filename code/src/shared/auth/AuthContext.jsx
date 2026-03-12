@@ -49,6 +49,16 @@ export const AuthProvider = ({ children }) => {
         const userData = data.data?.user ?? data.user;
 
         if (token && userData) {
+          // SECURITY: SUPER_ADMIN must always log in explicitly each browser session.
+          // Cookie-based silent restore is blocked for admins.
+          // Mid-session page reloads still work because sessionStorage is checked above.
+          if (userData.role === 'SUPER_ADMIN') {
+            clearAccessToken();
+            tokenStorage.clear();
+            setUser(null);
+            setIsLoading(false);
+            return;
+          }
           setAccessToken(token);
           tokenStorage.setToken(token);
           tokenStorage.setUser(userData);
