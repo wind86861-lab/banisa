@@ -267,6 +267,42 @@ const Services = () => {
     };
 
     const handleSave = async () => {
+        // Frontend validation
+        const errors = [];
+        if (!formData.nameUz || formData.nameUz.trim().length < 3) {
+            errors.push('Xizmat nomi (O\'zbekcha) kamida 3 ta belgidan iborat bo\'lishi kerak');
+        }
+        if (!formData.categoryId) {
+            errors.push('Kategoriya tanlanmagan');
+        }
+        if (!formData.priceRecommended || isNaN(Number(formData.priceRecommended)) || Number(formData.priceRecommended) < 0) {
+            errors.push('Tavsiya etilgan narx noto\'g\'ri');
+        }
+        if (!formData.priceMin || isNaN(Number(formData.priceMin)) || Number(formData.priceMin) < 0) {
+            errors.push('Minimal narx noto\'g\'ri');
+        }
+        if (!formData.priceMax || isNaN(Number(formData.priceMax)) || Number(formData.priceMax) < 0) {
+            errors.push('Maksimal narx noto\'g\'ri');
+        }
+        if (!formData.durationMinutes || isNaN(Number(formData.durationMinutes)) || Number(formData.durationMinutes) < 1) {
+            errors.push('Davomiyligi noto\'g\'ri');
+        }
+        if (!formData.resultTimeHours || isNaN(Number(formData.resultTimeHours)) || Number(formData.resultTimeHours) < 0.5) {
+            errors.push('Natija vaqti noto\'g\'ri');
+        }
+
+        const priceMin = Number(formData.priceMin);
+        const priceRec = Number(formData.priceRecommended);
+        const priceMax = Number(formData.priceMax);
+        if (priceMin > priceRec || priceRec > priceMax) {
+            errors.push('Narxlar: min <= tavsiya <= max bo\'lishi kerak');
+        }
+
+        if (errors.length > 0) {
+            alert('Xatoliklar:\n\n' + errors.join('\n'));
+            return;
+        }
+
         setSaving(true);
         try {
             const isOps = rootQuery === 'operations';
@@ -277,10 +313,15 @@ const Services = () => {
             // Convert numbers
             ['priceRecommended', 'priceMin', 'priceMax', 'durationMinutes', 'resultTimeHours', 'recoveryDays', 'hospitalizationDays', 'icuDays', 'fastingHours', 'minSurgeonExperience', 'successRate']
                 .forEach(key => {
-                    if (payload[key] !== undefined && payload[key] !== null) {
+                    if (payload[key] !== undefined && payload[key] !== null && payload[key] !== '') {
                         payload[key] = Number(payload[key]);
                     }
                 });
+
+            // Clean empty strings to undefined for optional fields
+            ['shortDescription', 'fullDescription', 'preparation', 'contraindications', 'sampleType', 'imageUrl', 'nameRu', 'nameEn'].forEach(key => {
+                if (payload[key] === '') payload[key] = undefined;
+            });
 
             if (editingId) {
                 await api.update(editingId, payload);
