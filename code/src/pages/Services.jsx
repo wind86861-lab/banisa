@@ -318,6 +318,9 @@ const Services = () => {
                     }
                 });
 
+            // Remove UI-only fields that aren't in the database schema
+            delete payload.parentCatId;
+
             // Clean empty strings to undefined for optional fields
             ['shortDescription', 'fullDescription', 'preparation', 'contraindications', 'sampleType', 'imageUrl', 'nameRu', 'nameEn'].forEach(key => {
                 if (payload[key] === '') payload[key] = undefined;
