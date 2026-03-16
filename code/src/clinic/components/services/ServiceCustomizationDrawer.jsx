@@ -41,7 +41,7 @@ const EMPTY_FORM = {
     displayOrder: null,
 };
 
-export default function ServiceCustomizationDrawer({ open, onClose, service, activateMode = false, onSaveAndActivate }) {
+export default function ServiceCustomizationDrawer({ open, onClose, service, activateMode = false, onSaveAndActivate, activatedClinicServiceId = null }) {
     const [activeTab, setActiveTab] = useState(0);
     const [formData, setFormData] = useState(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -217,15 +217,21 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
 
                         {/* Tabs */}
                         <div className="ca-tabs" style={{ padding: '0 20px', borderBottom: '1px solid var(--border-color)' }}>
-                            {TABS.map(t => (
-                                <button
-                                    key={t.key}
-                                    className={`ca-tab${activeTab === t.key ? ' active' : ''}`}
-                                    onClick={() => setActiveTab(t.key)}
-                                >
-                                    {t.label}
-                                </button>
-                            ))}
+                            {TABS.map(t => {
+                                // In activate mode, disable images tab until service is activated
+                                const isDisabled = activateMode && t.key === 1 && !activatedClinicServiceId;
+                                return (
+                                    <button
+                                        key={t.key}
+                                        className={`ca-tab${activeTab === t.key ? ' active' : ''}${isDisabled ? ' disabled' : ''}`}
+                                        onClick={() => !isDisabled && setActiveTab(t.key)}
+                                        disabled={isDisabled}
+                                        style={isDisabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                                    >
+                                        {t.label}
+                                    </button>
+                                );
+                            })}
                         </div>
 
                         {/* Body */}
@@ -246,7 +252,7 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
                                     )}
                                     {activeTab === 1 && (
                                         <CustomizationImagesTab
-                                            clinicServiceId={clinicServiceId}
+                                            clinicServiceId={activatedClinicServiceId || clinicServiceId}
                                             images={customization?.images || []}
                                         />
                                     )}

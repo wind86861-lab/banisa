@@ -113,20 +113,25 @@ export default function ClinicServices() {
         setActivateDrawerService(service);
     };
 
-    // Called by drawer: activate service first, then save customization with the new clinicServiceId
-    const handleSaveAndActivate = async (diagnosticServiceId, formData) => {
+    // Called by drawer: activate first to get clinicServiceId, then save customization
+    const handleSaveAndActivate = async (diagnosticServiceId, customizationData) => {
         try {
-            // Step 1: Activate — creates ClinicDiagnosticService record, returns it with id
+            // Step 1: Activate service — creates ClinicDiagnosticService record
             const clinicService = await activateMut.mutateAsync(diagnosticServiceId);
             const clinicServiceId = clinicService?.id;
-            // Step 2: Save customization if we have the clinicServiceId
-            if (clinicServiceId) {
-                await api.put(`/clinic/services/${clinicServiceId}/customization`, formData);
+
+            if (!clinicServiceId) {
+                throw new Error('Failed to get clinicServiceId from activation');
             }
+
+            // Step 2: Save customization using the new clinicServiceId
+            await api.put(`/clinic/services/${clinicServiceId}/customization`, customizationData);
+
             setActivateDrawerService(null);
             refetch();
         } catch (err) {
             console.error('Activate + customization error:', err);
+            throw err; // Re-throw so drawer can handle it
         }
     };
 
