@@ -81,13 +81,41 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
 
     const buildCleanedData = () => {
         const cleaned = { ...formData };
+
+        // Clean empty strings to null
         ['customNameUz', 'customNameRu', 'customDescriptionUz', 'customDescriptionRu',
-            'preparationUz', 'preparationRu', 'customCategory'].forEach(k => {
+            'preparationUz', 'preparationRu'].forEach(k => {
                 if (cleaned[k] === '') cleaned[k] = null;
             });
+
+        // customCategory must be enum or null
+        if (!cleaned.customCategory || cleaned.customCategory === '') {
+            cleaned.customCategory = null;
+        }
+
+        // Clean numeric fields
         if (!cleaned.estimatedDurationMinutes) cleaned.estimatedDurationMinutes = null;
         if (!cleaned.displayOrder) cleaned.displayOrder = null;
         if (!cleaned.prepaymentPercentage) cleaned.prepaymentPercentage = null;
+        if (!cleaned.customPrice) cleaned.customPrice = null;
+        if (!cleaned.discountPercent) cleaned.discountPercent = null;
+
+        // Clean arrays - empty arrays should be undefined for optional fields
+        if (!cleaned.benefits || cleaned.benefits.length === 0) {
+            delete cleaned.benefits;
+        }
+        if (!cleaned.tags || cleaned.tags.length === 0) {
+            delete cleaned.tags;
+        }
+        if (!cleaned.availableDays || cleaned.availableDays.length === 0) {
+            delete cleaned.availableDays;
+        }
+
+        // availableTimeSlots - empty object should be null
+        if (!cleaned.availableTimeSlots || Object.keys(cleaned.availableTimeSlots).length === 0) {
+            cleaned.availableTimeSlots = null;
+        }
+
         return cleaned;
     };
 
@@ -240,7 +268,7 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
 
                         {/* Footer */}
                         <div className="ca-drawer-footer">
-                            {customization && !activateMode && (
+                            {customization && !activateMode && activeTab === 0 && (
                                 <button
                                     className="ca-btn-danger"
                                     style={{ marginRight: 'auto' }}
@@ -249,17 +277,41 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
                                     <Trash2 size={14} /> O&#39;chirish
                                 </button>
                             )}
+
+                            {/* Previous button (not on first tab) */}
+                            {activeTab > 0 && (
+                                <button
+                                    className="ca-btn-secondary"
+                                    onClick={() => setActiveTab(activeTab - 1)}
+                                    style={{ marginRight: 'auto' }}
+                                >
+                                    ← Orqaga
+                                </button>
+                            )}
+
                             <button className="ca-btn-secondary" onClick={onClose}>Bekor qilish</button>
-                            <button
-                                className="ca-btn-primary"
-                                onClick={handleSave}
-                                disabled={upsertMut.isPending || activating}
-                            >
-                                {(upsertMut.isPending || activating)
-                                    ? <Loader2 size={15} className="ca-spin" />
-                                    : <Save size={15} />}
-                                {activateMode ? 'Saqlash va Aktivlashtirish' : 'Saqlash'}
-                            </button>
+
+                            {/* Next button (not on last tab) */}
+                            {activeTab < TABS.length - 1 ? (
+                                <button
+                                    className="ca-btn-primary"
+                                    onClick={() => setActiveTab(activeTab + 1)}
+                                >
+                                    Keyingisi →
+                                </button>
+                            ) : (
+                                /* Save button (only on last tab) */
+                                <button
+                                    className="ca-btn-primary"
+                                    onClick={handleSave}
+                                    disabled={upsertMut.isPending || activating}
+                                >
+                                    {(upsertMut.isPending || activating)
+                                        ? <Loader2 size={15} className="ca-spin" />
+                                        : <Save size={15} />}
+                                    {activateMode ? 'Saqlash va Aktivlashtirish' : 'Saqlash'}
+                                </button>
+                            )}
                         </div>
                     </motion.div>
 
