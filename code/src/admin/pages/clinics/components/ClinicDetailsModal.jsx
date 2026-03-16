@@ -1,6 +1,7 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Edit3, Trash2, Ban, Phone, Mail, MapPin, Star, FileText, ShieldCheck } from 'lucide-react';
+import { X, Edit3, Trash2, Ban, Phone, Mail, MapPin, Star, FileText, ShieldCheck, ExternalLink } from 'lucide-react';
 import StatusChip, { SourceBadge } from './StatusChip';
 
 const ClinicDetailsModal = ({
@@ -10,6 +11,8 @@ const ClinicDetailsModal = ({
     onDelete,
     onToggleBlock,
 }) => {
+    const navigate = useNavigate();
+
     if (!clinic) return null;
 
     const phones = Array.isArray(clinic.phones) ? clinic.phones : [];
@@ -141,6 +144,13 @@ const ClinicDetailsModal = ({
                         </div>
 
                         <div className="drawer-footer">
+                            <button
+                                className="btn-edit-full"
+                                style={{ background: 'var(--color-primary)', color: '#fff', border: 'none' }}
+                                onClick={() => { onClose(); navigate(`/admin/clinics/${clinic.id}`); }}
+                            >
+                                <ExternalLink size={18} /> Batafsil
+                            </button>
                             <button className="btn-edit-full" onClick={() => { onEdit(clinic); onClose(); }}>
                                 <Edit3 size={18} /> Tahrirlash
                             </button>

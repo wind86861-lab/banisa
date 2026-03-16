@@ -105,3 +105,49 @@ export const useDeleteClinic = () => {
         onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-clinics'] }),
     });
 };
+
+// ─── Detail Page Queries ─────────────────────────────────────────────────────
+
+export const useClinicStats = (id) => {
+    return useQuery({
+        queryKey: ['admin-clinic-stats', id],
+        queryFn: async () => {
+            const { data } = await axiosInstance.get(`${BASE}/${id}/stats`);
+            return data?.data;
+        },
+        enabled: !!id,
+    });
+};
+
+export const useClinicServices = (id) => {
+    return useQuery({
+        queryKey: ['admin-clinic-services', id],
+        queryFn: async () => {
+            const { data } = await axiosInstance.get(`${BASE}/${id}/services`);
+            return data?.data;
+        },
+        enabled: !!id,
+    });
+};
+
+export const useClinicDoctors = (id) => {
+    return useQuery({
+        queryKey: ['admin-clinic-doctors', id],
+        queryFn: async () => {
+            const { data } = await axiosInstance.get(`${BASE}/${id}/doctors`);
+            return data?.data;
+        },
+        enabled: !!id,
+    });
+};
+
+export const useClinicReviews = (id) => {
+    return useQuery({
+        queryKey: ['admin-clinic-reviews', id],
+        queryFn: async () => {
+            const { data } = await axiosInstance.get(`${BASE}/${id}/reviews`);
+            return data?.data;
+        },
+        enabled: !!id,
+    });
+};

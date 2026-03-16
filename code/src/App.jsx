@@ -17,6 +17,7 @@ import CheckupPackages from './pages/CheckupPackages';
 import ClinicCheckupPackages from './pages/ClinicCheckupPackages';
 import PublicCheckupPackages from './pages/PublicCheckupPackages';
 import AdminProfile from './pages/AdminProfile';
+import ClinicDetailPage from './admin/pages/clinics/ClinicDetailPage';
 
 // Clinic registration pages
 import RegisterPage from './clinic-registration/pages/RegisterPage';
@@ -124,6 +125,7 @@ function App() {
                             <Route path="dashboard" element={<Dashboard />} />
                             <Route path="services" element={<Services />} />
                             <Route path="clinics" element={<Clinics />} />
+                            <Route path="clinics/:id" element={<ClinicDetailPage />} />
                             <Route path="packages" element={<CheckupPackages />} />
                             <Route path="clinic-packages" element={<ClinicCheckupPackages />} />
                             <Route path="public-packages" element={<PublicCheckupPackages />} />
