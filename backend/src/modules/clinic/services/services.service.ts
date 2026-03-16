@@ -12,6 +12,24 @@ export class ClinicServicesService {
         return user.clinicId;
     }
 
+    private async getDescendantCategoryIds(categoryId: string): Promise<string[]> {
+        const result: string[] = [categoryId]; // Include the parent itself
+
+        // Get all direct children
+        const children = await prisma.serviceCategory.findMany({
+            where: { parentId: categoryId },
+            select: { id: true },
+        });
+
+        // Recursively get descendants of each child
+        for (const child of children) {
+            const descendants = await this.getDescendantCategoryIds(child.id);
+            result.push(...descendants);
+        }
+
+        return result;
+    }
+
     async getAvailableServices(userId: string, filters: {
         search?: string;
         categoryId?: string;
@@ -19,9 +37,17 @@ export class ClinicServicesService {
     }) {
         const clinicId = await this.getClinicId(userId);
 
+        // If categoryId is provided, get all descendant category IDs
+        let categoryIds: string[] | undefined;
+        if (filters.categoryId) {
+            categoryIds = await this.getDescendantCategoryIds(filters.categoryId);
+        }
+
         const where: any = {
             isActive: true,
-            ...(filters.categoryId && { categoryId: filters.categoryId }),
+            ...(categoryIds && categoryIds.length > 0 && {
+                categoryId: { in: categoryIds }
+            }),
             ...(filters.search && {
                 OR: [
                     { nameUz: { contains: filters.search, mode: 'insensitive' } },
