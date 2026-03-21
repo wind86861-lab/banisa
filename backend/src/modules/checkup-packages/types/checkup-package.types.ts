@@ -2,6 +2,8 @@ import { CheckupCategory } from '@prisma/client';
 
 export interface CheckupPackageItemInput {
     diagnosticServiceId: string;
+    serviceName?: string;
+    servicePrice?: number;
     quantity?: number;
     isRequired?: boolean;
     notes?: string;

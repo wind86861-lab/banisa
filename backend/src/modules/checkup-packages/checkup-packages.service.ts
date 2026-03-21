@@ -3,6 +3,7 @@ import { AppError, ErrorCodes } from '../../utils/errors';
 import {
     CreateCheckupPackageDto,
     UpdateCheckupPackageDto,
+    CheckupPackageItemInput,
     ActivateClinicCheckupPackageDto,
     UpdateClinicCheckupPackageDto
 } from './types/checkup-package.types';
@@ -13,45 +14,48 @@ export class CheckupPackagesService {
         return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now().toString().slice(-4);
     }
 
-    private async validateDiagnosticServices(ids: string[]) {
-        const services = await prisma.diagnosticService.findMany({
-            where: { id: { in: ids }, isActive: true },
+    private async resolveServiceItems(items: CheckupPackageItemInput[]) {
+        const ids = items.map(i => i.diagnosticServiceId);
+        const found = await prisma.diagnosticService.findMany({
+            where: { id: { in: ids } },
             select: { id: true, nameUz: true, priceRecommended: true }
         });
-        if (services.length !== ids.length) {
-            throw new AppError('Ayrim diagnostika xizmatlari topilmadi yoki nofaol', 400, ErrorCodes.VALIDATION_ERROR);
-        }
-        return new Map(services.map(s => [s.id, s]));
+        const dbMap = new Map(found.map(s => [s.id, s]));
+        return dbMap;
     }
 
     // --- SUPER ADMIN ---
 
-    async createPackage(data: CreateCheckupPackageDto, userId: string) {
-        const serviceIds = data.items.map(item => item.diagnosticServiceId);
-        if (!serviceIds.length) throw new AppError('Xizmatlar tanlanmagan', 400, ErrorCodes.VALIDATION_ERROR);
-
-        const validServicesMap = await this.validateDiagnosticServices(serviceIds);
+    private buildItemRows(items: CheckupPackageItemInput[], dbMap: Map<string, { id: string; nameUz: string; priceRecommended: number }>) {
         let totalPrice = 0;
-
-        const items = data.items.map((item, index) => {
-            const srv = validServicesMap.get(item.diagnosticServiceId)!;
-            totalPrice += srv.priceRecommended * (item.quantity || 1);
+        const rows = items.map((item, index) => {
+            const db = dbMap.get(item.diagnosticServiceId);
+            const name = db?.nameUz ?? item.serviceName ?? item.diagnosticServiceId;
+            const price = db?.priceRecommended ?? item.servicePrice ?? 0;
+            totalPrice += price * (item.quantity || 1);
             return {
                 diagnosticServiceId: item.diagnosticServiceId,
-                serviceName: srv.nameUz,
-                servicePrice: srv.priceRecommended,
-                quantity: item.quantity,
-                isRequired: item.isRequired,
+                serviceName: name,
+                servicePrice: price,
+                quantity: item.quantity ?? 1,
+                isRequired: item.isRequired ?? true,
                 notes: item.notes,
                 sortOrder: index
             };
         });
+        return { rows, totalPrice };
+    }
+
+    async createPackage(data: CreateCheckupPackageDto, userId: string) {
+        if (!data.items?.length) throw new AppError('Xizmatlar tanlanmagan', 400, ErrorCodes.VALIDATION_ERROR);
+
+        const dbMap = await this.resolveServiceItems(data.items);
+        const { rows, totalPrice } = this.buildItemRows(data.items, dbMap);
 
         const recommendedPrice = data.recommendedPrice ?? totalPrice;
         const discount = totalPrice > recommendedPrice ? totalPrice - recommendedPrice : 0;
         const slug = data.slug || this.generateSlug(data.nameUz);
 
-        // Ensure slug doesn't exist
         const existing = await prisma.checkupPackage.findUnique({ where: { slug } });
         if (existing) throw new AppError('Bunday slug mavjud', 400, ErrorCodes.DUPLICATE_ERROR);
 
@@ -72,9 +76,7 @@ export class CheckupPackagesService {
                     discount,
                     imageUrl: data.imageUrl,
                     createdById: userId,
-                    items: {
-                        create: items
-                    }
+                    items: { create: rows }
                 },
                 include: { items: true }
             });
@@ -86,52 +88,36 @@ export class CheckupPackagesService {
         if (!pkg) throw new AppError('Paket topilmadi', 404, ErrorCodes.NOT_FOUND);
 
         return await prisma.$transaction(async (tx) => {
-            let itemsData = undefined;
-            let discount = pkg.discount;
+            let itemsData: any = undefined;
+            let discount = pkg.discount ?? 0;
 
-            if (data.items) {
-                const serviceIds = data.items.map(i => i.diagnosticServiceId);
-                const validServicesMap = await this.validateDiagnosticServices(serviceIds);
-                let totalPrice = 0;
-
-                const newItems = data.items.map((item, index) => {
-                    const srv = validServicesMap.get(item.diagnosticServiceId)!;
-                    totalPrice += srv.priceRecommended * (item.quantity || 1);
-                    return {
-                        diagnosticServiceId: item.diagnosticServiceId,
-                        serviceName: srv.nameUz,
-                        servicePrice: srv.priceRecommended,
-                        quantity: item.quantity,
-                        isRequired: item.isRequired,
-                        notes: item.notes,
-                        sortOrder: index
-                    };
-                });
+            if (data.items?.length) {
+                const dbMap = await this.resolveServiceItems(data.items);
+                const { rows, totalPrice } = this.buildItemRows(data.items, dbMap);
 
                 const recPrice = data.recommendedPrice ?? pkg.recommendedPrice;
                 discount = totalPrice > recPrice ? totalPrice - recPrice : 0;
 
-                // Delete old items and insert new
                 await tx.checkupPackageItem.deleteMany({ where: { packageId: id } });
-                itemsData = { create: newItems };
+                itemsData = { create: rows };
             }
 
             return await tx.checkupPackage.update({
                 where: { id },
                 data: {
-                    nameUz: data.nameUz,
-                    nameRu: data.nameRu,
-                    nameEn: data.nameEn,
-                    slug: data.slug,
-                    category: data.category,
-                    shortDescription: data.shortDescription,
-                    fullDescription: data.fullDescription,
-                    targetAudience: data.targetAudience,
-                    recommendedPrice: data.recommendedPrice,
-                    priceMin: data.priceMin,
-                    priceMax: data.priceMax,
+                    ...(data.nameUz !== undefined && { nameUz: data.nameUz }),
+                    ...(data.nameRu !== undefined && { nameRu: data.nameRu }),
+                    ...(data.nameEn !== undefined && { nameEn: data.nameEn }),
+                    ...(data.slug !== undefined && { slug: data.slug }),
+                    ...(data.category !== undefined && { category: data.category }),
+                    ...(data.shortDescription !== undefined && { shortDescription: data.shortDescription }),
+                    ...(data.fullDescription !== undefined && { fullDescription: data.fullDescription }),
+                    ...(data.targetAudience !== undefined && { targetAudience: data.targetAudience }),
+                    ...(data.recommendedPrice !== undefined && { recommendedPrice: data.recommendedPrice }),
+                    ...(data.priceMin !== undefined && { priceMin: data.priceMin }),
+                    ...(data.priceMax !== undefined && { priceMax: data.priceMax }),
+                    ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl }),
                     discount,
-                    imageUrl: data.imageUrl,
                     ...(itemsData && { items: itemsData })
                 },
                 include: { items: true }

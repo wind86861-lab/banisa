@@ -13,6 +13,14 @@ export const getClinicStats = async (req: AuthRequest, res: Response) => {
     const clinicId = await getClinicId(req.user!.id);
     if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
 
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+    // ── Core counts ──
     const [totalAppointments, pendingCount, confirmedCount, completedCount, cancelledCount, totalDoctors] =
         await Promise.all([
             prisma.appointment.count({ where: { clinicId } }),
@@ -23,7 +31,106 @@ export const getClinicStats = async (req: AuthRequest, res: Response) => {
             prisma.doctor.count({ where: { clinicId, isActive: true } }),
         ]);
 
-    const activeServices = await prisma.clinicDiagnosticService.count({ where: { clinicId, isActive: true } });
+    // ── Active services by type ──
+    const [activeDiagnostics, activeSurgical, activeSanatorium, activeCheckups] = await Promise.all([
+        prisma.clinicDiagnosticService.count({ where: { clinicId, isActive: true } }),
+        prisma.clinicSurgicalService.count({ where: { clinicId, isActive: true } }),
+        prisma.clinicSanatoriumService.count({ where: { clinicId, isActive: true } }),
+        prisma.clinicCheckupPackage.count({ where: { clinicId, isActive: true } }),
+    ]);
+    const activeServices = activeDiagnostics + activeSurgical + activeSanatorium + activeCheckups;
+
+    // ── Today's appointments ──
+    const todayAppointments = await prisma.appointment.count({
+        where: { clinicId, scheduledAt: { gte: today, lt: tomorrow } },
+    });
+
+    // ── This month vs last month ──
+    const [thisMonthCount, lastMonthCount] = await Promise.all([
+        prisma.appointment.count({ where: { clinicId, createdAt: { gte: thisMonthStart } } }),
+        prisma.appointment.count({ where: { clinicId, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } } }),
+    ]);
+    const monthGrowth = lastMonthCount > 0 ? Math.round(((thisMonthCount - lastMonthCount) / lastMonthCount) * 100) : 0;
+
+    // ── Revenue (this month & total) ──
+    const revenueThisMonth = await prisma.appointment.aggregate({
+        where: { clinicId, status: 'COMPLETED', createdAt: { gte: thisMonthStart } },
+        _sum: { price: true },
+    });
+    const revenueTotal = await prisma.appointment.aggregate({
+        where: { clinicId, status: 'COMPLETED' },
+        _sum: { price: true },
+    });
+
+    // ── Weekly trend (last 7 days) ──
+    const weeklyTrend: { day: string; appointments: number; completed: number; revenue: number }[] = [];
+    const dayNames = ['Yak', 'Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan'];
+    for (let i = 6; i >= 0; i--) {
+        const dayStart = new Date(today); dayStart.setDate(dayStart.getDate() - i);
+        const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
+
+        const [dayAppts, dayCompleted, dayRevAgg] = await Promise.all([
+            prisma.appointment.count({ where: { clinicId, scheduledAt: { gte: dayStart, lt: dayEnd } } }),
+            prisma.appointment.count({ where: { clinicId, scheduledAt: { gte: dayStart, lt: dayEnd }, status: 'COMPLETED' } }),
+            prisma.appointment.aggregate({ where: { clinicId, scheduledAt: { gte: dayStart, lt: dayEnd }, status: 'COMPLETED' }, _sum: { price: true } }),
+        ]);
+        weeklyTrend.push({
+            day: dayNames[dayStart.getDay()],
+            appointments: dayAppts,
+            completed: dayCompleted,
+            revenue: dayRevAgg._sum.price || 0,
+        });
+    }
+
+    // ── Service type breakdown ──
+    const serviceTypeBreakdown = await prisma.appointment.groupBy({
+        by: ['serviceType'],
+        where: { clinicId },
+        _count: true,
+    });
+
+    // ── Recent appointments (last 5) ──
+    const recentAppointments = await prisma.appointment.findMany({
+        where: { clinicId },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        include: {
+            patient: { select: { id: true, firstName: true, lastName: true, phone: true } },
+            doctor: { select: { id: true, firstName: true, lastName: true, specialty: true } },
+        },
+    });
+
+    // ── Top doctors by appointment count ──
+    const topDoctors = await prisma.appointment.groupBy({
+        by: ['doctorId'],
+        where: { clinicId, doctorId: { not: null } },
+        _count: true,
+        orderBy: { _count: { doctorId: 'desc' } },
+        take: 5,
+    });
+    const doctorIds = topDoctors.map(d => d.doctorId).filter(Boolean) as string[];
+    const doctorMap = doctorIds.length > 0
+        ? await prisma.doctor.findMany({ where: { id: { in: doctorIds } }, select: { id: true, firstName: true, lastName: true, specialty: true } })
+        : [];
+    const topDoctorsData = topDoctors.map(d => {
+        const doc = doctorMap.find(dm => dm.id === d.doctorId);
+        return { ...doc, appointmentCount: d._count };
+    });
+
+    // ── Appointment status for donut chart ──
+    const statusBreakdown = [
+        { name: 'Kutilmoqda', value: pendingCount, color: '#f59e0b' },
+        { name: 'Tasdiqlangan', value: confirmedCount, color: '#06b6d4' },
+        { name: 'Bajarilgan', value: completedCount, color: '#10b981' },
+        { name: 'Bekor', value: cancelledCount, color: '#ef4444' },
+    ];
+
+    // ── Reviews summary ──
+    const reviewStats = await prisma.review.aggregate({
+        where: { clinicId, isActive: true },
+        _avg: { rating: true },
+        _count: true,
+    });
 
     return res.json({
         success: true,
@@ -35,6 +142,30 @@ export const getClinicStats = async (req: AuthRequest, res: Response) => {
             cancelledCount,
             totalDoctors,
             activeServices,
+            todayAppointments,
+            thisMonthCount,
+            lastMonthCount,
+            monthGrowth,
+            revenueThisMonth: revenueThisMonth._sum.price || 0,
+            revenueTotal: revenueTotal._sum.price || 0,
+            weeklyTrend,
+            serviceTypeBreakdown: serviceTypeBreakdown.map(s => ({
+                type: s.serviceType,
+                count: s._count,
+            })),
+            statusBreakdown,
+            recentAppointments,
+            topDoctors: topDoctorsData,
+            serviceBreakdown: {
+                diagnostics: activeDiagnostics,
+                surgical: activeSurgical,
+                sanatorium: activeSanatorium,
+                checkup: activeCheckups,
+            },
+            reviewStats: {
+                averageRating: reviewStats._avg.rating ? Math.round(reviewStats._avg.rating * 10) / 10 : 0,
+                totalReviews: reviewStats._count,
+            },
         },
     });
 };

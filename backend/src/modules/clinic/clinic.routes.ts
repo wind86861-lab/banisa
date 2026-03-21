@@ -4,9 +4,13 @@ import { validate } from '../../middleware/validate.middleware';
 import { getClinicMe } from './clinic.controller';
 import { clinicServicesController } from './services/services.controller';
 import { clinicCheckupController } from './services/checkup.controller';
+import { clinicSurgicalController } from './services/surgical.controller';
+import { clinicSanatoriumController } from './services/sanatorium.controller';
 import { clinicSettingsController } from './services/settings.controller';
 import {
     activateServiceSchema,
+    activateSurgicalServiceSchema,
+    activateSanatoriumServiceSchema,
     activatePackageSchema,
     updatePackageSchema,
     workingHoursSchema,
@@ -48,6 +52,16 @@ router.post('/services/:clinicServiceId/customization/images', serviceImageUploa
 router.delete('/services/:clinicServiceId/customization/images/:imageId', customizationController.deleteImage);
 router.put('/services/:clinicServiceId/customization/images/reorder', validate(reorderImagesSchema), customizationController.reorderImages);
 router.put('/services/:clinicServiceId/customization/images/:imageId/primary', customizationController.setPrimaryImage);
+
+// ─── Surgical Services ───────────────────────────────────────────────────────
+router.get('/surgical-services/available', clinicSurgicalController.getAvailableSurgicalServices);
+router.post('/surgical-services/activate', validate(activateSurgicalServiceSchema), clinicSurgicalController.activateSurgicalService);
+router.delete('/surgical-services/:serviceId', clinicSurgicalController.deactivateSurgicalService);
+
+// ─── Sanatorium Services ────────────────────────────────────────────────────
+router.get('/sanatorium-services/available', clinicSanatoriumController.getAvailableSanatoriumServices);
+router.post('/sanatorium-services/activate', validate(activateSanatoriumServiceSchema), clinicSanatoriumController.activateSanatoriumService);
+router.delete('/sanatorium-services/:serviceId', clinicSanatoriumController.deactivateSanatoriumService);
 
 // ─── Checkup Packages ─────────────────────────────────────────────────────────
 router.get('/checkup-packages/available', clinicCheckupController.getAvailablePackages);

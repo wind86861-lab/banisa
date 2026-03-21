@@ -39,8 +39,9 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  diagnosticServices DiagnosticService[] @relation("CreatedBy")
-  surgicalServices   SurgicalService[]   @relation("SurgicalCreatedBy")
+  diagnosticServices  DiagnosticService[]  @relation("CreatedBy")
+  surgicalServices    SurgicalService[]    @relation("SurgicalCreatedBy")
+  sanatoriumServices  SanatoriumService[]  @relation("SanatoriumCreatedBy")
 
   appointments Appointment[]
   reviews      Review[]
@@ -66,8 +67,9 @@ model ServiceCategory {
   parent   ServiceCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children ServiceCategory[] @relation("CategoryHierarchy")
 
-  diagnosticServices DiagnosticService[]
-  surgicalServices   SurgicalService[]
+  diagnosticServices  DiagnosticService[]
+  surgicalServices    SurgicalService[]
+  sanatoriumServices  SanatoriumService[]
 }
 
 model DiagnosticService {
@@ -342,8 +344,9 @@ model Clinic {
   appointments       Appointment[]
   reviews            Review[]
   diagnosticServices ClinicDiagnosticService[]
-  surgicalServices   ClinicSurgicalService[]
-  checkupPackages    ClinicCheckupPackage[]
+  surgicalServices    ClinicSurgicalService[]
+  sanatoriumServices  ClinicSanatoriumService[]
+  checkupPackages     ClinicCheckupPackage[]
 
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -634,6 +637,116 @@ enum CheckupCategory {
   BASIC          // Bazaviy (umumiy)
   SPECIALIZED    // Ixtisoslashgan (kardio, gastro, etc.)
   AGE_BASED      // Yosh guruhi (40+, ayollar, etc.)
+}
+
+// ─── SANATORIUM SERVICES ────────────────────────────────────────────────────
+enum SanatoriumServiceType {
+  ACCOMMODATION   // Turar joy
+  MEDICAL         // Tibbiy protseduralar
+  NUTRITION       // Ovqatlanish
+  PROGRAM         // Dasturlar
+}
+
+model SanatoriumService {
+  id               String  @id @default(uuid())
+
+  // Basic
+  nameUz           String
+  nameRu           String?
+  nameEn           String?
+  categoryId       String
+  shortDescription String? @db.VarChar(200)
+  fullDescription  String? @db.Text
+  imageUrl         String?
+
+  // Type
+  serviceType      SanatoriumServiceType
+
+  // Pricing
+  priceRecommended Int     @default(0)
+  priceMin         Int     @default(0)
+  priceMax         Int     @default(0)
+  pricePer         String  @default("session") // session, night, day, course, package
+
+  // Duration
+  durationMinutes  Int     @default(0)
+  durationDays     Int?    // for programs/accommodation
+  sessionsCount    Int?    // number of sessions in a course
+
+  // Capacity
+  capacity         Int?    // e.g. room occupancy, group size
+
+  // Additional
+  includes         Json?   // what's included
+  contraindications String? @db.Text
+  preparation      String? @db.Text
+
+  // Status & Meta
+  isActive         Boolean  @default(true)
+  createdById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  createdBy   User            @relation("SanatoriumCreatedBy", fields: [createdById], references: [id])
+  category    ServiceCategory @relation(fields: [categoryId], references: [id])
+  clinicLinks ClinicSanatoriumService[] @relation("SanatoriumServiceClinicLinks")
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([serviceType])
+}
+
+model ClinicSanatoriumService {
+  clinicId            String
+  sanatoriumServiceId String
+  
+  // Pricing & Discount
+  clinicPrice         Int?
+  discountPercent     Int?     @default(0)
+  discountValidUntil  DateTime?
+  
+  // Customization
+  customNameUz        String?
+  customNameRu        String?
+  customDescription   String?  @db.Text
+  
+  // Room/Accommodation Details
+  roomType            String?  // Standart, Komfort, Lux, VIP
+  roomImages          Json?    // Array of image URLs
+  roomAmenities       Json?    // Array of amenities: WiFi, TV, Konditsioner, etc.
+  
+  // Meal Plan
+  mealPlan            String?  // 3-razlama, To'liq pansion, Yarim pansion
+  mealDescription     String?  @db.Text
+  
+  // Location & Contact
+  locationAddress     String?
+  locationCoords      String?  // lat,lng
+  contactPhone        String?
+  contactEmail        String?
+  
+  // Additional Features
+  features            Json?    // Array of special features
+  includes            Json?    // What's included in price
+  excludes            Json?    // What's not included
+  
+  // Availability
+  availableFrom       DateTime?
+  availableTo         DateTime?
+  maxGuests           Int?
+  
+  // Status & Meta
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime? @updatedAt
+
+  clinic            Clinic            @relation(fields: [clinicId], references: [id])
+  sanatoriumService SanatoriumService @relation("SanatoriumServiceClinicLinks", fields: [sanatoriumServiceId], references: [id])
+
+  @@id([clinicId, sanatoriumServiceId])
+  @@index([clinicId])
+  @@index([sanatoriumServiceId])
+  @@index([isActive])
 }
 
 enum RegistrationStatus {

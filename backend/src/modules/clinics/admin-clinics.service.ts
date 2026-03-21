@@ -345,20 +345,40 @@ export const getClinicServices = async (clinicId: string) => {
     const clinic = await prisma.clinic.findUnique({ where: { id: clinicId } });
     if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);
 
-    const [diagnosticServices, surgicalServices] = await Promise.all([
+    const [diagnosticServices, surgicalServices, checkupPackages] = await Promise.all([
         prisma.clinicDiagnosticService.findMany({
             where: { clinicId, isActive: true },
-            include: { diagnosticService: true }
+            include: {
+                diagnosticService: {
+                    include: { category: { select: { id: true, nameUz: true, nameRu: true } } }
+                }
+            }
         }),
         prisma.clinicSurgicalService.findMany({
             where: { clinicId, isActive: true },
             include: { surgicalService: true }
+        }),
+        prisma.clinicCheckupPackage.findMany({
+            where: { clinicId, isActive: true },
+            include: {
+                package: {
+                    include: { items: true }
+                }
+            }
         })
     ]);
 
     return {
         diagnostic: diagnosticServices.map(s => s.diagnosticService),
-        surgical: surgicalServices.map(s => s.surgicalService)
+        surgical: surgicalServices.map(s => s.surgicalService),
+        checkup: checkupPackages.map(cp => ({
+            ...cp.package,
+            clinicPrice: cp.clinicPrice,
+            customNotes: cp.customNotes,
+            bookingCount: cp.bookingCount,
+            clinicPackageId: cp.id,
+            itemCount: cp.package.items?.length || 0,
+        })),
     };
 };
 

@@ -8,6 +8,57 @@ export const activateServiceSchema = z.object({
     }),
 });
 
+// ─── Surgical Services ────────────────────────────────────────────────────────
+
+export const activateSurgicalServiceSchema = z.object({
+    body: z.object({
+        serviceId: z.string().min(1, 'serviceId majburiy'),
+    }),
+});
+
+// ─── Sanatorium Services ─────────────────────────────────────────────────────
+
+export const activateSanatoriumServiceSchema = z.object({
+    body: z.object({
+        serviceId: z.string().uuid(),
+        
+        // Pricing & Discount
+        clinicPrice: z.number().min(0).optional(),
+        discountPercent: z.number().min(0).max(100).optional(),
+        discountValidUntil: z.string().optional(), // ISO date string
+        
+        // Customization
+        customNameUz: z.string().min(3).max(255).optional(),
+        customNameRu: z.string().max(255).optional(),
+        customDescription: z.string().optional(),
+        
+        // Room/Accommodation Details
+        roomType: z.string().optional(), // Standart, Komfort, Lux, VIP
+        roomImages: z.array(z.string().url()).optional(),
+        roomAmenities: z.array(z.string()).optional(),
+        
+        // Meal Plan
+        mealPlan: z.string().optional(), // 3-razlama, To'liq pansion, Yarim pansion
+        mealDescription: z.string().optional(),
+        
+        // Location & Contact
+        locationAddress: z.string().optional(),
+        locationCoords: z.string().optional(), // "lat,lng"
+        contactPhone: z.string().optional(),
+        contactEmail: z.string().email().optional(),
+        
+        // Additional Features
+        features: z.array(z.string()).optional(),
+        includes: z.array(z.string()).optional(),
+        excludes: z.array(z.string()).optional(),
+        
+        // Availability
+        availableFrom: z.string().optional(), // ISO date string
+        availableTo: z.string().optional(), // ISO date string
+        maxGuests: z.number().min(1).optional(),
+    }),
+});
+
 // ─── Checkup Packages ────────────────────────────────────────────────────────
 
 export const activatePackageSchema = z.object({

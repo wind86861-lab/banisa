@@ -214,6 +214,58 @@ export const surgicalApi = {
     },
 };
 
+// ─── SANATORIUM ──────────────────────────────────────────────────────────────
+
+export const sanatoriumApi = {
+    list: async (params = {}) => {
+        const query = new URLSearchParams();
+        if (params.page) query.set('page', params.page);
+        if (params.limit) query.set('limit', params.limit);
+        if (params.search) query.set('search', params.search);
+        if (params.categoryId) query.set('categoryId', params.categoryId);
+        if (params.minPrice) query.set('minPrice', params.minPrice);
+        if (params.maxPrice) query.set('maxPrice', params.maxPrice);
+        if (params.serviceType) query.set('serviceType', params.serviceType);
+
+        const res = await fetch(`${BASE_URL}/sanatorium?${query}`, { headers: getHeaders() });
+        return handleResponse(res);
+    },
+
+    getById: async (id) => {
+        const res = await fetch(`${BASE_URL}/sanatorium/${id}`, { headers: getHeaders() });
+        const data = await handleResponse(res);
+        return data.data;
+    },
+
+    create: async (payload) => {
+        const res = await fetch(`${BASE_URL}/sanatorium`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(payload),
+        });
+        const data = await handleResponse(res);
+        return data.data;
+    },
+
+    update: async (id, payload) => {
+        const res = await fetch(`${BASE_URL}/sanatorium/${id}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(payload),
+        });
+        const data = await handleResponse(res);
+        return data.data;
+    },
+
+    delete: async (id) => {
+        const res = await fetch(`${BASE_URL}/sanatorium/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders(),
+        });
+        return handleResponse(res);
+    },
+};
+
 // ─── CLINICS ─────────────────────────────────────────────────────────────────
 
 export const clinicsApi = {

@@ -3,12 +3,14 @@ import {
     Search, List, LayoutGrid, RefreshCw, Loader2,
     CircleCheckBig, Circle, Clock, Beaker, Settings2,
     X, Sparkles, Eye, Info, AlertCircle,
-    BriefcaseMedical, Package,
+    BriefcaseMedical, Package, Scissors,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useClinicServices, useActivateService, useDeactivateService } from '../hooks/useClinicServices';
 import ServiceCustomizationDrawer from '../components/services/ServiceCustomizationDrawer';
 import CheckupPackagesTab from '../components/services/CheckupPackagesTab';
+import SurgicalServicesTab from '../components/services/SurgicalServicesTab';
+import SanatoriumServicesTab from '../components/services/SanatoriumServicesTab';
 import api from '../../shared/api/axios';
 import './clinic-admin.css';
 
@@ -39,6 +41,8 @@ function useDebounce(value, delay) {
 
 const MAIN_TABS = [
     { key: 'services', label: 'Diagnostika xizmatlari', icon: <BriefcaseMedical size={15} /> },
+    { key: 'surgical', label: 'Operatsiyalar', icon: <Scissors size={15} /> },
+    { key: 'sanatorium', label: 'Sanatoriya', icon: <BriefcaseMedical size={15} /> },
     { key: 'checkup', label: 'Checkup paketlari', icon: <Package size={15} /> },
 ];
 
@@ -137,12 +141,14 @@ export default function ClinicServices() {
             }
 
             // Step 2: Save customization using the new clinicServiceId
+            console.log('📤 Customization payload:', JSON.stringify(customizationData, null, 2));
             await api.put(`/clinic/services/${clinicServiceId}/customization`, customizationData);
 
             setActivateDrawerService(null);
             refetch();
         } catch (err) {
             console.error('Activate + customization error:', err);
+            console.error('📛 Error response:', JSON.stringify(err?.response?.data, null, 2));
             throw err; // Re-throw so drawer can handle it
         }
     };
@@ -161,7 +167,7 @@ export default function ClinicServices() {
                 <div className="ca-header">
                     <div>
                         <h1 className="ca-title">Xizmatlar va Narxlar</h1>
-                        <p className="ca-subtitle">Diagnostika xizmatlari, checkup paketlari va sozlamalar</p>
+                        <p className="ca-subtitle">Diagnostika xizmatlari, checkup paketlari va operatsiyalar</p>
                     </div>
                 </div>
                 <div className="ca-tabs">
@@ -177,6 +183,8 @@ export default function ClinicServices() {
                 </div>
                 <div style={{ marginTop: 20 }}>
                     {mainTab === 'checkup' && <CheckupPackagesTab />}
+                    {mainTab === 'surgical' && <SurgicalServicesTab />}
+                    {mainTab === 'sanatorium' && <SanatoriumServicesTab />}
                 </div>
             </div>
         );

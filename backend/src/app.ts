@@ -9,12 +9,14 @@ import authRoutes from './modules/auth/auth.routes';
 import categoryRoutes from './modules/categories/categories.routes';
 import diagnosticRoutes from './modules/diagnostics/diagnostics.routes';
 import surgicalRoutes from './modules/surgical/surgical.routes';
+import sanatoriumRoutes from './modules/sanatorium/sanatorium.routes';
 import clinicRoutes from './modules/clinics/clinics.routes';
 import adminClinicRoutes from './modules/clinics/admin-clinics.routes';
 import adminReviewRoutes from './modules/reviews/admin-reviews.routes';
-import checkupPackageRoutes, { adminCheckupPackageRoutes, clinicCheckupPackageRoutes } from './modules/checkup-packages/checkup-packages.routes';
+import checkupPackageRoutes, { adminCheckupPackageRoutes } from './modules/checkup-packages/checkup-packages.routes';
 import adminRoutes from './modules/admin/admin.routes';
 import clinicAdminRoutes from './modules/clinic/clinic.routes';
+import userRoutes from './modules/user/user.routes';
 import { apiLimiter } from './middleware/rateLimiter';
 
 const app = express();
@@ -40,15 +42,16 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/diagnostics', diagnosticRoutes);
 app.use('/api/surgical', surgicalRoutes);
+app.use('/api/sanatorium', sanatoriumRoutes);
 app.use('/api/clinics', clinicRoutes);
 app.use('/api/admin/clinics', adminClinicRoutes);
 app.use('/api/admin/reviews', adminReviewRoutes);
 app.use('/api/checkup-packages', checkupPackageRoutes);
 app.use('/api/admin/checkup-packages', adminCheckupPackageRoutes);
-app.use('/api/clinic/checkup-packages', clinicCheckupPackageRoutes);
 app.use('/api/clinic', clinicAdminRoutes);
 app.use('/api/admin', adminRoutes);
 

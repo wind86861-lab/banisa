@@ -11,11 +11,13 @@ const basePackageBody = z.object({
     fullDescription: z.string().optional(),
     targetAudience: z.string().max(100).optional(),
     items: z.array(z.object({
-        diagnosticServiceId: z.string().cuid(),
+        diagnosticServiceId: z.string().min(1),
+        serviceName: z.string().optional(),
+        servicePrice: z.number().int().min(0).optional(),
         quantity: z.number().int().min(1).default(1),
         isRequired: z.boolean().default(true),
         notes: z.string().max(255).optional()
-    })).min(1).max(20),
+    })).min(1).max(50),
     recommendedPrice: z.number().int().min(0).optional(),
     priceMin: z.number().int().min(0).optional(),
     priceMax: z.number().int().min(0).optional(),

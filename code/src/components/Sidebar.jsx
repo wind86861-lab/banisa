@@ -61,8 +61,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             items: [
                 { key: 'patients', icon: <Users size={20} />, label: 'Foydalanuvchilar', path: '/patients' },
                 { key: 'clinics', icon: <Building2 size={20} />, label: 'Klinikalar', path: '/admin/clinics' },
-                { key: 'services', icon: <Briefcase size={20} />, label: 'Diagnostika', path: '/services?root=diagnostics' },
-                { key: 'operations', icon: <Activity size={20} />, label: 'Operatsiyalar', path: '/services?root=operations' },
+                { key: 'services', icon: <Briefcase size={20} />, label: 'Diagnostika', path: '/admin/services?root=diagnostics' },
+                { key: 'operations', icon: <Activity size={20} />, label: 'Operatsiyalar', path: '/admin/services?root=operations' },
+                { key: 'sanatorium', icon: <Home size={20} />, label: 'Sanatoriya', path: '/admin/services?root=sanatorium' },
                 { key: 'packages', icon: <Grid size={20} />, label: 'Checkup Paketlar', path: '/packages' },
                 { key: 'clinic-packages', icon: <Briefcase size={20} />, label: 'Klinika Paketlari', path: '/clinic-packages' },
             ]

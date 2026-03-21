@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
-import { categoriesApi, diagnosticsApi, surgicalApi } from '../services/api';
+import { categoriesApi, diagnosticsApi, surgicalApi, sanatoriumApi } from '../services/api';
 import { EMPTY_SURGICAL_FORM, SURGICAL_STEPS } from './SurgicalConstants';
 import SurgicalForm from './SurgicalForm';
 import './Services.css';
@@ -117,7 +117,8 @@ const Services = () => {
             };
 
             const isOps = rootQuery === 'operations';
-            const api = isOps ? surgicalApi : diagnosticsApi;
+            const isSan = rootQuery === 'sanatorium';
+            const api = isSan ? sanatoriumApi : isOps ? surgicalApi : diagnosticsApi;
 
             const result = await api.list(params);
             setServices(result.data || []);
@@ -169,7 +170,8 @@ const Services = () => {
         }
 
         const isOps = rootQuery === 'operations';
-        const empty = isOps ? EMPTY_SURGICAL_FORM : EMPTY_FORM;
+        const isSan = rootQuery === 'sanatorium';
+        const empty = (isOps || isSan) ? EMPTY_SURGICAL_FORM : EMPTY_FORM;
 
         setFormData({ ...empty, parentCatId: parentId, categoryId: catId });
         setFormStep(1);
@@ -306,7 +308,8 @@ const Services = () => {
         setSaving(true);
         try {
             const isOps = rootQuery === 'operations';
-            const api = isOps ? surgicalApi : diagnosticsApi;
+            const isSan = rootQuery === 'sanatorium';
+            const api = isSan ? sanatoriumApi : isOps ? surgicalApi : diagnosticsApi;
 
             const payload = { ...formData };
 
@@ -760,7 +763,7 @@ const Services = () => {
                                 <button className="btn-close" onClick={() => setShowForm(false)}><X size={22} /></button>
                             </div>
 
-                            {rootQuery === 'operations' ? (
+                            {(rootQuery === 'operations' || rootQuery === 'sanatorium') ? (
                                 <SurgicalForm
                                     formData={formData}
                                     setFormData={setFormData}

@@ -1,270 +1,319 @@
-import React, { useState } from 'react';
-import { useCheckupPackages, useTogglePackageStatus, useDeleteCheckupPackage } from '../features/checkup-packages/hooks/useCheckupPackages';
-import { DataGrid } from '@mui/x-data-grid';
+import React, { useState, useMemo } from 'react';
 import {
-    Box, Button, Typography, Chip, IconButton, Tooltip,
-    Dialog, Select, MenuItem, FormControl, InputLabel, TextField
-} from '@mui/material';
+    useCheckupPackages,
+    useCheckupPackage,
+    useCreateCheckupPackage,
+    useUpdateCheckupPackage,
+    useDeleteCheckupPackage,
+    useTogglePackageStatus
+} from '../features/checkup-packages/hooks/useCheckupPackages';
 import {
-    Plus, Edit3, Trash2, Eye, ShieldAlert, CheckCircle, Ban, Search, Filter
+    Plus, Edit3, Trash2, Eye, CheckCircle, Ban, Search,
+    Package, Activity, AlertCircle, TrendingDown, X, Beaker, Stethoscope
 } from 'lucide-react';
 import CheckupPackageForm from '../features/checkup-packages/components/CheckupPackageForm';
 import './CheckupPackages.css';
 
-const CATEGORY_MAP = {
-    BASIC: { label: 'Bazaviy', color: 'primary' },
-    SPECIALIZED: { label: 'Ixtisoslashgan', color: 'secondary' },
-    AGE_BASED: { label: 'Yosh guruhi', color: 'success' }
+const CATEGORY_LABELS = {
+    BASIC: { label: 'Bazaviy', emoji: '🩺' },
+    SPECIALIZED: { label: 'Ixtisoslashgan', emoji: '❤️' },
+    AGE_BASED: { label: 'Yosh guruhi', emoji: '👨‍⚕️' },
 };
 
+const PAGE_SIZE = 9;
+
+/* ─── Package Card ─────────────────────────────────────── */
+const PackageCard = ({ pkg, onEdit, onToggle, onDelete }) => {
+    const itemCount = pkg._count?.items || pkg.items?.length || 0;
+    const diagCount = pkg.items?.filter(i => !i.isConsultation).length ?? itemCount;
+    const consCount = pkg.items?.filter(i => i.isConsultation).length ?? 0;
+    const total = pkg.items?.reduce((s, i) => s + (i.servicePrice || 0), 0) ?? 0;
+    const recPrice = pkg.recommendedPrice || 0;
+    const discount = total > recPrice ? total - recPrice : 0;
+    const pct = total > 0 ? Math.round((recPrice / total) * 100) : 100;
+    const catInfo = CATEGORY_LABELS[pkg.category] || { label: pkg.category, emoji: '📦' };
+
+    return (
+        <div className="pkg-card">
+            <div className="pkg-card-top">
+                <div className="pkg-card-title-row">
+                    <div className="pkg-emoji-box">{catInfo.emoji}</div>
+                    <div style={{ minWidth: 0 }}>
+                        <p className="pkg-name">{pkg.nameUz}</p>
+                        <p className="pkg-desc">{pkg.shortDescription || 'Tavsif mavjud emas'}</p>
+                    </div>
+                </div>
+                <span className={`pkg-cat-badge ${pkg.category}`}>{catInfo.label}</span>
+            </div>
+
+            <div className="pkg-card-body">
+                <div className="pkg-services-row">
+                    <span className="pkg-svc-chip diag">
+                        <Beaker size={12} />{diagCount} Diagnostika
+                    </span>
+                    {consCount > 0 && (
+                        <span className="pkg-svc-chip consult">
+                            <Stethoscope size={12} />{consCount} Konsultatsiya
+                        </span>
+                    )}
+                    {diagCount === 0 && consCount === 0 && (
+                        <span className="pkg-svc-chip diag">
+                            <Beaker size={12} />{itemCount} Xizmat
+                        </span>
+                    )}
+                </div>
+
+                <div className="pkg-price-block">
+                    <div className="pkg-price-row">
+                        <div>
+                            <div className="pkg-price-main">{recPrice.toLocaleString()} UZS</div>
+                            <div className="pkg-price-sub">Tavsiya narx</div>
+                        </div>
+                        {discount > 0 && (
+                            <span className="pkg-save-chip">
+                                <TrendingDown size={11} />
+                                {discount.toLocaleString()} tejash
+                            </span>
+                        )}
+                    </div>
+                    {total > 0 && (
+                        <div className="pkg-discount-bar">
+                            <div className="pkg-discount-fill" style={{ width: `${Math.min(pct, 100)}%` }} />
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="pkg-card-footer">
+                <span className={`pkg-status-dot ${pkg.isActive ? 'active' : 'inactive'}`}>
+                    {pkg.isActive ? <CheckCircle size={12} /> : <Ban size={12} />}
+                    {pkg.isActive ? 'Faol' : 'Nofaol'}
+                </span>
+                <span className="pkg-act-count">{itemCount} ta xizmat</span>
+            </div>
+
+            <div className="pkg-card-actions">
+                <button className="pkg-btn-view" onClick={() => onEdit(pkg)}>
+                    <Eye size={14} /> Ko'rish
+                </button>
+                <button className="pkg-btn-icon" title="Tahrirlash" onClick={() => onEdit(pkg)}>
+                    <Edit3 size={15} />
+                </button>
+                <button
+                    className="pkg-btn-icon warn"
+                    title={pkg.isActive ? 'Nofaol qilish' : 'Faollashtirish'}
+                    onClick={() => onToggle(pkg.id, pkg.isActive)}
+                >
+                    {pkg.isActive ? <Ban size={15} /> : <CheckCircle size={15} />}
+                </button>
+                <button className="pkg-btn-icon danger" title="O'chirish" onClick={() => onDelete(pkg.id)}>
+                    <Trash2 size={15} />
+                </button>
+            </div>
+        </div>
+    );
+};
+
+/* ─── Main Page ────────────────────────────────────────── */
 const CheckupPackages = () => {
     const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
     const [search, setSearch] = useState('');
     const [category, setCategory] = useState('');
-
+    const [status, setStatus] = useState('');
     const [formOpen, setFormOpen] = useState(false);
-    const [editingPackage, setEditingPackage] = useState(null);
+    const [editingId, setEditingId] = useState(null);
 
     const { data, isLoading } = useCheckupPackages({
         page,
-        limit: pageSize,
-        search: search.length > 2 ? search : undefined,
-        category: category || undefined
+        limit: PAGE_SIZE,
+        search: search.length >= 2 ? search : undefined,
+        category: category || undefined,
+        status: status || undefined,
     });
 
-    const toggleStatusMutation = useTogglePackageStatus();
+    const { data: editingPkgData } = useCheckupPackage(editingId);
+    const toggleMutation = useTogglePackageStatus();
     const deleteMutation = useDeleteCheckupPackage();
 
-    const handleCreate = () => {
-        setEditingPackage(null);
-        setFormOpen(true);
-    };
+    const items = data?.items || [];
+    const totalCount = data?.meta?.total || 0;
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE) || 1;
+    const activeCount = items.filter(p => p.isActive).length;
+    const inactiveCount = items.filter(p => !p.isActive).length;
 
-    const handleEdit = (pkg) => {
-        setEditingPackage(pkg);
-        setFormOpen(true);
+    const avgDiscount = useMemo(() => {
+        const withDiscount = items.filter(p => p.recommendedPrice > 0 && p.items?.length > 0);
+        if (!withDiscount.length) return null;
+        const total = withDiscount.reduce((s, p) => {
+            const sum = p.items.reduce((a, i) => a + (i.servicePrice || 0), 0);
+            return s + (sum > p.recommendedPrice ? Math.round(((sum - p.recommendedPrice) / sum) * 100) : 0);
+        }, 0);
+        return Math.round(total / withDiscount.length);
+    }, [items]);
+
+    const openCreate = () => { setEditingId(null); setFormOpen(true); };
+    const openEdit = (pkg) => { setEditingId(pkg.id); setFormOpen(true); };
+
+    const handleToggle = (id, current) => {
+        if (window.confirm(`Paketni ${current ? 'nofaol' : 'faol'} qilmoqchimisiz?`))
+            toggleMutation.mutate({ id, activate: !current });
     };
 
     const handleDelete = (id) => {
-        if (window.confirm("Rostdan ham ushbu paketni o'chirmoqchimisiz?")) {
+        if (window.confirm("Ushbu paketni o'chirmoqchimisiz?"))
             deleteMutation.mutate(id);
-        }
     };
 
-    const handleToggleStatus = (id, currentStatus) => {
-        if (window.confirm(`Paketni ${currentStatus ? 'nofaol' : 'faol'} qilmoqchimisiz?`)) {
-            toggleStatusMutation.mutate({ id, activate: !currentStatus });
-        }
-    };
-
-    const columns = [
-        {
-            field: 'nameUz',
-            headerName: 'Paket Nomi',
-            flex: 1,
-            renderCell: (params) => (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '16px' }}>
-                        {params.row.category === 'BASIC' ? '🩺' : params.row.category === 'SPECIALIZED' ? '❤️' : '👨‍⚕️'}
-                    </span>
-                    <span style={{ fontWeight: 500 }}>{params.value}</span>
-                </div>
-            )
-        },
-        {
-            field: 'category',
-            headerName: 'Kategoriya',
-            width: 150,
-            renderCell: (params) => {
-                const conf = CATEGORY_MAP[params.value] || { label: params.value, color: 'default' };
-                return <Chip label={conf.label} color={conf.color} size="small" />;
-            }
-        },
-        {
-            field: 'itemsCount',
-            headerName: 'Xizmatlar',
-            width: 100,
-            renderCell: (params) => (
-                <Chip label={`${params.row._count?.items || 0} ta`} variant="outlined" size="small" />
-            )
-        },
-        {
-            field: 'recommendedPrice',
-            headerName: 'Tavsiya Narx',
-            width: 150,
-            renderCell: (params) => (
-                <Typography variant="body2" sx={{ fontWeight: 600, color: '#10b981' }}>
-                    {params.value?.toLocaleString()} UZS
-                </Typography>
-            )
-        },
-        {
-            field: 'isActive',
-            headerName: 'Status',
-            width: 120,
-            renderCell: (params) => (
-                <Chip
-                    icon={params.value ? <CheckCircle size={14} /> : <Ban size={14} />}
-                    label={params.value ? 'Faol' : 'Nofaol'}
-                    color={params.value ? 'success' : 'default'}
-                    size="small"
-                />
-            )
-        },
-        {
-            field: 'actions',
-            headerName: 'Amallar',
-            width: 180,
-            sortable: false,
-            renderCell: (params) => (
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Tooltip title="Tahrirlash">
-                        <IconButton size="small" color="primary" onClick={() => handleEdit(params.row)}>
-                            <Edit3 size={18} />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title={params.row.isActive ? "Nofaol qilish" : "Faollashtirish"}>
-                        <IconButton size="small" color={params.row.isActive ? "warning" : "success"} onClick={() => handleToggleStatus(params.row.id, params.row.isActive)}>
-                            {params.row.isActive ? <Ban size={18} /> : <CheckCircle size={18} />}
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="O'chirish">
-                        <IconButton size="small" color="error" onClick={() => handleDelete(params.row.id)}>
-                            <Trash2 size={18} />
-                        </IconButton>
-                    </Tooltip>
-                </Box>
-            )
-        }
-    ];
+    const pageNums = [];
+    for (let i = 1; i <= totalPages; i++) pageNums.push(i);
 
     return (
         <div className="packages-container">
-            {/* Stat Cards */}
-            <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-                <div className="stat-card" style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
-                    <div className="value" style={{ fontSize: '24px', fontWeight: 600, color: '#111827' }}>{data?.meta?.total || 0}</div>
-                    <div className="label" style={{ fontSize: '14px', color: '#6b7280' }}>Umumiy Paketlar</div>
-                </div>
-                <div className="stat-card" style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
-                    <div className="value" style={{ fontSize: '24px', fontWeight: 600, color: '#111827' }}>{(data?.items?.filter(p => p.isActive).length) || 0}</div>
-                    <div className="label" style={{ fontSize: '14px', color: '#6b7280' }}>Faol Paketlar</div>
-                </div>
-                <div className="stat-card" style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
-                    <div className="value" style={{ fontSize: '24px', fontWeight: 600, color: '#111827' }}>{(data?.items?.filter(p => !p.isActive).length) || 0}</div>
-                    <div className="label" style={{ fontSize: '14px', color: '#6b7280' }}>Nofaol Paketlar</div>
-                </div>
-            </div>
-            {/* Header */}
+
+            {/* ── Header ── */}
             <div className="packages-header">
-                <div className="header-title">
-                    <div className="icon-box">
-                        <ShieldAlert size={24} color="#3b82f6" />
-                    </div>
-                    <div>
-                        <h1>Checkup Paketlar</h1>
-                        <p>Super admin panel - Diagnostika paketlarini boshqarish</p>
-                    </div>
+                <div className="packages-header-left">
+                    <h1><Package size={24} /> Checkup Paketlar</h1>
+                    <p>Super admin panel — barcha checkup paketlarni boshqaring</p>
                 </div>
-                <Button
-                    variant="contained"
-                    startIcon={<Plus size={18} />}
-                    onClick={handleCreate}
-                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, px: 3, py: 1 }}
-                >
-                    Yangi Yaratish
-                </Button>
+                <button className="btn-add-package" onClick={openCreate}>
+                    <Plus size={18} /> Yangi Yaratish
+                </button>
             </div>
 
+            {/* ── Stats ── */}
+            <div className="stats-grid">
+                <div className="stat-card">
+                    <div className="stat-icon blue"><Package size={22} /></div>
+                    <div className="stat-body">
+                        <div className="value">{totalCount}</div>
+                        <div className="label">Jami paketlar</div>
+                    </div>
+                </div>
+                <div className="stat-card">
+                    <div className="stat-icon green"><CheckCircle size={22} /></div>
+                    <div className="stat-body">
+                        <div className="value">{activeCount}</div>
+                        <div className="label">Faol paketlar</div>
+                    </div>
+                </div>
+                <div className="stat-card">
+                    <div className="stat-icon orange"><AlertCircle size={22} /></div>
+                    <div className="stat-body">
+                        <div className="value">{inactiveCount}</div>
+                        <div className="label">Nofaol paketlar</div>
+                    </div>
+                </div>
+                <div className="stat-card">
+                    <div className="stat-icon purple"><TrendingDown size={22} /></div>
+                    <div className="stat-body">
+                        <div className="value">{avgDiscount != null ? `${avgDiscount}%` : '—'}</div>
+                        <div className="label">O'rtacha chegirma</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Filters ── */}
             <div className="packages-toolbar">
-                {/* Search Box with MUI TextField */}
-                <div className="search-box" style={{ flex: 1, position: 'relative' }}>
-                    <Search size={18} className="search-icon" />
-                    <TextField
-                        variant="outlined"
+                <div className="search-box">
+                    <Search size={16} className="search-icon" />
+                    <input
+                        className="search-input-field"
                         placeholder="Paket nomini qidiring..."
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        fullWidth
-                        size="small"
-                        InputProps={{
-                            startAdornment: null,
-                            style: { paddingLeft: '40px' }
-                        }}
-                        sx={{
-                            '& .MuiOutlinedInput-root': { borderRadius: '8px' },
-                            '& .MuiInputBase-input': { height: '40px' }
-                        }}
-                        className="search-input"
+                        onChange={e => { setSearch(e.target.value); setPage(1); }}
                     />
                 </div>
-
-                <FormControl size="small" sx={{ minWidth: 200, bgcolor: 'white', borderRadius: 1 }}>
-                    <InputLabel id="category-filter-label">Kategoriya</InputLabel>
-                    <Select
-                        labelId="category-filter-label"
-                        value={category}
-                        label="Kategoriya"
-                        onChange={(e) => setCategory(e.target.value)}
-                    >
-                        <MenuItem value="">Barchasi</MenuItem>
-                        <MenuItem value="BASIC">Bazaviy</MenuItem>
-                        <MenuItem value="SPECIALIZED">Ixtisoslashgan</MenuItem>
-                        <MenuItem value="AGE_BASED">Yosh guruhi</MenuItem>
-                    </Select>
-                </FormControl>
+                <select
+                    className="filter-select"
+                    value={category}
+                    onChange={e => { setCategory(e.target.value); setPage(1); }}
+                >
+                    <option value="">Barcha kategoriyalar</option>
+                    <option value="BASIC">Bazaviy</option>
+                    <option value="SPECIALIZED">Ixtisoslashgan</option>
+                    <option value="AGE_BASED">Yosh guruhi</option>
+                </select>
+                <select
+                    className="filter-select"
+                    value={status}
+                    onChange={e => { setStatus(e.target.value); setPage(1); }}
+                >
+                    <option value="">Barcha statuslar</option>
+                    <option value="active">Faol</option>
+                    <option value="inactive">Nofaol</option>
+                </select>
+                <span className="toolbar-count">
+                    {totalCount} ta paket
+                </span>
             </div>
 
-            <div className="packages-grid-container">
-                <DataGrid
-                    rows={data?.items || []}
-                    columns={columns}
-                    rowCount={data?.meta?.total || 0}
-                    loading={isLoading}
-                    paginationMode="server"
-                    paginationModel={{ page: page - 1, pageSize }}
-                    onPaginationModelChange={(model) => {
-                        setPage(model.page + 1);
-                        setPageSize(model.pageSize);
-                    }}
-                    pageSizeOptions={[10, 25, 50]}
-                    disableRowSelectionOnClick
-                    autoHeight
-                    sx={{
-                        backgroundColor: 'white',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '12px',
-                        '& .MuiDataGrid-columnHeaders': {
-                            backgroundColor: '#f9fafb',
-                            borderBottom: '1px solid #e5e7eb',
-                            color: '#4b5563',
-                            fontSize: '14px',
-                            fontWeight: 600
-                        },
-                        '& .MuiDataGrid-cell': {
-                            borderBottom: '1px solid #f3f4f6',
-                        },
-                        '& .MuiDataGrid-row:hover': {
-                            backgroundColor: '#f8fafc',
-                        }
-                    }}
-                />
+            {/* ── Cards Grid ── */}
+            <div className="packages-grid">
+                {isLoading ? (
+                    [1, 2, 3, 4, 5, 6].map(i => <div key={i} className="pkg-skeleton" />)
+                ) : items.length === 0 ? (
+                    <div className="pkg-empty">
+                        <span className="pkg-empty-icon">📦</span>
+                        <h3>Paketlar topilmadi</h3>
+                        <p>Qidiruv shartlarini o'zgartiring yoki yangi paket yarating</p>
+                        <button className="btn-add-package" onClick={openCreate}>
+                            <Plus size={16} /> Yangi Yaratish
+                        </button>
+                    </div>
+                ) : (
+                    items.map((pkg, idx) => (
+                        <PackageCard
+                            key={pkg.id}
+                            pkg={pkg}
+                            onEdit={openEdit}
+                            onToggle={handleToggle}
+                            onDelete={handleDelete}
+                            style={{ animationDelay: `${idx * 0.05}s` }}
+                        />
+                    ))
+                )}
             </div>
 
-            {/* Form Dialog with MUI DialogTitle and actions */}
-            <Dialog
-                open={formOpen}
-                onClose={() => setFormOpen(false)}
-                maxWidth="md"
-                fullWidth
-                PaperProps={{ sx: { borderRadius: '12px', padding: '24px' } }}
-            >
-                <CheckupPackageForm
-                    initialData={editingPackage}
-                    onClose={() => setFormOpen(false)}
-                />
-            </Dialog>
+            {/* ── Pagination ── */}
+            {totalPages > 1 && (
+                <div className="pkg-pagination">
+                    <span className="pkg-pagination-info">
+                        {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} / {totalCount} ta
+                    </span>
+                    <div className="pkg-pagination-btns">
+                        <button
+                            className="pkg-page-btn"
+                            disabled={page === 1}
+                            onClick={() => setPage(p => p - 1)}
+                        >‹</button>
+                        {pageNums.map(n => (
+                            <button
+                                key={n}
+                                className={`pkg-page-btn${n === page ? ' active' : ''}`}
+                                onClick={() => setPage(n)}
+                            >{n}</button>
+                        ))}
+                        <button
+                            className="pkg-page-btn"
+                            disabled={page === totalPages}
+                            onClick={() => setPage(p => p + 1)}
+                        >›</button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Wizard Modal ── */}
+            {formOpen && (
+                <div className="pkg-modal-overlay" onClick={e => e.target === e.currentTarget && setFormOpen(false)}>
+                    <div className="pkg-modal">
+                        <CheckupPackageForm
+                            initialData={editingId ? editingPkgData : null}
+                            onClose={() => { setFormOpen(false); setEditingId(null); }}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
