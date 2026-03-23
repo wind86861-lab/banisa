@@ -49,6 +49,7 @@ export default function AboutFacilities() {
                         </div>
                     </div>
                     <div className="cm-about-content">
+                        <span className="cm-section-badge">About Us</span>
                         <h2 className="cm-about-title">World Class Patient Facilities Designed for You</h2>
                         <p className="cm-about-desc">
                             Experience the future of healthcare. Our state-of-the-art facilities are equipped with the latest technology, ensuring you receive the world's best quality treatment.
@@ -68,8 +69,8 @@ export default function AboutFacilities() {
                                     <Phone size={20} color="#00BDE0" />
                                 </div>
                                 <div>
-                                    <span className="cm-about-phone-label">Contact us?</span>
-                                    <a href="tel:11234567890" className="cm-about-phone-number">1 123 456 7890</a>
+                                    <span className="cm-about-phone-label">Qo'ng'iroq qiling</span>
+                                    <a href="tel:+998711234567" className="cm-about-phone-number">+998 71 123 45 67</a>
                                 </div>
                             </div>
                         </div>

@@ -101,6 +101,43 @@ body:has(.home-page) {
   }
 }
 
+/* ── Section Badge Label ─── */
+.cm-section-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 189, 224, 0.1);
+  color: #00BDE0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 6px 16px;
+  border-radius: 50px;
+  border: 1px solid rgba(0, 189, 224, 0.25);
+  margin-bottom: 16px;
+}
+
+.cm-section-badge::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00BDE0;
+  flex-shrink: 0;
+}
+
+.cm-section-badge--light {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.cm-section-badge--light::before {
+  background: #00BDE0;
+}
+
 /* ── Shared Section Header ─── */
 .cm-section-header {
   text-align: left;

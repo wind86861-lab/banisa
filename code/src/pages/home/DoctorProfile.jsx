@@ -27,9 +27,10 @@ export default function DoctorProfile() {
                         </div>
                     </div>
                     <div className="cm-dp-content">
+                        <span className="cm-section-badge cm-section-badge--light">Featured Doctor</span>
                         <h2 className="cm-dp-title">Meet Dr. Natali Jackson</h2>
                         <p className="cm-dp-desc">
-                            Dr. Natali Jackson There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration.
+                            Dr. Natali Jackson is a board-certified dermatologist with over 20 years of clinical experience. She specializes in advanced skin therapies, laser treatments, and anti-aging procedures, combining precision medicine with compassionate patient care.
                         </p>
                         <h4 className="cm-dp-skills-heading">About Skills</h4>
                         <ul className="cm-dp-skills">

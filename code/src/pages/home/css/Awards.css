@@ -11,6 +11,13 @@
   align-items: center;
 }
 
+.cm-awards-head p {
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.8;
+  margin: 0;
+}
+
 @media(max-width: 900px) {
   .cm-awards-grid {
     grid-template-columns: 1fr;

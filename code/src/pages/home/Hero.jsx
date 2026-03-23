@@ -55,7 +55,7 @@ export default function Hero() {
                             </div>
                             <div>
                                 <h6 className="cm-hero-chat-title">Have a Question?</h6>
-                                <a href="mailto:sales@dexignzone.com" className="cm-hero-chat-link">sales@dexignzone.com</a>
+                                <a href="mailto:info@banisa.uz" className="cm-hero-chat-link">info@banisa.uz</a>
                             </div>
                         </div>
                     </div>

@@ -106,6 +106,7 @@ export default function Services() {
             <div className="home-container">
                 <div className="cm-section-header">
                     <div>
+                        <span className="cm-section-badge">Our Services</span>
                         <h2 className="cm-section-title">
                             Start Feeling Your Best<br />Explore Our Wellness Services
                         </h2>

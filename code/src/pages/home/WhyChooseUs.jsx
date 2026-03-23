@@ -57,7 +57,8 @@ export default function WhyChooseUs() {
                         </div>
                     </div>
                     <div className="cm-why-content">
-                        <h2 className="cm-why-title">Why Choose Us for Your Health care Needs</h2>
+                        <span className="cm-section-badge cm-section-badge--light">Why Us</span>
+                        <h2 className="cm-why-title">Why Choose Us for Your Healthcare Needs</h2>
                         <div className="cm-why-features">
                             {REASONS.map((r, i) => (
                                 <div key={i} className="cm-why-feature">

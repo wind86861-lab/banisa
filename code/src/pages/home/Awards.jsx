@@ -22,8 +22,9 @@ export default function Awards() {
             <div className="home-container">
                 <div className="cm-awards-grid">
                     <div className="cm-awards-head">
-                        <h2 className="cm-section-title">Awards</h2>
-                        <p>It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout.</p>
+                        <span className="cm-section-badge">Recognition</span>
+                        <h2 className="cm-section-title">Our Awards &amp;<br />Achievements</h2>
+                        <p>We are proud to be recognized for excellence in healthcare, patient safety, and medical innovation across Uzbekistan.</p>
                     </div>
                     <div className="cm-awards-slider-wrap">
                         <div className="cm-awards-slider">

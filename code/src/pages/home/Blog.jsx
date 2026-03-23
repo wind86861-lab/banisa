@@ -33,6 +33,7 @@ export default function Blog() {
             <div className="home-container">
                 <div className="cm-section-header">
                     <div>
+                        <span className="cm-section-badge">Health Blog</span>
                         <h2 className="cm-section-title">Stay Informed with Our<br />Latest Health Blogs</h2>
                     </div>
                     <button className="cm-btn-teal">

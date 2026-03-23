@@ -8,29 +8,29 @@ export default function Footer() {
                 <div className="home-container">
                     <div className="cm-footer-head-inner">
                         <div className="cm-footer-head-text">
-                            <h3>Get in Touch with us</h3>
-                            <p>Reach out to us for expert support.</p>
+                            <h3>Biz bilan bog'laning</h3>
+                            <p>Mutaxassislarimiz sizga yordam berishga tayyor.</p>
                         </div>
                         <div className="cm-footer-head-contact">
                             <div className="cm-footer-contact-item">
                                 <div className="cm-footer-contact-icon"><Phone size={18} /></div>
                                 <div>
-                                    <h5>Contact Us</h5>
-                                    <p><a href="tel:11234567890">1 123 456 7890</a></p>
+                                    <h5>Qo'ng'iroq qiling</h5>
+                                    <p><a href="tel:+998711234567">+998 71 123 45 67</a></p>
                                 </div>
                             </div>
                             <div className="cm-footer-contact-item">
                                 <div className="cm-footer-contact-icon"><Mail size={18} /></div>
                                 <div>
-                                    <h5>Send us a Mail</h5>
-                                    <p><a href="mailto:sales@dexignzone.com">sales@dexignzone.com</a></p>
+                                    <h5>Elektron pochta</h5>
+                                    <p><a href="mailto:info@banisa.uz">info@banisa.uz</a></p>
                                 </div>
                             </div>
                             <div className="cm-footer-contact-item">
                                 <div className="cm-footer-contact-icon"><Clock size={18} /></div>
                                 <div>
-                                    <h5>Opening Time</h5>
-                                    <p>Mon–Thu: 8:00am–5:00pm</p>
+                                    <h5>Ish vaqti</h5>
+                                    <p>Dush–Juma: 09:00–18:00</p>
                                 </div>
                             </div>
                         </div>
@@ -42,38 +42,38 @@ export default function Footer() {
                     <div className="cm-footer-grid">
                         <div className="cm-footer-brand">
                             <div className="cm-footer-logo">
-                                <img src="/images/1752849488.logo-white.svg" alt="ClinicMaster" style={{ maxWidth: 160 }} />
+                                <img src="/images/1752849488.logo-white.svg" alt="BANISA" style={{ maxWidth: 160 }} />
                             </div>
-                            <p>ClinicMaster Ipsum Dolor Sit Amet, Consectetuer Adipiscing Elit, Sed Diam Nonummy Nibh Euismod Tincidunt Ut Laoreet Dolore Agna Aliquam Erat . Wisi Enim Ad Minim Veniam, Quis Tation. Sit Amet, Consec Tetuer. Ipsum Dolor</p>
+                            <p>BANISA — zamonaviy tibbiyot markazi. Biz sizning sog'lig'ingizni birinchi o'ringa qo'yamiz. Malakali mutaxassislar va ilg'or texnologiyalar yordamida eng yaxshi tibbiy xizmatlarni taqdim etamiz.</p>
                         </div>
                         <div className="cm-footer-col">
-                            <h4 className="cm-footer-col-title">Our Services</h4>
+                            <h4 className="cm-footer-col-title">Xizmatlar</h4>
                             <ul className="cm-footer-links">
-                                {['Angioplasty', 'Cardiology', 'Dental', 'Endocrinology', 'Eye Care'].map(s => (
+                                {['Kardiologiya', 'Dermatologiya', 'Stomatologiya', 'Nevrologiya', 'Ko\'z shifokori'].map(s => (
                                     <li key={s}><a href="#">{s}</a></li>
                                 ))}
                             </ul>
                         </div>
                         <div className="cm-footer-col">
-                            <h4 className="cm-footer-col-title">Our Stores</h4>
+                            <h4 className="cm-footer-col-title">Filiallar</h4>
                             <ul className="cm-footer-links">
-                                {['New York', 'London SF', 'Edinburgh', 'Los Angeles', 'Las Vegas'].map(s => (
+                                {['Toshkent', 'Samarqand', 'Buxoro', 'Namangan', 'Andijon'].map(s => (
                                     <li key={s}><a href="#">{s}</a></li>
                                 ))}
                             </ul>
                         </div>
                         <div className="cm-footer-col">
-                            <h4 className="cm-footer-col-title">Useful Links</h4>
+                            <h4 className="cm-footer-col-title">Foydali havolalar</h4>
                             <ul className="cm-footer-links">
-                                {['Privacy Policy', 'Terms & Conditions', 'Contact Us', 'Latest News'].map(s => (
+                                {["Maxfiylik siyosati", "Foydalanish shartlari", "Biz haqimizda", "Yangiliklar"].map(s => (
                                     <li key={s}><a href="#">{s}</a></li>
                                 ))}
                             </ul>
                         </div>
                         <div className="cm-footer-col">
-                            <h4 className="cm-footer-col-title">Quick Links</h4>
+                            <h4 className="cm-footer-col-title">Tezkor havolalar</h4>
                             <ul className="cm-footer-links">
-                                {['About Us', 'Team', 'Services', 'Contact Us', 'Appointment'].map(s => (
+                                {['Bosh sahifa', 'Shifokorlar', 'Xizmatlar', 'Aloqa', 'Navbat olish'].map(s => (
                                     <li key={s}><a href="#">{s}</a></li>
                                 ))}
                             </ul>
@@ -85,8 +85,8 @@ export default function Footer() {
                 <div className="home-container">
                     <div className="cm-footer-newsletter">
                         <div className="cm-footer-newsletter-text">
-                            <h2>Important Updates Waiting for you</h2>
-                            <p>Get our latest and best contents right into your inbox</p>
+                            <h2>Yangiliklar va takliflar</h2>
+                            <p>Eng so'nggi tibbiy yangiliklar va aksiyalardan xabardor bo'ling</p>
                         </div>
                         <form className="cm-footer-newsletter-form" onSubmit={e => e.preventDefault()}>
                             <input type="email" placeholder="Your Email Address" className="cm-footer-email-input" />
@@ -99,7 +99,7 @@ export default function Footer() {
             </div>
             <div className="cm-footer-bottom">
                 <div className="home-container">
-                    <p>&copy; {new Date().getFullYear()} <a href="#">DexignZone</a> Theme. All Rights Reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} <a href="#">BANISA</a> Tibbiyot Markazi. Barcha huquqlar himoyalangan.</p>
                 </div>
             </div>
         </footer>

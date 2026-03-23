@@ -50,18 +50,16 @@ export default function Navigation() {
                     </div>
                 </div>
 
-                {open && (
-                    <div className="cm-mobile-menu">
-                        {NAV_LINKS.map(l => (
-                            <a key={l.href} href={l.href} className="cm-mobile-link" onClick={() => setOpen(false)}>
-                                {l.label}
-                            </a>
-                        ))}
-                        <Link to="/login" className="cm-mobile-cta" onClick={() => setOpen(false)}>
-                            Navbat Olish
-                        </Link>
-                    </div>
-                )}
+                <div className={`cm-mobile-menu${open ? ' open' : ''}`}>
+                    {NAV_LINKS.map(l => (
+                        <a key={l.href} href={l.href} className="cm-mobile-link" onClick={() => setOpen(false)}>
+                            {l.label}
+                        </a>
+                    ))}
+                    <Link to="/login" className="cm-mobile-cta" onClick={() => setOpen(false)}>
+                        Navbat Olish
+                    </Link>
+                </div>
             </div>
         </nav>
     );

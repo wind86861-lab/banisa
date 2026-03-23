@@ -14,7 +14,8 @@ export default function Doctors() {
             <div className="home-container">
                 <div className="cm-section-header">
                     <div>
-                        <h2 className="cm-section-title">Our<br />Partners</h2>
+                        <span className="cm-section-badge">Our Team</span>
+                        <h2 className="cm-section-title">Meet Our Expert<br />Doctors</h2>
                     </div>
                     <button className="cm-btn-teal">
                         View All

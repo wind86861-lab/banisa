@@ -22,7 +22,7 @@ export default function MapContact() {
                             </div>
                             <div>
                                 <h5>Address</h5>
-                                <p>234 Oak Drive, Villagetown, USA</p>
+                                <p>Toshkent shahri, Chilonzor tumani, 7-mavze</p>
                             </div>
                         </div>
                         <div className="cm-mapcontact-item">
@@ -30,8 +30,8 @@ export default function MapContact() {
                                 <Phone size={20} />
                             </div>
                             <div>
-                                <h5>Contact Us</h5>
-                                <p><a href="tel:11234567890">1 123 456 7890</a></p>
+                                <h5>Biz bilan bog'laning</h5>
+                                <p><a href="tel:+998711234567">+998 71 123 45 67</a></p>
                             </div>
                         </div>
                         <div className="cm-mapcontact-item">
@@ -39,8 +39,8 @@ export default function MapContact() {
                                 <Mail size={20} />
                             </div>
                             <div>
-                                <h5>Send us a Mail</h5>
-                                <p><a href="mailto:sales@dexignzone.com">sales@dexignzone.com</a></p>
+                                <h5>Elektron pochta</h5>
+                                <p><a href="mailto:info@banisa.uz">info@banisa.uz</a></p>
                             </div>
                         </div>
                         <div className="cm-mapcontact-item">
@@ -48,8 +48,8 @@ export default function MapContact() {
                                 <Clock size={20} />
                             </div>
                             <div>
-                                <h5>Opening Time</h5>
-                                <p>Mon-Thu: 8:00am-5:00pm Fri: 8:00am-1:00pm</p>
+                                <h5>Ish vaqti</h5>
+                                <p>Dush–Juma: 09:00–18:00 &nbsp;|&nbsp; Shan: 09:00–14:00</p>
                             </div>
                         </div>
                     </div>

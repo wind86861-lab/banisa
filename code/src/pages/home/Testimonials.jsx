@@ -48,7 +48,8 @@ export default function Testimonials() {
                     </div>
                     <div className="cm-testimonials-content">
                         <div className="cm-testimonials-head">
-                            <h2>Real Patients, Real Stories.<br />And our achievements</h2>
+                            <span className="cm-section-badge cm-section-badge--light">Testimonials</span>
+                            <h2>Real Patients, Real Stories.<br />And Our Achievements</h2>
                         </div>
                         <div className="cm-testimonials-slider">
                             <div className="cm-testimonial-card">

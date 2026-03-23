@@ -43,8 +43,9 @@ export default function HowItWorks() {
             <div className="home-container">
                 <div className="cm-how-grid">
                     <div className="cm-how-left">
-                        <h2 className="cm-how-title">How it work</h2>
-                        <p className="cm-how-desc">It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout.</p>
+                        <span className="cm-section-badge">Process</span>
+                        <h2 className="cm-how-title">How It Works</h2>
+                        <p className="cm-how-desc">Getting quality healthcare at BANISA is simple. Follow these easy steps to book your appointment and receive world-class treatment.</p>
                         <div className="cm-how-steps">
                             {STEPS.map((s, i) => (
                                 <div key={i} className="cm-how-step">
