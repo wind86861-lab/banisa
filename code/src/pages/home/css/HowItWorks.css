@@ -1,0 +1,146 @@
+/* ═══ HOW IT WORKS ═══ */
+.cm-how {
+  padding: 80px 0;
+  background: #fff;
+}
+
+.cm-how-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 60px;
+  align-items: start;
+}
+
+@media(max-width: 900px) {
+  .cm-how-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cm-how-title {
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 700;
+  color: #031B4E;
+  margin: 0 0 16px;
+}
+
+.cm-how-desc {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.8;
+  margin-bottom: 32px;
+}
+
+.cm-how-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cm-how-step {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 1px solid #e8eef5;
+  border-radius: 12px;
+  transition: all .3s;
+  cursor: pointer;
+}
+
+.cm-how-step:hover {
+  border-color: #00BDE0;
+  box-shadow: 0 4px 16px rgba(0, 189, 224, .15);
+}
+
+.cm-how-step-icon {
+  width: 50px;
+  height: 50px;
+  background: rgba(0, 189, 224, .1);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #00BDE0;
+  flex-shrink: 0;
+}
+
+.cm-how-step h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #031B4E;
+  margin: 0;
+}
+
+.cm-how-right {
+  position: relative;
+}
+
+.cm-how-media {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.cm-how-media img {
+  width: 100%;
+  object-fit: cover;
+  border-radius: 20px;
+  display: block;
+}
+
+.cm-how-appt-btn {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #031B4E;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 22px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .3s;
+}
+
+.cm-how-appt-btn:hover {
+  background: #00BDE0;
+}
+
+.cm-how-stats-badge {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  background: #00BDE0;
+  border-radius: 16px;
+  padding: 20px 24px;
+  display: flex;
+  gap: 24px;
+}
+
+.cm-how-stat {
+  text-align: center;
+}
+
+.cm-how-stat-num {
+  display: block;
+  font-size: 28px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+
+.cm-how-stat-num sup {
+  font-size: 0.5em;
+}
+
+.cm-how-stat-label {
+  display: block;
+  color: rgba(255, 255, 255, .8);
+  font-size: 12px;
+  margin-top: 4px;
+}

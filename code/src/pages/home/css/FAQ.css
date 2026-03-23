@@ -1,0 +1,152 @@
+/* ═══ FAQ ═══ */
+.cm-faq {
+  padding: 80px 0;
+  background-repeat: no-repeat;
+  background-position: right bottom;
+  background-color: #fff;
+}
+
+.cm-faq-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+}
+
+@media(max-width: 900px) {
+  .cm-faq-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+}
+
+.cm-faq-title {
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 700;
+  color: #031B4E;
+  margin: 0 0 16px;
+}
+
+.cm-faq-desc {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.8;
+  margin-bottom: 32px;
+}
+
+.cm-faq-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cm-faq-item {
+  border: 1px solid #e8eef5;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all .3s;
+}
+
+.cm-faq-item.open {
+  border-color: #00BDE0;
+  box-shadow: 0 4px 16px rgba(0, 189, 224, .1);
+}
+
+.cm-faq-question {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 16px 20px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  color: #031B4E;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.cm-faq-item.open .cm-faq-question {
+  background: #031B4E;
+  color: #fff;
+}
+
+.cm-faq-icon {
+  font-size: 20px;
+  font-weight: 300;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 189, 224, .15);
+  border-radius: 50%;
+  color: #00BDE0;
+}
+
+.cm-faq-item.open .cm-faq-icon {
+  background: rgba(255, 255, 255, .2);
+  color: #fff;
+}
+
+.cm-faq-answer {
+  padding: 16px 20px;
+  background: #f8fafd;
+}
+
+.cm-faq-answer p {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.8;
+  margin: 0;
+}
+
+.cm-faq-media {
+  position: relative;
+}
+
+.cm-faq-media img {
+  width: 100%;
+  border-radius: 20px;
+  object-fit: cover;
+}
+
+.cm-faq-media-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.cm-faq-phone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cm-faq-phone-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(0, 189, 224, .1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cm-faq-phone-label {
+  display: block;
+  font-size: 12px;
+  color: #999;
+}
+
+.cm-faq-phone-number {
+  font-size: 15px;
+  font-weight: 700;
+  color: #031B4E;
+  text-decoration: none;
+}

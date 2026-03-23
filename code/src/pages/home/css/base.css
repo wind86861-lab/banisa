@@ -1,0 +1,246 @@
+/* ═══════════════════════════════════════════════════════
+   BANISA HOME PAGE — Base / Shared Styles
+   ═══════════════════════════════════════════════════════ */
+html:has(.home-page) {
+  scroll-behavior: smooth;
+}
+
+body:has(.home-page) {
+  background: #fff !important;
+}
+
+.home-page {
+  font-family: 'Poppins', sans-serif;
+  color: #333;
+  background: #fff;
+  overflow-x: hidden;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.home-page *,
+.home-page *::before,
+.home-page *::after {
+  box-sizing: border-box;
+}
+
+.home-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+@media(min-width:1024px) {
+  .home-container {
+    padding: 0 40px;
+  }
+}
+
+/* ── Animations ─── */
+@keyframes cmFloat {
+
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-12px) scale(1.02);
+  }
+}
+
+@keyframes cmPulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes cmFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cmSlideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes cmScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Shared Section Header ─── */
+.cm-section-header {
+  text-align: left;
+  margin-bottom: 50px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.cm-section-header--center {
+  text-align: center;
+  justify-content: center;
+}
+
+.cm-section-title {
+  font-size: 34px;
+  font-weight: 800;
+  color: #1a103d;
+  line-height: 1.25;
+  margin: 0 0 14px;
+  max-width: 600px;
+  letter-spacing: -0.5px;
+}
+
+@media(min-width:768px) {
+  .cm-section-title {
+    font-size: 42px
+  }
+}
+
+.cm-section-desc {
+  font-size: 15px;
+  color: #6b7280;
+  max-width: 560px;
+  margin: 0;
+  line-height: 1.7;
+}
+
+.cm-section-header--center .cm-section-desc {
+  margin: 0 auto;
+}
+
+/* ── Shared Utility Buttons ─── */
+.cm-btn-teal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #00BDE0;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 13px 26px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all .3s;
+}
+
+.cm-btn-teal:hover {
+  background: #031B4E;
+  transform: translateY(-2px);
+}
+
+.cm-btn-dark {
+  background: linear-gradient(135deg, #1a103d 0%, #241a4a 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 14px 32px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(26, 16, 61, 0.25);
+  letter-spacing: 0.3px;
+}
+
+.cm-btn-dark:hover {
+  background: linear-gradient(135deg, #241a4a 0%, #1a103d 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(26, 16, 61, 0.35);
+}
+
+.cm-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #031B4E;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 14px 28px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all .3s;
+}
+
+.cm-btn-secondary:hover {
+  background: #00BDE0;
+  transform: translateY(-2px);
+}
+
+.cm-btn-white {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 30px;
+  background: #fff;
+  color: #031B4E;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: inherit;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+}
+
+.cm-btn-white:hover {
+  background: #031B4E;
+  border-color: #031B4E;
+  color: #fff;
+}
+
+/* hide old classes if any leak */
+.home-topbar,
+.home-nav,
+.home-hero,
+.home-services,
+.home-how,
+.home-stats,
+.home-why,
+.home-cta,
+.home-footer {
+  display: none !important;
+}

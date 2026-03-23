@@ -1,0 +1,304 @@
+/* ═══ SERVICES ═══ */
+.cm-services {
+  padding: 80px 0;
+  background: #f0f4fa;
+}
+
+.cm-services-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  margin-bottom: 60px;
+  padding-bottom: 30px;
+}
+
+@media(min-width:640px) {
+  .cm-services-grid {
+    grid-template-columns: repeat(2, 1fr)
+  }
+}
+
+@media(min-width:1024px) {
+  .cm-services-grid {
+    grid-template-columns: repeat(4, 1fr)
+  }
+}
+
+/* Service card — ClinicMaster style-3 */
+.cm-svc-card {
+  position: relative;
+  border-radius: 25px;
+  padding: 30px;
+  z-index: 1;
+  filter: drop-shadow(0 20px 50px rgba(3, 27, 78, 0.02));
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  transition: all 0.5s ease;
+  cursor: pointer;
+  overflow: visible;
+}
+
+/* ::after pseudo-element - Background Mask with curved corner */
+.cm-svc-card::after {
+  content: "";
+  background: #fff;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  mask-image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMCAwSDIwMFYxNjBBNDAgNDAgMCAwIDAgMTYwIDIwMEgwWiIgZmlsbD0iIzAwMCIvPjwvc3ZnPg==);
+  -webkit-mask-image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMCAwSDIwMFYxNjBBNDAgNDAgMCAwIDAgMTYwIDIwMEgwWiIgZmlsbD0iIzAwMCIvPjwvc3ZnPg==);
+  mask-position: bottom right;
+  -webkit-mask-position: bottom right;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  -webkit-mask-size: 100% 100%;
+  border-radius: 25px;
+  transition: background 0.5s ease;
+}
+
+/* HOVER STATES - Complete Animation Package */
+.cm-svc-card:hover::after,
+.cm-svc-card.hovered::after {
+  background: #00BDE0;
+}
+
+.cm-svc-card:hover .cm-svc-icon-cell,
+.cm-svc-card.hovered .cm-svc-icon-cell {
+  filter: brightness(0) invert(1);
+}
+
+.cm-svc-card:hover .cm-svc-icon-bg,
+.cm-svc-card.hovered .cm-svc-icon-bg {
+  opacity: 0.08;
+}
+
+.cm-svc-card:hover .cm-svc-icon-bg svg path,
+.cm-svc-card.hovered .cm-svc-icon-bg svg path {
+  fill: #fff;
+}
+
+.cm-svc-card:hover .cm-svc-count,
+.cm-svc-card.hovered .cm-svc-count {
+  color: #fff;
+}
+
+.cm-svc-card:hover .cm-svc-dot,
+.cm-svc-card.hovered .cm-svc-dot {
+  background: #031B4E !important;
+}
+
+.cm-svc-card:hover .cm-svc-desc,
+.cm-svc-card.hovered .cm-svc-desc {
+  color: #fff;
+  opacity: 0.7;
+}
+
+.cm-svc-card:hover .cm-svc-title,
+.cm-svc-card.hovered .cm-svc-title {
+  color: #fff;
+}
+
+.cm-svc-card:hover .cm-svc-footer::before,
+.cm-svc-card.hovered .cm-svc-footer::before {
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0) 0%);
+}
+
+.cm-svc-card:hover .cm-svc-arrow svg {
+  animation: toTopRight 0.8s forwards;
+}
+
+
+/* Head section: icon-box + icon-bg + content */
+.cm-svc-head {
+  margin-bottom: auto;
+  position: relative;
+}
+
+/* Foreground icon box */
+.cm-svc-icon-box {
+  width: 60px;
+  height: 60px;
+  display: block;
+  margin-bottom: 30px;
+  position: relative;
+  z-index: 1;
+}
+
+.cm-svc-icon-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  transition: all 0.5s ease;
+}
+
+.cm-svc-icon-cell svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Background watermark icon */
+.cm-svc-icon-bg {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  width: 140px;
+  opacity: 0.025;
+  pointer-events: none;
+  transition: all 0.5s ease;
+  z-index: 0;
+}
+
+.cm-svc-icon-bg svg {
+  width: 100%;
+  height: auto;
+}
+
+/* Content: title + desc */
+.cm-svc-content {
+  position: relative;
+  z-index: 1;
+}
+
+
+.cm-svc-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #031B4E;
+  margin: 0 0 12px;
+  transition: all 0.5s ease;
+  line-height: 1.3;
+}
+
+
+.cm-svc-desc {
+  font-size: 15px;
+  font-weight: 300;
+  color: #566593;
+  line-height: 1.6;
+  margin: 0;
+  transition: all 0.5s ease;
+}
+
+
+.cm-svc-footer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 20px;
+  margin-top: 20px;
+  z-index: 1;
+  transition: all 0.5s ease;
+}
+
+.cm-svc-footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-image: linear-gradient(to right, rgba(3, 27, 78, 0.3) 50%, rgba(255, 255, 255, 0) 0%);
+  background-size: 10px 1px;
+  background-repeat: repeat-x;
+  transition: all 0.5s ease;
+}
+
+.cm-svc-count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #566593;
+  transition: all 0.5s ease;
+}
+
+
+.cm-svc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00BDE0;
+  flex-shrink: 0;
+  transition: all 0.5s ease;
+}
+
+
+.cm-svc-arrow {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #00BDE0;
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.5s ease;
+  cursor: pointer;
+  position: absolute;
+  bottom: -8px;
+  right: -8px;
+  box-shadow: 0 20px 50px rgba(3, 27, 78, 0.1);
+  z-index: 4;
+  flex-shrink: 0;
+}
+
+.cm-svc-arrow:hover {
+  background: #031B4E;
+  transform: scale(1.08);
+}
+
+/* Animation Keyframes for Services Arrow */
+@keyframes toTopRight {
+  49% {
+    transform: translate(30px, -30px);
+  }
+
+  50% {
+    opacity: 0;
+    transform: translate(-30px, 30px);
+  }
+
+  51% {
+    opacity: 1;
+  }
+}
+
+@-webkit-keyframes toTopRight {
+  49% {
+    -webkit-transform: translate(30px, -30px);
+  }
+
+  50% {
+    opacity: 0;
+    -webkit-transform: translate(-30px, 30px);
+  }
+
+  51% {
+    opacity: 1;
+  }
+}
+
+@-moz-keyframes toTopRight {
+  49% {
+    -moz-transform: translate(30px, -30px);
+  }
+
+  50% {
+    opacity: 0;
+    -moz-transform: translate(-30px, 30px);
+  }
+
+  51% {
+    opacity: 1;
+  }
+}

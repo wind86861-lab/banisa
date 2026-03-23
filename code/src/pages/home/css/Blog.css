@@ -1,0 +1,146 @@
+/* ═══ BLOG ═══ */
+.cm-blog {
+  padding: 80px 0;
+  background: #fff;
+}
+
+.cm-blog-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1fr;
+  grid-template-rows: 1fr;
+  gap: 16px;
+  min-height: 480px;
+}
+
+@media(max-width: 1024px) {
+  .cm-blog-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media(max-width: 600px) {
+  .cm-blog-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cm-blog-card {
+  border-radius: 16px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-color: #f0f4fa;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 280px;
+}
+
+.cm-blog-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(3, 27, 78, .85) 0%, rgba(3, 27, 78, .3) 50%, transparent 100%);
+  border-radius: 16px;
+}
+
+.cm-blog-no-img {
+  background-color: #031B4E;
+}
+
+.cm-blog-info {
+  position: relative;
+  z-index: 1;
+  padding: 20px;
+  width: 100%;
+}
+
+.cm-blog-info--bottom {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0;
+}
+
+.cm-blog-half {
+  padding: 20px;
+  flex: 1;
+}
+
+.cm-blog-footer {
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, .05);
+}
+
+.cm-blog-date {
+  font-size: 12px;
+  color: rgba(255, 255, 255, .7);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.cm-blog-card--sm .cm-blog-date {
+  color: #00BDE0;
+}
+
+.cm-blog-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.cm-blog-card--sm .cm-blog-half .cm-blog-title {
+  color: #031B4E;
+}
+
+.cm-blog-read-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #00BDE0;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 10px 20px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .2s;
+}
+
+.cm-blog-read-btn:hover {
+  background: #031B4E;
+}
+
+.cm-blog-arrow-btn {
+  width: 40px;
+  height: 40px;
+  background: #fff;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #031B4E;
+  flex-shrink: 0;
+  transition: all .2s;
+}
+
+.cm-blog-arrow-btn:hover {
+  background: #00BDE0;
+  color: #fff;
+}
+
+.cm-blog-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cm-blog-col .cm-blog-card {
+  flex: 1;
+}

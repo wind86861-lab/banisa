@@ -1,0 +1,84 @@
+/* ═══ TOP BAR ═══ */
+.cm-topbar {
+  background: linear-gradient(to bottom, #fff, #fafbfc);
+  border-bottom: 1px solid rgba(29, 191, 193, 0.1);
+  padding: 16px 0;
+  display: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+@media(min-width:1024px) {
+  .cm-topbar {
+    display: block
+  }
+}
+
+.cm-topbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cm-topbar-item {
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s ease;
+  gap: 12px;
+}
+
+.cm-topbar-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.cm-topbar-icon:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.cm-topbar-icon.pink {
+  background: linear-gradient(135deg, rgba(255, 107, 129, .15), rgba(255, 107, 129, .08));
+  color: #ff6b81;
+}
+
+.cm-topbar-icon.blue {
+  background: linear-gradient(135deg, rgba(29, 191, 193, .15), rgba(29, 191, 193, .08));
+  color: #1dbfc1;
+}
+
+.cm-topbar-icon.navy {
+  background: linear-gradient(135deg, rgba(26, 16, 61, .12), rgba(26, 16, 61, .06));
+  color: #1a103d;
+}
+
+.cm-topbar-icon.green {
+  background: linear-gradient(135deg, rgba(16, 185, 129, .15), rgba(16, 185, 129, .08));
+  color: #10b981;
+}
+
+.cm-topbar-icon.purple {
+  background: linear-gradient(135deg, rgba(139, 92, 246, .15), rgba(139, 92, 246, .08));
+  color: #8b5cf6;
+}
+
+.cm-topbar-label {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cm-topbar-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a103d;
+  letter-spacing: -0.2px;
+}

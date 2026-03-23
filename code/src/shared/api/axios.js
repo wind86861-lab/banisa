@@ -76,7 +76,7 @@ api.interceptors.response.use(
       const refreshStatus = refreshError?.response?.status;
       if (typeof window !== 'undefined' && refreshStatus === 401) {
         const storedUser = tokenStorage.getUser();
-        const loginUrl = storedUser?.role === 'SUPER_ADMIN' ? '/admin/login' : '/login';
+        const loginUrl = storedUser?.role === 'SUPER_ADMIN' ? '/admin/login' : '/';
         tokenStorage.clear();
         window.location.href = loginUrl;
       }

@@ -1,0 +1,227 @@
+/* ═══ NAVIGATION ═══ */
+.cm-nav {
+  background: linear-gradient(135deg, #1a103d 0%, #241a4a 100%);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(26, 16, 61, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.cm-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 70px;
+}
+
+.cm-nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.cm-nav-logo-icon {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cm-nav-logo-icon svg {
+  width: 46px;
+  height: 46px;
+  display: block;
+  border-radius: 12px;
+}
+
+.cm-nav-logo-text {
+  color: #fff;
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.cm-nav-logo-text span {
+  color: #1dbfc1;
+  font-size: 13px;
+  font-weight: 500;
+  display: block;
+}
+
+.cm-nav-links {
+  display: none;
+  align-items: center;
+  gap: 2px;
+}
+
+@media(min-width:1024px) {
+  .cm-nav-links {
+    display: flex
+  }
+}
+
+.cm-nav-link {
+  color: rgba(255, 255, 255, .85);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 16px;
+  border-radius: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  letter-spacing: 0.2px;
+}
+
+.cm-nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  left: 16px;
+  right: 16px;
+  height: 2px;
+  background: #1dbfc1;
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.cm-nav-link:hover {
+  color: #fff;
+  background: rgba(29, 191, 193, .12);
+  transform: translateY(-1px);
+}
+
+.cm-nav-link:hover::after {
+  transform: scaleX(1);
+}
+
+.cm-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cm-nav-btn {
+  background: linear-gradient(135deg, #1dbfc1 0%, #17a2a3 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 11px 26px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  display: none;
+  box-shadow: 0 4px 12px rgba(29, 191, 193, 0.3);
+  letter-spacing: 0.3px;
+}
+
+@media(min-width:1024px) {
+  .cm-nav-btn {
+    display: inline-flex;
+  }
+}
+
+.cm-nav-btn:hover {
+  background: linear-gradient(135deg, #17a2a3 0%, #1dbfc1 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(29, 191, 193, 0.4);
+}
+
+.cm-nav-hamburger {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(29, 191, 193, .15);
+  border: 1px solid rgba(29, 191, 193, .2);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+}
+
+@media(min-width:1024px) {
+  .cm-nav-hamburger {
+    display: none;
+  }
+}
+
+.cm-nav-hamburger:hover {
+  background: rgba(29, 191, 193, .25);
+  border-color: rgba(29, 191, 193, .3);
+  transform: scale(1.05);
+}
+
+.cm-mobile-menu {
+  position: fixed;
+  top: 70px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #1a103d 0%, #241a4a 100%);
+  padding: 24px;
+  transform: translateX(-100%);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 99;
+  overflow-y: auto;
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, .1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cm-mobile-menu.open {
+  transform: translateX(0);
+  box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.cm-mobile-link {
+  display: block;
+  color: rgba(255, 255, 255, .85);
+  padding: 16px 18px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-left: 3px solid transparent;
+  letter-spacing: 0.2px;
+}
+
+.cm-mobile-link:hover {
+  background: rgba(29, 191, 193, .12);
+  color: #fff;
+  border-left-color: #1dbfc1;
+  transform: translateX(4px);
+}
+
+.cm-mobile-cta {
+  background: linear-gradient(135deg, #1dbfc1 0%, #17a2a3 100%);
+  color: #fff;
+  border: none;
+  padding: 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  margin-top: 12px;
+  text-align: center;
+  text-decoration: none;
+  display: block;
+  box-shadow: 0 4px 12px rgba(29, 191, 193, 0.3);
+  letter-spacing: 0.3px;
+  transition: all 0.3s ease;
+}
+
+.cm-mobile-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(29, 191, 193, 0.4);
+}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import HomePage from '../../pages/home/HomePage';
 
 const AuthLoading = () => (
   <div style={{
@@ -17,16 +18,9 @@ const AuthLoading = () => (
 const PENDING_STATUSES = ['PENDING', 'IN_REVIEW', 'REJECTED', 'SUSPENDED'];
 
 // ─── ROOT REDIRECT ────────────────────────────────────────────────────────
-// Used on "/" — sends each role to the right place
+// "/" always shows public HomePage — users access dashboards via direct links
 export const RootRedirect = () => {
-  const { user, isLoading } = useAuth();
-  if (isLoading) return <AuthLoading />;
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.role === 'SUPER_ADMIN') return <Navigate to="/admin/dashboard" replace />;
-  if (user.role === 'PENDING_CLINIC') return <Navigate to="/status" replace />;
-  if (PENDING_STATUSES.includes(user.status)) return <Navigate to="/status" replace />;
-  if (user.role === 'CLINIC_ADMIN') return <Navigate to="/clinic/dashboard" replace />;
-  return <Navigate to="/login" replace />;
+  return <HomePage />;
 };
 
 // ─── SUPER ADMIN ──────────────────────────────────────────────────────────
@@ -72,7 +66,7 @@ export const ClinicGuard = ({ children }) => {
   const { user, isLoading } = useAuth();
   const location = useLocation();
   if (isLoading) return <AuthLoading />;
-  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!user) return <Navigate to="/" state={{ from: location }} replace />;
   if (user.role === 'SUPER_ADMIN') return <Navigate to="/403" replace />;
   if (user.role === 'PENDING_CLINIC') return <Navigate to="/status" replace />;
   if (user.role !== 'CLINIC_ADMIN') return <Navigate to="/403" replace />;
@@ -85,7 +79,7 @@ export const ClinicGuard = ({ children }) => {
 export const StatusGuard = ({ children }) => {
   const { user, isLoading } = useAuth();
   if (isLoading) return <AuthLoading />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/" replace />;
   if (user.role === 'SUPER_ADMIN') return <Navigate to="/admin/dashboard" replace />;
   // Allow PENDING_CLINIC to see status page
   if (user.role === 'PENDING_CLINIC') return children;

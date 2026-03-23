@@ -1,0 +1,201 @@
+/* ═══ ABOUT FACILITIES ═══ */
+.cm-about {
+  padding: 80px 0;
+  background: #fff;
+}
+
+.cm-about-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+}
+
+@media(max-width: 900px) {
+  .cm-about-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+}
+
+.cm-about-media {
+  position: relative;
+}
+
+.cm-about-img-wrap img {
+  width: 100%;
+  border-radius: 20px;
+  object-fit: cover;
+}
+
+.cm-about-badge-call {
+  position: absolute;
+  top: 30px;
+  left: -20px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .12);
+  overflow: hidden;
+  min-width: 200px;
+}
+
+.cm-about-badge-call-header {
+  background: #031B4E;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+
+.cm-about-badge-call-body {
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cm-about-badge-call-body img:first-child {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.cm-about-call-icons {
+  display: flex;
+  gap: 8px;
+}
+
+.cm-about-call-icons img {
+  width: 24px;
+  height: 24px;
+  opacity: .7;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+
+.cm-about-call-icons img.active,
+.cm-about-call-icons img:hover {
+  opacity: 1;
+}
+
+.cm-about-badge-hours {
+  position: absolute;
+  bottom: 30px;
+  right: -20px;
+  background: #031B4E;
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-width: 240px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .2);
+}
+
+.cm-about-hours-icon img {
+  width: 36px;
+  height: 36px;
+  filter: brightness(0) invert(1);
+}
+
+.cm-about-hours-content h4 {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.cm-about-hours-content ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.cm-about-hours-content li {
+  color: rgba(255, 255, 255, .7);
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 3px;
+}
+
+.cm-about-hours-content strong {
+  color: #00BDE0;
+}
+
+.cm-about-title {
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 700;
+  color: #031B4E;
+  margin: 0 0 16px;
+  line-height: 1.3;
+}
+
+.cm-about-desc {
+  color: #666;
+  line-height: 1.8;
+  margin-bottom: 24px;
+}
+
+.cm-about-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 20px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 32px;
+}
+
+.cm-about-list li {
+  position: relative;
+  padding-left: 18px;
+  color: #031B4E;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.cm-about-list li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #00BDE0;
+  font-weight: 700;
+}
+
+.cm-about-actions {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.cm-about-phone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cm-about-phone-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(0, 189, 224, .1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cm-about-phone-label {
+  display: block;
+  font-size: 12px;
+  color: #999;
+}
+
+.cm-about-phone-number {
+  font-size: 15px;
+  font-weight: 700;
+  color: #031B4E;
+  text-decoration: none;
+}

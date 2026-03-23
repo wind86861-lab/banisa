@@ -12,9 +12,34 @@ const AuthContext = createContext(null);
 let restorePromise = null;
 // ─────────────────────────────────────────────────────────────────────────
 
+// Helper: decode JWT and check if expired
+const isTokenExpired = (token) => {
+  if (!token) return true;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp ? payload.exp * 1000 < Date.now() : false;
+  } catch {
+    return true;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // ─── Periodic token expiry check — auto-logout when token expires ──────
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      const token = tokenStorage.getToken();
+      if (isTokenExpired(token)) {
+        clearAccessToken();
+        tokenStorage.clear();
+        setUser(null);
+      }
+    }, 30_000); // check every 30 seconds
+    return () => clearInterval(interval);
+  }, [user]);
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -23,19 +48,15 @@ export const AuthProvider = ({ children }) => {
       const existingUser = tokenStorage.getUser();
 
       if (existingToken && existingUser) {
-        // Client-side expiry check — decode WITHOUT verifying signature
-        try {
-          const payload = JSON.parse(atob(existingToken.split('.')[1]));
-          const isExpired = payload.exp && payload.exp * 1000 < Date.now();
-          if (!isExpired) {
-            setAccessToken(existingToken);
-            setUser(existingUser);
-            setIsLoading(false);
-            return;
-          }
-        } catch { /* malformed token — fall through to cookie refresh */ }
+        if (!isTokenExpired(existingToken)) {
+          setAccessToken(existingToken);
+          setUser(existingUser);
+          setIsLoading(false);
+          return;
+        }
         // Token expired or malformed — clear and attempt cookie refresh below
         tokenStorage.clear();
+        clearAccessToken();
       }
 
       // 2. Cookie orqali refresh — singleton promise (StrictMode fix)

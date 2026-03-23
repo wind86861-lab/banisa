@@ -1,0 +1,231 @@
+/* ═══ FOOTER ═══ */
+.cm-footer {
+  background-color: #031B4E;
+  background-blend-mode: overlay;
+  position: relative;
+}
+
+.cm-footer-head {
+  background: rgba(255, 255, 255, .05);
+  padding: 30px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+.cm-footer-head-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.cm-footer-head-text h3 {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.cm-footer-head-text p {
+  color: rgba(255, 255, 255, .6);
+  font-size: 13px;
+  margin: 0;
+}
+
+.cm-footer-head-contact {
+  display: flex;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.cm-footer-contact-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.cm-footer-contact-icon {
+  width: 44px;
+  height: 44px;
+  background: #00BDE0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.cm-footer-contact-item h5 {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 3px;
+}
+
+.cm-footer-contact-item p {
+  color: rgba(255, 255, 255, .6);
+  font-size: 12px;
+  margin: 0;
+}
+
+.cm-footer-contact-item a {
+  color: rgba(255, 255, 255, .6);
+  text-decoration: none;
+}
+
+.cm-footer-contact-item a:hover {
+  color: #00BDE0;
+}
+
+.cm-footer-top {
+  padding: 60px 0;
+}
+
+.cm-footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: 40px;
+}
+
+@media(max-width: 1024px) {
+  .cm-footer-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .cm-footer-brand {
+    grid-column: 1 / -1;
+  }
+}
+
+@media(max-width: 600px) {
+  .cm-footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.cm-footer-brand p {
+  color: rgba(255, 255, 255, .6);
+  font-size: 13px;
+  line-height: 1.8;
+  margin-top: 16px;
+}
+
+.cm-footer-col-title {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(255, 255, 255, .08);
+}
+
+.cm-footer-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cm-footer-links a {
+  color: rgba(255, 255, 255, .55);
+  font-size: 13px;
+  text-decoration: none;
+  transition: all .2s;
+  display: block;
+}
+
+.cm-footer-links a:hover {
+  color: #00BDE0;
+  padding-left: 6px;
+}
+
+.cm-footer-middle {
+  background: rgba(0, 189, 224, .08);
+  padding: 40px 0;
+  border-top: 1px solid rgba(255, 255, 255, .06);
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+}
+
+.cm-footer-newsletter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.cm-footer-newsletter-text h2 {
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.cm-footer-newsletter-text p {
+  color: rgba(255, 255, 255, .6);
+  font-size: 13px;
+  margin: 0;
+}
+
+.cm-footer-newsletter-form {
+  display: flex;
+  gap: 0;
+  flex: 1;
+  max-width: 480px;
+}
+
+.cm-footer-email-input {
+  flex: 1;
+  padding: 14px 20px;
+  border: 1px solid rgba(255, 255, 255, .15);
+  border-right: none;
+  border-radius: 50px 0 0 50px;
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+}
+
+.cm-footer-email-input::placeholder {
+  color: rgba(255, 255, 255, .4);
+}
+
+.cm-footer-subscribe-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #00BDE0;
+  color: #fff;
+  border: none;
+  border-radius: 0 50px 50px 0;
+  padding: 14px 24px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .2s;
+  white-space: nowrap;
+}
+
+.cm-footer-subscribe-btn:hover {
+  background: #009ab8;
+}
+
+.cm-footer-bottom {
+  padding: 20px 0;
+  border-top: 1px solid rgba(255, 255, 255, .06);
+  text-align: center;
+}
+
+.cm-footer-bottom p {
+  color: rgba(255, 255, 255, .5);
+  font-size: 13px;
+  margin: 0;
+}
+
+.cm-footer-bottom a {
+  color: #00BDE0;
+  text-decoration: none;
+}
