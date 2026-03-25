@@ -112,9 +112,9 @@ export const AuthProvider = ({ children }) => {
     restoreSession();
   }, []);
 
-  // ─── SUPER ADMIN login — email + password → /api/auth/admin/login ──────────
-  const loginAdmin = async (email, password) => {
-    const { data } = await axiosInstance.post('/auth/admin/login', { email, password });
+  // ─── SUPER ADMIN login — phone + password → /api/auth/admin/login ──────────
+  const loginAdmin = async (phone, password) => {
+    const { data } = await axiosInstance.post('/auth/admin/login', { phone, password });
     const token = data.data?.accessToken ?? data.accessToken;
     const userData = data.data?.user ?? data.user;
     if (!token || !userData) throw new Error('Login muvaffaqiyatsiz');

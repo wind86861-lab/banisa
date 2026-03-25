@@ -46,24 +46,21 @@ export const register = async (userData: any) => {
     return user;
 };
 
-export const login = async (credentials: { phone?: string; email?: string; password: string }) => {
-    let user: any = null;
+export const login = async (credentials: { phone: string; password: string; isAdminLogin?: boolean }) => {
+    const normalizedPhone = normalizePhone(credentials.phone);
 
-    if (credentials.email) {
-        // SUPER_ADMIN path — lookup by email
-        user = await prisma.user.findFirst({ where: { email: credentials.email } });
-    } else if (credentials.phone) {
-        // CLINIC_ADMIN path — lookup by phone (normalize to handle formatting)
-        const normalizedPhone = normalizePhone(credentials.phone);
-        // Try exact match first, then normalized match
+    // Try exact match first, then normalized match
+    let user: any = await prisma.user.findUnique({ where: { phone: normalizedPhone } });
+    if (!user) {
         user = await prisma.user.findUnique({ where: { phone: credentials.phone } });
-        if (!user) {
-            // Try finding by normalized phone (in case DB has formatted version)
-            const allUsers = await prisma.user.findMany({ where: { role: 'CLINIC_ADMIN' } });
-            user = allUsers.find(u => normalizePhone(u.phone) === normalizedPhone);
-        }
-    } else {
-        throw new AppError('Email yoki telefon raqam kiritilmagan', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    if (!user) {
+        // Fallback: find by normalized phone across all users
+        const allUsers = await prisma.user.findMany({
+            where: { isActive: true },
+            select: { id: true, phone: true, passwordHash: true, role: true, status: true, isActive: true, email: true, firstName: true, lastName: true, clinicId: true },
+        });
+        user = allUsers.find(u => normalizePhone(u.phone) === normalizedPhone);
     }
 
     if (!user || !user.isActive) {
@@ -76,15 +73,11 @@ export const login = async (credentials: { phone?: string; email?: string; passw
     }
 
     // Role-based cross-login protection
-    if (credentials.email && user.role !== 'SUPER_ADMIN') {
-        throw new AppError('Bu login sahifasi faqat adminlar uchun', 403, ErrorCodes.FORBIDDEN);
+    if (credentials.isAdminLogin && user.role !== 'SUPER_ADMIN') {
+        throw new AppError('Bu endpoint faqat Super Admin uchun', 403, ErrorCodes.FORBIDDEN);
     }
-    if (credentials.phone && user.role === 'SUPER_ADMIN') {
+    if (!credentials.isAdminLogin && user.role === 'SUPER_ADMIN') {
         throw new AppError('Admin hisobi uchun /admin/login sahifasidan foydalaning', 403, ErrorCodes.FORBIDDEN);
-    }
-    // Allow PENDING_CLINIC to login (they can see status page)
-    if (credentials.phone && !['CLINIC_ADMIN', 'PENDING_CLINIC', 'PATIENT'].includes(user.role)) {
-        throw new AppError('Noto\'g\'ri login sahifasi', 403, ErrorCodes.FORBIDDEN);
     }
 
     const accessToken = generateAccessToken({ id: user.id, role: user.role, status: user.status });

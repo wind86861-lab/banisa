@@ -23,10 +23,10 @@ export const registerSchema = z.object({
     }),
 });
 
-// ─── SUPER ADMIN login: email + password ────────────────────────────────────
+// ─── SUPER ADMIN login: phone + password ────────────────────────────────────
 export const adminLoginSchema = z.object({
     body: z.object({
-        email: z.string().email('Email noto\'g\'ri formatda'),
+        phone: z.string().regex(uzPhoneRegex, 'Telefon noto\'g\'ri formatda (+998XXXXXXXXX)'),
         password: z.string().min(1, 'Parol kiritilmagan'),
     }),
 });

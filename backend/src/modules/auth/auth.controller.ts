@@ -22,11 +22,11 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     }
 };
 
-// ─── SUPER ADMIN login — email + password ────────────────────────────────────
+// ─── SUPER ADMIN login — phone + password ────────────────────────────────────
 export const adminLogin = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { email, password } = req.body;
-        const result = await authService.login({ email, password });
+        const { phone, password } = req.body;
+        const result = await authService.login({ phone, password, isAdminLogin: true });
 
         if (result.user.role !== 'SUPER_ADMIN') {
             return res.status(403).json({ success: false, error: 'Bu endpoint faqat Super Admin uchun' });
@@ -43,11 +43,7 @@ export const adminLogin = async (req: Request, res: Response, next: NextFunction
 export const clinicLogin = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { phone, password } = req.body;
-        const result = await authService.login({ phone, password });
-
-        if (result.user.role === 'SUPER_ADMIN') {
-            return res.status(403).json({ success: false, error: 'Admin hisobi uchun /admin/login dan foydalaning' });
-        }
+        const result = await authService.login({ phone, password, isAdminLogin: false });
 
         res.cookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
         return sendSuccess(res, { user: result.user, accessToken: result.accessToken }, null, 'Login successful');
