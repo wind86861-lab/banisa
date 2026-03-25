@@ -73,7 +73,8 @@ app.use('/api/admin', adminRoutes);
 if (env.NODE_ENV === 'production') {
     const frontendPath = path.join(__dirname, '../../code/dist');
     app.use(express.static(frontendPath));
-    app.get('*', (_req, res) => {
+    // Catch-all route for SPA - must be after all API routes
+    app.use((_req, res) => {
         res.sendFile(path.join(frontendPath, 'index.html'));
     });
 }
