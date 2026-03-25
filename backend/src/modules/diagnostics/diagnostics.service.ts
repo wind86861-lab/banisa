@@ -80,10 +80,101 @@ export const listServices = async (query: any) => {
 };
 
 export const getServiceById = async (id: string) => {
-    return prisma.diagnosticService.findUnique({
+    const service = await prisma.diagnosticService.findUnique({
         where: { id },
-        include: { category: true, createdBy: true },
+        include: {
+            category: {
+                include: {
+                    parent: { select: { id: true, nameUz: true, slug: true } },
+                },
+            },
+            clinicLinks: {
+                where: { isActive: true, clinic: { status: 'APPROVED' } },
+                include: {
+                    clinic: {
+                        select: {
+                            id: true,
+                            nameUz: true,
+                            nameRu: true,
+                            region: true,
+                            district: true,
+                            street: true,
+                            phones: true,
+                            logo: true,
+                            averageRating: true,
+                            reviewCount: true,
+                            workingHours: true,
+                            hasOnlineBooking: true,
+                            type: true,
+                            hasEmergency: true,
+                            hasAmbulance: true,
+                            parkingAvailable: true,
+                            bedsCount: true,
+                        },
+                    },
+                    customization: {
+                        select: {
+                            customPrice: true,
+                            discountPercent: true,
+                            customNameUz: true,
+                            customNameRu: true,
+                            customDescriptionUz: true,
+                            customDescriptionRu: true,
+                            fullDescriptionUz: true,
+                            fullDescriptionRu: true,
+                            processDescription: true,
+                            preparationUz: true,
+                            preparationRu: true,
+                            preparationJson: true,
+                            benefits: true,
+                            tags: true,
+                            bookingPolicy: true,
+                            additionalInfo: true,
+                            equipment: true,
+                            accuracy: true,
+                            certifications: true,
+                            sampleVolume: true,
+                            resultFormat: true,
+                            resultTimeHours: true,
+                            estimatedDurationMinutes: true,
+                            customCategory: true,
+                            isHighlighted: true,
+                            availableDays: true,
+                            availableTimeSlots: true,
+                            images: { orderBy: { order: 'asc' as const } },
+                        },
+                    },
+                },
+            },
+        },
     });
+
+    if (!service) return null;
+
+    // Fetch related services from same category (max 6)
+    const relatedServices = await prisma.diagnosticService.findMany({
+        where: {
+            categoryId: service.categoryId,
+            id: { not: service.id },
+            isActive: true,
+        },
+        take: 6,
+        select: {
+            id: true,
+            nameUz: true,
+            shortDescription: true,
+            priceMin: true,
+            durationMinutes: true,
+            resultTimeHours: true,
+            imageUrl: true,
+        },
+        orderBy: { nameUz: 'asc' },
+    });
+
+    // Count active clinics offering this service
+    const activeClinicsCount = service.clinicLinks.length;
+
+    return { ...service, relatedServices, activeClinicsCount };
 };
 
 export const createService = async (data: any, userId: string) => {

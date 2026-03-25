@@ -8,10 +8,13 @@
     "code"
   ],
   "scripts": {
+    "install:all": "cd backend && npm install && cd ../code && npm install",
     "install:backend": "cd backend && npm install",
     "install:frontend": "cd code && npm install",
+    "build": "cd code && npm run build && cd ../backend && npm run build",
     "build:backend": "cd backend && npm run build",
     "build:frontend": "cd code && npm run build",
+    "start": "cd backend && npm start",
     "start:backend": "cd backend && npm start",
     "start:frontend": "cd code && npm run preview",
     "dev:backend": "cd backend && npm run dev",

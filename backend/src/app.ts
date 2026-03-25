@@ -17,16 +17,29 @@ import checkupPackageRoutes, { adminCheckupPackageRoutes } from './modules/check
 import adminRoutes from './modules/admin/admin.routes';
 import clinicAdminRoutes from './modules/clinic/clinic.routes';
 import userRoutes from './modules/user/user.routes';
+import publicRoutes from './modules/public/public.routes';
 import { apiLimiter } from './middleware/rateLimiter';
 
 const app = express();
 
 // Security Middleware
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: env.NODE_ENV === 'production' ? undefined : {
+        directives: {
+            defaultSrc: ["'self'"],
+            imgSrc: ["'self'", "data:", "http://localhost:5000", "http://localhost:5173"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'"],
+        },
+    },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
+const corsOrigins = env.CORS_ORIGIN.split(',').map(o => o.trim());
 app.use(cors({
-    origin: env.CORS_ORIGIN,
+    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization', 'multipart/form-data'],
+    credentials: true,
 }));
 
 // Global rate limiter — 100 req / 15 min per IP (VULN-02)
@@ -52,8 +65,18 @@ app.use('/api/admin/clinics', adminClinicRoutes);
 app.use('/api/admin/reviews', adminReviewRoutes);
 app.use('/api/checkup-packages', checkupPackageRoutes);
 app.use('/api/admin/checkup-packages', adminCheckupPackageRoutes);
+app.use('/api/public', publicRoutes);
 app.use('/api/clinic', clinicAdminRoutes);
 app.use('/api/admin', adminRoutes);
+
+// ─── Serve frontend in production ────────────────────────────────────────────
+if (env.NODE_ENV === 'production') {
+    const frontendPath = path.join(__dirname, '../../code/dist');
+    app.use(express.static(frontendPath));
+    app.get('*', (_req, res) => {
+        res.sendFile(path.join(frontendPath, 'index.html'));
+    });
+}
 
 // Error Handling
 app.use(errorHandler);

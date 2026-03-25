@@ -6,6 +6,29 @@ const benefitSchema = z.object({
     ru: z.string().min(3).max(200).optional(),
 });
 
+// ─── Preparation JSON schema ────────────────────────────────────────────────
+const preparationJsonSchema = z.object({
+    fastingHours: z.number().int().min(0).max(24).optional(),
+    bestTime: z.string().max(100).optional(),
+    specialDiet: z.string().max(300).optional(),
+    documents: z.string().max(500).optional(),
+}).optional().nullable();
+
+// ─── Booking Policy schema ──────────────────────────────────────────────────
+const bookingPolicySchema = z.object({
+    prepaymentRequired: z.boolean().optional(),
+    cancellationPolicy: z.string().max(500).optional(),
+    modificationPolicy: z.string().max(500).optional(),
+    bookingMethods: z.array(z.string().max(50)).max(5).optional(),
+}).optional().nullable();
+
+// ─── Additional Info schema ─────────────────────────────────────────────────
+const additionalInfoSchema = z.object({
+    experience: z.string().max(200).optional(),
+    dailyCapacity: z.number().int().min(1).max(10000).optional(),
+    specialFeatures: z.array(z.string().max(200)).max(10).optional(),
+}).optional().nullable();
+
 // ─── Time slot schema ───────────────────────────────────────────────────────
 const timeSlotSchema = z.object({
     start: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Noto\'g\'ri vaqt formati (HH:MM)'),
@@ -15,7 +38,7 @@ const timeSlotSchema = z.object({
 const dayEnum = z.enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']);
 
 const availableTimeSlotsSchema = z.record(
-    dayEnum,
+    z.string(),
     z.array(timeSlotSchema).min(1),
 ).optional().nullable();
 
@@ -25,13 +48,31 @@ export const upsertCustomizationSchema = z.object({
         customNameUz: z.string().min(5).max(200).optional().nullable(),
         customNameRu: z.string().min(5).max(200).optional().nullable(),
 
-        customDescriptionUz: z.string().min(10).max(2000).optional().nullable(),
-        customDescriptionRu: z.string().min(10).max(2000).optional().nullable(),
+        customDescriptionUz: z.string().min(10).max(10000).optional().nullable(),
+        customDescriptionRu: z.string().min(10).max(10000).optional().nullable(),
+
+        // ─── Clinic-specific full content ───
+        fullDescriptionUz: z.string().min(20).max(10000).optional().nullable(),
+        fullDescriptionRu: z.string().min(20).max(10000).optional().nullable(),
+        processDescription: z.string().min(20).max(5000).optional().nullable(),
 
         benefits: z.array(benefitSchema).max(10).optional().nullable(),
 
-        preparationUz: z.string().min(10).max(1000).optional().nullable(),
-        preparationRu: z.string().min(10).max(1000).optional().nullable(),
+        preparationUz: z.string().min(10).max(5000).optional().nullable(),
+        preparationRu: z.string().min(10).max(5000).optional().nullable(),
+
+        // ─── Clinic-specific technical details ───
+        sampleVolume: z.string().max(50).optional().nullable(),
+        resultFormat: z.string().max(200).optional().nullable(),
+        resultTimeHours: z.number().positive().max(720).optional().nullable(),
+
+        equipment: z.string().max(200).optional().nullable(),
+        accuracy: z.string().max(50).optional().nullable(),
+        certifications: z.array(z.string().max(100)).max(20).optional().nullable(),
+
+        preparationJson: preparationJsonSchema,
+        bookingPolicy: bookingPolicySchema,
+        additionalInfo: additionalInfoSchema,
 
         customCategory: z.enum(['Standard', 'Premium', 'Express', 'VIP']).optional().nullable(),
         tags: z.array(z.string().min(2).max(30)).max(10).optional(),

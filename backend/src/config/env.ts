@@ -1,7 +1,8 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+// Works in both dev (src/) and production (dist/) — DigitalOcean injects env vars directly
+dotenv.config({ path: path.join(process.cwd(), '.env') });
 
 export const env = {
     NODE_ENV: process.env.NODE_ENV || 'development',
