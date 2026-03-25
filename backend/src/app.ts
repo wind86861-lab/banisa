@@ -24,14 +24,9 @@ const app = express();
 
 // Security Middleware
 app.use(helmet({
-    contentSecurityPolicy: env.NODE_ENV === 'production' ? undefined : {
-        directives: {
-            defaultSrc: ["'self'"],
-            imgSrc: ["'self'", "data:", "http://localhost:5000", "http://localhost:5173"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrc: ["'self'"],
-        },
-    },
+    contentSecurityPolicy: false,
+    crossOriginOpenerPolicy: false,
+    originAgentCluster: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 const corsOrigins = env.CORS_ORIGIN.split(',').map(o => o.trim());
