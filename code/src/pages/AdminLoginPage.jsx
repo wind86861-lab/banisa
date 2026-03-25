@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../shared/auth/AuthContext';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,14 +17,14 @@ export default function AdminLoginPage() {
     setError('');
     setLoading(true);
     try {
-      await loginAdmin(email, password);
+      await loginAdmin(phone, password);
       navigate(from, { replace: true });
     } catch (err) {
       const errData = err.response?.data?.error;
       setError(
         typeof errData === 'string' ? errData :
           typeof errData?.message === 'string' ? errData.message :
-            err.message || 'Invalid email or password'
+            err.message || 'Invalid phone or password'
       );
     } finally {
       setLoading(false);
@@ -76,14 +76,14 @@ export default function AdminLoginPage() {
               display: 'block', color: '#CBD5E1', fontSize: 13, fontWeight: 600,
               marginBottom: 8, letterSpacing: 0.3,
             }}>
-              Email Address
+              Phone Number
             </label>
             <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="admin@medicare.uz"
-              autoComplete="email"
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="+998901234567"
+              autoComplete="tel"
               required
               style={{
                 width: '100%', background: 'rgba(15, 23, 42, 0.6)',
@@ -125,30 +125,30 @@ export default function AdminLoginPage() {
 
           <button
             type="submit"
-            disabled={loading || !email || !password}
+            disabled={loading || !phone || !password}
             style={{
               width: '100%', padding: '14px 0',
-              background: loading || !email || !password
+              background: loading || !phone || !password
                 ? 'rgba(148, 163, 184, 0.1)'
                 : 'linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%)',
               border: 'none', borderRadius: 10,
-              color: loading || !email || !password ? '#64748B' : '#fff',
+              color: loading || !phone || !password ? '#64748B' : '#fff',
               fontSize: 15, fontWeight: 700,
-              cursor: loading || !email || !password ? 'not-allowed' : 'pointer',
-              boxShadow: loading || !email || !password
+              cursor: loading || !phone || !password ? 'not-allowed' : 'pointer',
+              boxShadow: loading || !phone || !password
                 ? 'none'
                 : '0 4px 14px rgba(6, 182, 212, 0.4)',
               transition: 'all 0.2s',
             }}
             onMouseEnter={e => {
-              if (!loading && email && password) {
+              if (!loading && phone && password) {
                 e.target.style.transform = 'translateY(-1px)';
                 e.target.style.boxShadow = '0 6px 20px rgba(6, 182, 212, 0.5)';
               }
             }}
             onMouseLeave={e => {
               e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = loading || !email || !password
+              e.target.style.boxShadow = loading || !phone || !password
                 ? 'none'
                 : '0 4px 14px rgba(6, 182, 212, 0.4)';
             }}
@@ -161,7 +161,7 @@ export default function AdminLoginPage() {
           marginTop: 24, paddingTop: 24, borderTop: '1px solid rgba(148, 163, 184, 0.1)',
           textAlign: 'center', color: '#64748B', fontSize: 12,
         }}>
-          Default: admin@medicare.uz / admin123
+          Default: +998901234567 / Admin123!
         </div>
       </div>
     </div>
