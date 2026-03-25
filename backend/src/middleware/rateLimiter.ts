@@ -6,7 +6,7 @@ const isDev = env.NODE_ENV === 'development';
 // General API limit — applied to all routes (disabled in dev)
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isDev ? 10000 : 100, // Effectively unlimited in dev
+  max: isDev ? 10000 : 1000, // Increased for testing
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Too many requests. Try again in 15 minutes.' },
@@ -16,7 +16,7 @@ export const apiLimiter = rateLimit({
 // Strict login limit — 5 attempts per IP (disabled in dev)
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isDev ? 10000 : 5,
+  max: isDev ? 10000 : 50, // Increased for testing
   skipSuccessfulRequests: true,
   message: { success: false, error: 'Too many login attempts. Try again in 15 minutes.' },
   skip: () => isDev,
