@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './shared/auth/AuthContext';
 import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect } from './shared/auth/guards';
+import ScrollToTop from './components/ScrollToTop';
 
 // Admin pages
 import NotFoundPage from './shared/pages/NotFoundPage';
@@ -36,6 +37,9 @@ import ClinicDiscounts from './clinic/pages/ClinicDiscounts';
 import ClinicStaff from './clinic/pages/ClinicStaff';
 import ClinicReports from './clinic/pages/ClinicReports';
 
+import HomePage from './pages/home/HomePage';
+import XizmatlarPage from './pages/home/XizmatlarPage';
+import XizmatDetailPage from './pages/home/XizmatDetailPage';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -73,12 +77,17 @@ function App() {
     return (
         <QueryClientProvider client={queryClient}>
             <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <ScrollToTop />
                 <AuthProvider>
                     <Routes>
 
-                        {/* ─── ROOT ────────────────────────────────────── */}
-                        {/* Smart redirect: unauthenticated→/login, SUPER_ADMIN→/admin/dashboard, CLINIC_ADMIN→/clinic/dashboard */}
-                        <Route index element={<RootRedirect />} />
+                        {/* ─── PUBLIC HOME PAGE ────────────────────────── */}
+                        <Route path="/" element={<HomePage />} />
+                        <Route path="/home" element={<HomePage />} />
+
+                        {/* ─── PUBLIC PAGES ────────────────────────────── */}
+                        <Route path="/xizmatlar" element={<XizmatlarPage />} />
+                        <Route path="/xizmatlar/:id" element={<XizmatDetailPage />} />
 
                         {/* ─── CLINIC PUBLIC ROUTES (login shart emas) ─── */}
                         {/* /register — istalgan kishi kirishi mumkin */}

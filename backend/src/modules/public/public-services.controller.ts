@@ -74,10 +74,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
             ...diagnosticLinks.map(link => {
                 const s = link.diagnosticService;
                 const cust = link.customization;
-                const images = cust?.images?.map(img => {
-                    const url = img.url;
-                    return url.startsWith('http') ? url : `http://localhost:5000${url}`;
-                }) ?? [];
+                const images = cust?.images?.map((img: any) => img.url) ?? [];
                 const originalPrice = s.priceRecommended ?? s.priceMin ?? 0;
                 const customPrice = cust?.customPrice ?? originalPrice;
                 const discount = cust?.discountPercent ?? 0;
@@ -127,7 +124,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                     reviews: link.clinic.reviewCount ?? 0,
                     duration,
                     availability: ['offline'],
-                    images: s.imageUrl ? [s.imageUrl.startsWith('http') ? s.imageUrl : `http://localhost:5000${s.imageUrl}`] : [],
+                    images: s.imageUrl ? [s.imageUrl] : [],
                     tags: [],
                     benefits: [],
                     clinic: formatClinic(link.clinic),
@@ -137,9 +134,9 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
             ...sanatoriumLinks.map(link => {
                 const s = link.sanatoriumService;
                 const roomImgs = ((link.roomImages as string[] | null) ?? []).map(url =>
-                    url.startsWith('http') ? url : `http://localhost:5000${url}`
+                    url
                 );
-                const mainImg = s.imageUrl ? (s.imageUrl.startsWith('http') ? s.imageUrl : `http://localhost:5000${s.imageUrl}`) : null;
+                const mainImg = s.imageUrl ?? null;
                 const images = mainImg ? [mainImg, ...roomImgs] : roomImgs;
                 const duration = s.durationDays
                     ? `${s.durationDays} kun`
@@ -179,7 +176,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                     reviews: link.clinic.reviewCount ?? 0,
                     duration: '1 kun',
                     availability: ['offline'],
-                    images: p.imageUrl ? [p.imageUrl.startsWith('http') ? p.imageUrl : `http://localhost:5000${p.imageUrl}`] : [],
+                    images: p.imageUrl ? [p.imageUrl] : [],
                     tags: [],
                     benefits: [],
                     clinic: formatClinic(link.clinic),
@@ -206,7 +203,7 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
         const allImages: string[] = [];
         if (service.imageUrl) {
             const u = service.imageUrl;
-            allImages.push(u.startsWith('http') ? u : `http://localhost:5000${u}`);
+            allImages.push(u);
         }
 
         const clinics = service.clinicLinks.map((link: any) => {
@@ -217,10 +214,7 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
             const discount = cust?.discountPercent ?? 0;
             const finalPrice = discount > 0 ? Math.round(customPrice * (1 - discount / 100)) : customPrice;
 
-            const clinicImages = (cust?.images ?? []).map((img: any) => {
-                const url = img.url;
-                return url.startsWith('http') ? url : `http://localhost:5000${url}`;
-            });
+            const clinicImages = (cust?.images ?? []).map((img: any) => img.url);
             clinicImages.forEach((img: string) => { if (!allImages.includes(img)) allImages.push(img); });
 
             return {
