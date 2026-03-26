@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html><head><title>Simple Image Test</title></head><body>
+<h1>Direct Image Test</h1>
+<img src="/images/1752042615.img1.webp" width="200" style="border:2px solid red">
+<img src="/images/1752043509.img4.webp" width="200" style="border:2px solid blue">
+<img src="http://localhost:5000/uploads/services/service-1773834905554-413212302.png" width="200" style="border:2px solid green">
+<script>
+document.querySelectorAll('img').forEach((img,i) => {
+  img.onload = () => console.log(`✓ Image ${i+1} loaded:`, img.src);
+  img.onerror = () => console.error(`✗ Image ${i+1} failed:`, img.src);
+});
+</script>
+</body></html>

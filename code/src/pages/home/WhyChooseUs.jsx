@@ -44,6 +44,12 @@ export default function WhyChooseUs() {
         <section
             id="why"
             className="cm-why"
+            style={{
+                backgroundImage: "url('/images/1752043088.bg1.webp')",
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right center',
+                backgroundSize: 'cover',
+            }}
         >
             <div className="home-container">
                 <div className="cm-why-grid">

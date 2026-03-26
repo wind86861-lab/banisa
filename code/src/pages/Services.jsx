@@ -27,6 +27,14 @@ const EMPTY_FORM = {
     priceRecommended: '', priceMin: '', priceMax: '',
     durationMinutes: 15, resultTimeHours: 24,
     preparation: '', contraindications: '', sampleType: '',
+    // Extended detail fields
+    sampleVolume: '', resultFormat: '', processDescription: '',
+    resultParameters: [],
+    preparationJson: { fastingHours: '', waterAllowed: true, stopMedications: '', alcoholHours: '', smokingHours: '', exerciseRestriction: '', specialDiet: '', bestTime: '', documents: [], womenWarnings: '' },
+    indicationsJson: { symptoms: [], diseases: [], preventive: '', mandatoryFor: [] },
+    contraindicationsJson: { absolute: [], relative: [], temporary: [], warnings: [] },
+    additionalInfo: { equipment: '', certifications: [], accuracy: '', experience: '', dailyCapacity: '' },
+    bookingPolicy: { prepaymentRequired: false, cancellationPolicy: '', modificationPolicy: '' },
 };
 
 
@@ -211,6 +219,15 @@ const Services = () => {
             preparation: service.preparation || '',
             contraindications: service.contraindications || '',
             sampleType: service.sampleType || '',
+            sampleVolume: service.sampleVolume || '',
+            resultFormat: service.resultFormat || '',
+            processDescription: service.processDescription || '',
+            resultParameters: service.resultParameters || [],
+            preparationJson: service.preparationJson || EMPTY_FORM.preparationJson,
+            indicationsJson: service.indicationsJson || EMPTY_FORM.indicationsJson,
+            contraindicationsJson: service.contraindicationsJson || EMPTY_FORM.contraindicationsJson,
+            additionalInfo: service.additionalInfo || EMPTY_FORM.additionalInfo,
+            bookingPolicy: service.bookingPolicy || EMPTY_FORM.bookingPolicy,
         });
         setFormStep(1);
         setShowForm(true);
@@ -325,9 +342,32 @@ const Services = () => {
             delete payload.parentCatId;
 
             // Clean empty strings to undefined for optional fields
-            ['shortDescription', 'fullDescription', 'preparation', 'contraindications', 'sampleType', 'imageUrl', 'nameRu', 'nameEn'].forEach(key => {
+            ['shortDescription', 'fullDescription', 'preparation', 'contraindications', 'sampleType', 'imageUrl', 'nameRu', 'nameEn', 'sampleVolume', 'resultFormat', 'processDescription'].forEach(key => {
                 if (payload[key] === '') payload[key] = undefined;
             });
+
+            // Convert preparationJson number fields
+            if (payload.preparationJson) {
+                const pj = { ...payload.preparationJson };
+                ['fastingHours', 'alcoholHours', 'smokingHours'].forEach(k => {
+                    if (pj[k] !== undefined && pj[k] !== '' && pj[k] !== null) pj[k] = Number(pj[k]);
+                    else delete pj[k];
+                });
+                payload.preparationJson = pj;
+            }
+
+            // Convert additionalInfo number fields
+            if (payload.additionalInfo?.dailyCapacity !== undefined) {
+                const ai = { ...payload.additionalInfo };
+                if (ai.dailyCapacity !== '' && ai.dailyCapacity !== null) ai.dailyCapacity = Number(ai.dailyCapacity);
+                else delete ai.dailyCapacity;
+                payload.additionalInfo = ai;
+            }
+
+            // Remove empty JSON objects to avoid sending blank data
+            if (payload.resultParameters?.length === 0) payload.resultParameters = undefined;
+            if (payload.indicationsJson && !payload.indicationsJson.symptoms?.length && !payload.indicationsJson.diseases?.length && !payload.indicationsJson.preventive && !payload.indicationsJson.mandatoryFor?.length) payload.indicationsJson = undefined;
+            if (payload.contraindicationsJson && !payload.contraindicationsJson.absolute?.length && !payload.contraindicationsJson.relative?.length && !payload.contraindicationsJson.temporary?.length && !payload.contraindicationsJson.warnings?.length) payload.contraindicationsJson = undefined;
 
             if (editingId) {
                 await api.update(editingId, payload);
@@ -776,7 +816,7 @@ const Services = () => {
                             ) : (
                                 <>
                                     <div className="form-steps">
-                                        {['Asosiy', 'Narx & Vaqt', 'Ko\'rsatmalar'].map((label, i) => (
+                                        {['Asosiy', 'Narx & Vaqt', 'Texnik', 'Tayyorgarlik', 'Indikatsiya', 'Qo\'shimcha'].map((label, i) => (
                                             <div key={i} className={`step ${formStep >= i + 1 ? 'active' : ''}`} onClick={() => setFormStep(i + 1)}>
                                                 {i + 1}. {label}
                                             </div>
@@ -784,118 +824,67 @@ const Services = () => {
                                     </div>
 
                                     <div className="form-content">
+                                        {/* ── Step 1: Asosiy ── */}
                                         {formStep === 1 && (
                                             <div className="step-content">
                                                 <h3>Asosiy Ma'lumotlar</h3>
                                                 <div className="form-group row">
                                                     <div className="col">
                                                         <label>Nomi (UZ) *</label>
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Masalan: Qon klinik tahlili"
-                                                            value={formData.nameUz}
-                                                            onChange={(e) => handleFormChange('nameUz', e.target.value)}
-                                                        />
+                                                        <input type="text" placeholder="Masalan: Qon klinik tahlili" value={formData.nameUz} onChange={(e) => handleFormChange('nameUz', e.target.value)} />
                                                     </div>
                                                     <div className="col">
                                                         <label>Nomi (RU)</label>
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Общий анализ крови"
-                                                            value={formData.nameRu}
-                                                            onChange={(e) => handleFormChange('nameRu', e.target.value)}
-                                                        />
+                                                        <input type="text" placeholder="Общий анализ крови" value={formData.nameRu} onChange={(e) => handleFormChange('nameRu', e.target.value)} />
                                                     </div>
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Nomi (EN)</label>
+                                                    <input type="text" placeholder="Complete Blood Count" value={formData.nameEn} onChange={(e) => handleFormChange('nameEn', e.target.value)} />
                                                 </div>
                                                 <div className="form-group row">
                                                     <div className="col">
                                                         <label>Asosiy Kategoriya *</label>
-                                                        <select
-                                                            value={formData.parentCatId}
-                                                            onChange={(e) => {
-                                                                const pId = e.target.value;
-                                                                setFormData(prev => ({ ...prev, parentCatId: pId, categoryId: '' }));
-                                                            }}
-                                                        >
+                                                        <select value={formData.parentCatId} onChange={(e) => { const pId = e.target.value; setFormData(prev => ({ ...prev, parentCatId: pId, categoryId: '' })); }}>
                                                             <option value="">Tanlang...</option>
-                                                            {(() => {
-                                                                const activeRoot = categories.find(c => c.id === activeRootId);
-                                                                return (activeRoot?.children || []).map(cat => (
-                                                                    <option key={cat.id} value={cat.id}>
-                                                                        {cat.icon || '📁'} {cat.nameUz}
-                                                                    </option>
-                                                                ));
-                                                            })()}
+                                                            {(() => { const ar = categories.find(c => c.id === activeRootId); return (ar?.children || []).map(cat => (<option key={cat.id} value={cat.id}>{cat.icon || '📁'} {cat.nameUz}</option>)); })()}
                                                         </select>
                                                     </div>
                                                     <div className="col">
                                                         <label>Yo'nalish (Sub-kategoriya) *</label>
-                                                        <select
-                                                            value={formData.categoryId}
-                                                            onChange={(e) => handleFormChange('categoryId', e.target.value)}
-                                                            disabled={!formData.parentCatId}
-                                                        >
+                                                        <select value={formData.categoryId} onChange={(e) => handleFormChange('categoryId', e.target.value)} disabled={!formData.parentCatId}>
                                                             <option value="">Tanlang...</option>
-                                                            {(() => {
-                                                                const activeRoot = categories.find(c => c.id === activeRootId);
-                                                                const parent = (activeRoot?.children || []).find(c => c.id === formData.parentCatId);
-                                                                return parent?.children?.map(sub => (
-                                                                    <option key={sub.id} value={sub.id}>
-                                                                        {sub.icon || '•'} {sub.nameUz}
-                                                                    </option>
-                                                                )) || [];
-                                                            })()}
+                                                            {(() => { const ar = categories.find(c => c.id === activeRootId); const p = (ar?.children || []).find(c => c.id === formData.parentCatId); return p?.children?.map(sub => (<option key={sub.id} value={sub.id}>{sub.icon || '•'} {sub.nameUz}</option>)) || []; })()}
                                                         </select>
                                                     </div>
                                                 </div>
                                                 <div className="form-group">
                                                     <label>Qisqa tavsif (max 200 belgi)</label>
-                                                    <textarea
-                                                        rows={3}
-                                                        maxLength={200}
-                                                        value={formData.shortDescription}
-                                                        onChange={(e) => handleFormChange('shortDescription', e.target.value)}
-                                                    />
+                                                    <textarea rows={2} maxLength={200} value={formData.shortDescription} onChange={(e) => handleFormChange('shortDescription', e.target.value)} />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Batafsil tavsif</label>
+                                                    <textarea rows={4} placeholder="Nima uchun kerak, nimani aniqlaydi..." value={formData.fullDescription} onChange={(e) => handleFormChange('fullDescription', e.target.value)} />
                                                 </div>
                                             </div>
                                         )}
 
+                                        {/* ── Step 2: Narx & Vaqt ── */}
                                         {formStep === 2 && (
                                             <div className="step-content">
                                                 <h3>Narx va Vaqt</h3>
                                                 <div className="form-group row">
                                                     <div className="col">
                                                         <label>Minimal narx (UZS) *</label>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            step="1000"
-                                                            placeholder="50000"
-                                                            value={formData.priceMin}
-                                                            onChange={(e) => handleFormChange('priceMin', e.target.value)}
-                                                        />
+                                                        <input type="number" min="0" step="1000" placeholder="50000" value={formData.priceMin} onChange={(e) => handleFormChange('priceMin', e.target.value)} />
                                                     </div>
                                                     <div className="col">
                                                         <label>Tavsiya narx (UZS) *</label>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            step="1000"
-                                                            placeholder="75000"
-                                                            value={formData.priceRecommended}
-                                                            onChange={(e) => handleFormChange('priceRecommended', e.target.value)}
-                                                        />
+                                                        <input type="number" min="0" step="1000" placeholder="75000" value={formData.priceRecommended} onChange={(e) => handleFormChange('priceRecommended', e.target.value)} />
                                                     </div>
                                                     <div className="col">
                                                         <label>Maksimal narx (UZS) *</label>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            step="1000"
-                                                            placeholder="100000"
-                                                            value={formData.priceMax}
-                                                            onChange={(e) => handleFormChange('priceMax', e.target.value)}
-                                                        />
+                                                        <input type="number" min="0" step="1000" placeholder="100000" value={formData.priceMax} onChange={(e) => handleFormChange('priceMax', e.target.value)} />
                                                     </div>
                                                 </div>
                                                 <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '-8px', marginBottom: '12px' }}>
@@ -904,54 +893,202 @@ const Services = () => {
                                                 <div className="form-group row">
                                                     <div className="col">
                                                         <label>Davomiyligi (daqiqa)</label>
-                                                        <input
-                                                            type="number"
-                                                            value={formData.durationMinutes}
-                                                            onChange={(e) => handleFormChange('durationMinutes', e.target.value)}
-                                                        />
+                                                        <input type="number" value={formData.durationMinutes} onChange={(e) => handleFormChange('durationMinutes', e.target.value)} />
                                                     </div>
                                                     <div className="col">
                                                         <label>Natija vaqti (soat)</label>
-                                                        <input
-                                                            type="number"
-                                                            step="0.5"
-                                                            value={formData.resultTimeHours}
-                                                            onChange={(e) => handleFormChange('resultTimeHours', e.target.value)}
-                                                        />
+                                                        <input type="number" step="0.5" value={formData.resultTimeHours} onChange={(e) => handleFormChange('resultTimeHours', e.target.value)} />
                                                     </div>
-                                                </div>
-                                                <div className="form-group">
-                                                    <label>Namuna turi</label>
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Masalan: Venoz qon"
-                                                        value={formData.sampleType}
-                                                        onChange={(e) => handleFormChange('sampleType', e.target.value)}
-                                                    />
                                                 </div>
                                             </div>
                                         )}
 
+                                        {/* ── Step 3: Texnik ma'lumotlar ── */}
                                         {formStep === 3 && (
                                             <div className="step-content">
-                                                <h3>Ko'rsatmalar</h3>
-                                                <div className="form-group">
-                                                    <label>Tayyorgarlik ko'rsatmalari</label>
-                                                    <textarea
-                                                        rows={5}
-                                                        placeholder="- Och qoringa 6-8 soat kelish kerak..."
-                                                        value={formData.preparation}
-                                                        onChange={(e) => handleFormChange('preparation', e.target.value)}
-                                                    />
+                                                <h3>Texnik Ma'lumotlar</h3>
+                                                <div className="form-group row">
+                                                    <div className="col">
+                                                        <label>Namuna turi</label>
+                                                        <input type="text" placeholder="Venoz qon, Siydik..." value={formData.sampleType} onChange={(e) => handleFormChange('sampleType', e.target.value)} />
+                                                    </div>
+                                                    <div className="col">
+                                                        <label>Namuna miqdori</label>
+                                                        <input type="text" placeholder="5 ml" value={formData.sampleVolume} onChange={(e) => handleFormChange('sampleVolume', e.target.value)} />
+                                                    </div>
                                                 </div>
                                                 <div className="form-group">
-                                                    <label>Qarshi ko'rsatmalar</label>
-                                                    <textarea
-                                                        rows={3}
-                                                        placeholder="- Homiladorlik..."
-                                                        value={formData.contraindications}
-                                                        onChange={(e) => handleFormChange('contraindications', e.target.value)}
-                                                    />
+                                                    <label>Natija formati</label>
+                                                    <input type="text" placeholder="PDF, Online, Qog'oz" value={formData.resultFormat} onChange={(e) => handleFormChange('resultFormat', e.target.value)} />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Jarayon tavsifi (Qanday o'tadi)</label>
+                                                    <textarea rows={4} placeholder="Bemor qo'lidan qon olinadi, probirkaga solinadi..." value={formData.processDescription} onChange={(e) => handleFormChange('processDescription', e.target.value)} />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Natija parametrlari</label>
+                                                    <small style={{ color: '#888', display: 'block', marginBottom: 8 }}>Har bir parametr uchun nom, tavsif va normal diapazonni kiriting</small>
+                                                    {(formData.resultParameters || []).map((param, idx) => (
+                                                        <div key={idx} className="form-group row" style={{ alignItems: 'flex-end', marginBottom: 8 }}>
+                                                            <div className="col">
+                                                                <input type="text" placeholder="Parametr nomi" value={param.name || ''} onChange={(e) => { const arr = [...formData.resultParameters]; arr[idx] = { ...arr[idx], name: e.target.value }; handleFormChange('resultParameters', arr); }} />
+                                                            </div>
+                                                            <div className="col">
+                                                                <input type="text" placeholder="Normal diapazon" value={param.normalRange || ''} onChange={(e) => { const arr = [...formData.resultParameters]; arr[idx] = { ...arr[idx], normalRange: e.target.value }; handleFormChange('resultParameters', arr); }} />
+                                                            </div>
+                                                            <button className="btn-icon danger" style={{ marginBottom: 4 }} onClick={() => { const arr = formData.resultParameters.filter((_, i) => i !== idx); handleFormChange('resultParameters', arr); }}>
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    <button className="btn-secondary" style={{ fontSize: 13 }} onClick={() => handleFormChange('resultParameters', [...(formData.resultParameters || []), { name: '', description: '', normalRange: '' }])}>
+                                                        <Plus size={14} /> Parametr qo'shish
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* ── Step 4: Tayyorgarlik ── */}
+                                        {formStep === 4 && (
+                                            <div className="step-content">
+                                                <h3>Tayyorgarlik Ko'rsatmalari</h3>
+                                                <div className="form-group">
+                                                    <label>Umumiy tayyorgarlik (matn)</label>
+                                                    <textarea rows={3} placeholder="- Och qoringa 6-8 soat kelish kerak..." value={formData.preparation} onChange={(e) => handleFormChange('preparation', e.target.value)} />
+                                                </div>
+                                                <div className="form-group row">
+                                                    <div className="col">
+                                                        <label>Och qorin (soat)</label>
+                                                        <input type="number" min="0" max="24" placeholder="8" value={formData.preparationJson?.fastingHours || ''} onChange={(e) => setFormData(p => ({ ...p, preparationJson: { ...p.preparationJson, fastingHours: e.target.value } }))} />
+                                                    </div>
+                                                    <div className="col">
+                                                        <label>Suv ichish mumkinmi?</label>
+                                                        <select value={formData.preparationJson?.waterAllowed === false ? 'no' : 'yes'} onChange={(e) => setFormData(p => ({ ...p, preparationJson: { ...p.preparationJson, waterAllowed: e.target.value === 'yes' } }))}>
+                                                            <option value="yes">Ha</option>
+                                                            <option value="no">Yo'q</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div className="form-group row">
+                                                    <div className="col">
+                                                        <label>Alkogol cheklovi (soat oldin)</label>
+                                                        <input type="number" min="0" placeholder="48" value={formData.preparationJson?.alcoholHours || ''} onChange={(e) => setFormData(p => ({ ...p, preparationJson: { ...p.preparationJson, alcoholHours: e.target.value } }))} />
+                                                    </div>
+                                                    <div className="col">
+                                                        <label>Chekish cheklovi (soat oldin)</label>
+                                                        <input type="number" min="0" placeholder="2" value={formData.preparationJson?.smokingHours || ''} onChange={(e) => setFormData(p => ({ ...p, preparationJson: { ...p.preparationJson, smokingHours: e.target.value } }))} />
+                                                    </div>
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Dorilarni to'xtatish</label>
+                                                    <input type="text" placeholder="Aspirin, antikoagulyantlar..." value={formData.preparationJson?.stopMedications || ''} onChange={(e) => setFormData(p => ({ ...p, preparationJson: { ...p.preparationJson, stopMedications: e.target.value } }))} />
+                                                </div>
+                                                <div className="form-group row">
+                                                    <div className="col">
+                                                        <label>Eng yaxshi vaqt</label>
+                                                        <input type="text" placeholder="Ertalab 8:00-10:00" value={formData.preparationJson?.bestTime || ''} onChange={(e) => setFormData(p => ({ ...p, preparationJson: { ...p.preparationJson, bestTime: e.target.value } }))} />
+                                                    </div>
+                                                    <div className="col">
+                                                        <label>Maxsus dieta</label>
+                                                        <input type="text" placeholder="Yog'li ovqat iste'mol qilmaslik" value={formData.preparationJson?.specialDiet || ''} onChange={(e) => setFormData(p => ({ ...p, preparationJson: { ...p.preparationJson, specialDiet: e.target.value } }))} />
+                                                    </div>
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Jismoniy mashqlar cheklovi</label>
+                                                    <input type="text" placeholder="24 soat oldin og'ir sport qilmaslik" value={formData.preparationJson?.exerciseRestriction || ''} onChange={(e) => setFormData(p => ({ ...p, preparationJson: { ...p.preparationJson, exerciseRestriction: e.target.value } }))} />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Ayollar uchun ogohlantirish</label>
+                                                    <textarea rows={2} placeholder="Homiladorlik, hayz davri..." value={formData.preparationJson?.womenWarnings || ''} onChange={(e) => setFormData(p => ({ ...p, preparationJson: { ...p.preparationJson, womenWarnings: e.target.value } }))} />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* ── Step 5: Indikatsiya & Kontraindikatsiya ── */}
+                                        {formStep === 5 && (
+                                            <div className="step-content">
+                                                <h3>Indikatsiya va Kontraindikatsiya</h3>
+                                                <div className="form-group">
+                                                    <label>Belgilar (qachon kerak) — vergul bilan ajrating</label>
+                                                    <textarea rows={2} placeholder="Zaiflik, Bosh og'rig'i, Tez charchash..." value={(formData.indicationsJson?.symptoms || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, indicationsJson: { ...p.indicationsJson, symptoms: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Kasalliklar uchun tavsiya — vergul bilan ajrating</label>
+                                                    <textarea rows={2} placeholder="Anemiya, Diabet, Tireoid kasalliklari..." value={(formData.indicationsJson?.diseases || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, indicationsJson: { ...p.indicationsJson, diseases: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Kimlar uchun majburiy — vergul bilan ajrating</label>
+                                                    <input type="text" placeholder="Homiladorlar, Operatsiya oldinlari..." value={(formData.indicationsJson?.mandatoryFor || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, indicationsJson: { ...p.indicationsJson, mandatoryFor: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Profilaktik tekshiruv sifatida</label>
+                                                    <input type="text" placeholder="Yiliga 1 marta tavsiya etiladi" value={formData.indicationsJson?.preventive || ''} onChange={(e) => setFormData(p => ({ ...p, indicationsJson: { ...p.indicationsJson, preventive: e.target.value } }))} />
+                                                </div>
+                                                <hr style={{ margin: '16px 0', border: 'none', borderTop: '1px solid #eee' }} />
+                                                <h3>Kontraindikatsiya</h3>
+                                                <div className="form-group">
+                                                    <label>Umumiy matn</label>
+                                                    <textarea rows={2} placeholder="- Homiladorlik..." value={formData.contraindications} onChange={(e) => handleFormChange('contraindications', e.target.value)} />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Absolyut (mutlaqo mumkin emas) — vergul bilan</label>
+                                                    <input type="text" placeholder="Og'ir allergiya..." value={(formData.contraindicationsJson?.absolute || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, contraindicationsJson: { ...p.contraindicationsJson, absolute: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Nisbiy (ehtiyotkorlik bilan) — vergul bilan</label>
+                                                    <input type="text" placeholder="Qon ketish xavfi..." value={(formData.contraindicationsJson?.relative || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, contraindicationsJson: { ...p.contraindicationsJson, relative: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Vaqtinchalik (keyinroq mumkin) — vergul bilan</label>
+                                                    <input type="text" placeholder="Infeksion kasallik davri..." value={(formData.contraindicationsJson?.temporary || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, contraindicationsJson: { ...p.contraindicationsJson, temporary: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* ── Step 6: Qo'shimcha ── */}
+                                        {formStep === 6 && (
+                                            <div className="step-content">
+                                                <h3>Qo'shimcha Ma'lumotlar</h3>
+                                                <div className="form-group row">
+                                                    <div className="col">
+                                                        <label>Zamonaviy uskunalar</label>
+                                                        <input type="text" placeholder="Siemens Atellica..." value={formData.additionalInfo?.equipment || ''} onChange={(e) => setFormData(p => ({ ...p, additionalInfo: { ...p.additionalInfo, equipment: e.target.value } }))} />
+                                                    </div>
+                                                    <div className="col">
+                                                        <label>Aniqlik foizi</label>
+                                                        <input type="text" placeholder="99.5%" value={formData.additionalInfo?.accuracy || ''} onChange={(e) => setFormData(p => ({ ...p, additionalInfo: { ...p.additionalInfo, accuracy: e.target.value } }))} />
+                                                    </div>
+                                                </div>
+                                                <div className="form-group row">
+                                                    <div className="col">
+                                                        <label>Tajriba</label>
+                                                        <input type="text" placeholder="15 yillik tajriba" value={formData.additionalInfo?.experience || ''} onChange={(e) => setFormData(p => ({ ...p, additionalInfo: { ...p.additionalInfo, experience: e.target.value } }))} />
+                                                    </div>
+                                                    <div className="col">
+                                                        <label>Kunlik sig'im</label>
+                                                        <input type="number" min="0" placeholder="500" value={formData.additionalInfo?.dailyCapacity || ''} onChange={(e) => setFormData(p => ({ ...p, additionalInfo: { ...p.additionalInfo, dailyCapacity: e.target.value } }))} />
+                                                    </div>
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Sertifikatlar — vergul bilan</label>
+                                                    <input type="text" placeholder="ISO 15189, CAP..." value={(formData.additionalInfo?.certifications || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, additionalInfo: { ...p.additionalInfo, certifications: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
+                                                </div>
+                                                <hr style={{ margin: '16px 0', border: 'none', borderTop: '1px solid #eee' }} />
+                                                <h3>Buyurtma siyosati</h3>
+                                                <div className="form-group">
+                                                    <label>Oldindan to'lov kerakmi?</label>
+                                                    <select value={formData.bookingPolicy?.prepaymentRequired ? 'yes' : 'no'} onChange={(e) => setFormData(p => ({ ...p, bookingPolicy: { ...p.bookingPolicy, prepaymentRequired: e.target.value === 'yes' } }))}>
+                                                        <option value="no">Yo'q</option>
+                                                        <option value="yes">Ha</option>
+                                                    </select>
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Bekor qilish shartlari</label>
+                                                    <input type="text" placeholder="24 soat oldin bepul bekor qilish..." value={formData.bookingPolicy?.cancellationPolicy || ''} onChange={(e) => setFormData(p => ({ ...p, bookingPolicy: { ...p.bookingPolicy, cancellationPolicy: e.target.value } }))} />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>O'zgartirish shartlari</label>
+                                                    <input type="text" placeholder="12 soat oldin o'zgartirish mumkin..." value={formData.bookingPolicy?.modificationPolicy || ''} onChange={(e) => setFormData(p => ({ ...p, bookingPolicy: { ...p.bookingPolicy, modificationPolicy: e.target.value } }))} />
                                                 </div>
                                             </div>
                                         )}
@@ -965,7 +1102,7 @@ const Services = () => {
                                         >
                                             {formStep === 1 ? 'Bekor qilish' : <><ArrowLeft size={16} /> Orqaga</>}
                                         </button>
-                                        {formStep < 3 ? (
+                                        {formStep < 6 ? (
                                             <button className="btn-primary" onClick={() => setFormStep(s => s + 1)}>
                                                 Keyingisi <ArrowRight size={18} />
                                             </button>

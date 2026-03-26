@@ -63,6 +63,7 @@ export default function ClinicServices() {
     const [customizeService, setCustomizeService] = useState(null);
     // activateDrawerService: service object opened from Aktivlashtirish button
     const [activateDrawerService, setActivateDrawerService] = useState(null);
+    const [activatedClinicServiceId, setActivatedClinicServiceId] = useState(null);
     const [confirmDeactivate, setConfirmDeactivate] = useState(null);
     const [categories, setCategories] = useState([]);
 
@@ -140,11 +141,15 @@ export default function ClinicServices() {
                 throw new Error('Failed to get clinicServiceId from activation');
             }
 
+            // Store the activated clinic service ID so drawer can use it for image uploads
+            setActivatedClinicServiceId(clinicServiceId);
+
             // Step 2: Save customization using the new clinicServiceId
             console.log('📤 Customization payload:', JSON.stringify(customizationData, null, 2));
             await api.put(`/clinic/services/${clinicServiceId}/customization`, customizationData);
 
             setActivateDrawerService(null);
+            setActivatedClinicServiceId(null);
             refetch();
         } catch (err) {
             console.error('Activate + customization error:', err);
@@ -634,10 +639,11 @@ export default function ClinicServices() {
             {/* ═══ ACTIVATE FLOW DRAWER ═══ */}
             <ServiceCustomizationDrawer
                 open={!!activateDrawerService}
-                onClose={() => setActivateDrawerService(null)}
+                onClose={() => { setActivateDrawerService(null); setActivatedClinicServiceId(null); }}
                 service={activateDrawerService}
                 activateMode={true}
                 onSaveAndActivate={handleSaveAndActivate}
+                activatedClinicServiceId={activatedClinicServiceId}
             />
 
             {/* ═══ DEACTIVATE CONFIRM ═══ */}

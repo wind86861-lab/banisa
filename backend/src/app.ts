@@ -18,6 +18,7 @@ import adminRoutes from './modules/admin/admin.routes';
 import clinicAdminRoutes from './modules/clinic/clinic.routes';
 import userRoutes from './modules/user/user.routes';
 import publicRoutes from './modules/public/public.routes';
+import reviewsRoutes from './modules/reviews/reviews.routes';
 import { apiLimiter } from './middleware/rateLimiter';
 
 const app = express();
@@ -58,6 +59,7 @@ app.use('/api/sanatorium', sanatoriumRoutes);
 app.use('/api/clinics', clinicRoutes);
 app.use('/api/admin/clinics', adminClinicRoutes);
 app.use('/api/admin/reviews', adminReviewRoutes);
+app.use('/api/reviews', reviewsRoutes);
 app.use('/api/checkup-packages', checkupPackageRoutes);
 app.use('/api/admin/checkup-packages', adminCheckupPackageRoutes);
 app.use('/api/public', publicRoutes);

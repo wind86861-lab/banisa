@@ -13,12 +13,18 @@ export class CustomizationService {
     }
 
     private async verifyOwnership(clinicServiceId: string, clinicId: string) {
-        const clinicService = await prisma.clinicDiagnosticService.findFirst({
-            where: { id: clinicServiceId, clinicId },
+        const clinicService = await prisma.clinicDiagnosticService.findUnique({
+            where: { id: clinicServiceId },
         });
+
         if (!clinicService) {
             throw new AppError('Xizmat topilmadi', 404, ErrorCodes.NOT_FOUND);
         }
+
+        if (clinicService.clinicId !== clinicId) {
+            throw new AppError('Ruxsat berilmagan', 403, ErrorCodes.FORBIDDEN);
+        }
+
         return clinicService;
     }
 

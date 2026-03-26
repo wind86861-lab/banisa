@@ -4,12 +4,12 @@ import { Link } from 'react-router-dom';
 import './css/Navigation.css';
 
 const NAV_LINKS = [
-    { href: '#home', label: 'Bosh Sahifa' },
-    { href: '#services', label: 'Xizmatlar' },
-    { href: '#how', label: 'Qanday Ishlaydi' },
-    { href: '#clinics', label: 'Klinikalar' },
-    { href: '#why', label: 'Nega Biz' },
-    { href: '#contact', label: 'Aloqa' },
+    { href: '#home', label: 'Bosh Sahifa', isAnchor: true },
+    { href: '/xizmatlar', label: 'Xizmatlar', isAnchor: false },
+    { href: '#how', label: 'Qanday Ishlaydi', isAnchor: true },
+    { href: '#clinics', label: 'Klinikalar', isAnchor: true },
+    { href: '#why', label: 'Nega Biz', isAnchor: true },
+    { href: '#contact', label: 'Aloqa', isAnchor: true },
 ];
 
 export default function Navigation() {
@@ -37,7 +37,9 @@ export default function Navigation() {
                     {/* Desktop links */}
                     <div className="cm-nav-links">
                         {NAV_LINKS.map(l => (
-                            <a key={l.href} href={l.href} className="cm-nav-link">{l.label}</a>
+                            l.isAnchor
+                                ? <a key={l.href} href={l.href} className="cm-nav-link">{l.label}</a>
+                                : <Link key={l.href} to={l.href} className="cm-nav-link">{l.label}</Link>
                         ))}
                     </div>
 
@@ -52,9 +54,9 @@ export default function Navigation() {
 
                 <div className={`cm-mobile-menu${open ? ' open' : ''}`}>
                     {NAV_LINKS.map(l => (
-                        <a key={l.href} href={l.href} className="cm-mobile-link" onClick={() => setOpen(false)}>
-                            {l.label}
-                        </a>
+                        l.isAnchor
+                            ? <a key={l.href} href={l.href} className="cm-mobile-link" onClick={() => setOpen(false)}>{l.label}</a>
+                            : <Link key={l.href} to={l.href} className="cm-mobile-link" onClick={() => setOpen(false)}>{l.label}</Link>
                     ))}
                     <Link to="/login" className="cm-mobile-cta" onClick={() => setOpen(false)}>
                         Navbat Olish

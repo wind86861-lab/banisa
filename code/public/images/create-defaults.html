@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+canvas { display: block; margin: 10px; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+<h2>Generating default service images...</h2>
+<script>
+const categories = [
+  { id: 'diagnostika', name: 'Diagnostika', color: '#00BDE0', icon: '🔬' },
+  { id: 'operatsiya', name: 'Operatsiya', color: '#e74c3c', icon: '⚕️' },
+  { id: 'sanatoriya', name: 'Sanatoriya', color: '#27ae60', icon: '🏥' },
+  { id: 'checkup', name: 'Checkup', color: '#f39c12', icon: '📋' }
+];
+
+categories.forEach(cat => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 800;
+  canvas.height = 600;
+  const ctx = canvas.getContext('2d');
+  
+  // Gradient background
+  const gradient = ctx.createLinearGradient(0, 0, 800, 600);
+  gradient.addColorStop(0, cat.color + '20');
+  gradient.addColorStop(1, cat.color + '10');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 800, 600);
+  
+  // Icon
+  ctx.font = 'bold 200px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = cat.color + '40';
+  ctx.fillText(cat.icon, 400, 250);
+  
+  // Text
+  ctx.font = 'bold 48px Arial';
+  ctx.fillStyle = cat.color;
+  ctx.fillText(cat.name, 400, 450);
+  
+  document.body.appendChild(canvas);
+  
+  // Download link
+  const link = document.createElement('a');
+  link.download = `default-${cat.id}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.textContent = `Download ${cat.name}`;
+  link.style.display = 'block';
+  link.style.margin = '10px';
+  document.body.appendChild(link);
+});
+</script>
+</body>
+</html>

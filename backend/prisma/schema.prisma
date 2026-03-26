@@ -25,6 +25,12 @@ enum UserStatus {
   SUSPENDED
 }
 
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id           String     @id @default(uuid())
   phone        String     @unique
@@ -43,8 +49,9 @@ model User {
   surgicalServices    SurgicalService[]    @relation("SurgicalCreatedBy")
   sanatoriumServices  SanatoriumService[]  @relation("SanatoriumCreatedBy")
 
-  appointments Appointment[]
-  reviews      Review[]
+  appointments   Appointment[]
+  reviews        Review[]
+  serviceReviews ServiceReview[]
 
   @@index([phone])
   @@index([status])
@@ -92,6 +99,20 @@ model DiagnosticService {
   contraindications String? @db.Text
   sampleType        String? @db.VarChar(100)
 
+  // ─── NEW: Extended detail fields ──────────────────────────────────────
+  sampleVolume       String?  @db.VarChar(50)   // e.g. "5 ml"
+  resultFormat       String?  @db.VarChar(200)  // e.g. "PDF, Online, Qog'oz"
+  processDescription String?  @db.Text          // How the procedure works
+
+  // Structured JSON fields
+  resultParameters     Json?  // [{name, description, normalRange}]
+  preparationJson      Json?  // {fastingHours, waterAllowed, stopMedications, alcoholHours, exerciseRestriction, specialDiet, bestTime, documents, womenWarnings}
+  indicationsJson      Json?  // {symptoms:[], diseases:[], preventive:string, mandatoryFor:[]}
+  contraindicationsJson Json? // {absolute:[], relative:[], temporary:[], warnings:[]}
+  additionalInfo       Json?  // {equipment, certifications:[], accuracy, experience, dailyCapacity, labImages:[]}
+  bookingPolicy        Json?  // {prepaymentRequired, cancellationPolicy, modificationPolicy}
+  // ─────────────────────────────────────────────────────────────────────
+
   imageUrl String?
   isActive Boolean @default(true)
 
@@ -103,8 +124,9 @@ model DiagnosticService {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  appointments Appointment[]             @relation("DiagnosticServiceAppointments")
-  clinicLinks  ClinicDiagnosticService[] @relation("DiagnosticServiceClinicLinks")
+  appointments   Appointment[]             @relation("DiagnosticServiceAppointments")
+  clinicLinks    ClinicDiagnosticService[] @relation("DiagnosticServiceClinicLinks")
+  serviceReviews ServiceReview[]
 
   @@index([categoryId])
   @@index([isActive])
@@ -188,8 +210,9 @@ model SurgicalService {
   createdBy User            @relation("SurgicalCreatedBy", fields: [createdById], references: [id])
   category  ServiceCategory @relation(fields: [categoryId], references: [id])
 
-  appointments Appointment[]           @relation("SurgicalServiceAppointments")
-  clinicLinks  ClinicSurgicalService[] @relation("SurgicalServiceClinicLinks")
+  appointments   Appointment[]           @relation("SurgicalServiceAppointments")
+  clinicLinks    ClinicSurgicalService[] @relation("SurgicalServiceClinicLinks")
+  serviceReviews ServiceReview[]
 
   @@index([categoryId])
   @@index([isActive])
@@ -429,6 +452,39 @@ model Review {
   @@index([isActive])
 }
 
+model ServiceReview {
+  id                  String       @id @default(uuid())
+  userId              String
+  diagnosticServiceId String?
+  surgicalServiceId   String?
+  sanatoriumServiceId String?
+  
+  rating              Int          // 1-5 stars
+  comment             String?      @db.Text
+  status              ReviewStatus @default(PENDING)
+  
+  // Admin moderation
+  reviewedBy          String?
+  reviewedAt          DateTime?
+  rejectionReason     String?      @db.Text
+  
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  
+  user              User               @relation(fields: [userId], references: [id])
+  diagnosticService DiagnosticService? @relation(fields: [diagnosticServiceId], references: [id])
+  surgicalService   SurgicalService?   @relation(fields: [surgicalServiceId], references: [id])
+  sanatoriumService SanatoriumService? @relation(fields: [sanatoriumServiceId], references: [id])
+  
+  @@index([diagnosticServiceId])
+  @@index([surgicalServiceId])
+  @@index([sanatoriumServiceId])
+  @@index([userId])
+  @@index([status])
+  @@index([rating])
+  @@index([createdAt])
+}
+
 model ClinicDiagnosticService {
   id                  String   @id @default(uuid())
   clinicId            String
@@ -455,9 +511,17 @@ model ServiceCustomization {
   customNameUz             String?
   customNameRu             String?
 
-  // Custom descriptions
+  // Custom descriptions (short marketing text)
   customDescriptionUz      String?  @db.Text
   customDescriptionRu      String?  @db.Text
+
+  // ─── CLINIC-SPECIFIC FULL CONTENT ───
+  // Full description - how THIS clinic performs the service
+  fullDescriptionUz        String?  @db.Text
+  fullDescriptionRu        String?  @db.Text
+  
+  // Process description - THIS clinic's specific workflow
+  processDescription       String?  @db.Text
 
   // Benefits / features (JSONB array)
   benefits                 Json?
@@ -465,6 +529,26 @@ model ServiceCustomization {
   // Preparation instructions (clinic-specific)
   preparationUz            String?  @db.Text
   preparationRu            String?  @db.Text
+  
+  // ─── CLINIC-SPECIFIC TECHNICAL DETAILS ───
+  // Technical specs at THIS clinic
+  sampleVolume             String?  @db.VarChar(50)   // What THIS clinic needs
+  resultFormat             String?  @db.VarChar(200)  // How THIS clinic delivers
+  resultTimeHours          Float?                     // When THIS clinic delivers
+  
+  // Equipment & Quality at THIS clinic
+  equipment                String?  @db.VarChar(200)  // Equipment THIS clinic uses
+  accuracy                 String?  @db.VarChar(50)   // THIS clinic's accuracy
+  certifications           Json?                      // THIS clinic's certifications
+  
+  // Structured preparation at THIS clinic
+  preparationJson          Json?    // {fastingHours, waterAllowed, stopMedications, bestTime, documents}
+  
+  // Booking policy at THIS clinic
+  bookingPolicy            Json?    // {prepaymentRequired, cancellationPolicy, modificationPolicy}
+  
+  // Additional clinic-specific information
+  additionalInfo           Json?    // {experience, dailyCapacity, specialFeatures}
 
   // Custom category / tags
   customCategory           String?
@@ -687,9 +771,10 @@ model SanatoriumService {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  createdBy   User            @relation("SanatoriumCreatedBy", fields: [createdById], references: [id])
-  category    ServiceCategory @relation(fields: [categoryId], references: [id])
-  clinicLinks ClinicSanatoriumService[] @relation("SanatoriumServiceClinicLinks")
+  createdBy      User                       @relation("SanatoriumCreatedBy", fields: [createdById], references: [id])
+  category       ServiceCategory            @relation(fields: [categoryId], references: [id])
+  clinicLinks    ClinicSanatoriumService[]  @relation("SanatoriumServiceClinicLinks")
+  serviceReviews ServiceReview[]
 
   @@index([categoryId])
   @@index([isActive])

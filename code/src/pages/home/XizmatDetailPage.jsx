@@ -11,6 +11,7 @@ import axios from 'axios';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
 import Footer from './Footer';
+import ReviewSection from '../../components/ReviewSection';
 import './css/base.css';
 import './css/XizmatDetailPage.css';
 
@@ -618,6 +619,12 @@ export default function XizmatDetailPage() {
                     </aside>
                 </div>
             </div>
+
+            {/* ── REVIEWS SECTION ── */}
+            <ReviewSection
+                serviceId={id}
+                serviceType={svc.category?.slug === 'operations' ? 'surgical' : svc.category?.slug === 'sanatorium' ? 'sanatorium' : 'diagnostic'}
+            />
 
             <Footer />
 
