@@ -1,5 +1,8 @@
+// @refresh reset
 import { ArrowUpRight } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import './css/Services.css';
 
 /* ClinicMaster exact SVG icons */
@@ -81,21 +84,114 @@ const NeurologyIcon = () => (
 
 const OrthopedicsIcon = NeurologyIcon;
 
-const ICONS = [AngioplastyIcon, CardiologyIcon, DentalIcon, EndoIcon, EyeCareIcon, LabIcon, NeurologyIcon, OrthopedicsIcon];
+// Map service specialties to appropriate icons
+const getIconForService = (service) => {
+    const specialty = service.specialty?.toLowerCase() || '';
+    const title = service.title?.toLowerCase() || '';
 
-const SERVICES = [
-    { title: 'Angioplasty', desc: 'Those with active infections or uncontrolled health conditions', count: 18 },
-    { title: 'Cardiology', desc: 'Heart and cardiovascular disease treatment services', count: 22 },
-    { title: 'Dental Care', desc: 'Professional dental treatment and care services', count: 20 },
-    { title: 'Endocrinology', desc: 'Hormone and metabolic disease treatment', count: 18 },
-    { title: 'Eye Care', desc: 'Complete eye examination and treatment', count: 22 },
-    { title: 'Laboratory', desc: 'Modern laboratory tests and analysis', count: 18 },
-    { title: 'Neurology', desc: 'Nervous system disease treatment', count: 25 },
-    { title: 'Orthopedics', desc: 'Bone and joint treatment services', count: 20 },
-];
+    // Cardiology
+    if (specialty.includes('kardiolog') || title.includes('yurak') || title.includes('ekg') || title.includes('exo')) {
+        return CardiologyIcon;
+    }
+    // Dental
+    if (specialty.includes('stomatolog') || title.includes('tish') || title.includes('dental')) {
+        return DentalIcon;
+    }
+    // Eye Care
+    if (specialty.includes('oftalmolog') || title.includes('ko\'z') || title.includes('eye')) {
+        return EyeCareIcon;
+    }
+    // Neurology
+    if (specialty.includes('nevrolog') || title.includes('asab') || title.includes('miya')) {
+        return NeurologyIcon;
+    }
+    // Endocrinology
+    if (specialty.includes('endokrinolog') || title.includes('gormon') || title.includes('diabet')) {
+        return EndoIcon;
+    }
+    // Laboratory/Diagnostics
+    if (specialty.includes('laboratoriya') || specialty.includes('diagnostika') || title.includes('tahlil') || title.includes('analiz')) {
+        return LabIcon;
+    }
+    // Angioplasty/Surgery
+    if (specialty.includes('jarroh') || title.includes('operatsiya') || title.includes('angioplast')) {
+        return AngioplastyIcon;
+    }
+    // Orthopedics
+    if (specialty.includes('ortoped') || specialty.includes('travmatolog') || title.includes('suyak') || title.includes('bo\'g\'im')) {
+        return OrthopedicsIcon;
+    }
+
+    // Default to LabIcon for general diagnostics
+    return LabIcon;
+};
 
 export default function Services() {
+    const navigate = useNavigate();
     const [lastHovered, setLastHovered] = useState(null);
+    const [activeTab, setActiveTab] = useState('all');
+    const [services, setServices] = useState([]);
+    const [groupedServices, setGroupedServices] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const TAB_CONFIG = {
+        all: { slug: 'diagnostics', serviceCategory: 'diagnostika' },
+        operations: { slug: 'operations', serviceCategory: 'operatsiya' },
+        sanatorium: { slug: 'sanatorium', serviceCategory: 'sanatoriya' },
+    };
+
+    const handleCardClick = (subcategoryName) => {
+        navigate('/xizmatlar', { state: { selectedSubcategory: subcategoryName } });
+    };
+
+    // Fetch services once on mount
+    useEffect(() => {
+        axios.get('/api/public/services')
+            .then(res => setServices(res.data.data || []))
+            .catch(err => console.error('Failed to fetch services:', err));
+    }, []);
+
+    // Fetch categories FRESH on every tab switch and build cards
+    useEffect(() => {
+        setLastHovered(null);
+        setGroupedServices([]);
+        setLoading(true);
+
+        const config = TAB_CONFIG[activeTab];
+        if (!config) { setLoading(false); return; }
+
+        axios.get('/api/categories')
+            .then(res => {
+                const allCats = res.data.data || [];
+                const parent = allCats.find(c => c.slug === config.slug);
+                if (!parent) { setGroupedServices([]); return; }
+
+                // Extract leaf subcategories from this specific parent only
+                const leaves = [];
+                (parent.children || []).forEach(mid => {
+                    const kids = mid.children && mid.children.length > 0 ? mid.children : [mid];
+                    kids.forEach(leaf => {
+                        if (!leaf.nameUz?.toLowerCase().includes('asosiy')) {
+                            leaves.push({ id: leaf.id, name: leaf.nameUz, icon: leaf.icon });
+                        }
+                    });
+                });
+
+                // Match services to subcategories
+                const filtered = services.filter(s => s.category === config.serviceCategory);
+                const cards = leaves.map(leaf => ({
+                    id: leaf.id,
+                    name: leaf.name,
+                    icon: leaf.icon,
+                    count: filtered.filter(s => s.specialty === leaf.name).length,
+                    services: filtered.filter(s => s.specialty === leaf.name),
+                }));
+
+                setGroupedServices(cards);
+            })
+            .catch(err => console.error('Failed to fetch categories:', err))
+            .finally(() => setLoading(false));
+    }, [activeTab, services]);
 
     const handleMouseEnter = (index) => {
         setLastHovered(index);
@@ -117,38 +213,90 @@ export default function Services() {
                     </button>
                 </div>
 
-                <div className="cm-services-grid">
-                    {SERVICES.map((s, i) => {
-                        const Icon = ICONS[i];
-                        const isHovered = lastHovered === i;
-                        return (
-                            <div
-                                key={i}
-                                className={`cm-svc-card ${isHovered ? 'hovered' : ''}`}
-                                onMouseEnter={() => handleMouseEnter(i)}
-                            >
+                <div className="cm-services-tabs">
+                    <button
+                        className={`cm-service-tab ${activeTab === 'all' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('all')}
+                    >
+                        Diagnostika Xizmatlari
+                    </button>
+                    <button
+                        className={`cm-service-tab ${activeTab === 'operations' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('operations')}
+                    >
+                        Operatsiyalar
+                    </button>
+                    <button
+                        className={`cm-service-tab ${activeTab === 'sanatorium' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('sanatorium')}
+                    >
+                        Sanatoriya
+                    </button>
+                </div>
+
+                <div className="cm-services-grid" key={activeTab}>
+                    {loading ? (
+                        Array.from({ length: 8 }).map((_, i) => (
+                            <div key={i} className="cm-svc-card cm-svc-skeleton">
                                 <div className="cm-svc-head">
-                                    <div className="cm-svc-icon-box">
-                                        <span className="cm-svc-icon-cell"><Icon /></span>
-                                    </div>
-                                    <span className="cm-svc-icon-bg"><Icon /></span>
+                                    <div className="cm-svc-icon-box"><span className="cm-svc-icon-cell" /></div>
                                     <div className="cm-svc-content">
-                                        <h3 className="cm-svc-title">{s.title}</h3>
-                                        <p className="cm-svc-desc">{s.desc}</p>
+                                        <div className="cm-skeleton-line cm-skeleton-title" />
+                                        <div className="cm-skeleton-line cm-skeleton-desc" />
                                     </div>
                                 </div>
                                 <div className="cm-svc-footer">
-                                    <span className="cm-svc-count">
-                                        <span className="cm-svc-dot" />
-                                        {s.count} Doctors
-                                    </span>
+                                    <div className="cm-skeleton-line cm-skeleton-count" />
                                 </div>
-                                <button className="cm-svc-arrow">
-                                    <ArrowUpRight size={20} />
-                                </button>
                             </div>
-                        );
-                    })}
+                        ))
+                    ) : groupedServices.length > 0 ? (
+                        groupedServices.map((group, i) => {
+                            const Icon = group.services[0] ? getIconForService(group.services[0]) : LabIcon;
+                            const isHovered = lastHovered === i;
+                            return (
+                                <div
+                                    key={`${activeTab}-${group.name}`}
+                                    className={`cm-svc-card ${isHovered ? 'hovered' : ''}`}
+                                    onMouseEnter={() => handleMouseEnter(i)}
+                                    onClick={() => handleCardClick(group.name)}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    <div className="cm-svc-head">
+                                        <div className="cm-svc-icon-box">
+                                            {group.icon ? (
+                                                <span className="cm-svc-icon-cell" dangerouslySetInnerHTML={{ __html: group.icon }} />
+                                            ) : (
+                                                <span className="cm-svc-icon-cell"><Icon /></span>
+                                            )}
+                                        </div>
+                                        {group.icon ? (
+                                            <span className="cm-svc-icon-bg" dangerouslySetInnerHTML={{ __html: group.icon }} />
+                                        ) : (
+                                            <span className="cm-svc-icon-bg"><Icon /></span>
+                                        )}
+                                        <div className="cm-svc-content">
+                                            <h3 className="cm-svc-title">{group.name}</h3>
+                                            <p className="cm-svc-desc">Professional {group.name.toLowerCase()} services</p>
+                                        </div>
+                                    </div>
+                                    <div className="cm-svc-footer">
+                                        <span className="cm-svc-count">
+                                            <span className="cm-svc-dot" />
+                                            {group.count} {group.count === 1 ? 'Xizmat' : 'Xizmatlar'}
+                                        </span>
+                                    </div>
+                                    <button className="cm-svc-arrow">
+                                        <ArrowUpRight size={20} />
+                                    </button>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <div className="cm-no-services">
+                            <p>Hozircha xizmatlar mavjud emas</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </section>
