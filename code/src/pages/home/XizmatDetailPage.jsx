@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useUserAuth } from '../../shared/auth/UserAuthContext';
+import UserAuthModal from './UserAuthModal';
 import {
     ArrowLeft, Clock, Star, Phone, MapPin, Calendar, Building2, Share2,
     Heart, Award, Shield, Users, Zap, TrendingUp, Activity, Beaker,
@@ -20,12 +22,31 @@ const fmt = (n) => n ? Number(n).toLocaleString('uz-UZ') : '0';
 export default function XizmatDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useUserAuth();
     const [svc, setSvc] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [liked, setLiked] = useState(false);
     const [galleryIdx, setGalleryIdx] = useState(0);
     const [lightbox, setLightbox] = useState(false);
+    const [showAuthModal, setShowAuthModal] = useState(false);
+
+    const handleBooking = (clinic = null) => {
+        // Prevent event object from being passed as clinic parameter
+        const selectedClinic = (clinic && typeof clinic === 'object' && clinic.id) ? clinic : activeClinic;
+
+        if (!user) {
+            setShowAuthModal(true);
+        } else {
+            navigate(`/user/book/${id}`, {
+                state: {
+                    serviceType: 'DIAGNOSTIC',
+                    serviceData: svc,
+                    selectedClinic: selectedClinic,
+                },
+            });
+        }
+    };
 
     useEffect(() => {
         setLoading(true);
@@ -62,7 +83,10 @@ export default function XizmatDetailPage() {
 
     const clinics = svc.clinics || [];
     const related = svc.relatedServices || [];
-    const images = svc.images || [];
+    // Fix image URLs - prepend backend URL if they start with /uploads
+    const images = (svc.images || []).map(img =>
+        img.startsWith('/uploads') ? `http://localhost:5000${img}` : img
+    );
     const catName = svc.category?.nameUz || 'Diagnostika';
     const parentCat = svc.category?.parent?.nameUz || '';
 
@@ -481,8 +505,8 @@ export default function XizmatDetailPage() {
                                         <Link to={`/klinikalar/${clinics[0].id}`} className="xd-btn-secondary xd-btn-large">
                                             <Info size={18} /> Klinika haqida batafsil
                                         </Link>
-                                        <button className="xd-btn-primary xd-btn-large">
-                                            <Calendar size={18} /> Qabulga yozilish
+                                        <button className="xd-btn-primary xd-btn-large" onClick={handleBooking}>
+                                            <Calendar size={18} /> Bron qilish
                                         </button>
                                     </div>
                                 </div>
@@ -530,8 +554,8 @@ export default function XizmatDetailPage() {
                                 )}
                             </div>
                             <div className="xd-sb-body">
-                                <button className="xd-sb-book-btn">
-                                    <Calendar size={20} /> Qabulga yozilish
+                                <button className="xd-sb-book-btn" onClick={handleBooking}>
+                                    <Calendar size={20} /> Bron qilish
                                 </button>
                                 <div className="xd-sb-actions">
                                     <button className={`xd-sb-action ${liked ? 'liked' : ''}`} onClick={() => setLiked(!liked)}>
@@ -627,6 +651,23 @@ export default function XizmatDetailPage() {
             />
 
             <Footer />
+
+            {showAuthModal && (
+                <UserAuthModal
+                    isOpen={showAuthModal}
+                    onClose={() => setShowAuthModal(false)}
+                    onSuccess={() => {
+                        setShowAuthModal(false);
+                        navigate(`/user/book/${id}`, {
+                            state: {
+                                serviceType: 'DIAGNOSTIC',
+                                serviceData: svc,
+                                selectedClinic: activeClinic,
+                            },
+                        });
+                    }}
+                />
+            )}
 
             {/* ── LIGHTBOX ── */}
             {lightbox && images.length > 0 && (

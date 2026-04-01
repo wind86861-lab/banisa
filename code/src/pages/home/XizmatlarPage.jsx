@@ -74,9 +74,16 @@ const FALLBACK_IMAGES = {
 
 function ServiceCard({ service, listView }) {
     const cat = CATEGORIES.find(c => c.id === service.category);
-    const imgSrc = (service.images && service.images.length > 0)
+
+    // Fix image URL - add backend base URL if it's a relative path
+    let imgSrc = (service.images && service.images.length > 0)
         ? service.images[0]
         : (FALLBACK_IMAGES[service.category] || FALLBACK_IMAGES.diagnostika);
+
+    if (imgSrc && imgSrc.startsWith('/uploads')) {
+        imgSrc = `http://localhost:5000${imgSrc}`;
+    }
+
     const rating = typeof service.rating === 'number' ? service.rating : 0;
 
     return (

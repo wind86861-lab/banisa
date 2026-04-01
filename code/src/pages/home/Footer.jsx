@@ -45,6 +45,9 @@ export default function Footer() {
                                 <img src="/images/1752849488.logo-white.svg" alt="BANISA" style={{ maxWidth: 160 }} />
                             </div>
                             <p>BANISA — zamonaviy tibbiyot markazi. Biz sizning sog'lig'ingizni birinchi o'ringa qo'yamiz. Malakali mutaxassislar va ilg'or texnologiyalar yordamida eng yaxshi tibbiy xizmatlarni taqdim etamiz.</p>
+                            <p style={{ marginTop: '12px', fontSize: '13px', color: 'rgba(255,255,255,0.7)', fontStyle: 'italic' }}>
+                                🏥 Kasalxonaga onlayn bron qilish tizimi — Tez, qulay va xavfsiz
+                            </p>
                         </div>
                         <div className="cm-footer-col">
                             <h4 className="cm-footer-col-title">Xizmatlar</h4>

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './shared/auth/AuthContext';
-import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect } from './shared/auth/guards';
+import { UserAuthProvider } from './shared/auth/UserAuthContext';
+import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect, UserGuard, UserPublicOnlyGuard } from './shared/auth/guards';
 import ScrollToTop from './components/ScrollToTop';
 
 // Admin pages
@@ -18,7 +19,7 @@ import CheckupPackages from './pages/CheckupPackages';
 import ClinicCheckupPackages from './pages/ClinicCheckupPackages';
 import PublicCheckupPackages from './pages/PublicCheckupPackages';
 import AdminProfile from './pages/AdminProfile';
-import ClinicDetailPage from './admin/pages/clinics/ClinicDetailPage';
+import AdminClinicDetailPage from './admin/pages/clinics/ClinicDetailPage';
 
 // Clinic registration pages
 import RegisterPage from './clinic-registration/pages/RegisterPage';
@@ -36,10 +37,23 @@ import ClinicBookings from './clinic/pages/ClinicBookings';
 import ClinicDiscounts from './clinic/pages/ClinicDiscounts';
 import ClinicStaff from './clinic/pages/ClinicStaff';
 import ClinicReports from './clinic/pages/ClinicReports';
+import ClinicNotifications from './clinic/pages/ClinicNotifications';
 
 import HomePage from './pages/home/HomePage';
 import XizmatlarPage from './pages/home/XizmatlarPage';
 import XizmatDetailPage from './pages/home/XizmatDetailPage';
+import ClinicsPage from './pages/home/ClinicsPage';
+import ClinicDetailPage from './pages/home/ClinicDetailPage';
+import UserLoginPage from './pages/user/UserLoginPage';
+import UserSignupPage from './pages/user/UserSignupPage';
+import UserDashboard from './user/pages/UserDashboard';
+import UserProfilePage from './user/pages/UserProfile';
+import UserAppointments from './user/pages/UserAppointments';
+import BookingPage from './user/pages/BookingPage';
+import CheckoutPage from './user/pages/CheckoutPage';
+import BookingSuccessPage from './user/pages/BookingSuccessPage';
+import PaymePage from './pages/payment/PaymePage';
+import PaymentResultPage from './pages/payment/PaymentResultPage';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -79,85 +93,105 @@ function App() {
             <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <ScrollToTop />
                 <AuthProvider>
-                    <Routes>
+                    <UserAuthProvider>
+                        <Routes>
 
-                        {/* ─── PUBLIC HOME PAGE ────────────────────────── */}
-                        <Route path="/" element={<HomePage />} />
-                        <Route path="/home" element={<HomePage />} />
+                            {/* ─── PUBLIC HOME PAGE ────────────────────────── */}
+                            <Route path="/" element={<HomePage />} />
+                            <Route path="/home" element={<HomePage />} />
 
-                        {/* ─── PUBLIC PAGES ────────────────────────────── */}
-                        <Route path="/xizmatlar" element={<XizmatlarPage />} />
-                        <Route path="/xizmatlar/:id" element={<XizmatDetailPage />} />
+                            {/* ─── PUBLIC PAGES ────────────────────────────── */}
+                            <Route path="/xizmatlar" element={<XizmatlarPage />} />
+                            <Route path="/xizmatlar/:id" element={<XizmatDetailPage />} />
+                            <Route path="/klinikalar" element={<ClinicsPage />} />
+                            <Route path="/klinikalar/:id" element={<ClinicDetailPage />} />
 
-                        {/* ─── CLINIC PUBLIC ROUTES (login shart emas) ─── */}
-                        {/* /register — istalgan kishi kirishi mumkin */}
-                        <Route path="/register" element={<RegisterPage />} />
-                        <Route path="/register/success" element={<RegisterSuccessPage />} />
+                            {/* ─── USER AUTH ROUTES (PATIENT) ──────────────── */}
+                            <Route path="/user/login" element={<UserPublicOnlyGuard><UserLoginPage /></UserPublicOnlyGuard>} />
+                            <Route path="/user/signup" element={<UserPublicOnlyGuard><UserSignupPage /></UserPublicOnlyGuard>} />
 
-                        {/* /login — clinic admin login only */}
-                        <Route path="/login" element={
-                            <ClinicPublicOnlyGuard><ClinicLoginPage /></ClinicPublicOnlyGuard>
-                        } />
+                            {/* ─── USER PROTECTED ROUTES (PATIENT) ─────────── */}
+                            <Route path="/user/dashboard" element={<UserGuard><UserDashboard /></UserGuard>} />
+                            <Route path="/user/profile" element={<UserGuard><UserProfilePage /></UserGuard>} />
+                            <Route path="/user/appointments" element={<UserGuard><UserAppointments /></UserGuard>} />
+                            <Route path="/user/book/:serviceId" element={<UserGuard><BookingPage /></UserGuard>} />
+                            <Route path="/user/checkout" element={<UserGuard><CheckoutPage /></UserGuard>} />
+                            <Route path="/user/booking-success" element={<UserGuard><BookingSuccessPage /></UserGuard>} />
 
-                        {/* ─── CLINIC AUTH ROUTES ──────────────────────── */}
-                        <Route path="/status" element={
-                            <StatusGuard><StatusPage /></StatusGuard>
-                        } />
-                        <Route path="/welcome" element={
-                            <ClinicGuard><WelcomePage /></ClinicGuard>
-                        } />
+                            {/* ─── PAYMENT (PAYME) ─────────────────────────── */}
+                            <Route path="/payment" element={<PaymePage />} />
+                            <Route path="/payment/result" element={<PaymentResultPage />} />
 
-                        {/* ─── CLINIC PANEL (APPROVED + CLINIC_ADMIN) ──── */}
-                        <Route path="/clinic" element={
-                            <ClinicGuard><ClinicLayout /></ClinicGuard>
-                        }>
-                            <Route index element={<Navigate to="dashboard" replace />} />
-                            <Route path="dashboard" element={<ClinicDashboard />} />
-                            <Route path="services" element={<ClinicServices />} />
-                            <Route path="profile" element={<ClinicProfile />} />
-                            <Route path="bookings" element={<ClinicBookings />} />
-                            <Route path="discounts" element={<ClinicDiscounts />} />
-                            <Route path="staff" element={<ClinicStaff />} />
-                            <Route path="reports" element={<ClinicReports />} />
-                        </Route>
+                            {/* ─── CLINIC REGISTRATION ─────────────────────── */}
+                            <Route path="/register" element={
+                                <ClinicPublicOnlyGuard><RegisterPage /></ClinicPublicOnlyGuard>
+                            } />
+                            <Route path="/register/success" element={<RegisterSuccessPage />} />
+                            <Route path="/login" element={
+                                <ClinicPublicOnlyGuard><ClinicLoginPage /></ClinicPublicOnlyGuard>
+                            } />
 
-                        {/* ─── ADMIN LOGIN ─────────────────────────────── */}
-                        <Route path="/admin/login" element={
-                            <AdminPublicOnlyGuard><AdminLoginPage /></AdminPublicOnlyGuard>
-                        } />
+                            {/* ─── CLINIC AUTH ROUTES ──────────────────────── */}
+                            <Route path="/status" element={
+                                <StatusGuard><StatusPage /></StatusGuard>
+                            } />
+                            <Route path="/welcome" element={
+                                <ClinicGuard><WelcomePage /></ClinicGuard>
+                            } />
 
-                        {/* ─── ADMIN PANEL ─────────────────────────────── */}
-                        <Route path="/admin" element={
-                            <SuperAdminGuard><AdminLayout /></SuperAdminGuard>
-                        }>
-                            <Route index element={<Navigate to="dashboard" replace />} />
-                            <Route path="dashboard" element={<Dashboard />} />
-                            <Route path="services" element={<Services />} />
-                            <Route path="clinics" element={<Clinics />} />
-                            <Route path="clinics/:id" element={<ClinicDetailPage />} />
-                            <Route path="packages" element={<CheckupPackages />} />
-                            <Route path="clinic-packages" element={<ClinicCheckupPackages />} />
-                            <Route path="public-packages" element={<PublicCheckupPackages />} />
-                            <Route path="profile" element={<AdminProfile />} />
-                            <Route path="clinic-registrations" element={<Navigate to="/admin/clinics" replace />} />
-                        </Route>
+                            {/* ─── CLINIC PANEL (APPROVED + CLINIC_ADMIN) ──── */}
+                            <Route path="/clinic" element={
+                                <ClinicGuard><ClinicLayout /></ClinicGuard>
+                            }>
+                                <Route index element={<Navigate to="dashboard" replace />} />
+                                <Route path="dashboard" element={<ClinicDashboard />} />
+                                <Route path="services" element={<ClinicServices />} />
+                                <Route path="profile" element={<ClinicProfile />} />
+                                <Route path="bookings" element={<ClinicBookings />} />
+                                <Route path="discounts" element={<ClinicDiscounts />} />
+                                <Route path="staff" element={<ClinicStaff />} />
+                                <Route path="reports" element={<ClinicReports />} />
+                                <Route path="notifications" element={<ClinicNotifications />} />
+                            </Route>
 
-                        {/* ─── LEGACY REDIRECTS ────────────────────────── */}
-                        <Route path="/clinic-registration" element={<Navigate to="/register" replace />} />
-                        <Route path="/services" element={<Navigate to="/admin/services" replace />} />
-                        <Route path="/clinics" element={<Navigate to="/admin/clinics" replace />} />
-                        <Route path="/packages" element={<Navigate to="/admin/packages" replace />} />
-                        <Route path="/clinic-packages" element={<Navigate to="/admin/clinic-packages" replace />} />
-                        <Route path="/public-packages" element={<Navigate to="/admin/public-packages" replace />} />
-                        <Route path="/clinic-registrations" element={<Navigate to="/admin/clinics" replace />} />
+                            {/* ─── ADMIN LOGIN ─────────────────────────────── */}
+                            <Route path="/admin/login" element={
+                                <AdminPublicOnlyGuard><AdminLoginPage /></AdminPublicOnlyGuard>
+                            } />
 
-                        {/* ─── ERROR PAGES ─────────────────────────────── */}
-                        <Route path="/403" element={<ForbiddenPage />} />
+                            {/* ─── ADMIN PANEL ─────────────────────────────── */}
+                            <Route path="/admin" element={
+                                <SuperAdminGuard><AdminLayout /></SuperAdminGuard>
+                            }>
+                                <Route index element={<Navigate to="dashboard" replace />} />
+                                <Route path="dashboard" element={<Dashboard />} />
+                                <Route path="services" element={<Services />} />
+                                <Route path="clinics" element={<Clinics />} />
+                                <Route path="clinics/:id" element={<AdminClinicDetailPage />} />
+                                <Route path="packages" element={<CheckupPackages />} />
+                                <Route path="clinic-packages" element={<ClinicCheckupPackages />} />
+                                <Route path="public-packages" element={<PublicCheckupPackages />} />
+                                <Route path="profile" element={<AdminProfile />} />
+                                <Route path="clinic-registrations" element={<Navigate to="/admin/clinics" replace />} />
+                            </Route>
 
-                        {/* ─── 404 — MUST BE LAST ──────────────────────── */}
-                        <Route path="*" element={<NotFoundPage />} />
+                            {/* ─── LEGACY REDIRECTS ────────────────────────── */}
+                            <Route path="/clinic-registration" element={<Navigate to="/register" replace />} />
+                            <Route path="/services" element={<Navigate to="/admin/services" replace />} />
+                            <Route path="/clinics" element={<Navigate to="/admin/clinics" replace />} />
+                            <Route path="/packages" element={<Navigate to="/admin/packages" replace />} />
+                            <Route path="/clinic-packages" element={<Navigate to="/admin/clinic-packages" replace />} />
+                            <Route path="/public-packages" element={<Navigate to="/admin/public-packages" replace />} />
+                            <Route path="/clinic-registrations" element={<Navigate to="/admin/clinics" replace />} />
 
-                    </Routes>
+                            {/* ─── ERROR PAGES ─────────────────────────────── */}
+                            <Route path="/403" element={<ForbiddenPage />} />
+
+                            {/* ─── 404 — MUST BE LAST ──────────────────────── */}
+                            <Route path="*" element={<NotFoundPage />} />
+
+                        </Routes>
+                    </UserAuthProvider>
                 </AuthProvider>
             </Router>
         </QueryClientProvider>

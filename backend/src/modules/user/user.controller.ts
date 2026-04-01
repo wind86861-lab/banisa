@@ -62,6 +62,18 @@ export class UserController {
     };
 
     /**
+     * Create an appointment
+     */
+    createAppointment = async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            const appointment = await userService.createAppointment(req.user!.id, req.body);
+            sendSuccess(res, appointment, null, 'Bron muvaffaqiyatli yaratildi', 201);
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    /**
      * Create a review
      */
     createReview = async (req: AuthRequest, res: Response, next: NextFunction) => {

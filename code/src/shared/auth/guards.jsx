@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import { useUserAuth } from './UserAuthContext';
 import HomePage from '../../pages/home/HomePage';
 
 const AuthLoading = () => (
@@ -66,7 +67,7 @@ export const ClinicGuard = ({ children }) => {
   const { user, isLoading } = useAuth();
   const location = useLocation();
   if (isLoading) return <AuthLoading />;
-  if (!user) return <Navigate to="/" state={{ from: location }} replace />;
+  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
   if (user.role === 'SUPER_ADMIN') return <Navigate to="/403" replace />;
   if (user.role === 'PENDING_CLINIC') return <Navigate to="/status" replace />;
   if (user.role !== 'CLINIC_ADMIN') return <Navigate to="/403" replace />;
@@ -75,15 +76,51 @@ export const ClinicGuard = ({ children }) => {
 };
 
 // ─── STATUS GUARD ─────────────────────────────────────────────────────────
-// For /status and /welcome — requires login; approved clinic admin goes to panel
+// For /status and /welcome — requires clinic admin login; approved clinic admin goes to panel
 export const StatusGuard = ({ children }) => {
   const { user, isLoading } = useAuth();
+  const { user: patientUser } = useUserAuth();
+
   if (isLoading) return <AuthLoading />;
-  if (!user) return <Navigate to="/" replace />;
+
+  // If patient is logged in, redirect to patient dashboard
+  if (patientUser?.role === 'PATIENT') return <Navigate to="/user/dashboard" replace />;
+
+  // If no clinic admin user, redirect to login
+  if (!user) return <Navigate to="/login" replace />;
+
+  // Super admin should not see status page
   if (user.role === 'SUPER_ADMIN') return <Navigate to="/admin/dashboard" replace />;
+
   // Allow PENDING_CLINIC to see status page
   if (user.role === 'PENDING_CLINIC') return children;
+
   // Approved CLINIC_ADMIN should go to dashboard
   if (user.role === 'CLINIC_ADMIN' && user.status === 'APPROVED') return <Navigate to="/clinic/dashboard" replace />;
+
+  return children;
+};
+
+// ─── USER (PATIENT) GUARD ─────────────────────────────────────────────────
+// Protects /user/* routes — only authenticated PATIENT can enter
+export const UserGuard = ({ children }) => {
+  const { user, isLoading } = useUserAuth();
+  const location = useLocation();
+  if (isLoading) return <AuthLoading />;
+  if (!user) return <Navigate to="/user/login" state={{ from: location.pathname }} replace />;
+  if (user.role !== 'PATIENT') return <Navigate to="/403" replace />;
+  return children;
+};
+
+// ─── USER PUBLIC ONLY GUARD ───────────────────────────────────────────────
+// For /user/login and /user/signup — redirect already-logged-in users
+export const UserPublicOnlyGuard = ({ children }) => {
+  const { user: clinicUser, isLoading: clinicLoading } = useAuth();
+  const { user: patientUser, isLoading: patientLoading } = useUserAuth();
+  if (clinicLoading || patientLoading) return <AuthLoading />;
+  // Already logged in — redirect to correct dashboard
+  if (patientUser?.role === 'PATIENT') return <Navigate to="/user/dashboard" replace />;
+  if (clinicUser?.role === 'SUPER_ADMIN') return <Navigate to="/admin/dashboard" replace />;
+  if (clinicUser?.role === 'CLINIC_ADMIN') return <Navigate to="/clinic/dashboard" replace />;
   return children;
 };

@@ -1,0 +1,347 @@
+/* User Appointments - Match Home Page Design System */
+
+.ua-main {
+    padding-top: 100px;
+    padding-bottom: 80px;
+}
+
+/* Breadcrumb */
+.ua-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.ua-breadcrumb a {
+    color: #00BDE0;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.ua-breadcrumb a:hover {
+    color: #0891b2;
+}
+
+.ua-breadcrumb span {
+    color: #1a103d;
+    font-weight: 500;
+}
+
+/* Page Header */
+.ua-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 34px;
+    font-weight: 800;
+    color: #1a103d;
+    margin: 0 0 8px;
+}
+
+.ua-subtitle {
+    font-size: 15px;
+    color: #6b7280;
+    margin: 0 0 32px;
+}
+
+/* Filter Tabs */
+.ua-filters {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+}
+
+.ua-filter-btn {
+    padding: 10px 24px;
+    border-radius: 50px;
+    border: 1.5px solid #e2e8f0;
+    background: #ffffff;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.ua-filter-btn:hover {
+    border-color: #00BDE0;
+    color: #00BDE0;
+}
+
+.ua-filter-btn.active {
+    background: #00BDE0;
+    border-color: #00BDE0;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 189, 224, 0.25);
+}
+
+/* Loading */
+.ua-loading {
+    padding: 80px 20px;
+    text-align: center;
+    color: #6b7280;
+}
+
+/* Empty State */
+.ua-empty {
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
+    padding: 80px 32px;
+    text-align: center;
+}
+
+.ua-empty-icon {
+    color: #d1d5db;
+    margin-bottom: 24px;
+}
+
+.ua-empty h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1a103d;
+    margin: 0 0 8px;
+}
+
+.ua-empty p {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0 0 28px;
+}
+
+.ua-empty-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 28px;
+    background: linear-gradient(135deg, #00BDE0, #0891b2);
+    color: #ffffff;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.ua-empty-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 189, 224, 0.3);
+}
+
+/* Appointments List */
+.ua-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Appointment Card */
+.ua-card {
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 80px 1fr auto;
+    gap: 24px;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.ua-card:hover {
+    box-shadow: 0 8px 32px rgba(10, 36, 99, 0.12);
+    transform: translateY(-2px);
+}
+
+/* Date Block */
+.ua-date {
+    width: 80px;
+    padding: 16px 12px;
+    background: #f0f9ff;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.ua-date-day {
+    font-size: 28px;
+    font-weight: 700;
+    color: #00BDE0;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.ua-date-month {
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: uppercase;
+}
+
+/* Details */
+.ua-details {
+    flex: 1;
+}
+
+.ua-details-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.ua-details-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a103d;
+    margin: 0;
+}
+
+.ua-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.ua-details-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.ua-info-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.ua-info-item svg {
+    color: #00BDE0;
+}
+
+.ua-service-tag {
+    padding: 4px 10px;
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Price & Action */
+.ua-price {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.ua-price-amount {
+    font-size: 20px;
+    font-weight: 700;
+    color: #00BDE0;
+}
+
+.ua-details-btn {
+    padding: 8px 20px;
+    background: transparent;
+    border: 1.5px solid #e2e8f0;
+    color: #6b7280;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ua-details-btn:hover {
+    border-color: #00BDE0;
+    color: #00BDE0;
+}
+
+/* Pagination */
+.ua-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 40px;
+}
+
+.ua-page-btn {
+    padding: 10px 24px;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    color: #1a103d;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.ua-page-btn:hover:not(:disabled) {
+    border-color: #00BDE0;
+    color: #00BDE0;
+    transform: translateY(-2px);
+}
+
+.ua-page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.ua-page-info {
+    padding: 10px 20px;
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .ua-main {
+        padding-top: 80px;
+    }
+
+    .ua-title {
+        font-size: 28px;
+    }
+
+    .ua-card {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .ua-date {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .ua-date-day {
+        font-size: 24px;
+    }
+
+    .ua-price {
+        align-items: flex-start;
+    }
+
+    .ua-filters {
+        gap: 8px;
+    }
+
+    .ua-filter-btn {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+}

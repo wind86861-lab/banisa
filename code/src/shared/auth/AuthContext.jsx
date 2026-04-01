@@ -46,7 +46,6 @@ export const AuthProvider = ({ children }) => {
       // 1. SessionStorage da token bormi? → API call shart emas
       const existingToken = tokenStorage.getToken();
       const existingUser = tokenStorage.getUser();
-
       if (existingToken && existingUser) {
         if (!isTokenExpired(existingToken)) {
           setAccessToken(existingToken);
@@ -54,24 +53,24 @@ export const AuthProvider = ({ children }) => {
           setIsLoading(false);
           return;
         }
-        // Token expired or malformed — clear and attempt cookie refresh below
         tokenStorage.clear();
         clearAccessToken();
       }
 
-      // 2. Cookie orqali refresh — singleton promise (StrictMode fix)
+      // 2. No sessionStorage data - try cookie refresh (only for CLINIC_ADMIN)
+
       if (!restorePromise) {
         restorePromise = axiosInstance
           .post('/auth/refresh')
           .then(res => res.data)
-          .catch(() => null)
+          .catch(() => {
+            return null;
+          })
           .finally(() => {
-            // 5 sekund keyin reset — keyingi sahifa yuklanishi uchun
             setTimeout(() => { restorePromise = null; }, 5000);
           });
       }
 
-      // Ikkinchi mount ham shu promise ni kutadi → yangi API call YO'Q
       const data = await restorePromise;
 
       if (data) {
@@ -80,8 +79,6 @@ export const AuthProvider = ({ children }) => {
 
         if (token && userData) {
           // SECURITY: SUPER_ADMIN must always log in explicitly each browser session.
-          // Cookie-based silent restore is blocked for admins.
-          // Mid-session page reloads still work because sessionStorage is checked above.
           if (userData.role === 'SUPER_ADMIN') {
             clearAccessToken();
             tokenStorage.clear();
@@ -99,8 +96,7 @@ export const AuthProvider = ({ children }) => {
           setUser(null);
         }
       } else {
-        // 401 — cookie yo'q yoki muddati o'tgan → bu NORMAL holat
-        // Login sahifasida bo'lsa — xato emas, shunchaki loginsiz
+        // No cookie refresh available - user needs to login
         tokenStorage.clear();
         clearAccessToken();
         setUser(null);
@@ -112,9 +108,9 @@ export const AuthProvider = ({ children }) => {
     restoreSession();
   }, []);
 
-  // ─── SUPER ADMIN login — phone + password → /api/auth/admin/login ──────────
-  const loginAdmin = async (phone, password) => {
-    const { data } = await axiosInstance.post('/auth/admin/login', { phone, password });
+  // ─── SUPER ADMIN login — EMAIL + password → /api/auth/admin/login ─────────
+  const loginAdmin = async (email, password) => {
+    const { data } = await axiosInstance.post('/auth/admin/login', { email, password });
     const token = data.data?.accessToken ?? data.accessToken;
     const userData = data.data?.user ?? data.user;
     if (!token || !userData) throw new Error('Login muvaffaqiyatsiz');

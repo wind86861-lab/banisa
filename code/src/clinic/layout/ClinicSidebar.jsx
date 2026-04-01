@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
     Home, Briefcase, Calendar, Tag,
     Building2, Users, BarChart2,
-    LogOut, ChevronDown, Activity,
+    LogOut, ChevronDown, Activity, Bell,
 } from 'lucide-react';
 import { useAuth } from '../../shared/auth/AuthContext';
+import api from '../../shared/api/axios';
 import '../../components/Sidebar.css';
 import './ClinicSidebar.css';
 
@@ -14,26 +16,42 @@ const NAV_GROUPS = [
     {
         title: 'ASOSIY',
         items: [
-            { key: 'dashboard',  label: 'Dashboard',        path: '/clinic/dashboard',  icon: <Home size={20} /> },
-            { key: 'services',   label: 'Xizmatlar',        path: '/clinic/services',   icon: <Briefcase size={20} /> },
-            { key: 'bookings',   label: 'Bronlar',           path: '/clinic/bookings',   icon: <Calendar size={20} /> },
-            { key: 'discounts',  label: 'Chegirmalar',       path: '/clinic/discounts',  icon: <Tag size={20} /> },
+            { key: 'dashboard', label: 'Dashboard', path: '/clinic/dashboard', icon: <Home size={20} /> },
+            { key: 'services', label: 'Xizmatlar', path: '/clinic/services', icon: <Briefcase size={20} /> },
+            { key: 'bookings', label: 'Bronlar', path: '/clinic/bookings', icon: <Calendar size={20} /> },
+            { key: 'discounts', label: 'Chegirmalar', path: '/clinic/discounts', icon: <Tag size={20} /> },
         ],
     },
     {
         title: 'BOSHQARUV',
         items: [
-            { key: 'profile',    label: 'Klinika Profili',  path: '/clinic/profile',    icon: <Building2 size={20} /> },
-            { key: 'staff',      label: 'Xodimlar',         path: '/clinic/staff',      icon: <Users size={20} /> },
-            { key: 'reports',    label: 'Hisobotlar',        path: '/clinic/reports',    icon: <BarChart2 size={20} /> },
+            { key: 'profile', label: 'Klinika Profili', path: '/clinic/profile', icon: <Building2 size={20} /> },
+            { key: 'staff', label: 'Xodimlar', path: '/clinic/staff', icon: <Users size={20} /> },
+            { key: 'notifications', label: 'Bildirishnomalar', path: '/clinic/notifications', icon: <Bell size={20} /> },
+            { key: 'reports', label: 'Hisobotlar', path: '/clinic/reports', icon: <BarChart2 size={20} /> },
         ],
     },
 ];
 
+function useUnreadCount() {
+    return useQuery({
+        queryKey: ['clinic', 'notifications', 'unread-count'],
+        queryFn: async () => {
+            try {
+                const { data } = await api.get('/clinic/notifications', { params: { isRead: false, limit: 1 } });
+                return data.data?.unreadCount ?? 0;
+            } catch { return 0; }
+        },
+        refetchInterval: 60_000,
+        staleTime: 30_000,
+    });
+}
+
 export default function ClinicSidebar({ isOpen, toggleSidebar }) {
-    const navigate  = useNavigate();
-    const location  = useLocation();
+    const navigate = useNavigate();
+    const location = useLocation();
     const { user, logout } = useAuth();
+    const { data: unreadCount = 0 } = useUnreadCount();
 
     const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 
@@ -86,8 +104,31 @@ export default function ClinicSidebar({ isOpen, toggleSidebar }) {
                                             onClick={(e) => { e.preventDefault(); navigate(item.path); }}
                                             title={!isOpen ? item.label : undefined}
                                         >
-                                            <span className="icon">{item.icon}</span>
+                                            <span className="icon" style={{ position: 'relative' }}>
+                                                {item.icon}
+                                                {item.key === 'notifications' && unreadCount > 0 && (
+                                                    <span style={{
+                                                        position: 'absolute', top: -4, right: -4,
+                                                        background: '#ef4444', color: '#fff',
+                                                        borderRadius: '50%', width: 14, height: 14,
+                                                        fontSize: 9, fontWeight: 700,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        lineHeight: 1,
+                                                    }}>
+                                                        {unreadCount > 9 ? '9+' : unreadCount}
+                                                    </span>
+                                                )}
+                                            </span>
                                             {isOpen && <span className="label text-truncate">{item.label}</span>}
+                                            {isOpen && item.key === 'notifications' && unreadCount > 0 && (
+                                                <span style={{
+                                                    marginLeft: 'auto', background: '#ef4444', color: '#fff',
+                                                    borderRadius: 20, fontSize: 10, fontWeight: 700,
+                                                    padding: '1px 6px', lineHeight: '16px',
+                                                }}>
+                                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                                </span>
+                                            )}
                                         </a>
                                     </li>
                                 ))}

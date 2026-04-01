@@ -1,0 +1,218 @@
+/* CheckoutPage - matches home page design system */
+
+.co-main {
+    padding-top: 100px;
+    padding-bottom: 80px;
+}
+
+.co-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+    font-size: 14px;
+    color: #6b7280;
+}
+.co-breadcrumb a { color: #00BDE0; text-decoration: none; }
+.co-breadcrumb span { color: #1a103d; font-weight: 500; }
+
+.co-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 34px;
+    font-weight: 800;
+    color: #1a103d;
+    margin: 0 0 32px;
+}
+
+.co-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 32px;
+    align-items: start;
+}
+
+.co-card {
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 4px 24px rgba(10, 36, 99, 0.06);
+}
+
+.co-card-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a103d;
+    margin: 0 0 24px;
+}
+
+.co-info-section {
+    margin-bottom: 0;
+}
+
+.co-info-section h4 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 6px;
+}
+
+.co-info-section h4 svg {
+    color: #00BDE0;
+}
+
+.co-info-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a103d;
+    margin: 0 0 4px;
+}
+
+.co-info-desc {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.co-divider {
+    height: 1px;
+    background: #f1f5f9;
+    margin: 20px 0;
+}
+
+.co-info-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+/* Payment summary */
+.co-price-breakdown {
+    margin-bottom: 24px;
+}
+
+.co-price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    font-size: 14px;
+    color: #374151;
+}
+
+.co-green { color: #059669; font-weight: 600; }
+
+.co-price-divider {
+    height: 1px;
+    background: #e2e8f0;
+    margin: 4px 0;
+}
+
+.co-price-total {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a103d;
+    padding-top: 14px;
+}
+
+.co-price-total span:last-child {
+    color: #00BDE0;
+    font-size: 20px;
+}
+
+.co-payment-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 14px;
+}
+
+.co-payment-methods {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+.co-payment-opt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 8px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    transition: all 0.2s;
+}
+.co-payment-opt:hover { border-color: #00BDE0; }
+.co-payment-opt.selected { border-color: #00BDE0; background: #f0fbff; color: #00BDE0; }
+.co-payment-opt span:first-child { font-size: 24px; }
+
+.co-confirm-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px 28px;
+    background: linear-gradient(135deg, #00C9A7, #0891b2);
+    border: none;
+    color: #ffffff;
+    border-radius: 50px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 16px;
+}
+.co-confirm-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0, 201, 167, 0.35); }
+.co-confirm-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.co-note {
+    font-size: 12px;
+    color: #9ca3af;
+    text-align: center;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.co-error {
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: #FEE2E2;
+    color: #991B1B;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Right panel sticky */
+.co-payment {
+    position: sticky;
+    top: 110px;
+}
+
+@media (max-width: 900px) {
+    .co-layout { grid-template-columns: 1fr; }
+    .co-payment { position: static; }
+}
+
+@media (max-width: 640px) {
+    .co-card { padding: 20px; }
+    .co-title { font-size: 28px; }
+    .co-info-row { grid-template-columns: 1fr; }
+    .co-payment-methods { grid-template-columns: 1fr; flex-direction: row; display: flex; }
+}

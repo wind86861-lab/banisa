@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Star, ThumbsUp, MessageSquare, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { useServiceReviews, useMyReview, useSubmitReview } from '../hooks/useReviews';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../shared/auth/AuthContext';
+import { useUserAuth } from '../shared/auth/UserAuthContext';
 import './ReviewSection.css';
 
 function StarRating({ rating, onRate, readonly = false }) {
@@ -94,7 +96,7 @@ function ReviewForm({ serviceId, serviceType, onSuccess }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (rating === 0) {
             alert('Iltimos, baho bering');
             return;
@@ -107,7 +109,7 @@ function ReviewForm({ serviceId, serviceType, onSuccess }) {
                 rating,
                 comment: comment.trim() || undefined,
             });
-            
+
             setRating(0);
             setComment('');
             setShowForm(false);
@@ -130,7 +132,7 @@ function ReviewForm({ serviceId, serviceType, onSuccess }) {
     return (
         <form className="rs-form" onSubmit={handleSubmit}>
             <h3 className="rs-form-title">Sharh qoldiring</h3>
-            
+
             <div className="rs-form-group">
                 <label className="rs-form-label">Baho *</label>
                 <StarRating rating={rating} onRate={setRating} />
@@ -185,7 +187,11 @@ function ReviewForm({ serviceId, serviceType, onSuccess }) {
 }
 
 export default function ReviewSection({ serviceId, serviceType }) {
-    const { user } = useAuth();
+    const { user: clinicUser } = useAuth();
+    const { user: patientUser } = useUserAuth();
+    const user = patientUser || clinicUser;
+    const navigate = useNavigate();
+    const location = useLocation();
     const { data: reviewsData, isLoading } = useServiceReviews(serviceId, serviceType);
     const { data: myReview } = useMyReview(serviceId, serviceType);
 
@@ -232,33 +238,13 @@ export default function ReviewSection({ serviceId, serviceType }) {
                     <div className="rs-user-section">
                         {myReview ? (
                             <div className="rs-user-review-status">
-                                {myReview.status === 'PENDING' && (
-                                    <div className="rs-alert rs-alert-info">
-                                        <AlertCircle size={20} />
-                                        <div>
-                                            <strong>Sharhingiz ko'rib chiqilmoqda</strong>
-                                            <p>Moderatsiyadan o'tgandan keyin sharhingiz ko'rsatiladi.</p>
-                                        </div>
+                                <div className="rs-alert rs-alert-success">
+                                    <CheckCircle size={20} />
+                                    <div>
+                                        <strong>Sharhingiz qabul qilindi</strong>
+                                        <p>Rahmat! Sizning sharhingiz quyida ko'rsatilgan.</p>
                                     </div>
-                                )}
-                                {myReview.status === 'APPROVED' && (
-                                    <div className="rs-alert rs-alert-success">
-                                        <CheckCircle size={20} />
-                                        <div>
-                                            <strong>Sharhingiz tasdiqlandi</strong>
-                                            <p>Rahmat! Sizning sharhingiz quyida ko'rsatilgan.</p>
-                                        </div>
-                                    </div>
-                                )}
-                                {myReview.status === 'REJECTED' && (
-                                    <div className="rs-alert rs-alert-warning">
-                                        <AlertCircle size={20} />
-                                        <div>
-                                            <strong>Sharhingiz rad etildi</strong>
-                                            {myReview.rejectionReason && <p>{myReview.rejectionReason}</p>}
-                                        </div>
-                                    </div>
-                                )}
+                                </div>
                             </div>
                         ) : (
                             <ReviewForm serviceId={serviceId} serviceType={serviceType} />
@@ -267,7 +253,13 @@ export default function ReviewSection({ serviceId, serviceType }) {
                 ) : (
                     <div className="rs-login-prompt">
                         <AlertCircle size={20} />
-                        <p>Sharh qoldirish uchun <a href="/login">tizimga kiring</a></p>
+                        <p>Sharh qoldirish uchun tizimga kiring</p>
+                        <button
+                            className="rs-login-btn"
+                            onClick={() => navigate('/user/login', { state: { from: location.pathname } })}
+                        >
+                            Tizimga kirish
+                        </button>
                     </div>
                 )}
 

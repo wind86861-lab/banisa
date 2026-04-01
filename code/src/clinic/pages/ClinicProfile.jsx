@@ -2,17 +2,245 @@ import { useState, useEffect } from 'react';
 import {
     Building2, Phone, Mail, Globe, MapPin,
     FileText, Save, Loader2, CheckCircle2, Edit3,
-    Clock, Settings,
+    Clock, Settings, CalendarDays, CheckCircle, XCircle,
 } from 'lucide-react';
 import { useClinicProfile, useUpdateProfile } from '../hooks/useClinicData';
+import { useWorkingHours, useUpdateWorkingHours } from '../hooks/useServiceSettings';
 import './clinic-admin.css';
 
 const TABS = [
     { key: 'basic', label: 'Asosiy', icon: <Building2 size={15} /> },
     { key: 'contact', label: 'Aloqa', icon: <Phone size={15} /> },
+    { key: 'schedule', label: 'Ish Jadval', icon: <CalendarDays size={15} /> },
     { key: 'license', label: 'Litsenziya', icon: <FileText size={15} /> },
     { key: 'settings', label: 'Sozlamalar', icon: <Settings size={15} /> },
 ];
+
+const DAYS = [
+    { key: 'monday', label: 'Dushanba' },
+    { key: 'tuesday', label: 'Seshanba' },
+    { key: 'wednesday', label: 'Chorshanba' },
+    { key: 'thursday', label: 'Payshanba' },
+    { key: 'friday', label: 'Juma' },
+    { key: 'saturday', label: 'Shanba' },
+    { key: 'sunday', label: 'Yakshanba' },
+];
+const DEFAULT_DAY = { start: '08:00', end: '20:00', isDayOff: false };
+
+// Backend → Frontend
+const fromBackend = (data) => {
+    if (!data) return {};
+    const result = {};
+    for (const [key, val] of Object.entries(data)) {
+        if (!val || typeof val !== 'object') continue;
+        result[key] = {
+            start: val.openTime ?? val.start ?? '08:00',
+            end: val.closeTime ?? val.end ?? '20:00',
+            isDayOff: val.isDayOff ?? !val.isOpen ?? false,
+        };
+    }
+    return result;
+};
+
+// Frontend → Backend (matches backend Zod schema: { start, end, isDayOff })
+const toBackend = (data) => {
+    if (!data) return {};
+    const result = {};
+    for (const [key, val] of Object.entries(data)) {
+        if (!val || typeof val !== 'object') continue;
+        result[key] = {
+            start: val.start ?? val.openTime ?? '08:00',
+            end: val.end ?? val.closeTime ?? '20:00',
+            isDayOff: val.isDayOff ?? false,
+        };
+    }
+    return result;
+};
+
+function ScheduleTab() {
+    const { data: savedHours, isLoading } = useWorkingHours();
+    const updateMut = useUpdateWorkingHours();
+    const [hours, setHours] = useState({});
+    const [saved, setSaved] = useState(false);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        if (savedHours) setHours(fromBackend(savedHours));
+    }, [savedHours]);
+
+    const setDay = (key, patch) =>
+        setHours(prev => ({ ...prev, [key]: { ...(prev[key] ?? DEFAULT_DAY), ...patch } }));
+
+    const handleSave = async () => {
+        setSaved(false);
+        setError(null);
+        const payload = toBackend(hours);
+        console.log('📤 Saving working hours payload:', JSON.stringify(payload, null, 2));
+        try {
+            await updateMut.mutateAsync(payload);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err) {
+            console.error('❌ Save error:', err);
+            console.error('📛 Error details:', err?.response?.data);
+
+            // Extract error message from nested structure
+            const errorData = err?.response?.data;
+            let errorMsg = 'Saqlashda xatolik yuz berdi';
+
+            if (errorData?.error?.message) {
+                errorMsg = errorData.error.message;
+            } else if (errorData?.message) {
+                errorMsg = errorData.message;
+            } else if (typeof errorData?.error === 'string') {
+                errorMsg = errorData.error;
+            }
+
+            setError(errorMsg);
+        }
+    };
+
+    if (isLoading) return (
+        <div className="ca-loading"><Loader2 size={24} className="ca-spin" /><span>Yuklanmoqda...</span></div>
+    );
+
+    return (
+        <div className="ca-section-card">
+            <div className="ca-section-head">
+                <span className="ca-section-title"><Clock size={16} /> Ish vaqtlari</span>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Har bir kun uchun ish boshlanish va tugash vaqtini belgilang</span>
+            </div>
+            <div className="ca-section-body">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {DAYS.map(({ key, label }) => {
+                        const day = hours[key] ?? DEFAULT_DAY;
+                        return (
+                            <div key={key} style={{
+                                display: 'flex', alignItems: 'center', gap: 16,
+                                padding: '14px 18px',
+                                borderRadius: 10,
+                                border: '1.5px solid',
+                                borderColor: day.isDayOff ? 'var(--border-color)' : '#1dbfc1',
+                                background: day.isDayOff ? 'var(--hover-bg)' : 'rgba(29,191,193,0.04)',
+                                flexWrap: 'wrap',
+                            }}>
+                                <span style={{
+                                    minWidth: 110, fontWeight: 600, fontSize: 14,
+                                    color: day.isDayOff ? 'var(--text-muted)' : 'var(--text-main)',
+                                }}>
+                                    {label}
+                                </span>
+
+                                <label style={{
+                                    display: 'flex', alignItems: 'center', gap: 7,
+                                    cursor: 'pointer', userSelect: 'none',
+                                    minWidth: 130, fontSize: 13,
+                                    color: day.isDayOff ? '#ef4444' : 'var(--text-muted)',
+                                    fontWeight: 500,
+                                }}>
+                                    <div
+                                        onClick={() => setDay(key, { isDayOff: !day.isDayOff })}
+                                        style={{
+                                            width: 38, height: 20, borderRadius: 10, flexShrink: 0,
+                                            background: day.isDayOff ? '#ef4444' : '#e2e8f0',
+                                            position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+                                        }}
+                                    >
+                                        <div style={{
+                                            position: 'absolute', top: 2,
+                                            left: day.isDayOff ? 20 : 2,
+                                            width: 16, height: 16, borderRadius: '50%',
+                                            background: '#fff',
+                                            transition: 'left 0.2s',
+                                            boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                                        }} />
+                                    </div>
+                                    Dam olish
+                                </label>
+
+                                {!day.isDayOff && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 220 }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Boshlanish</span>
+                                            <input
+                                                type="time"
+                                                value={day.start ?? '08:00'}
+                                                onChange={e => setDay(key, { start: e.target.value })}
+                                                step={300}
+                                                style={{
+                                                    padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border-color)',
+                                                    fontSize: 14, fontWeight: 600, color: 'var(--text-main)',
+                                                    background: 'var(--card-bg)', cursor: 'pointer',
+                                                }}
+                                            />
+                                        </div>
+                                        <span style={{ color: 'var(--text-muted)', fontWeight: 700, fontSize: 16, marginTop: 16 }}>—</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Tugash</span>
+                                            <input
+                                                type="time"
+                                                value={day.end ?? '20:00'}
+                                                onChange={e => setDay(key, { end: e.target.value })}
+                                                step={300}
+                                                style={{
+                                                    padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border-color)',
+                                                    fontSize: 14, fontWeight: 600, color: 'var(--text-main)',
+                                                    background: 'var(--card-bg)', cursor: 'pointer',
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 4, color: '#10b981', fontSize: 13, fontWeight: 600 }}>
+                                            <CheckCircle size={14} /> Ochiq
+                                        </div>
+                                    </div>
+                                )}
+                                {day.isDayOff && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#ef4444', fontSize: 13, fontWeight: 600 }}>
+                                        <XCircle size={14} /> Yopiq
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {saved && (
+                    <div style={{
+                        marginTop: 16, padding: '12px 16px', background: '#f0fdf4',
+                        border: '1px solid #bbf7d0', borderRadius: 10,
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        color: '#15803d', fontWeight: 600, fontSize: 14,
+                    }}>
+                        <CheckCircle2 size={16} /> Ish vaqtlari muvaffaqiyatli saqlandi
+                    </div>
+                )}
+
+                {error && (
+                    <div style={{
+                        marginTop: 16, padding: '12px 16px', background: '#fef2f2',
+                        border: '1px solid #fecaca', borderRadius: 10,
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        color: '#dc2626', fontWeight: 600, fontSize: 14,
+                    }}>
+                        <XCircle size={16} /> {typeof error === 'string' ? error : error?.message || 'Xatolik yuz berdi'}
+                    </div>
+                )}
+
+                <button
+                    className="ca-btn-primary"
+                    style={{ marginTop: 20 }}
+                    onClick={handleSave}
+                    disabled={updateMut.isPending}
+                >
+                    {updateMut.isPending
+                        ? <><Loader2 size={14} className="ca-spin" /> Saqlanmoqda...</>
+                        : <><Save size={14} /> Jadval saqlash</>
+                    }
+                </button>
+            </div>
+        </div>
+    );
+}
 
 const CLINIC_TYPES = [
     { value: 'GENERAL', label: 'Umumiy klinika' },
@@ -266,6 +494,9 @@ export default function ClinicProfile() {
                     </div>
                 </>
             )}
+
+            {/* ── SCHEDULE ── */}
+            {tab === 'schedule' && <ScheduleTab />}
 
             {/* ── LICENSE ── */}
             {tab === 'license' && (

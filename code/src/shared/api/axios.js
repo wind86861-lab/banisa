@@ -39,7 +39,7 @@ api.interceptors.response.use(
     const original = error.config;
 
     // Never intercept the refresh endpoint itself — would cause infinite loop
-    const isRefreshCall = original.url?.includes('/auth/refresh');
+    const isRefreshCall = original.url?.includes('/auth/refresh') || original.url?.includes('/user/auth/refresh');
     if (error.response?.status !== 401 || original._retry || isRefreshCall) {
       return Promise.reject(error);
     }
@@ -76,8 +76,18 @@ api.interceptors.response.use(
       const refreshStatus = refreshError?.response?.status;
       if (typeof window !== 'undefined' && refreshStatus === 401) {
         const storedUser = tokenStorage.getUser();
-        const loginUrl = storedUser?.role === 'SUPER_ADMIN' ? '/admin/login' : '/';
+        let loginUrl = '/';
+        if (storedUser?.role === 'SUPER_ADMIN') {
+          loginUrl = '/admin/login';
+        } else if (storedUser?.role === 'CLINIC_ADMIN' || storedUser?.role === 'PENDING_CLINIC') {
+          loginUrl = '/login';
+        } else if (storedUser?.role === 'PATIENT') {
+          loginUrl = '/user/login';
+        }
         tokenStorage.clear();
+        // Also clear patient storage
+        sessionStorage.removeItem('user_access_token');
+        sessionStorage.removeItem('user_data');
         window.location.href = loginUrl;
       }
       return Promise.reject(refreshError);

@@ -1,0 +1,215 @@
+/* ─── USER AUTH MODAL ──────────────────────────────────────────────────── */
+.uam-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(3, 27, 78, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+    animation: uamFadeIn 0.3s ease;
+}
+
+@keyframes uamFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.uam-modal {
+    background: white;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    animation: uamSlideUp 0.3s ease;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes uamSlideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.uam-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: #f8f9fa;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #495057;
+}
+
+.uam-close:hover {
+    background: #e9ecef;
+    transform: rotate(90deg);
+}
+
+.uam-header {
+    padding: 40px 40px 24px;
+    text-align: center;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.uam-header h2 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #031B4E;
+    margin: 0 0 8px 0;
+}
+
+.uam-header p {
+    font-size: 15px;
+    color: #6c757d;
+    margin: 0;
+}
+
+.uam-form {
+    padding: 32px 40px;
+}
+
+.uam-form-group {
+    margin-bottom: 20px;
+}
+
+.uam-form-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 8px;
+}
+
+.uam-form-group label svg {
+    color: #00BDE0;
+}
+
+.uam-form-group input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: inherit;
+    transition: all 0.3s ease;
+}
+
+.uam-form-group input:focus {
+    outline: none;
+    border-color: #00BDE0;
+    box-shadow: 0 0 0 3px rgba(0, 189, 224, 0.1);
+}
+
+.uam-form-group input::placeholder {
+    color: #adb5bd;
+}
+
+.uam-error {
+    padding: 12px 16px;
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 8px;
+    color: #856404;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.uam-submit {
+    width: 100%;
+    padding: 14px 24px;
+    background: #00BDE0;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.uam-submit:hover:not(:disabled) {
+    background: #0099b8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 189, 224, 0.3);
+}
+
+.uam-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.uam-footer {
+    padding: 0 40px 40px;
+    text-align: center;
+}
+
+.uam-footer p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.uam-toggle {
+    background: none;
+    border: none;
+    color: #00BDE0;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    font-size: 14px;
+    text-decoration: underline;
+}
+
+.uam-toggle:hover {
+    color: #0099b8;
+}
+
+/* ─── RESPONSIVE ───────────────────────────────────────────────────────── */
+@media (max-width: 576px) {
+    .uam-modal {
+        max-width: 100%;
+        border-radius: 16px 16px 0 0;
+        margin-top: auto;
+    }
+
+    .uam-header {
+        padding: 32px 24px 20px;
+    }
+
+    .uam-header h2 {
+        font-size: 24px;
+    }
+
+    .uam-form {
+        padding: 24px;
+    }
+
+    .uam-footer {
+        padding: 0 24px 32px;
+    }
+}

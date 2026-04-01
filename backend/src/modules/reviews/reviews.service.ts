@@ -12,17 +12,17 @@ export class ReviewsService {
         comment?: string
     ) {
         // Check if service exists
-        const serviceField = serviceType === 'diagnostic' 
-            ? 'diagnosticService' 
-            : serviceType === 'surgical' 
-            ? 'surgicalService' 
-            : 'sanatoriumService';
-        
+        const serviceField = serviceType === 'diagnostic'
+            ? 'diagnosticService'
+            : serviceType === 'surgical'
+                ? 'surgicalService'
+                : 'sanatoriumService';
+
         const serviceIdField = serviceType === 'diagnostic'
             ? 'diagnosticServiceId'
             : serviceType === 'surgical'
-            ? 'surgicalServiceId'
-            : 'sanatoriumServiceId';
+                ? 'surgicalServiceId'
+                : 'sanatoriumServiceId';
 
         const service = await (prisma as any)[serviceField].findUnique({
             where: { id: serviceId },
@@ -44,14 +44,14 @@ export class ReviewsService {
             throw new AppError('Siz allaqachon bu xizmatga sharh qoldirgan ekansiz', 400, ErrorCodes.VALIDATION_ERROR);
         }
 
-        // Create review
+        // Create review - auto-approve (no moderation)
         const review = await prisma.serviceReview.create({
             data: {
                 userId,
                 [serviceIdField]: serviceId,
                 rating,
                 comment,
-                status: ReviewStatus.PENDING,
+                status: ReviewStatus.APPROVED,
             },
             include: {
                 user: {
@@ -77,8 +77,8 @@ export class ReviewsService {
         const serviceIdField = serviceType === 'diagnostic'
             ? 'diagnosticServiceId'
             : serviceType === 'surgical'
-            ? 'surgicalServiceId'
-            : 'sanatoriumServiceId';
+                ? 'surgicalServiceId'
+                : 'sanatoriumServiceId';
 
         const reviews = await prisma.serviceReview.findMany({
             where: {
@@ -281,8 +281,8 @@ export class ReviewsService {
         const serviceIdField = serviceType === 'diagnostic'
             ? 'diagnosticServiceId'
             : serviceType === 'surgical'
-            ? 'surgicalServiceId'
-            : 'sanatoriumServiceId';
+                ? 'surgicalServiceId'
+                : 'sanatoriumServiceId';
 
         const review = await prisma.serviceReview.findFirst({
             where: {

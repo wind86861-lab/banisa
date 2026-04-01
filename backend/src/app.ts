@@ -17,9 +17,11 @@ import checkupPackageRoutes, { adminCheckupPackageRoutes } from './modules/check
 import adminRoutes from './modules/admin/admin.routes';
 import clinicAdminRoutes from './modules/clinic/clinic.routes';
 import userRoutes from './modules/user/user.routes';
+import userAuthRoutes from './modules/user-auth/user-auth.routes';
 import publicRoutes from './modules/public/public.routes';
 import reviewsRoutes from './modules/reviews/reviews.routes';
 import { apiLimiter } from './middleware/rateLimiter';
+import paymeRoutes from './modules/payme/payme.routes';
 
 const app = express();
 
@@ -51,6 +53,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/user/auth', userAuthRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/diagnostics', diagnosticRoutes);
@@ -65,6 +68,7 @@ app.use('/api/admin/checkup-packages', adminCheckupPackageRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/clinic', clinicAdminRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/payme', paymeRoutes);
 
 // ─── Serve frontend in production ────────────────────────────────────────────
 if (env.NODE_ENV === 'production') {

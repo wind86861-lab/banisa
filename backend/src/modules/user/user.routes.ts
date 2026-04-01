@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { userController } from './user.controller';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
 import { validate } from '../../middleware/validate.middleware';
-import { updateProfileSchema, createReviewSchema } from './user.validation';
+import { updateProfileSchema, createReviewSchema, createAppointmentSchema } from './user.validation';
 
 /**
  * User Routes
@@ -19,6 +19,7 @@ router.put('/profile', validate(updateProfileSchema), userController.updateProfi
 
 // Patient-specific routes
 router.get('/appointments', requireRole(['PATIENT']), userController.getAppointments);
+router.post('/appointments', requireRole(['PATIENT']), validate(createAppointmentSchema), userController.createAppointment);
 router.get('/reviews', requireRole(['PATIENT']), userController.getReviews);
 router.post('/reviews', requireRole(['PATIENT']), validate(createReviewSchema), userController.createReview);
 

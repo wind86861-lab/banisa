@@ -18,4 +18,8 @@ export const env = {
     CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
     CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
     CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    // Payme (Paycom) integration
+    PAYME_MERCHANT_ID: process.env.PAYME_MERCHANT_ID || '6899d73ecab302211ad27f12',
+    PAYME_TEST_KEY: process.env.PAYME_TEST_KEY || 'C@@TTQqZfvjXmmTFR0p54B@i9mhdz8GIzMmw',
+    PAYME_PROD_KEY: process.env.PAYME_PROD_KEY || 'kET5yf@Hu3QO2FtW&U5ANVO7ybS#@idTAZn9',
 };

@@ -1,12 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../shared/api/axios';
+import { tokenStorage } from '../shared/auth/tokenStorage';
+import { userTokenStorage } from '../shared/auth/UserAuthContext';
+
+// Check if any user is logged in — clinic/admin OR patient
+const isAnyUserLoggedIn = () =>
+    tokenStorage.isLoggedIn() || userTokenStorage.isLoggedIn();
 
 // Get reviews for a service
 export function useServiceReviews(serviceId, serviceType) {
     return useQuery({
         queryKey: ['reviews', serviceId, serviceType],
         queryFn: async () => {
-            const { data } = await axios.get(`/api/reviews/services/${serviceId}?serviceType=${serviceType}`);
+            const { data } = await api.get(`/reviews/services/${serviceId}?serviceType=${serviceType}`);
             return data.data;
         },
         enabled: !!serviceId && !!serviceType,
@@ -18,20 +24,21 @@ export function useMyReview(serviceId, serviceType) {
     return useQuery({
         queryKey: ['myReview', serviceId, serviceType],
         queryFn: async () => {
-            const { data } = await axios.get(`/api/reviews/my-review/${serviceId}?serviceType=${serviceType}`);
+            const { data } = await api.get(`/reviews/my-review/${serviceId}?serviceType=${serviceType}`);
             return data.data;
         },
-        enabled: !!serviceId && !!serviceType,
+        enabled: !!serviceId && !!serviceType && isAnyUserLoggedIn(),
+        retry: false,
     });
 }
 
 // Submit a review
 export function useSubmitReview() {
     const queryClient = useQueryClient();
-    
+
     return useMutation({
         mutationFn: async ({ serviceId, serviceType, rating, comment }) => {
-            const { data } = await axios.post('/api/reviews', {
+            const { data } = await api.post('/reviews', {
                 serviceId,
                 serviceType,
                 rating,
@@ -56,8 +63,8 @@ export function useAllReviews(status, page = 1, limit = 20) {
             if (status) params.append('status', status);
             params.append('page', page);
             params.append('limit', limit);
-            
-            const { data } = await axios.get(`/api/reviews?${params.toString()}`);
+
+            const { data } = await api.get(`/reviews?${params.toString()}`);
             return data.data;
         },
     });
@@ -66,10 +73,10 @@ export function useAllReviews(status, page = 1, limit = 20) {
 // Admin: Approve review
 export function useApproveReview() {
     const queryClient = useQueryClient();
-    
+
     return useMutation({
         mutationFn: async (reviewId) => {
-            const { data } = await axios.patch(`/api/reviews/${reviewId}/approve`);
+            const { data } = await api.patch(`/reviews/${reviewId}/approve`);
             return data;
         },
         onSuccess: () => {
@@ -81,10 +88,10 @@ export function useApproveReview() {
 // Admin: Reject review
 export function useRejectReview() {
     const queryClient = useQueryClient();
-    
+
     return useMutation({
         mutationFn: async ({ reviewId, rejectionReason }) => {
-            const { data } = await axios.patch(`/api/reviews/${reviewId}/reject`, {
+            const { data } = await api.patch(`/reviews/${reviewId}/reject`, {
                 rejectionReason,
             });
             return data;
@@ -98,10 +105,10 @@ export function useRejectReview() {
 // Admin: Delete review
 export function useDeleteReview() {
     const queryClient = useQueryClient();
-    
+
     return useMutation({
         mutationFn: async (reviewId) => {
-            const { data } = await axios.delete(`/api/reviews/${reviewId}`);
+            const { data } = await api.delete(`/reviews/${reviewId}`);
             return data;
         },
         onSuccess: () => {

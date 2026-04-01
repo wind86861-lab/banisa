@@ -3,12 +3,10 @@ import Navigation from './Navigation';
 import Hero from './Hero';
 import Services from './Services';
 import Stats from './Stats';
-import AppointmentCTA from './AppointmentCTA';
 import WhyChooseUs from './WhyChooseUs';
 import Doctors from './Doctors';
 import Testimonials from './Testimonials';
 import HowItWorks from './HowItWorks';
-import DoctorProfile from './DoctorProfile';
 import FAQ from './FAQ';
 import Awards from './Awards';
 import Blog from './Blog';
@@ -24,12 +22,10 @@ export default function HomePage() {
             <Hero />
             <Services />
             <Stats />
-            <AppointmentCTA />
             <WhyChooseUs />
             <Doctors />
             <Testimonials />
             <HowItWorks />
-            <DoctorProfile />
             <FAQ />
             <Awards />
             <Blog />

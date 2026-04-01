@@ -22,28 +22,28 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     }
 };
 
-// ─── SUPER ADMIN login — phone + password ────────────────────────────────────
+// ─── SUPER ADMIN login — EMAIL + password (no refresh cookie — must re-login each session) ──
 export const adminLogin = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { phone, password } = req.body;
-        const result = await authService.login({ phone, password, isAdminLogin: true });
+        const { email, password } = req.body;
+        const result = await authService.login({ email, password, loginType: 'SUPER_ADMIN' });
 
         if (result.user.role !== 'SUPER_ADMIN') {
             return res.status(403).json({ success: false, error: 'Bu endpoint faqat Super Admin uchun' });
         }
 
-        res.cookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
+        // SECURITY: No refresh cookie for SUPER_ADMIN — must login explicitly each session
         return sendSuccess(res, { user: result.user, accessToken: result.accessToken }, null, 'Login successful');
     } catch (error) {
         next(error);
     }
 };
 
-// ─── CLINIC ADMIN login — phone + password ───────────────────────────────────
+// ─── CLINIC ADMIN login — phone + password (refresh cookie for session persistence) ──
 export const clinicLogin = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { phone, password } = req.body;
-        const result = await authService.login({ phone, password, isAdminLogin: false });
+        const result = await authService.login({ phone, password, loginType: 'CLINIC_ADMIN' });
 
         res.cookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
         return sendSuccess(res, { user: result.user, accessToken: result.accessToken }, null, 'Login successful');

@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { User, Mail, Phone, Edit2, Save, X } from 'lucide-react';
+import { User, Mail, Phone, Edit2, Save, X, ChevronRight, LogOut } from 'lucide-react';
 import api from '../../shared/api/axios';
+import { useUserAuth } from '../../shared/auth/UserAuthContext';
+import TopBar from '../../pages/home/TopBar';
+import Navigation from '../../pages/home/Navigation';
+import Footer from '../../pages/home/Footer';
+import './css/UserProfile.css';
 
-/**
- * User Profile Page
- * Allows users to view and edit their profile information
- */
 export default function UserProfile() {
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState({
@@ -16,31 +18,34 @@ export default function UserProfile() {
     });
 
     const queryClient = useQueryClient();
+    const { updateUserState, logout } = useUserAuth();
 
-    // Fetch user profile
     const { data: profile, isLoading } = useQuery({
         queryKey: ['user', 'profile'],
         queryFn: async () => {
             const res = await api.get('/user/profile');
             return res.data.data;
         },
-        onSuccess: (data) => {
-            setFormData({
-                firstName: data.firstName || '',
-                lastName: data.lastName || '',
-                email: data.email || '',
-            });
-        },
     });
 
-    // Update profile mutation
+    useEffect(() => {
+        if (profile) {
+            setFormData({
+                firstName: profile.firstName || '',
+                lastName: profile.lastName || '',
+                email: profile.email || '',
+            });
+        }
+    }, [profile]);
+
     const updateMutation = useMutation({
         mutationFn: async (data) => {
             const res = await api.put('/user/profile', data);
             return res.data;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries(['user', 'profile']);
+            queryClient.invalidateQueries({ queryKey: ['user', 'profile'] });
+            updateUserState({ firstName: formData.firstName, lastName: formData.lastName });
             setIsEditing(false);
         },
     });
@@ -61,290 +66,158 @@ export default function UserProfile() {
 
     if (isLoading) {
         return (
-            <div style={{ padding: 40, textAlign: 'center' }}>
-                <div className="spinner"></div>
-                <p>Yuklanmoqda...</p>
+            <div className="home-page">
+                <TopBar />
+                <Navigation />
+                <div style={{ padding: 80, textAlign: 'center', minHeight: '60vh' }}>
+                    <p>Yuklanmoqda...</p>
+                </div>
+                <Footer />
             </div>
         );
     }
 
     return (
-        <div style={{ maxWidth: 800, margin: '0 auto', padding: 20 }}>
-            <div style={{
-                background: 'var(--bg-card)',
-                borderRadius: 16,
-                padding: 32,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            }}>
-                {/* Header */}
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: 32,
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <div style={{
-                            width: 64,
-                            height: 64,
-                            borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #00c9a7 0%, #845ec2 100%)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'white',
-                            fontSize: 24,
-                            fontWeight: 700,
-                        }}>
-                            {profile?.firstName?.[0] || profile?.phone?.[0] || 'U'}
+        <div className="home-page">
+            <TopBar />
+            <Navigation />
+            <main className="home-container up-main">
+                {/* Breadcrumb */}
+                <div className="up-breadcrumb">
+                    <Link to="/user/dashboard">Dashboard</Link>
+                    <ChevronRight size={16} />
+                    <span>Profil</span>
+                </div>
+
+                {/* Page Header */}
+                <h1 className="up-title">Mening Profilim</h1>
+
+                {/* Profile Card */}
+                <div className="up-card up-profile-card">
+                    <div className="up-profile-left">
+                        <div className="up-profile-avatar">
+                            {profile?.firstName?.[0]?.toUpperCase() || 'U'}
                         </div>
-                        <div>
-                            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>
-                                {profile?.firstName || profile?.lastName
-                                    ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
-                                    : 'Foydalanuvchi'}
-                            </h1>
-                            <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: 14 }}>
-                                {profile?.role === 'PATIENT' ? 'Bemor' : profile?.role}
-                            </p>
+                        <div className="up-profile-info">
+                            <h2>{profile?.firstName || ''} {profile?.lastName || ''}</h2>
+                            <div className="up-profile-badge">Bemor</div>
+                            <div className="up-profile-phone">
+                                <Phone size={14} />
+                                {profile?.phone}
+                            </div>
                         </div>
                     </div>
-
                     {!isEditing && (
-                        <button
-                            onClick={() => setIsEditing(true)}
-                            style={{
-                                padding: '10px 20px',
-                                borderRadius: 8,
-                                border: '1px solid var(--color-primary)',
-                                background: 'transparent',
-                                color: 'var(--color-primary)',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                fontSize: 14,
-                                fontWeight: 500,
-                            }}
-                        >
+                        <button className="up-edit-btn" onClick={() => setIsEditing(true)}>
                             <Edit2 size={16} />
                             Tahrirlash
                         </button>
                     )}
                 </div>
 
-                {/* Profile Form */}
-                <form onSubmit={handleSubmit}>
-                    <div style={{ display: 'grid', gap: 20 }}>
-                        {/* Phone (read-only) */}
-                        <div>
-                            <label style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                fontSize: 13,
-                                fontWeight: 500,
-                                marginBottom: 8,
-                                color: 'var(--text-main)',
-                            }}>
-                                <Phone size={16} />
-                                Telefon raqami
-                            </label>
-                            <input
-                                type="tel"
-                                value={profile?.phone || ''}
-                                disabled
-                                style={{
-                                    width: '100%',
-                                    padding: '12px 16px',
-                                    borderRadius: 8,
-                                    border: '1px solid var(--border-color)',
-                                    fontSize: 14,
-                                    background: 'var(--bg-main)',
-                                    color: 'var(--text-muted)',
-                                    cursor: 'not-allowed',
-                                }}
-                            />
+                {/* Info Form */}
+                <div className="up-card">
+                    <h3 className="up-card-title">Shaxsiy ma'lumotlar</h3>
+                    <form onSubmit={handleSubmit} className="up-form">
+                        <div className="up-form-grid">
+                            <div className="up-form-group">
+                                <label>
+                                    <User size={16} />
+                                    Ism
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.firstName}
+                                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                                    disabled={!isEditing}
+                                    placeholder="Ismingizni kiriting"
+                                />
+                            </div>
+                            <div className="up-form-group">
+                                <label>
+                                    <User size={16} />
+                                    Familiya
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.lastName}
+                                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                                    disabled={!isEditing}
+                                    placeholder="Familiyangizni kiriting"
+                                />
+                            </div>
+                            <div className="up-form-group">
+                                <label>
+                                    <Mail size={16} />
+                                    Email
+                                </label>
+                                <input
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    disabled={!isEditing}
+                                    placeholder="email@example.com"
+                                />
+                            </div>
+                            <div className="up-form-group">
+                                <label>
+                                    <Phone size={16} />
+                                    Telefon raqami
+                                </label>
+                                <input
+                                    type="tel"
+                                    value={profile?.phone || ''}
+                                    disabled
+                                />
+                            </div>
                         </div>
 
-                        {/* First Name */}
-                        <div>
-                            <label style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                fontSize: 13,
-                                fontWeight: 500,
-                                marginBottom: 8,
-                                color: 'var(--text-main)',
-                            }}>
-                                <User size={16} />
-                                Ism
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.firstName}
-                                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                                disabled={!isEditing}
-                                placeholder="Ismingizni kiriting"
-                                style={{
-                                    width: '100%',
-                                    padding: '12px 16px',
-                                    borderRadius: 8,
-                                    border: '1px solid var(--border-color)',
-                                    fontSize: 14,
-                                    background: isEditing ? 'var(--bg-card)' : 'var(--bg-main)',
-                                    color: 'var(--text-main)',
-                                }}
-                            />
-                        </div>
+                        {isEditing && (
+                            <div className="up-form-actions">
+                                <button type="button" onClick={handleCancel} className="up-btn-cancel" disabled={updateMutation.isPending}>
+                                    <X size={16} />
+                                    Bekor qilish
+                                </button>
+                                <button type="submit" className="up-btn-save" disabled={updateMutation.isPending}>
+                                    <Save size={16} />
+                                    {updateMutation.isPending ? 'Saqlanmoqda...' : 'Saqlash'}
+                                </button>
+                            </div>
+                        )}
+                    </form>
+                </div>
 
-                        {/* Last Name */}
-                        <div>
-                            <label style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                fontSize: 13,
-                                fontWeight: 500,
-                                marginBottom: 8,
-                                color: 'var(--text-main)',
-                            }}>
-                                <User size={16} />
-                                Familiya
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.lastName}
-                                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                                disabled={!isEditing}
-                                placeholder="Familiyangizni kiriting"
-                                style={{
-                                    width: '100%',
-                                    padding: '12px 16px',
-                                    borderRadius: 8,
-                                    border: '1px solid var(--border-color)',
-                                    fontSize: 14,
-                                    background: isEditing ? 'var(--bg-card)' : 'var(--bg-main)',
-                                    color: 'var(--text-main)',
-                                }}
-                            />
+                {/* Account Info */}
+                <div className="up-card">
+                    <h3 className="up-card-title">Hisob ma'lumotlari</h3>
+                    <div className="up-info-grid">
+                        <div className="up-info-item">
+                            <span className="up-info-label">Holat</span>
+                            <span className="up-info-badge up-info-badge-active">Faol</span>
                         </div>
-
-                        {/* Email */}
-                        <div>
-                            <label style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                fontSize: 13,
-                                fontWeight: 500,
-                                marginBottom: 8,
-                                color: 'var(--text-main)',
-                            }}>
-                                <Mail size={16} />
-                                Email
-                            </label>
-                            <input
-                                type="email"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                disabled={!isEditing}
-                                placeholder="email@example.com"
-                                style={{
-                                    width: '100%',
-                                    padding: '12px 16px',
-                                    borderRadius: 8,
-                                    border: '1px solid var(--border-color)',
-                                    fontSize: 14,
-                                    background: isEditing ? 'var(--bg-card)' : 'var(--bg-main)',
-                                    color: 'var(--text-main)',
-                                }}
-                            />
+                        <div className="up-info-item">
+                            <span className="up-info-label">Ro'yxatdan o'tgan</span>
+                            <span className="up-info-value">
+                                {new Date(profile?.createdAt).toLocaleDateString('uz-UZ')}
+                            </span>
                         </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    {isEditing && (
-                        <div style={{
-                            display: 'flex',
-                            gap: 12,
-                            marginTop: 24,
-                            justifyContent: 'flex-end',
-                        }}>
-                            <button
-                                type="button"
-                                onClick={handleCancel}
-                                disabled={updateMutation.isPending}
-                                style={{
-                                    padding: '10px 20px',
-                                    borderRadius: 8,
-                                    border: '1px solid var(--border-color)',
-                                    background: 'transparent',
-                                    color: 'var(--text-main)',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    fontSize: 14,
-                                    fontWeight: 500,
-                                }}
-                            >
-                                <X size={16} />
-                                Bekor qilish
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={updateMutation.isPending}
-                                style={{
-                                    padding: '10px 20px',
-                                    borderRadius: 8,
-                                    border: 'none',
-                                    background: 'var(--color-primary)',
-                                    color: 'white',
-                                    cursor: updateMutation.isPending ? 'not-allowed' : 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    fontSize: 14,
-                                    fontWeight: 500,
-                                    opacity: updateMutation.isPending ? 0.6 : 1,
-                                }}
-                            >
-                                <Save size={16} />
-                                {updateMutation.isPending ? 'Saqlanmoqda...' : 'Saqlash'}
-                            </button>
-                        </div>
-                    )}
-                </form>
-
-                {/* Profile Stats */}
-                <div style={{
-                    marginTop: 32,
-                    paddingTop: 24,
-                    borderTop: '1px solid var(--border-color)',
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                    gap: 16,
-                }}>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
-                            Holat
-                        </div>
-                        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-primary)' }}>
-                            {profile?.status === 'APPROVED' ? 'Tasdiqlangan' : profile?.status}
-                        </div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
-                            Ro'yxatdan o'tgan
-                        </div>
-                        <div style={{ fontSize: 16, fontWeight: 600 }}>
-                            {new Date(profile?.createdAt).toLocaleDateString('uz-UZ')}
+                        <div className="up-info-item">
+                            <span className="up-info-label">ID</span>
+                            <span className="up-info-value up-info-mono">{profile?.id}</span>
                         </div>
                     </div>
                 </div>
-            </div>
+
+                {/* Danger Zone */}
+                <div className="up-card up-danger-card">
+                    <h3 className="up-card-title up-danger-title">Xavfli zona</h3>
+                    <button className="up-logout-btn" onClick={logout}>
+                        <LogOut size={18} />
+                        Tizimdan chiqish
+                    </button>
+                </div>
+            </main>
+            <Footer />
         </div>
     );
 }

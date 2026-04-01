@@ -46,21 +46,37 @@ export const register = async (userData: any) => {
     return user;
 };
 
-export const login = async (credentials: { phone: string; password: string; isAdminLogin?: boolean }) => {
-    const normalizedPhone = normalizePhone(credentials.phone);
+export const login = async (credentials: {
+    phone?: string;
+    email?: string;
+    password: string;
+    loginType: 'SUPER_ADMIN' | 'CLINIC_ADMIN' | 'PATIENT';
+}) => {
+    let user: any = null;
 
-    // Try exact match first, then normalized match
-    let user: any = await prisma.user.findUnique({ where: { phone: normalizedPhone } });
-    if (!user) {
-        user = await prisma.user.findUnique({ where: { phone: credentials.phone } });
-    }
-    if (!user) {
-        // Fallback: find by normalized phone across all users
-        const allUsers = await prisma.user.findMany({
-            where: { isActive: true },
-            select: { id: true, phone: true, passwordHash: true, role: true, status: true, isActive: true, email: true, firstName: true, lastName: true, clinicId: true },
+    if (credentials.loginType === 'SUPER_ADMIN') {
+        // SUPER_ADMIN logs in with EMAIL
+        if (!credentials.email) {
+            throw new AppError('Email kiritilmagan', 400, ErrorCodes.VALIDATION_ERROR);
+        }
+        user = await prisma.user.findFirst({
+            where: { email: credentials.email, role: 'SUPER_ADMIN', isActive: true },
         });
-        user = allUsers.find(u => normalizePhone(u.phone) === normalizedPhone);
+    } else {
+        // CLINIC_ADMIN / PATIENT login with PHONE
+        if (!credentials.phone) {
+            throw new AppError('Telefon raqam kiritilmagan', 400, ErrorCodes.VALIDATION_ERROR);
+        }
+        const normalizedPhone = normalizePhone(credentials.phone);
+        user = await prisma.user.findFirst({
+            where: {
+                OR: [{ phone: normalizedPhone }, { phone: credentials.phone }],
+                isActive: true,
+                role: credentials.loginType === 'PATIENT'
+                    ? 'PATIENT'
+                    : { in: ['CLINIC_ADMIN', 'PENDING_CLINIC'] },
+            },
+        });
     }
 
     if (!user || !user.isActive) {
@@ -72,12 +88,15 @@ export const login = async (credentials: { phone: string; password: string; isAd
         throw new AppError('Login yoki parol noto\'g\'ri', 401, ErrorCodes.UNAUTHORIZED);
     }
 
-    // Role-based cross-login protection
-    if (credentials.isAdminLogin && user.role !== 'SUPER_ADMIN') {
+    // Strict cross-login guards
+    if (credentials.loginType === 'SUPER_ADMIN' && user.role !== 'SUPER_ADMIN') {
         throw new AppError('Bu endpoint faqat Super Admin uchun', 403, ErrorCodes.FORBIDDEN);
     }
-    if (!credentials.isAdminLogin && user.role === 'SUPER_ADMIN') {
+    if (credentials.loginType === 'CLINIC_ADMIN' && user.role === 'SUPER_ADMIN') {
         throw new AppError('Admin hisobi uchun /admin/login sahifasidan foydalaning', 403, ErrorCodes.FORBIDDEN);
+    }
+    if (credentials.loginType === 'CLINIC_ADMIN' && user.role === 'PATIENT') {
+        throw new AppError('Bu login klinikalar uchun', 403, ErrorCodes.FORBIDDEN);
     }
 
     const accessToken = generateAccessToken({ id: user.id, role: user.role, status: user.status });
@@ -123,6 +142,11 @@ export const refreshAccessToken = async (token: string) => {
     });
     if (!user || !user.isActive) {
         throw new AppError('User not found or inactive', 401, ErrorCodes.UNAUTHORIZED);
+    }
+
+    // SECURITY: Patient tokens must not be refreshed via clinic/admin endpoint
+    if (user.role === 'PATIENT') {
+        throw new AppError('Invalid refresh token for this endpoint', 403, ErrorCodes.FORBIDDEN);
     }
 
     const newAccessToken = generateAccessToken({ id: user.id, role: user.role, status: user.status });

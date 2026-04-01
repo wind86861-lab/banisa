@@ -142,6 +142,106 @@ export class UserService {
     }
 
     /**
+     * Create an appointment
+     */
+    async createAppointment(userId: string, data: {
+        clinicId: string;
+        serviceType: 'DIAGNOSTIC' | 'SURGICAL' | 'OTHER';
+        diagnosticServiceId?: string;
+        surgicalServiceId?: string;
+        scheduledAt: string;
+        notes?: string;
+        price: number;
+    }) {
+        // 1. Verify clinic exists and is APPROVED
+        const clinic = await prisma.clinic.findUnique({
+            where: { id: data.clinicId },
+            select: { id: true, nameUz: true, nameRu: true, status: true },
+        });
+        if (!clinic) {
+            throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
+        }
+        if (clinic.status !== 'APPROVED') {
+            throw new AppError('Klinika faol emas', 400, ErrorCodes.VALIDATION_ERROR);
+        }
+
+        // 2. Verify diagnostic service if provided
+        if (data.serviceType === 'DIAGNOSTIC' && data.diagnosticServiceId) {
+            const svc = await prisma.diagnosticService.findUnique({
+                where: { id: data.diagnosticServiceId },
+                select: { id: true, isActive: true },
+            });
+            if (!svc || !svc.isActive) {
+                throw new AppError('Diagnostika xizmati topilmadi yoki faol emas', 404, ErrorCodes.NOT_FOUND);
+            }
+        }
+
+        // 3. Verify surgical service if provided
+        if (data.serviceType === 'SURGICAL' && data.surgicalServiceId) {
+            const svc = await prisma.surgicalService.findUnique({
+                where: { id: data.surgicalServiceId },
+                select: { id: true },
+            });
+            if (!svc) {
+                throw new AppError('Jarrohlik xizmati topilmadi', 404, ErrorCodes.NOT_FOUND);
+            }
+        }
+
+        // 4. Check for duplicate appointment same patient+clinic+date
+        const scheduledDate = new Date(data.scheduledAt);
+        const dayStart = new Date(scheduledDate);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(scheduledDate);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        const existing = await prisma.appointment.findFirst({
+            where: {
+                patientId: userId,
+                clinicId: data.clinicId,
+                scheduledAt: { gte: dayStart, lte: dayEnd },
+                status: { in: ['PENDING', 'CONFIRMED'] },
+            },
+            include: {
+                clinic: { select: { id: true, nameUz: true, nameRu: true } },
+                diagnosticService: { select: { id: true, nameUz: true } },
+                surgicalService: { select: { id: true, nameUz: true } },
+            },
+        });
+
+        // If CONFIRMED appointment exists, block duplicate
+        if (existing && existing.status === 'CONFIRMED') {
+            throw new AppError('Siz bu klinikaga o\'sha kuni allaqachon tasdiqlangan bron qilgansiz', 400, ErrorCodes.VALIDATION_ERROR);
+        }
+
+        // If PENDING appointment exists, return it (allows payment retry)
+        if (existing && existing.status === 'PENDING') {
+            return existing;
+        }
+
+        // 5. Create appointment
+        const appointment = await prisma.appointment.create({
+            data: {
+                clinicId: data.clinicId,
+                patientId: userId,
+                serviceType: data.serviceType,
+                diagnosticServiceId: data.diagnosticServiceId,
+                surgicalServiceId: data.surgicalServiceId,
+                scheduledAt: scheduledDate,
+                status: 'PENDING',
+                price: data.price,
+                notes: data.notes,
+            },
+            include: {
+                clinic: { select: { id: true, nameUz: true, nameRu: true } },
+                diagnosticService: { select: { id: true, nameUz: true } },
+                surgicalService: { select: { id: true, nameUz: true } },
+            },
+        });
+
+        return appointment;
+    }
+
+    /**
      * Create a review
      */
     async createReview(userId: string, data: {
