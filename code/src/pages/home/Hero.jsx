@@ -7,7 +7,7 @@ export default function Hero() {
             id="home"
             className="cm-hero"
             style={{
-                backgroundImage: "url('https://themes.w3cms.in/clinicmaster/medical/public/storage/magic-editor/1752040977.bg1.webp')",
+                backgroundImage: "url('/images/1752043088.bg1.webp')",
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
             }}
@@ -23,7 +23,7 @@ export default function Hero() {
                             Health Care<br />
                             <span className="cyan">Services</span>
                             <img
-                                src="https://themes.w3cms.in/clinicmaster/medical/public/themes/frontend/clinicmaster/images/hero-banner/line.png"
+                                src="/images/line.png"
                                 alt=""
                                 className="cm-hero-line"
                             />
@@ -64,14 +64,14 @@ export default function Hero() {
                     <div className="cm-hero-visual">
                         <div className="cm-hero-curve" />
                         <img
-                            src="https://themes.w3cms.in/clinicmaster/medical/public/storage/magic-editor/1752040923.img1.webp"
+                            src="/images/1752040923.img1.webp"
                             alt="Doctor"
                             className="cm-hero-img"
                         />
                         {/* Floating heart */}
                         <div className="cm-hero-heart">
                             <img
-                                src="https://themes.w3cms.in/clinicmaster/medical/public/storage/magic-editor/1752040923.heart.png"
+                                src="/images/1752040923.heart.png"
                                 alt="Heart"
                             />
                         </div>

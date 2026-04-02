@@ -50,7 +50,7 @@ export default function Navigation() {
                         </div>
                         <div className="cm-nav-logo-text">
                             BANISA
-                            <span>Clinic</span>
+                            <span>Hospital Booking System</span>
                         </div>
                     </Link>
 

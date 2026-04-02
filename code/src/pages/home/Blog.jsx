@@ -5,24 +5,24 @@ const POSTS = [
     {
         id: 1, size: 'sm', date: 'July 6, 2025',
         title: 'The Skincare Routine That Works Expert Tips.',
-        bg: 'https://themes.w3cms.in/clinicmaster/medical/public/storage/blog-images/1751608546_img1.png',
+        bg: '/images/1752042615.img1.webp',
         overlay: false,
     },
     {
         id: 2, size: 'lg', date: 'July 9, 2025',
         title: 'The Art of Managing Business and Patient Care',
-        bg: 'https://themes.w3cms.in/clinicmaster/medical/public/storage/blog-images/1752045034_img1.png',
+        bg: '/images/1752043693.img1.png',
         overlay: true,
     },
     {
         id: 3, size: 'xs', date: 'July 9, 2025',
         title: 'Strategies for Balancing Business Demands...',
-        bg: null, overlay: true,
+        bg: '/images/1752042615.img2.webp', overlay: true,
     },
     {
         id: 4, size: 'xs', date: 'July 9, 2025',
         title: 'Effective Healthcare Tips',
-        bg: 'https://themes.w3cms.in/clinicmaster/medical/public/storage/blog-images/1752668668_Frame.jpg',
+        bg: '/images/1752042973.img3.png',
         overlay: true,
     },
 ];

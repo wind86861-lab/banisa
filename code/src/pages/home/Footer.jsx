@@ -3,7 +3,7 @@ import './css/Footer.css';
 
 export default function Footer() {
     return (
-        <footer id="contact" className="cm-footer" style={{ backgroundImage: "url('https://themes.w3cms.in/clinicmaster/medical/public/storage/theme-options/1759147154.bg4.webp')", backgroundRepeat: 'no-repeat', backgroundPosition: 'right center', backgroundSize: 'cover' }}>
+        <footer id="contact" className="cm-footer" style={{ backgroundImage: "url('/images/1752043088.bg1.webp')", backgroundRepeat: 'no-repeat', backgroundPosition: 'right center', backgroundSize: 'cover' }}>
             <div className="cm-footer-head">
                 <div className="home-container">
                     <div className="cm-footer-head-inner">

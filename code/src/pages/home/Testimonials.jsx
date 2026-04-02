@@ -35,12 +35,12 @@ export default function Testimonials() {
     return (
         <section
             className="cm-testimonials"
-            style={{ backgroundImage: "url('https://themes.w3cms.in/clinicmaster/medical/public/storage/magic-editor/1752043437.bg3.webp')" }}
+            style={{ background: 'linear-gradient(135deg, #0f0a2e 0%, #1a103d 40%, #0d2461 100%)' }}
         >
             <div className="home-container">
                 <div className="cm-testimonials-grid">
                     <div className="cm-testimonials-media">
-                        <img src="https://themes.w3cms.in/clinicmaster/medical/public/storage/magic-editor/1752043437.img2.png" alt="Testimonials" />
+                        <img src="/images/1752043437.img2.png" alt="Testimonials" />
                         <div className="cm-testimonials-circles">
                             <span className="circle1"><span /><span /><span /></span>
                             <span className="circle2"><span /><span /><span /></span>

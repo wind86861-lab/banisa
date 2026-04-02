@@ -4,16 +4,16 @@ export default function Stats() {
     return (
         <section
             className="cm-stats"
-            style={{ backgroundImage: "url('https://themes.w3cms.in/clinicmaster/medical/public/storage/magic-editor/1752042862.bg2.webp')" }}
+            style={{ background: 'linear-gradient(135deg, #1dbfc1 0%, #0d9fa1 50%, #0a8a8c 100%)' }}
         >
             <div className="home-container">
                 <div className="cm-stats-grid">
                     <div className="cm-stats-booking">
                         <div className="cm-stats-avatars">
-                            <img src="/images/vWHugwst1cx9gzyQYF7U1r4N2JaE1BfuaRVAgjWH.webp" alt="client" />
-                            <img src="/images/kCMuATd0luwBkCXrOKalCiftCe685rTWNtihLRp8.webp" alt="client" />
-                            <img src="/images/DSTFEt33BRyG0GQS5SlGlJvkUhK0U5YtJ52qzCza.webp" alt="client" />
-                            <img src="/images/zzjNDWxY6kXBUcDNOKJZ301Zsp8qNdA61PiiLrmW.webp" alt="client" />
+                            <img src="/images/1751463870_img1.png" alt="client" />
+                            <img src="/images/1751463932_img2.png" alt="client" />
+                            <img src="/images/1751463965_img3.png" alt="client" />
+                            <img src="/images/1751463996_img4.png" alt="client" />
                         </div>
                         <p>300+ Appointment Booking Confirm for this Week</p>
                     </div>

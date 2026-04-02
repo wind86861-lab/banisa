@@ -15,7 +15,7 @@ export default function FAQ() {
     return (
         <section
             className="cm-faq"
-            style={{ backgroundImage: "url('https://themes.w3cms.in/clinicmaster/medical/public/storage/magic-editor/1752043777.bg3.png')" }}
+            style={{ background: 'linear-gradient(135deg, #f0fafb 0%, #e8f7f8 50%, #d6f0f2 100%)' }}
         >
             <div className="home-container">
                 <div className="cm-faq-grid">
