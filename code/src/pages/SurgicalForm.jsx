@@ -37,7 +37,7 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                                 <label>Operatsiya nomi (UZ) *</label>
                                 <input
                                     type="text"
-                                    value={formData.nameUz}
+                                    value={formData.nameUz || ''}
                                     onChange={(e) => handleFormChange('nameUz', e.target.value)}
                                     placeholder="Masalan: Appendiqtomiya"
                                 />
@@ -46,7 +46,7 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                                 <label>Operatsiya nomi (RU)</label>
                                 <input
                                     type="text"
-                                    value={formData.nameRu}
+                                    value={formData.nameRu || ''}
                                     onChange={(e) => handleFormChange('nameRu', e.target.value)}
                                     placeholder="Аппендэктомия"
                                 />
@@ -56,7 +56,7 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                             <div className="col">
                                 <label>Asosiy Kategoriya *</label>
                                 <select
-                                    value={formData.parentCatId}
+                                    value={formData.parentCatId || ''}
                                     onChange={(e) => {
                                         const pId = e.target.value;
                                         setFormData(prev => ({ ...prev, parentCatId: pId, categoryId: '' }));
@@ -73,7 +73,7 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                             <div className="col">
                                 <label>Yo'nalish (Guruh) *</label>
                                 <select
-                                    value={formData.categoryId}
+                                    value={formData.categoryId || ''}
                                     onChange={(e) => handleFormChange('categoryId', e.target.value)}
                                     disabled={!formData.parentCatId}
                                 >
@@ -95,7 +95,7 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                             <textarea
                                 rows={2}
                                 maxLength={200}
-                                value={formData.shortDescription}
+                                value={formData.shortDescription || ''}
                                 onChange={(e) => handleFormChange('shortDescription', e.target.value)}
                             />
                         </div>
@@ -103,7 +103,7 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                             <label>To'liq ma'lumot</label>
                             <textarea
                                 rows={4}
-                                value={formData.fullDescription}
+                                value={formData.fullDescription || ''}
                                 onChange={(e) => handleFormChange('fullDescription', e.target.value)}
                             />
                         </div>
@@ -159,7 +159,7 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                             <div className="col">
                                 <label>Anesteziya turi</label>
                                 <select
-                                    value={formData.anesthesiaType}
+                                    value={formData.anesthesiaType || 'GENERAL'}
                                     onChange={(e) => handleFormChange('anesthesiaType', e.target.value)}
                                 >
                                     <option value="LOCAL">Mahalliy (Local)</option>
@@ -181,7 +181,7 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                             <div className="col">
                                 <label>Palata turi</label>
                                 <select
-                                    value={formData.roomType}
+                                    value={formData.roomType || 'STANDARD'}
                                     onChange={(e) => handleFormChange('roomType', e.target.value)}
                                 >
                                     <option value="STANDARD">Standard</option>
@@ -203,7 +203,7 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                         <div className="form-group">
                             <label>Hospitlizatsiya haqida eslatmalar</label>
                             <textarea
-                                value={formData.hospitalizationNotes}
+                                value={formData.hospitalizationNotes || ''}
                                 onChange={(e) => handleFormChange('hospitalizationNotes', e.target.value)}
                             />
                         </div>

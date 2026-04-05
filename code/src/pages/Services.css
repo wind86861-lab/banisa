@@ -878,6 +878,13 @@
     color: #0284c7;
 }
 
+.price-range {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #0369a1;
+    font-weight: 500;
+}
+
 .alert-box {
     padding: 16px;
     border-radius: 12px;

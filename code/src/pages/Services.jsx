@@ -788,17 +788,48 @@ const Services = () => {
                                 <div className="info-grid">
                                     <div className="info-item">
                                         <label>Davomiyligi</label>
-                                        <span>{activeService.durationMinutes} daqiqa</span>
+                                        <span>{activeService.durationMinutes || 0} daqiqa</span>
                                     </div>
-                                    <div className="info-item">
-                                        <label>Natija vaqti</label>
-                                        <span>{activeService.resultTimeHours} soat</span>
-                                    </div>
-                                    {activeService.sampleType && (
-                                        <div className="info-item">
-                                            <label>Namuna turi</label>
-                                            <span>{activeService.sampleType}</span>
-                                        </div>
+                                    {rootQuery === 'operations' ? (
+                                        <>
+                                            <div className="info-item">
+                                                <label>Statsionar</label>
+                                                <span>{activeService.hospitalizationDays || 0} kun</span>
+                                            </div>
+                                            <div className="info-item">
+                                                <label>Tiklanish</label>
+                                                <span>{activeService.recoveryDays || 0} kun</span>
+                                            </div>
+                                            <div className="info-item">
+                                                <label>Anesteziya</label>
+                                                <span>{activeService.anesthesiaType === 'LOCAL' ? 'Lokal' : activeService.anesthesiaType === 'GENERAL' ? 'Umumiy' : activeService.anesthesiaType === 'SPINAL' ? 'Spinal' : activeService.anesthesiaType === 'SEDATION' ? 'Sedatsiya' : activeService.anesthesiaType || '—'}</span>
+                                            </div>
+                                            <div className="info-item">
+                                                <label>Murakkablik</label>
+                                                <span className={`complexity-badge cx-${(activeService.complexity || 'MEDIUM').toLowerCase()}`}>
+                                                    {activeService.complexity === 'SIMPLE' ? 'Oddiy' : activeService.complexity === 'MEDIUM' ? "O'rtacha" : activeService.complexity === 'COMPLEX' ? 'Murakkab' : activeService.complexity === 'ADVANCED' ? 'Juda murakkab' : activeService.complexity || '—'}
+                                                </span>
+                                            </div>
+                                            <div className="info-item">
+                                                <label>Xavf darajasi</label>
+                                                <span className={`risk-badge risk-${(activeService.riskLevel || 'LOW').toLowerCase()}`}>
+                                                    {activeService.riskLevel === 'LOW' ? '🟢 Past' : activeService.riskLevel === 'MEDIUM' ? '🟡 O\'rtacha' : activeService.riskLevel === 'HIGH' ? '🔴 Yuqori' : activeService.riskLevel || '—'}
+                                                </span>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="info-item">
+                                                <label>Natija vaqti</label>
+                                                <span>{activeService.resultTimeHours || 0} soat</span>
+                                            </div>
+                                            {activeService.sampleType && (
+                                                <div className="info-item">
+                                                    <label>Namuna turi</label>
+                                                    <span>{activeService.sampleType}</span>
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                     <div className="info-item">
                                         <label>Yaratilgan</label>
@@ -816,7 +847,19 @@ const Services = () => {
                                 <div className="pricing-box">
                                     <label>Tavsiya etilgan narx</label>
                                     <div className="main-price">{(activeService.priceRecommended || 0).toLocaleString()} UZS</div>
+                                    {rootQuery === 'operations' && activeService.priceMin && activeService.priceMax && (
+                                        <div className="price-range">
+                                            Narx oralig'i: {(activeService.priceMin || 0).toLocaleString()} – {(activeService.priceMax || 0).toLocaleString()} UZS
+                                        </div>
+                                    )}
                                 </div>
+
+                                {activeService.fullDescription && (
+                                    <div className="detail-section">
+                                        <h4>To'liq ma'lumot</h4>
+                                        <p className="desc-text">{activeService.fullDescription}</p>
+                                    </div>
+                                )}
 
                                 {activeService.preparation && (
                                     <div className="alert-box info">
