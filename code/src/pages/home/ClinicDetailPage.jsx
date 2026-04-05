@@ -335,11 +335,12 @@ export default function ClinicDetailPage() {
                                             <h3 className="cdp-sec-title"><Clock size={17} /> Ish vaqti</h3>
                                             <div className="cdp-hours">
                                                 {DAY_ORDER.map(day => {
-                                                    const h = wh[day];
+                                                    const h = normalizeWHCDP(wh)[day] ?? wh[day];
                                                     const isToday = day === today;
-                                                    const working = h ? !(h.isDayOff ?? !h.isWorking) : false;
-                                                    const openT = h?.open ?? h?.start ?? '';
-                                                    const closeT = h?.close ?? h?.end ?? '';
+                                                    const isDayOff = h ? (h.isDayOff !== undefined ? h.isDayOff : (h.isWorking !== undefined ? !h.isWorking : (h.isOpen !== undefined ? !h.isOpen : false))) : true;
+                                                    const working = !isDayOff;
+                                                    const openT = h?.open ?? h?.start ?? h?.openTime ?? '';
+                                                    const closeT = h?.close ?? h?.end ?? h?.closeTime ?? '';
                                                     return (
                                                         <div key={day} className={`cdp-hour-row${isToday ? ' today' : ''}`}>
                                                             <span className="cdp-hour-day">{DAYS_UZ[day]}</span>
