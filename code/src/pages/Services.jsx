@@ -66,7 +66,7 @@ const Services = () => {
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
     const [showCatForm, setShowCatForm] = useState(false);
-    const [catFormData, setCatFormData] = useState({ nameUz: '', parentId: '' });
+    const [catFormData, setCatFormData] = useState({ nameUz: '', parentId: '', icon: '' });
     const [editCatId, setEditCatId] = useState(null);
     const [activeRootId, setActiveRootId] = useState(null);
 
@@ -249,21 +249,21 @@ const Services = () => {
             };
 
             if (editCatId) {
-                await categoriesApi.update(editCatId, payload);
+                await categoriesApi.update(editCatId, { ...payload, icon: catFormData.icon || '•' });
                 alert('Kategoriya yangilandi!');
             } else {
                 await categoriesApi.create({
                     ...payload,
                     parentId: catFormData.parentId,
                     level: 2,
-                    icon: '•'
+                    icon: catFormData.icon || '•'
                 });
                 alert('Kategoriya yaratildi!');
             }
 
             setShowCatForm(false);
             setEditCatId(null);
-            setCatFormData({ nameUz: '', parentId: '' });
+            setCatFormData({ nameUz: '', parentId: '', icon: '' });
             // Refresh categories
             const data = await categoriesApi.list();
             setCategories(data || []);
@@ -501,7 +501,7 @@ const Services = () => {
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setEditCatId(sub.id);
-                                                                    setCatFormData({ nameUz: sub.nameUz, parentId: group.id });
+                                                                    setCatFormData({ nameUz: sub.nameUz, parentId: group.id, icon: sub.icon || '' });
                                                                     setShowCatForm(true);
                                                                 }}
                                                             >
@@ -520,7 +520,7 @@ const Services = () => {
                                                     className="btn-add-cat-sidebar"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setCatFormData({ nameUz: '', parentId: group.id });
+                                                        setCatFormData({ nameUz: '', parentId: group.id, icon: '' });
                                                         setShowCatForm(true);
                                                     }}
                                                 >
@@ -1245,6 +1245,19 @@ const Services = () => {
                                         value={catFormData.nameUz}
                                         onChange={(e) => setCatFormData(p => ({ ...p, nameUz: e.target.value }))}
                                     />
+                                </div>
+                                <div className="form-group">
+                                    <label>Ikonka (emoji)</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Masalan: 🔬 yoki 💉 yoki ⚕️"
+                                        value={catFormData.icon}
+                                        onChange={(e) => setCatFormData(p => ({ ...p, icon: e.target.value }))}
+                                        maxLength={2}
+                                    />
+                                    <small style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                                        Emoji tanlang yoki bo'sh qoldiring (• ishlatiladi)
+                                    </small>
                                 </div>
                                 <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
                                     <button className="btn-secondary" onClick={() => {

@@ -433,7 +433,7 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                 </div>
             </div>
 
-            <style jsx>{`
+            <style>{`
                 .surgical-form-wizard {
                     display: grid;
                     grid-template-columns: 280px 1fr;
