@@ -113,7 +113,7 @@ export default function RegisterPage() {
                 Banisa
               </Typography>
               <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.75rem', mt: 0.25 }}>
-                Klinika platformasi
+                Hospital Booking System
               </Typography>
             </Box>
           </Box>

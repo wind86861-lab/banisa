@@ -3,10 +3,11 @@ import { Menu, X, User, LogOut, ChevronDown, Calendar, Heart, Bell, LayoutDashbo
 import { Link } from 'react-router-dom';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import { useAuth } from '../../shared/auth/AuthContext';
+import { useHomepageSettings } from '../../hooks/useHomepageSettings';
 import './css/Navigation.css';
 
 const NAV_LINKS = [
-    { href: '#home', label: 'Bosh Sahifa', isAnchor: true },
+    { href: '/', label: 'Bosh Sahifa', isAnchor: false },
     { href: '/xizmatlar', label: 'Xizmatlar', isAnchor: false },
     { href: '#how', label: 'Qanday Ishlaydi', isAnchor: true },
     { href: '/klinikalar', label: 'Klinikalar', isAnchor: false },
@@ -20,6 +21,13 @@ export default function Navigation() {
     const dropdownRef = useRef(null);
     const { user, logout } = useUserAuth();
     const { user: clinicUser } = useAuth();
+    const { data: hpData } = useHomepageSettings();
+    const nav = hpData?.navigation || {};
+
+    const siteName = nav.siteName || 'BANISA';
+    const siteTagline = nav.siteTagline || 'Hospital Booking System';
+    const logoColor = nav.logoColor || '#1dbfc1';
+    const logoUrl = nav.logoUrl || '';
 
     // Determine clinic admin state (CLINIC_ADMIN role via AuthContext)
     const isClinicAdmin = clinicUser && clinicUser.role === 'CLINIC_ADMIN';
@@ -42,15 +50,19 @@ export default function Navigation() {
                     {/* Logo */}
                     <Link to="/" className="cm-nav-logo">
                         <div className="cm-nav-logo-icon">
-                            <svg viewBox="0 0 46 46" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <rect width="46" height="46" rx="12" fill="#1dbfc1" />
-                                <rect x="13" y="20" width="20" height="6" rx="1.5" fill="#fff" />
-                                <rect x="20" y="13" width="6" height="20" rx="1.5" fill="#fff" />
-                            </svg>
+                            {logoUrl ? (
+                                <img src={logoUrl} alt={siteName} style={{ width: 46, height: 46, borderRadius: 12, objectFit: 'cover' }} />
+                            ) : (
+                                <svg viewBox="0 0 46 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="46" height="46" rx="12" fill={logoColor} />
+                                    <rect x="13" y="20" width="20" height="6" rx="1.5" fill="#fff" />
+                                    <rect x="20" y="13" width="6" height="20" rx="1.5" fill="#fff" />
+                                </svg>
+                            )}
                         </div>
                         <div className="cm-nav-logo-text">
-                            BANISA
-                            <span>Hospital Booking System</span>
+                            {siteName}
+                            <span>{siteTagline}</span>
                         </div>
                     </Link>
 

@@ -15,7 +15,7 @@ export default function DoctorProfile() {
     return (
         <section
             className="cm-doctor-profile"
-            style={{ backgroundImage: "url('/images/1752043088.bg1.webp')", backgroundSize: 'cover', backgroundPosition: 'center' }}
+            style={{ backgroundImage: "url('https://themes.w3cms.in/clinicmaster/medical/public/storage/magic-editor/1752043693.bg1.webp')" }}
         >
             <div className="home-container">
                 <div className="cm-doctor-profile-grid">

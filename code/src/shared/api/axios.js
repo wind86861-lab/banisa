@@ -54,6 +54,20 @@ api.interceptors.response.use(
       });
     }
 
+    // SECURITY: SUPER_ADMIN never has a refresh cookie.
+    // If we attempt refresh, a leftover CLINIC_ADMIN cookie could return the wrong token,
+    // causing the admin panel to use a CLINIC_ADMIN token → 403 on all admin endpoints.
+    // Skip refresh and redirect to admin login immediately.
+    const storedUserBeforeRefresh = tokenStorage.getUser();
+    if (storedUserBeforeRefresh?.role === 'SUPER_ADMIN') {
+      clearAccessToken();
+      tokenStorage.clear();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/admin/login';
+      }
+      return Promise.reject(error);
+    }
+
     original._retry = true;
     _isRefreshing = true;
 
@@ -64,6 +78,21 @@ api.interceptors.response.use(
         { withCredentials: true }
       );
       const newToken = data.data?.accessToken;
+      const refreshedUser = data.data?.user ?? data.user;
+
+      // Guard: if refresh returned a token for a different role than what was stored,
+      // discard it — prevents cross-session token pollution.
+      if (refreshedUser && storedUserBeforeRefresh &&
+        refreshedUser.role !== storedUserBeforeRefresh.role) {
+        clearAccessToken();
+        tokenStorage.clear();
+        processQueue(new Error('Role mismatch after refresh'), null);
+        if (typeof window !== 'undefined') {
+          window.location.href = '/';
+        }
+        return Promise.reject(new Error('Role mismatch after refresh'));
+      }
+
       setAccessToken(newToken);
       processQueue(null, newToken);
       original.headers.Authorization = `Bearer ${newToken}`;
@@ -77,15 +106,12 @@ api.interceptors.response.use(
       if (typeof window !== 'undefined' && refreshStatus === 401) {
         const storedUser = tokenStorage.getUser();
         let loginUrl = '/';
-        if (storedUser?.role === 'SUPER_ADMIN') {
-          loginUrl = '/admin/login';
-        } else if (storedUser?.role === 'CLINIC_ADMIN' || storedUser?.role === 'PENDING_CLINIC') {
+        if (storedUser?.role === 'CLINIC_ADMIN' || storedUser?.role === 'PENDING_CLINIC') {
           loginUrl = '/login';
         } else if (storedUser?.role === 'PATIENT') {
           loginUrl = '/user/login';
         }
         tokenStorage.clear();
-        // Also clear patient storage
         sessionStorage.removeItem('user_access_token');
         sessionStorage.removeItem('user_data');
         window.location.href = loginUrl;

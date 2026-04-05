@@ -3,6 +3,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useHomepageSettings } from '../../hooks/useHomepageSettings';
 import './css/Services.css';
 
 /* ClinicMaster exact SVG icons */
@@ -128,10 +129,16 @@ const getIconForService = (service) => {
 
 export default function Services() {
     const navigate = useNavigate();
+    const { data: hpData } = useHomepageSettings();
+    const svc = hpData?.services || {};
+    const sectionBadge = svc.badge || 'Our Services';
+    const sectionTitle = svc.title || 'Start Feeling Your Best';
+    const sectionSubtitle = svc.subtitle || 'Explore Our Wellness Services';
     const [lastHovered, setLastHovered] = useState(null);
     const [activeTab, setActiveTab] = useState('all');
     const [services, setServices] = useState([]);
     const [groupedServices, setGroupedServices] = useState([]);
+    const [checkupPackages, setCheckupPackages] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const TAB_CONFIG = {
@@ -151,11 +158,20 @@ export default function Services() {
             .catch(err => console.error('Failed to fetch services:', err));
     }, []);
 
+    // Fetch checkup packages once
+    useEffect(() => {
+        axios.get('/api/checkup-packages')
+            .then(res => setCheckupPackages(res.data.data || []))
+            .catch(() => { });
+    }, []);
+
     // Fetch categories FRESH on every tab switch and build cards
     useEffect(() => {
         setLastHovered(null);
         setGroupedServices([]);
         setLoading(true);
+
+        if (activeTab === 'checkup') { setLoading(false); return; }
 
         const config = TAB_CONFIG[activeTab];
         if (!config) { setLoading(false); return; }
@@ -166,7 +182,6 @@ export default function Services() {
                 const parent = allCats.find(c => c.slug === config.slug);
                 if (!parent) { setGroupedServices([]); return; }
 
-                // Extract leaf subcategories from this specific parent only
                 const leaves = [];
                 (parent.children || []).forEach(mid => {
                     const kids = mid.children && mid.children.length > 0 ? mid.children : [mid];
@@ -177,7 +192,6 @@ export default function Services() {
                     });
                 });
 
-                // Match services to subcategories
                 const filtered = services.filter(s => s.category === config.serviceCategory);
                 const cards = leaves.map(leaf => ({
                     id: leaf.id,
@@ -202,12 +216,12 @@ export default function Services() {
             <div className="home-container">
                 <div className="cm-section-header">
                     <div>
-                        <span className="cm-section-badge">Our Services</span>
+                        <span className="cm-section-badge">{sectionBadge}</span>
                         <h2 className="cm-section-title">
-                            Start Feeling Your Best<br />Explore Our Wellness Services
+                            {sectionTitle}<br />{sectionSubtitle}
                         </h2>
                     </div>
-                    <button className="cm-btn-dark">
+                    <button className="cm-btn-dark" onClick={() => navigate('/xizmatlar')}>
                         View All
                         <ArrowUpRight size={18} />
                     </button>
@@ -232,6 +246,12 @@ export default function Services() {
                     >
                         Sanatoriya
                     </button>
+                    <button
+                        className={`cm-service-tab ${activeTab === 'checkup' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('checkup')}
+                    >
+                        Checkup Paketlar
+                    </button>
                 </div>
 
                 <div className="cm-services-grid" key={activeTab}>
@@ -250,6 +270,48 @@ export default function Services() {
                                 </div>
                             </div>
                         ))
+                    ) : activeTab === 'checkup' ? (
+                        checkupPackages.length > 0 ? checkupPackages.map((pkg, i) => {
+                            const isHovered = lastHovered === i;
+                            const price = pkg.recommendedPrice
+                                ? `${Number(pkg.recommendedPrice).toLocaleString()} so'm`
+                                : pkg.priceMin
+                                    ? `${Number(pkg.priceMin).toLocaleString()} so'mdan`
+                                    : '';
+                            return (
+                                <div
+                                    key={pkg.id}
+                                    className={`cm-svc-card ${isHovered ? 'hovered' : ''}`}
+                                    onMouseEnter={() => handleMouseEnter(i)}
+                                    onClick={() => navigate('/xizmatlar')}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    <div className="cm-svc-head">
+                                        <div className="cm-svc-icon-box">
+                                            <span className="cm-svc-icon-cell"><LabIcon /></span>
+                                        </div>
+                                        <span className="cm-svc-icon-bg"><LabIcon /></span>
+                                        <div className="cm-svc-content">
+                                            <h3 className="cm-svc-title">{pkg.nameUz || pkg.nameRu || pkg.nameEn}</h3>
+                                            <p className="cm-svc-desc">{price || 'Checkup paketi'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="cm-svc-footer">
+                                        <span className="cm-svc-count">
+                                            <span className="cm-svc-dot" />
+                                            {pkg.servicesCount || (pkg.services?.length) || 0} Xizmat
+                                        </span>
+                                    </div>
+                                    <button className="cm-svc-arrow">
+                                        <ArrowUpRight size={20} />
+                                    </button>
+                                </div>
+                            );
+                        }) : (
+                            <div className="cm-no-services">
+                                <p>Hozircha checkup paketlar mavjud emas</p>
+                            </div>
+                        )
                     ) : groupedServices.length > 0 ? (
                         groupedServices.map((group, i) => {
                             const Icon = group.services[0] ? getIconForService(group.services[0]) : LabIcon;

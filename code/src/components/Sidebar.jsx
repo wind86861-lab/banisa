@@ -3,7 +3,7 @@ import {
     Home, Users, Activity, Settings, UserPlus,
     FileText, Briefcase, Layout, Shield, Lock,
     MoreHorizontal, ChevronRight, Building2,
-    PieChart, Phone, Grid, Calendar
+    PieChart, Phone, Grid, Calendar, Globe
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -54,18 +54,20 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         {
             title: 'DASHBOARD',
             items: [
-                { key: 'dashboard', icon: <Home size={20} />, label: 'Dashboard', path: '/' }
+                { key: 'dashboard', icon: <Home size={20} />, label: 'Dashboard', path: '/admin/dashboard' }
             ]
         },
         {
             items: [
-                { key: 'patients', icon: <Users size={20} />, label: 'Foydalanuvchilar', path: '/patients' },
                 { key: 'clinics', icon: <Building2 size={20} />, label: 'Klinikalar', path: '/admin/clinics' },
+                { key: 'clinic-admins', icon: <UserPlus size={20} />, label: 'Clinic Admins', path: '/admin/clinic-admins' },
+                { key: 'users', icon: <Users size={20} />, label: 'Patients', path: '/admin/users' },
                 { key: 'services', icon: <Briefcase size={20} />, label: 'Diagnostika', path: '/admin/services?root=diagnostics' },
                 { key: 'operations', icon: <Activity size={20} />, label: 'Operatsiyalar', path: '/admin/services?root=operations' },
                 { key: 'sanatorium', icon: <Home size={20} />, label: 'Sanatoriya', path: '/admin/services?root=sanatorium' },
-                { key: 'packages', icon: <Grid size={20} />, label: 'Checkup Paketlar', path: '/packages' },
-                { key: 'clinic-packages', icon: <Briefcase size={20} />, label: 'Klinika Paketlari', path: '/clinic-packages' },
+                { key: 'packages', icon: <Grid size={20} />, label: 'Checkup Paketlar', path: '/admin/packages' },
+                { key: 'clinic-packages', icon: <Briefcase size={20} />, label: 'Klinika Paketlari', path: '/admin/clinic-packages' },
+                { key: 'homepage', icon: <Globe size={20} />, label: 'Homepage CMS', path: '/admin/homepage' },
             ]
         },
         {
@@ -125,7 +127,12 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             <div className="sidebar-header">
                 <a href="/" className="logo">
                     <div className="logo-icon">B</div>
-                    {isOpen && <span>Banisa</span>}
+                    {isOpen && (
+                        <div className="logo-text">
+                            <span>Banisa</span>
+                            <p className="logo-tagline">Hospital Booking System</p>
+                        </div>
+                    )}
                 </a>
             </div>
 

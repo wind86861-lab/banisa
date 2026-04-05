@@ -1,74 +1,64 @@
 import { ArrowRight } from 'lucide-react';
+import { useHomepageSettings } from '../../hooks/useHomepageSettings';
 import './css/HowItWorks.css';
 
-const STEPS = [
-    {
-        icon: (
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-            </svg>
-        ),
-        title: 'Book an Appointment',
-    },
-    {
-        icon: (
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
-                <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
-            </svg>
-        ),
-        title: 'Conduct Checkup',
-    },
-    {
-        icon: (
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
-        ),
-        title: 'Perform Treatment',
-    },
-    {
-        icon: (
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
-            </svg>
-        ),
-        title: 'Prescribe & Payment',
-    },
+const STEP_ICONS = [
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>,
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>,
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>,
+];
+
+const DEFAULT_STEPS = [
+    { title: 'Book an Appointment' },
+    { title: 'Conduct Checkup' },
+    { title: 'Perform Treatment' },
+    { title: 'Prescribe & Payment' },
 ];
 
 export default function HowItWorks() {
+    const { data } = useHomepageSettings();
+    const s = data?.how_it_works || {};
+
+    const badge = s.badge || 'Process';
+    const title = s.title || 'How It Works';
+    const description = s.description || 'Getting quality healthcare at BANISA is simple. Follow these easy steps to book your appointment and receive world-class treatment.';
+    const image = s.image || '/images/1752043509.img4.webp';
+    const specialists = s.specialists || '180';
+    const patients = s.patients || '45k';
+    const steps = (s.steps && s.steps.length) ? s.steps : DEFAULT_STEPS;
+
     return (
         <section id="how" className="cm-how">
             <div className="home-container">
                 <div className="cm-how-grid">
                     <div className="cm-how-left">
-                        <span className="cm-section-badge">Process</span>
-                        <h2 className="cm-how-title">How It Works</h2>
-                        <p className="cm-how-desc">Getting quality healthcare at BANISA is simple. Follow these easy steps to book your appointment and receive world-class treatment.</p>
+                        <span className="cm-section-badge">{badge}</span>
+                        <h2 className="cm-how-title">{title}</h2>
+                        <p className="cm-how-desc">{description}</p>
                         <div className="cm-how-steps">
-                            {STEPS.map((s, i) => (
+                            {steps.map((step, i) => (
                                 <div key={i} className="cm-how-step">
-                                    <div className="cm-how-step-icon">{s.icon}</div>
-                                    <h3>{s.title}</h3>
+                                    <div className="cm-how-step-icon">{STEP_ICONS[i % STEP_ICONS.length]}</div>
+                                    <h3>{step.title}</h3>
                                 </div>
                             ))}
                         </div>
                     </div>
                     <div className="cm-how-right">
                         <div className="cm-how-media">
-                            <img src="/images/1752043509.img4.webp" alt="How it works" />
+                            <img src={image} alt="How it works" />
                             <button className="cm-how-appt-btn">
                                 Appointment <ArrowRight size={16} />
                             </button>
                         </div>
                         <div className="cm-how-stats-badge">
                             <div className="cm-how-stat">
-                                <span className="cm-how-stat-num">180<sup>+</sup></span>
+                                <span className="cm-how-stat-num">{specialists}<sup>+</sup></span>
                                 <span className="cm-how-stat-label">Specialists</span>
                             </div>
                             <div className="cm-how-stat">
-                                <span className="cm-how-stat-num">45<sup>k</sup></span>
+                                <span className="cm-how-stat-num">{patients}</span>
                                 <span className="cm-how-stat-label">Happy Patients</span>
                             </div>
                         </div>

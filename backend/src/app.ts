@@ -22,6 +22,8 @@ import publicRoutes from './modules/public/public.routes';
 import reviewsRoutes from './modules/reviews/reviews.routes';
 import { apiLimiter } from './middleware/rateLimiter';
 import paymeRoutes from './modules/payme/payme.routes';
+import homepageRoutes from './modules/homepage/homepage.routes';
+import uploadRoutes from './modules/upload/upload.routes';
 
 const app = express();
 
@@ -69,6 +71,8 @@ app.use('/api/public', publicRoutes);
 app.use('/api/clinic', clinicAdminRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payme', paymeRoutes);
+app.use('/api/homepage', homepageRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // ─── Serve frontend in production ────────────────────────────────────────────
 if (env.NODE_ENV === 'production') {

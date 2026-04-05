@@ -55,11 +55,34 @@
     box-shadow: 0 4px 10px rgba(29, 191, 193, 0.3);
 }
 
-.logo span {
+.logo-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
     transition: opacity 0.3s ease;
 }
 
-.sidebar.closed:not(:hover) .logo span {
+.logo-text span {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+}
+
+.logo-tagline {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--color-text-secondary, #8892b0);
+    letter-spacing: 0.3px;
+    text-transform: none;
+    margin: 0;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.sidebar.closed:not(:hover) .logo-text {
     opacity: 0;
 }
 

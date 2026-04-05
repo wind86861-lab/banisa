@@ -57,9 +57,17 @@ export const markNotificationAsRead = async (req: AuthRequest, res: Response, ne
 
 export const markAllNotificationsAsRead = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const userId = req.user!.id;
-        const result = await adminService.markAllNotificationsAsRead(userId);
+        const result = await adminService.markAllNotificationsAsRead(req.user!.id);
         sendSuccess(res, result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getDashboardStats = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const stats = await adminService.getDashboardStats();
+        sendSuccess(res, stats);
     } catch (error) {
         next(error);
     }

@@ -18,4 +18,7 @@ router.get('/notifications', adminController.getNotifications);
 router.patch('/notifications/read-all', adminController.markAllNotificationsAsRead);
 router.patch('/notifications/:id/read', adminController.markNotificationAsRead);
 
+// Dashboard stats
+router.get('/dashboard/stats', adminController.getDashboardStats);
+
 export default router;

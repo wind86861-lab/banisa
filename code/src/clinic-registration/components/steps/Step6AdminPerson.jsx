@@ -12,6 +12,7 @@ import { POSITIONS } from '../../utils/constants';
 import PasswordField from '../../../shared/components/PasswordField';
 import PhoneInput from '../../../shared/components/PhoneInput';
 import NavButtons from '../NavButtons';
+import { useLegalDocs } from '../../../hooks/useLegalDocs';
 
 const EMPTY_PERSON = {
   firstName: '', lastName: '', middleName: '',
@@ -19,7 +20,7 @@ const EMPTY_PERSON = {
   password: '', passwordConfirm: '',
 };
 
-function PersonCard({ index, control, errors, isLast, canRemove, onRemove }) {
+function PersonCard({ index, control, errors, isLast, canRemove, onRemove, legalDocs }) {
   const personErrors = errors?.persons?.[index] || {};
 
   return (
@@ -129,9 +130,11 @@ function PersonCard({ index, control, errors, isLast, canRemove, onRemove }) {
         <Box sx={{ p: '14px 16px', bgcolor: '#F0F4FF', borderRadius: '10px', border: '1px solid #E8EDF5' }}>
           <Agreement name="agreeTerms" control={control} errors={errors}
             label={<>Foydalanish shartlari</>}
+            href={legalDocs?.termsUrl || ''}
             text=" bilan tanishib chiqdim va roziman *" />
           <Agreement name="agreePrivacy" control={control} errors={errors}
             label={<>Maxfiylik siyosati</>}
+            href={legalDocs?.privacyUrl || ''}
             text=" bilan tanishib chiqdim va roziman *" />
         </Box>
       )}
@@ -139,7 +142,7 @@ function PersonCard({ index, control, errors, isLast, canRemove, onRemove }) {
   );
 }
 
-function Agreement({ name, control, errors, label, text }) {
+function Agreement({ name, control, errors, label, href, text }) {
   return (
     <>
       <Controller name={name} control={control} render={({ field }) => (
@@ -152,7 +155,12 @@ function Agreement({ name, control, errors, label, text }) {
           label={
             <Typography sx={{ fontSize: '0.8125rem', color: '#4A5568' }}>
               Men{' '}
-              <Link href="#" target="_blank" sx={{ color: '#3E92CC', fontWeight: 600 }}>
+              <Link
+                href={href || '#'}
+                target="_blank"
+                onClick={!href ? (e) => e.preventDefault() : undefined}
+                sx={{ color: href ? '#3E92CC' : '#94A3B8', fontWeight: 600, cursor: href ? 'pointer' : 'default' }}
+              >
                 {label}
               </Link>
               {text}
@@ -171,6 +179,7 @@ function Agreement({ name, control, errors, label, text }) {
 }
 
 export default function Step6AdminPerson({ data, onNext, onPrev, currentStep }) {
+  const { docs: legalDocs } = useLegalDocs();
   const defaultPersons = data.persons?.length > 0
     ? data.persons
     : [{ ...EMPTY_PERSON }];
@@ -225,6 +234,7 @@ export default function Step6AdminPerson({ data, onNext, onPrev, currentStep }) 
               isLast={index === fields.length - 1}
               canRemove={fields.length > 1}
               onRemove={() => remove(index)}
+              legalDocs={legalDocs}
             />
           </motion.div>
         ))}

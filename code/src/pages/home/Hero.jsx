@@ -1,79 +1,83 @@
 import { ArrowRight, Play } from 'lucide-react';
+import { useHomepageSettings } from '../../hooks/useHomepageSettings';
 import './css/Hero.css';
 
 export default function Hero() {
+    const { data } = useHomepageSettings();
+    const s = data?.hero || {};
+
+    const badge = s.badge || '24/7 EMERGENCY SERVICE';
+    const title1 = s.title1 || 'Medical &';
+    const title2 = s.title2 || 'Health Care';
+    const titleHighlight = s.titleHighlight || 'Services';
+    const description = s.description || 'Your health is our top priority. Schedule an appointment with us today';
+    const bgImage = s.bgImage || 'https://themes.w3cms.in/clinicmaster/medical/public/storage/magic-editor/1752040977.bg1.webp';
+    const chatAvatar = s.chatAvatar || '/images/1752040923.avatar6.webp';
+    const chatTitle = s.chatTitle || 'Have a Question?';
+    const chatEmail = s.chatEmail || 'info@banisa.uz';
+    const appointmentBtnText = s.appointmentBtnText || 'Xizmatlarimiz';
+    const appointmentBtnLink = s.appointmentBtnLink || '/xizmatlar';
+    const videoBtnText = s.videoBtnText || 'Watch Now';
+    const videoUrl = s.videoUrl || '';
+
     return (
         <section
             id="home"
             className="cm-hero"
-            style={{
-                backgroundImage: "url('/images/1752043088.bg1.webp')",
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-            }}
+            style={{ backgroundImage: `url('${bgImage}')`, backgroundSize: 'cover', backgroundPosition: 'center' }}
         >
-            <div className="cm-hero-vertical">24/7 EMERGENCY SERVICE</div>
+            <div className="cm-hero-vertical">{badge}</div>
 
             <div className="home-container">
                 <div className="cm-hero-grid">
-                    {/* Left content */}
                     <div className="cm-hero-content">
                         <h1>
-                            Medical &<br />
-                            Health Care<br />
-                            <span className="cyan">Services</span>
+                            {title1}<br />
+                            {title2}<br />
+                            <span className="cyan">{titleHighlight}</span>
                             <img
-                                src="/images/line.png"
+                                src="https://themes.w3cms.in/clinicmaster/medical/public/themes/frontend/clinicmaster/images/hero-banner/line.png"
                                 alt=""
                                 className="cm-hero-line"
                             />
                         </h1>
-
-                        <p className="cm-hero-desc">
-                            Your health is our top priority. Schedule an
-                            appointment with us today
-                        </p>
-
+                        <p className="cm-hero-desc">{description}</p>
                         <div className="cm-hero-actions">
-                            <button className="cm-hero-appt">
-                                Appointment
+                            <a href={appointmentBtnLink} className="cm-hero-appt">
+                                {appointmentBtnText}
                                 <span className="arrow"><ArrowRight size={16} /></span>
-                            </button>
-                            <button className="cm-hero-watch">
-                                <span className="play"><Play size={14} fill="#1a103d" /></span>
-                                Watch Now
-                            </button>
+                            </a>
+                            {videoUrl ? (
+                                <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="cm-hero-watch">
+                                    <span className="play"><Play size={14} fill="#1a103d" /></span>
+                                    {videoBtnText}
+                                </a>
+                            ) : (
+                                <button className="cm-hero-watch">
+                                    <span className="play"><Play size={14} fill="#1a103d" /></span>
+                                    {videoBtnText}
+                                </button>
+                            )}
                         </div>
-
-                        {/* Chat widget */}
                         <div className="cm-hero-chat">
                             <div className="cm-hero-chat-avatar">
-                                <img
-                                    src="/images/1752040923.avatar6.webp"
-                                    alt="Avatar"
-                                />
+                                <img src={chatAvatar} alt="Avatar" />
                             </div>
                             <div>
-                                <h6 className="cm-hero-chat-title">Have a Question?</h6>
-                                <a href="mailto:info@banisa.uz" className="cm-hero-chat-link">info@banisa.uz</a>
+                                <h6 className="cm-hero-chat-title">{chatTitle}</h6>
+                                <a href={`mailto:${chatEmail}`} className="cm-hero-chat-link">{chatEmail}</a>
                             </div>
                         </div>
                     </div>
-
-                    {/* Right image */}
                     <div className="cm-hero-visual">
                         <div className="cm-hero-curve" />
                         <img
-                            src="/images/1752040923.img1.webp"
+                            src="https://themes.w3cms.in/clinicmaster/medical/public/storage/magic-editor/1752040923.img1.webp"
                             alt="Doctor"
                             className="cm-hero-img"
                         />
-                        {/* Floating heart */}
                         <div className="cm-hero-heart">
-                            <img
-                                src="/images/1752040923.heart.png"
-                                alt="Heart"
-                            />
+                            <img src="https://themes.w3cms.in/clinicmaster/medical/public/storage/magic-editor/1752040923.heart.png" alt="Heart" />
                         </div>
                     </div>
                 </div>

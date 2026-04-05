@@ -157,7 +157,7 @@ export default function AdminLoginPage() {
           marginTop: 24, paddingTop: 24, borderTop: '1px solid rgba(148, 163, 184, 0.1)',
           textAlign: 'center', color: '#64748B', fontSize: 12,
         }}>
-          Default: admin@medicare.uz / admin123
+          📧 admin@medicare.uz | 🔑 admin123
         </div>
       </div>
     </div>

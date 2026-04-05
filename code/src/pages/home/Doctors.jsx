@@ -1,21 +1,29 @@
 import { ArrowRight } from 'lucide-react';
+import { useHomepageSettings } from '../../hooks/useHomepageSettings';
 import './css/Doctors.css';
 
-const DOCTORS = [
-    { name: 'Danial Frankie', specialty: 'Cardiac Surgery', img: '/images/1751463932_img2.png', active: true },
-    { name: 'Kenneth Fong', specialty: 'Occupational Therapy', img: '/images/1751463996_img4.png', active: false },
-    { name: 'Nashid Martines', specialty: 'Pediatric Clinic', img: '/images/1751463870_img1.png', active: false },
-    { name: 'Rihana Roy', specialty: 'Gynecology', img: '/images/1751463965_img3.png', active: false },
+const DEFAULT_DOCTORS = [
+    { name: 'Danial Frankie', specialty: 'Cardiac Surgery', img: '/images/1751463932_img2.png' },
+    { name: 'Kenneth Fong', specialty: 'Occupational Therapy', img: '/images/1751463996_img4.png' },
+    { name: 'Nashid Martines', specialty: 'Pediatric Clinic', img: '/images/1751463870_img1.png' },
+    { name: 'Rihana Roy', specialty: 'Gynecology', img: '/images/1751463965_img3.png' },
 ];
 
 export default function Doctors() {
+    const { data } = useHomepageSettings();
+    const s = data?.doctors || {};
+
+    const badge = s.badge || 'Our Team';
+    const title = s.title || 'Meet Our Expert Doctors';
+    const doctors = (s.doctors && s.doctors.length) ? s.doctors : DEFAULT_DOCTORS;
+
     return (
         <section className="cm-doctors">
             <div className="home-container">
                 <div className="cm-section-header">
                     <div>
-                        <span className="cm-section-badge">Our Team</span>
-                        <h2 className="cm-section-title">Meet Our Expert<br />Doctors</h2>
+                        <span className="cm-section-badge">{badge}</span>
+                        <h2 className="cm-section-title">{title}</h2>
                     </div>
                     <button className="cm-btn-teal">
                         View All
@@ -23,7 +31,7 @@ export default function Doctors() {
                     </button>
                 </div>
                 <div className="cm-doctors-grid">
-                    {DOCTORS.map((doc, i) => (
+                    {doctors.map((doc, i) => (
                         <div key={i} className={`cm-doctor-card${doc.active ? ' active' : ''}`}>
                             <div className="cm-doctor-media">
                                 <img src={doc.img} alt={doc.name} />
