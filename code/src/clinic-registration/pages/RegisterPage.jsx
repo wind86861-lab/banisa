@@ -98,11 +98,10 @@ export default function RegisterPage() {
           {/* Logo row */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
             <Box sx={{
-              width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
-              background: 'rgba(255,255,255,0.15)',
-              backdropFilter: 'blur(10px)',
-              border: '1.5px solid rgba(255,255,255,0.3)',
+              width: 48, height: 48, borderRadius: '12px', flexShrink: 0,
+              background: 'linear-gradient(135deg, #1DBFC1, #00BDE0)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 10px rgba(29, 191, 193, 0.3)',
             }}>
               <Typography sx={{ fontSize: '1.2rem', fontWeight: 700, color: 'white', lineHeight: 1, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                 B

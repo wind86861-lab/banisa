@@ -299,9 +299,11 @@ export class CheckupPackagesService {
 
     async getPublicPackages(query: any) {
         const { clinicId, category, search, minPrice, maxPrice } = query;
-        if (!clinicId) throw new AppError('Clinic ID talab qilinadi', 400, ErrorCodes.VALIDATION_ERROR);
 
-        const where: any = { clinicId, isActive: true };
+        const where: any = { isActive: true };
+        if (clinicId) {
+            where.clinicId = clinicId;
+        }
         if (minPrice || maxPrice) {
             where.clinicPrice = {};
             if (minPrice) where.clinicPrice.gte = Number(minPrice);
