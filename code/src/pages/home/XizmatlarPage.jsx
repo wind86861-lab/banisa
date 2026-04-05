@@ -81,7 +81,7 @@ function ServiceCard({ service, listView }) {
         : (FALLBACK_IMAGES[service.category] || FALLBACK_IMAGES.diagnostika);
 
     if (imgSrc && imgSrc.startsWith('/uploads')) {
-        imgSrc = `http://localhost:5000${imgSrc}`;
+        imgSrc = `https://banisa.uz${imgSrc}`;
     }
 
     const rating = typeof service.rating === 'number' ? service.rating : 0;

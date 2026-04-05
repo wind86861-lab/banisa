@@ -30,6 +30,7 @@ function RatingDistribution({ stats }) {
     if (!stats || stats.totalReviews === 0) return null;
 
     const { ratingDistribution, totalReviews } = stats;
+    if (!ratingDistribution) return null;
 
     return (
         <div className="rs-distribution">

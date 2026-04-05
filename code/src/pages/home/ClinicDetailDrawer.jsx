@@ -54,7 +54,7 @@ function computeIsOpen(workingHours) {
 
 function imgUrl(src) {
     if (!src) return null;
-    if (src.startsWith('/uploads')) return `http://localhost:5000${src}`;
+    if (src.startsWith('/uploads')) return `https://banisa.uz${src}`;
     return src;
 }
 

@@ -85,7 +85,7 @@ export default function XizmatDetailPage() {
     const related = svc.relatedServices || [];
     // Fix image URLs - prepend backend URL if they start with /uploads
     const images = (svc.images || []).map(img =>
-        img.startsWith('/uploads') ? `http://localhost:5000${img}` : img
+        img.startsWith('/uploads') ? `https://banisa.uz${img}` : img
     );
     const catName = svc.category?.nameUz || 'Diagnostika';
     const parentCat = svc.category?.parent?.nameUz || '';
