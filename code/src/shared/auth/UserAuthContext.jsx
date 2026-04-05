@@ -73,7 +73,14 @@ export const UserAuthProvider = ({ children }) => {
           clearAccessToken();
         }
 
-        // 2. Try cookie-based silent refresh (singleton — StrictMode safe)
+        // 2. Try cookie-based silent refresh ONLY if a past session existed
+        // Avoids spurious 401 errors for users who never logged in
+        const hadSession = localStorage.getItem('user_had_session');
+        if (!hadSession) {
+          setIsLoading(false);
+          return;
+        }
+
         if (!userRestorePromise) {
           userRestorePromise = axiosInstance
             .post('/user/auth/refresh')
@@ -128,6 +135,7 @@ export const UserAuthProvider = ({ children }) => {
     setAccessToken(token);
     userTokenStorage.setToken(token);
     userTokenStorage.setUser(userData);
+    localStorage.setItem('user_had_session', '1');
     setUser(userData);
     userRestorePromise = null;
     return userData;
@@ -145,6 +153,7 @@ export const UserAuthProvider = ({ children }) => {
     try { await axiosInstance.post('/user/auth/logout'); } catch { /* ignore */ }
     clearAccessToken();
     userTokenStorage.clear();
+    localStorage.removeItem('user_had_session');
     setUser(null);
     userRestorePromise = null;
   };

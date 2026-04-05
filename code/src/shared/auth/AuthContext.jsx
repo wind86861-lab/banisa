@@ -57,7 +57,13 @@ export const AuthProvider = ({ children }) => {
         clearAccessToken();
       }
 
-      // 2. No sessionStorage data - try cookie refresh (only for CLINIC_ADMIN)
+      // 2. No sessionStorage data - try cookie refresh ONLY if a past session existed
+      // This avoids spurious 401 errors in the console for users who never logged in
+      const hadSession = localStorage.getItem('clinic_had_session');
+      if (!hadSession) {
+        setIsLoading(false);
+        return;
+      }
 
       if (!restorePromise) {
         restorePromise = axiosInstance
@@ -133,6 +139,7 @@ export const AuthProvider = ({ children }) => {
     setAccessToken(token);
     tokenStorage.setToken(token);
     tokenStorage.setUser(userData);
+    localStorage.setItem('clinic_had_session', '1');
     setUser(userData);
     restorePromise = null;
     return userData;
@@ -150,6 +157,7 @@ export const AuthProvider = ({ children }) => {
     try { await axiosInstance.post('/auth/logout'); } catch { /* ignore */ }
     clearAccessToken();
     tokenStorage.clear();
+    localStorage.removeItem('clinic_had_session');
     restorePromise = null;
     setUser(null);
   };
