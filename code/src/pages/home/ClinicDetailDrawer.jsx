@@ -33,25 +33,41 @@ function getTodayKey() {
     return days[new Date().getDay()];
 }
 
-// Handles both { schedule: { monday:... } } nested format and flat format
 function computeIsOpen(workingHours) {
     if (!workingHours) return null;
-    const wh = workingHours.schedule ?? workingHours;
+    const wh = normalizeWHCDD(workingHours);
     if (Object.keys(wh).length === 0) return null;
     const now = new Date();
     const todayKey = getTodayKey();
     const day = wh[todayKey];
     if (!day) return null;
-    const isDayOff = day.isDayOff !== undefined ? day.isDayOff : (day.isWorking !== undefined ? !day.isWorking : false);
+    const isDayOff = day.isDayOff !== undefined ? day.isDayOff : (day.isWorking !== undefined ? !day.isWorking : (day.isOpen !== undefined ? !day.isOpen : false));
     if (isDayOff) return false;
-    const openStr = day.open ?? day.start ?? '08:00';
-    const closeStr = day.close ?? day.end ?? '18:00';
+    const openStr = day.open ?? day.start ?? day.openTime ?? '08:00';
+    const closeStr = day.close ?? day.end ?? day.closeTime ?? '18:00';
     const [oh, om] = openStr.split(':').map(Number);
     const [ch, cm] = closeStr.split(':').map(Number);
     const cur = now.getHours() * 60 + now.getMinutes();
     return cur >= oh * 60 + om && cur < ch * 60 + cm;
 }
 
+const CDD_UZ_DAYS = {
+    'dushanba': 'monday', 'seshanba': 'tuesday', 'chorshanba': 'wednesday',
+    'payshanba': 'thursday', 'juma': 'friday', 'shanba': 'saturday', 'yakshanba': 'sunday',
+};
+function normalizeWHCDD(raw) {
+    if (!raw) return {};
+    if (Array.isArray(raw)) {
+        const r = {};
+        for (const item of raw) {
+            const k = CDD_UZ_DAYS[String(item.day || '').toLowerCase()];
+            if (k) r[k] = { start: item.from, end: item.to, isDayOff: false };
+        }
+        return r;
+    }
+    if (raw.schedule && typeof raw.schedule === 'object') return raw.schedule;
+    return raw;
+}
 function imgUrl(src) {
     if (!src) return null;
     if (src.startsWith('/uploads')) return `https://banisa.uz${src}`;

@@ -94,7 +94,27 @@ const EMPTY_FORM = {
     displayOrder: null,
 };
 
-export default function ServiceCustomizationDrawer({ open, onClose, service, activateMode = false, onSaveAndActivate, activatedClinicServiceId = null }) {
+function clinicHoursToSchedule(wh) {
+    if (!wh || typeof wh !== 'object' || Array.isArray(wh)) return { days: [], slots: {} };
+    const days = [];
+    const slots = {};
+    const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    for (const key of dayOrder) {
+        const d = wh[key];
+        if (!d) continue;
+        const isDayOff = d.isDayOff !== undefined ? d.isDayOff : (d.isOpen !== undefined ? !d.isOpen : false);
+        if (isDayOff) continue;
+        const start = d.start ?? d.openTime ?? '08:00';
+        const end = d.end ?? d.closeTime ?? '18:00';
+        if (start && end) {
+            days.push(key);
+            slots[key] = [{ start, end }];
+        }
+    }
+    return { days, slots };
+}
+
+export default function ServiceCustomizationDrawer({ open, onClose, service, activateMode = false, onSaveAndActivate, activatedClinicServiceId = null, clinicWorkingHours = null }) {
     const [activeTab, setActiveTab] = useState(0);
     const [formData, setFormData] = useState(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -118,11 +138,24 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
     useEffect(() => {
         if (!open) return;
         if (customization) {
-            setFormData({ ...EMPTY_FORM, ...customization });
+            // If saved customization has no availableDays, pre-fill from clinic hours
+            const base = { ...EMPTY_FORM, ...customization };
+            if ((!base.availableDays || base.availableDays.length === 0) && clinicWorkingHours) {
+                const { days, slots } = clinicHoursToSchedule(clinicWorkingHours);
+                base.availableDays = days;
+                base.availableTimeSlots = slots;
+            }
+            setFormData(base);
         } else if (!isLoading) {
-            setFormData({ ...EMPTY_FORM });
+            // No existing customization — pre-fill schedule from clinic working hours
+            if (clinicWorkingHours) {
+                const { days, slots } = clinicHoursToSchedule(clinicWorkingHours);
+                setFormData({ ...EMPTY_FORM, availableDays: days, availableTimeSlots: slots });
+            } else {
+                setFormData({ ...EMPTY_FORM });
+            }
         }
-    }, [customization, open, isLoading]);
+    }, [customization, open, isLoading, clinicWorkingHours]);
 
     // Reset on close
     useEffect(() => {

@@ -35,19 +35,35 @@ function getTodayKey() {
     return ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()];
 }
 
-// Handles both { schedule: { monday:... } } nested format and flat format
+const CDP_UZ_DAYS = {
+    'dushanba': 'monday', 'seshanba': 'tuesday', 'chorshanba': 'wednesday',
+    'payshanba': 'thursday', 'juma': 'friday', 'shanba': 'saturday', 'yakshanba': 'sunday',
+};
+function normalizeWHCDP(raw) {
+    if (!raw) return {};
+    if (Array.isArray(raw)) {
+        const r = {};
+        for (const item of raw) {
+            const k = CDP_UZ_DAYS[String(item.day || '').toLowerCase()];
+            if (k) r[k] = { start: item.from, end: item.to, isDayOff: false };
+        }
+        return r;
+    }
+    if (raw.schedule && typeof raw.schedule === 'object') return raw.schedule;
+    return raw;
+}
 function computeIsOpen(workingHours) {
     if (!workingHours) return null;
-    const wh = workingHours.schedule ?? workingHours;
+    const wh = normalizeWHCDP(workingHours);
     if (Object.keys(wh).length === 0) return null;
     const now = new Date();
     const todayKey = getTodayKey();
     const day = wh[todayKey];
     if (!day) return null;
-    const isDayOff = day.isDayOff !== undefined ? day.isDayOff : (day.isWorking !== undefined ? !day.isWorking : false);
+    const isDayOff = day.isDayOff !== undefined ? day.isDayOff : (day.isWorking !== undefined ? !day.isWorking : (day.isOpen !== undefined ? !day.isOpen : false));
     if (isDayOff) return false;
-    const openStr = day.open ?? day.start ?? '08:00';
-    const closeStr = day.close ?? day.end ?? '18:00';
+    const openStr = day.open ?? day.start ?? day.openTime ?? '08:00';
+    const closeStr = day.close ?? day.end ?? day.closeTime ?? '18:00';
     const [oh, om] = openStr.split(':').map(Number);
     const [ch, cm] = closeStr.split(':').map(Number);
     const cur = now.getHours() * 60 + now.getMinutes();
@@ -56,15 +72,16 @@ function computeIsOpen(workingHours) {
 
 function getTodayHours(workingHours) {
     if (!workingHours) return null;
+    const wh = normalizeWHCDP(workingHours);
     const todayKey = getTodayKey();
-    const day = workingHours[todayKey];
+    const day = wh[todayKey];
     if (!day) return null;
-    const isDayOff = day.isDayOff ?? !day.isWorking;
+    const isDayOff = day.isDayOff !== undefined ? day.isDayOff : (day.isOpen !== undefined ? !day.isOpen : false);
     if (isDayOff) return { isDayOff: true };
     return {
         isDayOff: false,
-        open: day.open ?? day.start ?? '08:00',
-        close: day.close ?? day.end ?? '18:00',
+        open: day.open ?? day.start ?? day.openTime ?? '08:00',
+        close: day.close ?? day.end ?? day.closeTime ?? '18:00',
     };
 }
 
@@ -72,6 +89,24 @@ function imgUrl(src) {
     if (!src) return null;
     if (src.startsWith('/uploads')) return `https://banisa.uz${src}`;
     return src;
+}
+
+const UZ_DAY_MAP_DP = {
+    'dushanba': 'monday', 'seshanba': 'tuesday', 'chorshanba': 'wednesday',
+    'payshanba': 'thursday', 'juma': 'friday', 'shanba': 'saturday', 'yakshanba': 'sunday',
+};
+function normalizeWHDP(raw) {
+    if (!raw) return {};
+    if (Array.isArray(raw)) {
+        const r = {};
+        for (const item of raw) {
+            const k = UZ_DAY_MAP_DP[String(item.day || '').toLowerCase()];
+            if (k) r[k] = { start: item.from, end: item.to, isDayOff: false };
+        }
+        return r;
+    }
+    if (raw.schedule && typeof raw.schedule === 'object') return raw.schedule;
+    return raw;
 }
 
 function Stars({ rating = 0, size = 14 }) {

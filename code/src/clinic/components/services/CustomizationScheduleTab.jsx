@@ -2,13 +2,13 @@ import { Plus, X } from 'lucide-react';
 import '../../pages/clinic-admin.css';
 
 const DAYS = [
-    { value: 'monday',    label: 'Dushanba' },
-    { value: 'tuesday',   label: 'Seshanba' },
+    { value: 'monday', label: 'Dushanba' },
+    { value: 'tuesday', label: 'Seshanba' },
     { value: 'wednesday', label: 'Chorshanba' },
-    { value: 'thursday',  label: 'Payshanba' },
-    { value: 'friday',    label: 'Juma' },
-    { value: 'saturday',  label: 'Shanba' },
-    { value: 'sunday',    label: 'Yakshanba' },
+    { value: 'thursday', label: 'Payshanba' },
+    { value: 'friday', label: 'Juma' },
+    { value: 'saturday', label: 'Shanba' },
+    { value: 'sunday', label: 'Yakshanba' },
 ];
 
 export default function CustomizationScheduleTab({ formData, setFormData }) {
@@ -137,14 +137,26 @@ export default function CustomizationScheduleTab({ formData, setFormData }) {
                                         type="time"
                                         value={slot.start}
                                         onChange={e => updateSlot(d.value, i, 'start', e.target.value)}
-                                        style={{ flex: 1 }}
+                                        style={{
+                                            flex: 1, padding: '7px 10px', borderRadius: 7,
+                                            border: '1.5px solid var(--border-color)',
+                                            background: 'var(--card-bg)',
+                                            color: 'var(--text-main)',
+                                            fontSize: 13, fontWeight: 600,
+                                        }}
                                     />
                                     <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
                                     <input
                                         type="time"
                                         value={slot.end}
                                         onChange={e => updateSlot(d.value, i, 'end', e.target.value)}
-                                        style={{ flex: 1 }}
+                                        style={{
+                                            flex: 1, padding: '7px 10px', borderRadius: 7,
+                                            border: '1.5px solid var(--border-color)',
+                                            background: 'var(--card-bg)',
+                                            color: 'var(--text-main)',
+                                            fontSize: 13, fontWeight: 600,
+                                        }}
                                     />
                                     <button
                                         type="button"

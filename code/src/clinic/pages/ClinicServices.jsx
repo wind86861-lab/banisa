@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useClinicServices, useActivateService, useDeactivateService } from '../hooks/useClinicServices';
+import { useWorkingHours } from '../hooks/useServiceSettings';
 import ServiceCustomizationDrawer from '../components/services/ServiceCustomizationDrawer';
 import CheckupPackagesTab from '../components/services/CheckupPackagesTab';
 import SurgicalServicesTab from '../components/services/SurgicalServicesTab';
@@ -96,6 +97,7 @@ export default function ClinicServices() {
 
     const activateMut = useActivateService();
     const deactivateMut = useDeactivateService();
+    const { data: clinicWorkingHours } = useWorkingHours();
 
     // Get diagnostic root and its children
     const diagnosticRoot = useMemo(() => {
@@ -634,6 +636,7 @@ export default function ClinicServices() {
                 open={!!customizeService}
                 onClose={() => { setCustomizeService(null); refetch(); }}
                 service={customizeService}
+                clinicWorkingHours={clinicWorkingHours}
             />
 
             {/* ═══ ACTIVATE FLOW DRAWER ═══ */}
@@ -644,6 +647,7 @@ export default function ClinicServices() {
                 activateMode={true}
                 onSaveAndActivate={handleSaveAndActivate}
                 activatedClinicServiceId={activatedClinicServiceId}
+                clinicWorkingHours={clinicWorkingHours}
             />
 
             {/* ═══ DEACTIVATE CONFIRM ═══ */}

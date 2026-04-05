@@ -18,22 +18,40 @@ const formatPhones = (phones: any): string[] => {
     } catch { return []; }
 };
 
+const UZ_TO_EN_DAYS: Record<string, string> = {
+    'dushanba': 'monday', 'seshanba': 'tuesday', 'chorshanba': 'wednesday',
+    'payshanba': 'thursday', 'juma': 'friday', 'shanba': 'saturday', 'yakshanba': 'sunday',
+};
+
+const normalizeWorkingHours = (raw: any): Record<string, any> => {
+    // Handle old array format: [{day:"Dushanba", from:"08:00", to:"18:00"}]
+    if (Array.isArray(raw)) {
+        const result: Record<string, any> = {};
+        for (const item of raw) {
+            const key = UZ_TO_EN_DAYS[String(item.day || '').toLowerCase()];
+            if (key) result[key] = { start: item.from || '08:00', end: item.to || '18:00', isDayOff: false };
+        }
+        return result;
+    }
+    // Handle nested { schedule: {...} } format
+    if (raw && raw.schedule && typeof raw.schedule === 'object') return raw.schedule;
+    return raw || {};
+};
+
 const checkIsOpen = (workingHours: any): boolean => {
     if (!workingHours) return false;
     try {
         const raw = typeof workingHours === 'string' ? JSON.parse(workingHours) : workingHours;
-        // Handle nested format: { schedule: { monday: {...} }, queueSettings: {...} }
-        const wh = raw.schedule ?? raw;
+        const wh = normalizeWorkingHours(raw);
         const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         const today = days[new Date().getDay()];
         const now = new Date().toTimeString().slice(0, 5);
         const d = wh[today];
         if (!d) return false;
-        // Support both { isWorking, open, close } and { isDayOff, start, end }
-        const isDayOff = d.isDayOff !== undefined ? d.isDayOff : (d.isWorking !== undefined ? !d.isWorking : false);
+        const isDayOff = d.isDayOff !== undefined ? d.isDayOff : (d.isWorking !== undefined ? !d.isWorking : (d.isOpen !== undefined ? !d.isOpen : false));
         if (isDayOff) return false;
-        const open = d.open ?? d.start ?? '08:00';
-        const close = d.close ?? d.end ?? '18:00';
+        const open = d.open ?? d.start ?? d.openTime ?? '08:00';
+        const close = d.close ?? d.end ?? d.closeTime ?? '18:00';
         if (!open || !close) return false;
         return now >= open && now <= close;
     } catch { return false; }
