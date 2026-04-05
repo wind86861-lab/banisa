@@ -4,16 +4,14 @@ import bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log('Clearing existing data...');
-    await prisma.diagnosticService.deleteMany();
-    await prisma.serviceCategory.deleteMany();
-    await prisma.user.deleteMany();
-    console.log('Cleared.');
+    console.log('Seeding (safe upsert — no data will be wiped)...');
 
-    // ── Super Admin ─────────────────────────────────────────────────────────
+    // ── Super Admin (upsert — never wipes existing users) ───────────────────
     const hashedPassword = await bcrypt.hash('admin123', 10);
-    const admin = await prisma.user.create({
-        data: {
+    const admin = await prisma.user.upsert({
+        where: { phone: '+998901234567' },
+        update: {},
+        create: {
             phone: '+998901234567',
             email: 'admin@medicare.uz',
             passwordHash: hashedPassword,
@@ -23,67 +21,35 @@ async function main() {
         },
     });
 
-    // ── Level 0: Root ────────────────────────────────────────────────────────
-    const root = await prisma.serviceCategory.create({
-        data: { nameUz: 'Diagnostika Xizmatlari', nameRu: 'Диагностические услуги', nameEn: 'Diagnostic Services', slug: 'diagnostics', level: 0, icon: '🔬', sortOrder: 0 },
-    });
+    // helper: upsert by slug
+    const upsertCat = (slug: string, data: object) =>
+        prisma.serviceCategory.upsert({ where: { slug }, update: {}, create: data as any });
 
-    // ── Level 1: Lab & Instrumental ──────────────────────────────────────────
-    const lab = await prisma.serviceCategory.create({
-        data: { nameUz: 'Laboratoriya Diagnostikasi', nameRu: 'Лабораторная диагностика', nameEn: 'Laboratory Diagnostics', slug: 'laboratory', level: 1, parentId: root.id, icon: '🧪', sortOrder: 1 },
-    });
-    const inst = await prisma.serviceCategory.create({
-        data: { nameUz: 'Instrumental Diagnostika', nameRu: 'Инструментальная диагностика', nameEn: 'Instrumental Diagnostics', slug: 'instrumental', level: 1, parentId: root.id, icon: '🩺', sortOrder: 2 },
-    });
+    // ── Level 0: Root ────────────────────────────────────────────────────────
+    const root = await upsertCat('diagnostics', { nameUz: 'Diagnostika Xizmatlari', nameRu: 'Диагностические услуги', nameEn: 'Diagnostic Services', slug: 'diagnostics', level: 0, icon: '🔬', sortOrder: 0 });
+
+    // ── Level 1 ──────────────────────────────────────────────────────────────
+    const lab = await upsertCat('laboratory', { nameUz: 'Laboratoriya Diagnostikasi', slug: 'laboratory', level: 1, parentId: root.id, icon: '🧪', sortOrder: 1 });
+    const inst = await upsertCat('instrumental', { nameUz: 'Instrumental Diagnostika', slug: 'instrumental', level: 1, parentId: root.id, icon: '🩺', sortOrder: 2 });
 
     // ── Level 2: Lab subcategories ───────────────────────────────────────────
-    const catQon = await prisma.serviceCategory.create({
-        data: { nameUz: 'Qon Tahlillari', nameRu: 'Анализы крови', nameEn: 'Blood Tests', slug: 'blood-tests', level: 2, parentId: lab.id, icon: '🩸', sortOrder: 1 },
-    });
-    const catSiydik = await prisma.serviceCategory.create({
-        data: { nameUz: 'Siydik Tahlillari', nameRu: 'Анализы мочи', nameEn: 'Urine Tests', slug: 'urine-tests', level: 2, parentId: lab.id, icon: '💧', sortOrder: 2 },
-    });
-    const catAxlat = await prisma.serviceCategory.create({
-        data: { nameUz: 'Axlat va Ovqat Hazm Qilish', nameRu: 'Кал и пищеварение', nameEn: 'Stool & Digestion', slug: 'stool-digestion', level: 2, parentId: lab.id, icon: '💩', sortOrder: 3 },
-    });
-    const catRepro = await prisma.serviceCategory.create({
-        data: { nameUz: "Reproduktiv Tizim Tahlillari", nameRu: 'Репродуктивная система', nameEn: 'Reproductive System', slug: 'reproductive', level: 2, parentId: lab.id, icon: '🔬', sortOrder: 4 },
-    });
-    const catMikro = await prisma.serviceCategory.create({
-        data: { nameUz: 'Mikrobiologiya va Infeksiya', nameRu: 'Микробиология и инфекции', nameEn: 'Microbiology & Infections', slug: 'microbiology', level: 2, parentId: lab.id, icon: '🦠', sortOrder: 5 },
-    });
-    const catGenetik = await prisma.serviceCategory.create({
-        data: { nameUz: 'Genetik va Molekulyar Diagnostika', nameRu: 'Генетика и молекулярная диагностика', nameEn: 'Genetic & Molecular', slug: 'genetics', level: 2, parentId: lab.id, icon: '🧬', sortOrder: 6 },
-    });
-    const catGormon = await prisma.serviceCategory.create({
-        data: { nameUz: 'Gormonlar Tahlili', nameRu: 'Анализы гормонов', nameEn: 'Hormone Tests', slug: 'hormones', level: 2, parentId: lab.id, icon: '🔬', sortOrder: 7 },
-    });
-    const catImmun = await prisma.serviceCategory.create({
-        data: { nameUz: 'Immunologiya', nameRu: 'Иммунология', nameEn: 'Immunology', slug: 'immunology', level: 2, parentId: lab.id, icon: '🛡️', sortOrder: 8 },
-    });
-    const catOnko = await prisma.serviceCategory.create({
-        data: { nameUz: 'Onkologiya', nameRu: 'Онкология', nameEn: 'Oncology', slug: 'oncology', level: 2, parentId: lab.id, icon: '🧬', sortOrder: 9 },
-    });
-    const catMaxsus = await prisma.serviceCategory.create({
-        data: { nameUz: 'Maxsus Tahlillar', nameRu: 'Специальные анализы', nameEn: 'Special Tests', slug: 'special-tests', level: 2, parentId: lab.id, icon: '🦴', sortOrder: 10 },
-    });
-    const catPrenatal = await prisma.serviceCategory.create({
-        data: { nameUz: 'Prenatal Diagnostika', nameRu: 'Пренатальная диагностика', nameEn: 'Prenatal Diagnostics', slug: 'prenatal', level: 2, parentId: lab.id, icon: '🤰', sortOrder: 11 },
-    });
+    const catQon = await upsertCat('blood-tests', { nameUz: 'Qon Tahlillari', slug: 'blood-tests', level: 2, parentId: lab.id, icon: '🩸', sortOrder: 1 });
+    const catSiydik = await upsertCat('urine-tests', { nameUz: 'Siydik Tahlillari', slug: 'urine-tests', level: 2, parentId: lab.id, icon: '💧', sortOrder: 2 });
+    const catAxlat = await upsertCat('stool-digestion', { nameUz: 'Axlat va Ovqat Hazm Qilish', slug: 'stool-digestion', level: 2, parentId: lab.id, icon: '💩', sortOrder: 3 });
+    const catRepro = await upsertCat('reproductive', { nameUz: 'Reproduktiv Tizim Tahlillari', slug: 'reproductive', level: 2, parentId: lab.id, icon: '🔬', sortOrder: 4 });
+    const catMikro = await upsertCat('microbiology', { nameUz: 'Mikrobiologiya va Infeksiya', slug: 'microbiology', level: 2, parentId: lab.id, icon: '🦠', sortOrder: 5 });
+    const catGenetik = await upsertCat('genetics', { nameUz: 'Genetik va Molekulyar Diagnostika', slug: 'genetics', level: 2, parentId: lab.id, icon: '🧬', sortOrder: 6 });
+    const catGormon = await upsertCat('hormones', { nameUz: 'Gormonlar Tahlili', slug: 'hormones', level: 2, parentId: lab.id, icon: '🔬', sortOrder: 7 });
+    const catImmun = await upsertCat('immunology', { nameUz: 'Immunologiya', slug: 'immunology', level: 2, parentId: lab.id, icon: '🛡️', sortOrder: 8 });
+    const catOnko = await upsertCat('oncology', { nameUz: 'Onkologiya', slug: 'oncology', level: 2, parentId: lab.id, icon: '🧬', sortOrder: 9 });
+    const catMaxsus = await upsertCat('special-tests', { nameUz: 'Maxsus Tahlillar', slug: 'special-tests', level: 2, parentId: lab.id, icon: '🦴', sortOrder: 10 });
+    const catPrenatal = await upsertCat('prenatal', { nameUz: 'Prenatal Diagnostika', slug: 'prenatal', level: 2, parentId: lab.id, icon: '🤰', sortOrder: 11 });
 
     // ── Level 2: Instrumental subcategories ──────────────────────────────────
-    const catTomo = await prisma.serviceCategory.create({
-        data: { nameUz: 'Tomografiya', nameRu: 'Томография', nameEn: 'Tomography', slug: 'tomography', level: 2, parentId: inst.id, icon: '🧲', sortOrder: 1 },
-    });
-    const catRentgen = await prisma.serviceCategory.create({
-        data: { nameUz: 'Rentgenologiya', nameRu: 'Рентгенология', nameEn: 'Radiology', slug: 'radiology', level: 2, parentId: inst.id, icon: '☢️', sortOrder: 2 },
-    });
-    const catUltratovush = await prisma.serviceCategory.create({
-        data: { nameUz: 'Ultratovush', nameRu: 'Ультразвук', nameEn: 'Ultrasound', slug: 'ultrasound', level: 2, parentId: inst.id, icon: '🔊', sortOrder: 3 },
-    });
-    const catFunksional = await prisma.serviceCategory.create({
-        data: { nameUz: 'Funksional Diagnostika', nameRu: 'Функциональная диагностика', nameEn: 'Functional Diagnostics', slug: 'functional', level: 2, parentId: inst.id, icon: '📈', sortOrder: 4 },
-    });
+    const catTomo = await upsertCat('tomography', { nameUz: 'Tomografiya', slug: 'tomography', level: 2, parentId: inst.id, icon: '🧲', sortOrder: 1 });
+    const catRentgen = await upsertCat('radiology', { nameUz: 'Rentgenologiya', slug: 'radiology', level: 2, parentId: inst.id, icon: '☢️', sortOrder: 2 });
+    const catUltratovush = await upsertCat('ultrasound', { nameUz: 'Ultratovush', slug: 'ultrasound', level: 2, parentId: inst.id, icon: '🔊', sortOrder: 3 });
+    const catFunksional = await upsertCat('functional', { nameUz: 'Funksional Diagnostika', slug: 'functional', level: 2, parentId: inst.id, icon: '📈', sortOrder: 4 });
 
     // ── 47 Diagnostic Services ───────────────────────────────────────────────
     const services = [
@@ -170,24 +136,29 @@ async function main() {
     services.sort((a, b) => a.num - b.num);
 
     for (const s of services) {
-        await prisma.diagnosticService.create({
-            data: {
-                nameUz: s.nameUz,
-                nameRu: s.nameRu,
-                nameEn: s.nameEn,
-                categoryId: s.catId,
-                shortDescription: `${s.nameUz} bo'yicha laboratoriya tahlili.`,
-                priceRecommended: s.price,
-                priceMin: s.min,
-                priceMax: s.max,
-                durationMinutes: s.dur,
-                resultTimeHours: s.res,
-                sampleType: s.sample || undefined,
-                isActive: true,
-                createdById: admin.id,
-            },
-        });
-        console.log(`  ✓ [${s.num}] ${s.nameUz}`);
+        const existing = await prisma.diagnosticService.findFirst({ where: { nameUz: s.nameUz } });
+        if (!existing) {
+            await prisma.diagnosticService.create({
+                data: {
+                    nameUz: s.nameUz,
+                    nameRu: s.nameRu,
+                    nameEn: s.nameEn,
+                    categoryId: s.catId,
+                    shortDescription: `${s.nameUz} bo'yicha laboratoriya tahlili.`,
+                    priceRecommended: s.price,
+                    priceMin: s.min,
+                    priceMax: s.max,
+                    durationMinutes: s.dur,
+                    resultTimeHours: s.res,
+                    sampleType: s.sample || undefined,
+                    isActive: true,
+                    createdById: admin.id,
+                },
+            });
+            console.log(`  ✓ [${s.num}] ${s.nameUz}`);
+        } else {
+            console.log(`  ~ [${s.num}] ${s.nameUz} (already exists, skipped)`);
+        }
     }
 
     console.log('\nSeeding Checkup Packages...');
@@ -199,7 +170,8 @@ async function main() {
     const ultra = await prisma.diagnosticService.findFirst({ where: { nameUz: 'Ultratovush va dopplerografiya' } });
 
     if (qonKlinik && siydikKlinik && ultra) {
-        await prisma.checkupPackage.create({
+        const exists1 = await prisma.checkupPackage.findFirst({ where: { slug: 'bazaviy-checkup' } });
+        if (!exists1) await prisma.checkupPackage.create({
             data: {
                 nameUz: 'Bazaviy Checkup',
                 nameRu: 'Базовый Чекап',
@@ -223,8 +195,10 @@ async function main() {
     }
 
     if (lipid && rentgen && ultra) {
-        await prisma.checkupPackage.create({
-            data: {
+        await prisma.checkupPackage.upsert({
+            where: { slug: 'kardiologik-checkup' },
+            update: {},
+            create: {
                 nameUz: 'Kardiologik Checkup',
                 slug: 'kardiologik-checkup',
                 category: 'SPECIALIZED',
@@ -246,7 +220,8 @@ async function main() {
     }
 
     if (qonKlinik && lipid && ultra && gormon) {
-        await prisma.checkupPackage.create({
+        const exists3 = await prisma.checkupPackage.findFirst({ where: { slug: 'erkaklar-40-checkup' } });
+        if (!exists3) await prisma.checkupPackage.create({
             data: {
                 nameUz: 'Erkaklar 40+ Checkup',
                 slug: 'erkaklar-40-checkup',
