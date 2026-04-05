@@ -65,8 +65,17 @@ function normalizeWHCDD(raw) {
         }
         return r;
     }
-    if (raw.schedule && typeof raw.schedule === 'object') return raw.schedule;
-    return raw;
+    let schedule = raw.schedule && typeof raw.schedule === 'object' ? raw.schedule : raw;
+    const normalized = {};
+    for (const [day, val] of Object.entries(schedule)) {
+        if (!val || typeof val !== 'object') continue;
+        normalized[day] = {
+            start: val.start ?? val.openTime ?? '08:00',
+            end: val.end ?? val.closeTime ?? '18:00',
+            isDayOff: val.isDayOff !== undefined ? val.isDayOff : (val.isWorking !== undefined ? !val.isWorking : (val.isOpen !== undefined ? !val.isOpen : false)),
+        };
+    }
+    return normalized;
 }
 function imgUrl(src) {
     if (!src) return null;

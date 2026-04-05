@@ -33,9 +33,21 @@ const normalizeWorkingHours = (raw: any): Record<string, any> => {
         }
         return result;
     }
-    // Handle nested { schedule: {...} } format
-    if (raw && raw.schedule && typeof raw.schedule === 'object') return raw.schedule;
-    return raw || {};
+    // Extract schedule from nested format or use raw directly
+    let schedule = raw && raw.schedule && typeof raw.schedule === 'object' ? raw.schedule : (raw || {});
+
+    // Normalize each day object to handle isOpen/openTime/closeTime format
+    const normalized: Record<string, any> = {};
+    for (const [day, val] of Object.entries(schedule)) {
+        if (!val || typeof val !== 'object') continue;
+        const v = val as any;
+        normalized[day] = {
+            start: v.start ?? v.openTime ?? '08:00',
+            end: v.end ?? v.closeTime ?? '18:00',
+            isDayOff: v.isDayOff !== undefined ? v.isDayOff : (v.isWorking !== undefined ? !v.isWorking : (v.isOpen !== undefined ? !v.isOpen : false)),
+        };
+    }
+    return normalized;
 };
 
 const checkIsOpen = (workingHours: any): boolean => {
