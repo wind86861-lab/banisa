@@ -4,6 +4,15 @@ import { sendSuccess } from '../../utils/response';
 import { AppError, ErrorCodes } from '../../utils/errors';
 import { AuthRequest } from '../../middleware/auth.middleware';
 
+export const tree = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const result = await surgicalService.getSurgicalTree();
+        sendSuccess(res, result);
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const list = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const result = await surgicalService.listSurgicalServices(req.query);

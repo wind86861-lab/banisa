@@ -7,6 +7,7 @@ import { surgicalServiceSchema, updateSurgicalSchema } from './surgical.validati
 const router = Router();
 
 // Public routes
+router.get('/tree', surgicalController.tree);
 router.get('/', surgicalController.list);
 router.get('/:id', surgicalController.getById);
 

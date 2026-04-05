@@ -79,6 +79,47 @@ export const listSurgicalServices = async (query: any) => {
     };
 };
 
+export const getSurgicalTree = async () => {
+    const root = await prisma.serviceCategory.findFirst({
+        where: { slug: 'operations', level: 0 },
+    });
+    if (!root) return [];
+
+    const level1 = await prisma.serviceCategory.findMany({
+        where: { parentId: root.id, level: 1 },
+        orderBy: { sortOrder: 'asc' },
+    });
+
+    const tree = await Promise.all(
+        level1.map(async (l1) => {
+            const subs = await prisma.serviceCategory.findMany({
+                where: { parentId: l1.id, level: 2 },
+                orderBy: { sortOrder: 'asc' },
+            });
+
+            const subsWithOps = await Promise.all(
+                subs.map(async (sub) => {
+                    const operations = await prisma.surgicalService.findMany({
+                        where: { categoryId: sub.id, isActive: true },
+                        orderBy: { nameUz: 'asc' },
+                        select: {
+                            id: true, nameUz: true, nameRu: true, nameEn: true,
+                            priceRecommended: true, priceMin: true, priceMax: true,
+                            complexity: true, riskLevel: true, anesthesiaType: true,
+                            durationMinutes: true, hospitalizationDays: true, recoveryDays: true,
+                        },
+                    });
+                    return { ...sub, operations };
+                })
+            );
+
+            return { ...l1, children: subsWithOps };
+        })
+    );
+
+    return tree;
+};
+
 export const getSurgicalById = async (id: string) => {
     return prisma.surgicalService.findUnique({
         where: { id },

@@ -405,14 +405,31 @@ const Services = () => {
 
     const activeRoot = categories.find(c => c.id === activeRootId);
 
+    // ── Get page title based on rootQuery ────────────────────────────────────
+    const getPageInfo = () => {
+        if (rootQuery === 'operations') {
+            return { icon: '⚕️', title: 'Jarrohlik Operatsiyalari', subtitle: 'Operatsiyalar' };
+        } else if (rootQuery === 'sanatorium') {
+            return { icon: '🏥', title: 'Sanatoriya Xizmatlari', subtitle: 'Sanatoriya' };
+        } else {
+            return {
+                icon: activeRoot?.icon || '🔬',
+                title: activeRoot?.nameUz || 'Diagnostika Xizmatlari',
+                subtitle: activeRoot?.nameUz || 'Diagnostika'
+            };
+        }
+    };
+
+    const pageInfo = getPageInfo();
+
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <div className={`services-container ${isSidebarMinimized ? 'sidebar-minimized' : ''}`}>
             {/* PAGE HEADER */}
             <div className="services-header">
                 <div>
-                    <h1>{activeRoot?.icon || '🔬'} {activeRoot?.nameUz || 'Katalog'}</h1>
-                    <p>Super Admin Panel › {activeRoot?.nameUz || 'Katalog'} Boshqaruvi</p>
+                    <h1>{pageInfo.icon} {pageInfo.title}</h1>
+                    <p>Super Admin Panel › {pageInfo.subtitle} Boshqaruvi</p>
                 </div>
                 <button className="btn-add-service" onClick={openCreate}>
                     <Plus size={20} />
@@ -597,6 +614,12 @@ const Services = () => {
                                             </th>
                                             <th>Xizmat nomi</th>
                                             <th>Kategoriya</th>
+                                            {rootQuery === 'operations' ? (
+                                                <>
+                                                    <th>Murakkablik</th>
+                                                    <th>Xavf</th>
+                                                </>
+                                            ) : null}
                                             <th>Tavsiya narx</th>
                                             <th>Holati</th>
                                             <th>Amallar</th>
@@ -614,9 +637,14 @@ const Services = () => {
                                                 </td>
                                                 <td>
                                                     <div className="service-name-cell">
-                                                        <span className="main-name">🧪 {service.nameUz}</span>
+                                                        <span className="main-name">{rootQuery === 'operations' ? '⚕️' : '🧪'} {service.nameUz}</span>
                                                         {service.nameRu && <span className="meta sub-name">{service.nameRu}</span>}
-                                                        <span className="meta">⏱️ {service.durationMinutes} min • 📊 {service.resultTimeHours}h</span>
+                                                        <span className="meta">
+                                                            ⏱️ {service.durationMinutes} min
+                                                            {rootQuery === 'operations'
+                                                                ? ` • 🏥 ${service.hospitalizationDays ?? 0} kun`
+                                                                : ` • 📊 ${service.resultTimeHours}h`}
+                                                        </span>
                                                     </div>
                                                 </td>
                                                 <td>
@@ -624,8 +652,25 @@ const Services = () => {
                                                         {service.category?.icon || '📁'} {service.category?.nameUz || '—'}
                                                     </span>
                                                 </td>
+                                                {rootQuery === 'operations' ? (
+                                                    <>
+                                                        <td>
+                                                            <span className={`complexity-badge cx-${(service.complexity || 'MEDIUM').toLowerCase()}`}>
+                                                                {service.complexity === 'SIMPLE' ? 'Oddiy' : service.complexity === 'MEDIUM' ? 'O\u02bbrtacha' : service.complexity === 'COMPLEX' ? 'Murakkab' : service.complexity === 'ADVANCED' ? 'Juda murakkab' : service.complexity || '—'}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <span className={`risk-badge risk-${(service.riskLevel || 'LOW').toLowerCase()}`}>
+                                                                {service.riskLevel === 'LOW' ? '🟢 Past' : service.riskLevel === 'MEDIUM' ? '🟡 O\u02bbrtacha' : service.riskLevel === 'HIGH' ? '🔴 Yuqori' : service.riskLevel || '—'}
+                                                            </span>
+                                                        </td>
+                                                    </>
+                                                ) : null}
                                                 <td className="price-cell">
                                                     <strong>{(service.priceRecommended || 0).toLocaleString()} UZS</strong>
+                                                    {rootQuery === 'operations' && service.priceMin !== service.priceMax && (
+                                                        <span className="meta">{(service.priceMin || 0).toLocaleString()} – {(service.priceMax || 0).toLocaleString()}</span>
+                                                    )}
                                                 </td>
                                                 <td>
                                                     <span className={`status-badge ${service.isActive ? 'active' : 'inactive'}`}>
@@ -649,7 +694,7 @@ const Services = () => {
                                     {services.map(service => (
                                         <div key={service.id} className="service-card" onClick={() => setActiveService(service)}>
                                             <div className="card-top">
-                                                <span className="card-icon">🧪</span>
+                                                <span className="card-icon">{rootQuery === 'operations' ? '⚕️' : '🧪'}</span>
                                                 <span className={`status-dot ${service.isActive ? 'active' : ''}`} />
                                             </div>
                                             <h3>{service.nameUz}</h3>
@@ -659,8 +704,19 @@ const Services = () => {
                                             </span>
                                             <div className="card-meta">
                                                 <span><Clock size={14} /> {service.durationMinutes} min</span>
-                                                <span><Beaker size={14} /> {service.resultTimeHours}h</span>
+                                                {rootQuery === 'operations' ? (
+                                                    <span className={`risk-badge risk-${(service.riskLevel || 'LOW').toLowerCase()}`}>
+                                                        {service.riskLevel === 'LOW' ? '🟢' : service.riskLevel === 'MEDIUM' ? '🟡' : '🔴'} {service.riskLevel || 'LOW'}
+                                                    </span>
+                                                ) : (
+                                                    <span><Beaker size={14} /> {service.resultTimeHours}h</span>
+                                                )}
                                             </div>
+                                            {rootQuery === 'operations' && service.complexity && (
+                                                <span className={`complexity-badge cx-${service.complexity.toLowerCase()}`} style={{ marginTop: 4, display: 'inline-block' }}>
+                                                    {service.complexity === 'SIMPLE' ? 'Oddiy' : service.complexity === 'MEDIUM' ? "O'rtacha" : service.complexity === 'COMPLEX' ? 'Murakkab' : 'Juda murakkab'}
+                                                </span>
+                                            )}
                                             <div className="card-price">
                                                 {(service.priceRecommended || 0).toLocaleString()} <span>UZS</span>
                                             </div>

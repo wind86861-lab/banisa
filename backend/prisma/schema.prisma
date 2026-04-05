@@ -647,6 +647,13 @@ model ClinicRegistrationPerson {
   @@index([phone])
 }
 
+model HomepageSettings {
+  id        String   @id @default(uuid())
+  section   String   @unique
+  content   Json
+  updatedAt DateTime @updatedAt
+}
+
 enum Role {
   SUPER_ADMIN
   CLINIC_ADMIN
