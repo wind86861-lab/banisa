@@ -203,6 +203,95 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
 export const getPublicServiceDetail = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const id = String(req.params.id);
+
+        // Handle surgical services (ID format: surgical-{clinicId}-{surgicalServiceId})
+        if (id.startsWith('surgical-')) {
+            const parts = id.split('-');
+            if (parts.length >= 3) {
+                const clinicId = parts[1];
+                const surgicalServiceId = parts.slice(2).join('-');
+
+                const link = await prisma.clinicSurgicalService.findUnique({
+                    where: { clinicId_surgicalServiceId: { clinicId, surgicalServiceId } },
+                    include: {
+                        clinic: true,
+                        surgicalService: { include: { category: true } },
+                    },
+                });
+
+                if (!link || !link.isActive) {
+                    return res.status(404).json({ success: false, message: 'Xizmat topilmadi' });
+                }
+
+                const s = link.surgicalService;
+                const c = link.clinic;
+                const anyLink = link as any;
+                const cust = anyLink.customizationData || {};
+                const custImages = (anyLink.serviceImages || []).map((img: any) => img.url || img);
+                const images = custImages.length > 0 ? custImages : (s.imageUrl ? [s.imageUrl] : []);
+
+                const price = cust.customPrice ?? s.priceRecommended ?? s.priceMin ?? 0;
+                const discount = cust.discountPercent ?? 0;
+                const finalPrice = discount > 0 ? Math.round(price * (1 - discount / 100)) : price;
+
+                const mins = s.durationMinutes;
+                const duration = mins >= 60 ? `${Math.round(mins / 60)} soat` : `${mins} daqiqa`;
+
+                const result = {
+                    id,
+                    category: 'operatsiya',
+                    nameUz: cust.customNameUz || s.nameUz,
+                    nameRu: cust.customNameRu || s.nameRu,
+                    nameEn: s.nameEn,
+                    shortDescription: cust.descriptionShortUz || s.shortDescription || '',
+                    fullDescription: cust.descriptionFullUz || s.fullDescription || s.shortDescription || '',
+                    processDescription: cust.processDescriptionUz || null,
+                    preparation: cust.preparationUz || null,
+                    contraindications: cust.contraindicationsUz || null,
+                    postOpInstructions: cust.postOpInstructionsUz || null,
+                    postOpDiet: cust.postOpDietUz || null,
+                    postOpActivityRestrictions: cust.postOpActivityRestrictions || null,
+                    postOpFollowUpDays: cust.postOpFollowUpDays || null,
+                    specialty: s.category?.nameUz || 'Jarrohlik',
+                    price: finalPrice,
+                    originalPrice: discount > 0 ? price : null,
+                    discountPercent: discount > 0 ? discount : null,
+                    priceMin: s.priceMin,
+                    priceMax: s.priceMax,
+                    priceRecommended: s.priceRecommended,
+                    durationMinutes: cust.durationMinutes || s.durationMinutes,
+                    duration: cust.durationMinutes ? `${cust.durationMinutes} daqiqa` : duration,
+                    anesthesiaType: s.anesthesiaType,
+                    recoveryDays: s.recoveryDays,
+                    requiresHospitalization: s.requiresHospitalization,
+                    images,
+                    imageUrl: images[0] || null,
+                    clinics: [{
+                        id: c.id,
+                        name: c.nameUz,
+                        nameRu: c.nameRu,
+                        region: c.region,
+                        district: c.district,
+                        address: `${c.region}, ${c.district}, ${c.street}`,
+                        phones: c.phones as string[],
+                        logo: c.logo,
+                        rating: c.averageRating ?? 0,
+                        reviewCount: c.reviewCount ?? 0,
+                        workingHours: c.workingHours,
+                        hasOnlineBooking: c.hasOnlineBooking,
+                        price: finalPrice,
+                        originalPrice: discount > 0 ? price : null,
+                        discountPercent: discount > 0 ? discount : null,
+                        images: custImages,
+                    }],
+                    activeClinicsCount: 1,
+                };
+
+                return res.json({ success: true, data: result });
+            }
+        }
+
+        // Handle diagnostic services
         const service = await getDiagnosticById(id);
 
         if (!service || !service.isActive) {
