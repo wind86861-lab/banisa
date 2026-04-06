@@ -403,6 +403,8 @@ model ClinicSurgicalService {
   clinicId          String
   surgicalServiceId String
   isActive          Boolean         @default(true)
+  customizationData Json?
+  serviceImages     Json?
   createdAt         DateTime        @default(now())
   clinic            Clinic          @relation(fields: [clinicId], references: [id])
   surgicalService   SurgicalService @relation("SurgicalServiceClinicLinks", fields: [surgicalServiceId], references: [id])

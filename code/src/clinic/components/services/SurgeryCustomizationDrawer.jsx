@@ -6,6 +6,7 @@ import {
     useUpsertSurgeryCustomization,
     useDeleteSurgeryCustomization,
 } from '../../hooks/useSurgeryCustomization';
+import api from '../../../shared/api/axios';
 import '../../pages/clinic-admin.css';
 
 const TABS = [
@@ -399,26 +400,21 @@ function ImagesTab({ form, setForm }) {
             const formData = new FormData();
             files.forEach(file => formData.append('images', file));
 
-            const response = await fetch('/api/upload/service-images', {
-                method: 'POST',
-                body: formData,
-                credentials: 'include',
+            const res = await api.post('/upload/service-images', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
             });
+            const uploadedUrls = res.data?.data?.urls || [];
 
-            if (!response.ok) throw new Error('Upload failed');
-            const data = await response.json();
-            const uploadedUrls = data.data?.urls || [];
-
-            setForm({
-                ...form,
-                images: [...images, ...uploadedUrls.map((url, idx) => ({
+            setForm(prev => ({
+                ...prev,
+                images: [...(prev.images || []), ...uploadedUrls.map((url, idx) => ({
                     url,
-                    isPrimary: images.length === 0 && idx === 0,
-                    order: images.length + idx,
+                    isPrimary: (prev.images || []).length === 0 && idx === 0,
+                    order: (prev.images || []).length + idx,
                 }))],
-            });
+            }));
         } catch (error) {
-            alert('Rasm yuklashda xatolik: ' + (error.message || 'Noma\'lum xatolik'));
+            alert('Rasm yuklashda xatolik: ' + (error?.response?.data?.message || error.message || 'Noma\'lum xatolik'));
         } finally {
             setUploading(false);
             e.target.value = '';
@@ -644,7 +640,7 @@ export default function SurgeryCustomizationDrawer({
     const [activating, setActivating] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    const clinicServiceId = service?.clinicService?.id;
+    const clinicServiceId = service?.id;
     const { data: existing, isLoading } = useSurgeryCustomization(
         activateMode ? null : clinicServiceId,
         { enabled: open && !activateMode && !!clinicServiceId },

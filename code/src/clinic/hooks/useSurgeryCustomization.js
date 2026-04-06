@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../shared/api/axios';
 
-export const useSurgeryCustomization = (surgeryId) => {
+export const useSurgeryCustomization = (surgeryId, options = {}) => {
     return useQuery({
         queryKey: ['clinic', 'surgery-customization', surgeryId],
         queryFn: async () => {
@@ -9,6 +9,7 @@ export const useSurgeryCustomization = (surgeryId) => {
             return data.data;
         },
         enabled: !!surgeryId,
+        ...options,
     });
 };
 

@@ -39,6 +39,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                         include: { category: { select: { id: true, nameUz: true } } },
                     },
                 },
+                orderBy: { createdAt: 'desc' },
             }),
 
             prisma.clinicSanatoriumService.findMany({
@@ -112,19 +113,28 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                 const s = link.surgicalService;
                 const mins = s.durationMinutes;
                 const duration = mins >= 60 ? `${Math.round(mins / 60)} soat` : `${mins} daqiqa`;
+                const anyLink = link as any;
+                const cust = anyLink.customizationData || {};
+                const custImages = (anyLink.serviceImages || []).map((img: any) => img.url || img);
+                const images = custImages.length > 0 ? custImages : (s.imageUrl ? [s.imageUrl] : []);
+                const price = cust.customPrice ?? s.priceRecommended ?? s.priceMin ?? 0;
+                const discount = cust.discountPercent ?? 0;
+                const finalPrice = discount > 0 ? Math.round(price * (1 - discount / 100)) : price;
                 return {
                     id: `surgical-${link.clinicId}-${link.surgicalServiceId}`,
                     category: 'operatsiya',
-                    title: s.nameUz,
-                    desc: s.shortDescription ?? '',
-                    fullDescription: s.shortDescription ?? '',
+                    title: (cust.customNameUz || s.nameUz) as string,
+                    desc: (cust.descriptionShortUz || s.shortDescription || '') as string,
+                    fullDescription: (cust.descriptionFullUz || s.shortDescription || '') as string,
                     specialty: s.category?.nameUz ?? 'Jarrohlik',
-                    price: s.priceRecommended ?? s.priceMin ?? 0,
+                    price: finalPrice,
+                    originalPrice: discount > 0 ? price : null,
+                    discountPercent: discount > 0 ? discount : null,
                     rating: link.clinic.averageRating ?? 0,
                     reviews: link.clinic.reviewCount ?? 0,
-                    duration,
+                    duration: cust.durationMinutes ? `${cust.durationMinutes} daqiqa` : duration,
                     availability: ['offline'],
-                    images: s.imageUrl ? [s.imageUrl] : [],
+                    images,
                     tags: [],
                     benefits: [],
                     clinic: formatClinic(link.clinic),

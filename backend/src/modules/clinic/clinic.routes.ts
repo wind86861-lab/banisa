@@ -58,6 +58,11 @@ router.get('/surgical-services/available', clinicSurgicalController.getAvailable
 router.post('/surgical-services/activate', validate(activateSurgicalServiceSchema), clinicSurgicalController.activateSurgicalService);
 router.delete('/surgical-services/:serviceId', clinicSurgicalController.deactivateSurgicalService);
 
+// ─── Surgical Service Customization ──────────────────────────────────────────
+router.get('/surgical-services/:serviceId/customization', clinicSurgicalController.getCustomization);
+router.put('/surgical-services/:serviceId/customization', clinicSurgicalController.upsertCustomization);
+router.delete('/surgical-services/:serviceId/customization', clinicSurgicalController.deleteCustomization);
+
 // ─── Sanatorium Services ────────────────────────────────────────────────────
 router.get('/sanatorium-services/available', clinicSanatoriumController.getAvailableSanatoriumServices);
 router.post('/sanatorium-services/activate', validate(activateSanatoriumServiceSchema), clinicSanatoriumController.activateSanatoriumService);

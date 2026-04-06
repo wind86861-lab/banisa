@@ -87,11 +87,8 @@ export default function SurgicalServicesTab() {
     const totalActive = services?.filter(s => s.clinicService?.isActive).length ?? 0;
 
     const handleSaveAndActivate = async (surgicalServiceId, formData) => {
-        const clinicService = await activateMut.mutateAsync(surgicalServiceId);
-        const clinicServiceId = clinicService?.id;
-        if (clinicServiceId) {
-            await api.put(`/clinic/surgical-services/${clinicServiceId}/customization`, formData);
-        }
+        await activateMut.mutateAsync(surgicalServiceId);
+        await api.put(`/clinic/surgical-services/${surgicalServiceId}/customization`, formData);
         setActivateDrawerService(null);
         refetch();
     };

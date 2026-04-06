@@ -35,6 +35,33 @@ export class ClinicSurgicalController {
             next(error);
         }
     };
+
+    getCustomization = async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            const data = await clinicSurgicalService.getSurgicalCustomization(req.user!.id, String(req.params.serviceId));
+            sendSuccess(res, data);
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    upsertCustomization = async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            const data = await clinicSurgicalService.upsertSurgicalCustomization(req.user!.id, String(req.params.serviceId), req.body);
+            sendSuccess(res, data, null, 'Moslashtirish saqlandi');
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    deleteCustomization = async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            const data = await clinicSurgicalService.deleteSurgicalCustomization(req.user!.id, String(req.params.serviceId));
+            sendSuccess(res, data);
+        } catch (error) {
+            next(error);
+        }
+    };
 }
 
 export const clinicSurgicalController = new ClinicSurgicalController();

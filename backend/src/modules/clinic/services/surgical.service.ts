@@ -114,6 +114,48 @@ export class ClinicSurgicalService {
             data: { isActive: false },
         });
     }
+
+    async getSurgicalCustomization(userId: string, surgicalServiceId: string) {
+        const clinicId = await this.getClinicId(userId);
+        const link = await prisma.clinicSurgicalService.findUnique({
+            where: { clinicId_surgicalServiceId: { clinicId, surgicalServiceId } },
+        });
+        if (!link) return null;
+        return {
+            ...((link.customizationData as any) || {}),
+            images: (link.serviceImages as any[]) || [],
+        };
+    }
+
+    async upsertSurgicalCustomization(userId: string, surgicalServiceId: string, data: any) {
+        const clinicId = await this.getClinicId(userId);
+        const link = await prisma.clinicSurgicalService.findUnique({
+            where: { clinicId_surgicalServiceId: { clinicId, surgicalServiceId } },
+        });
+        if (!link) throw new AppError('Operatsiya faollashtirilmagan', 404, ErrorCodes.NOT_FOUND);
+
+        const { images, ...customizationData } = data;
+        const updated = await prisma.clinicSurgicalService.update({
+            where: { clinicId_surgicalServiceId: { clinicId, surgicalServiceId } },
+            data: {
+                customizationData,
+                ...(images !== undefined && { serviceImages: images }),
+            },
+        });
+        return {
+            ...((updated.customizationData as any) || {}),
+            images: (updated.serviceImages as any[]) || [],
+        };
+    }
+
+    async deleteSurgicalCustomization(userId: string, surgicalServiceId: string) {
+        const clinicId = await this.getClinicId(userId);
+        await prisma.clinicSurgicalService.update({
+            where: { clinicId_surgicalServiceId: { clinicId, surgicalServiceId } },
+            data: { customizationData: undefined, serviceImages: [] },
+        });
+        return { message: 'Moslashtirish tozalandi' };
+    }
 }
 
 export const clinicSurgicalService = new ClinicSurgicalService();
