@@ -206,10 +206,12 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
 
         // Handle surgical services (ID format: surgical-{clinicId}-{surgicalServiceId})
         if (id.startsWith('surgical-')) {
-            const parts = id.split('-');
-            if (parts.length >= 3) {
-                const clinicId = parts[1];
-                const surgicalServiceId = parts.slice(2).join('-');
+            const withoutPrefix = id.substring('surgical-'.length);
+            const parts = withoutPrefix.split('-');
+            // UUID format: 8-4-4-4-12 characters, so we need to reconstruct two UUIDs
+            if (parts.length >= 10) {
+                const clinicId = parts.slice(0, 5).join('-');
+                const surgicalServiceId = parts.slice(5).join('-');
 
                 const link = await prisma.clinicSurgicalService.findUnique({
                     where: { clinicId_surgicalServiceId: { clinicId, surgicalServiceId } },
