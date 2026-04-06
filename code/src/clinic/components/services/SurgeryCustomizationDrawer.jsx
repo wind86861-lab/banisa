@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Loader2, Save, Trash2 } from 'lucide-react';
+import { X, Loader2, Save, Trash2, Upload, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     useSurgeryCustomization,
@@ -13,6 +13,7 @@ const TABS = [
     { key: 1, label: 'Tavsif' },
     { key: 2, label: 'Tayyorgarlik' },
     { key: 3, label: 'Tiklanish' },
+    { key: 4, label: 'Rasmlar' },
 ];
 
 const SURGERY_METHODS = [
@@ -73,6 +74,9 @@ const EMPTY_FORM = {
     postOpDietUz: '',
     postOpActivityRestrictions: '',
     postOpFollowUpDays: null,
+
+    // Images
+    images: [],
 };
 
 function BasicTab({ form, setForm, baseService }) {
@@ -382,6 +386,251 @@ function RecoveryTab({ form, setForm }) {
     );
 }
 
+function ImagesTab({ form, setForm }) {
+    const [uploading, setUploading] = useState(false);
+    const images = form.images || [];
+
+    const handleFileSelect = async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            files.forEach(file => formData.append('images', file));
+
+            const response = await fetch('/api/upload/service-images', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include',
+            });
+
+            if (!response.ok) throw new Error('Upload failed');
+            const data = await response.json();
+            const uploadedUrls = data.data?.urls || [];
+
+            setForm({
+                ...form,
+                images: [...images, ...uploadedUrls.map((url, idx) => ({
+                    url,
+                    isPrimary: images.length === 0 && idx === 0,
+                    order: images.length + idx,
+                }))],
+            });
+        } catch (error) {
+            alert('Rasm yuklashda xatolik: ' + (error.message || 'Noma\'lum xatolik'));
+        } finally {
+            setUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    const removeImage = (index) => {
+        const newImages = images.filter((_, i) => i !== index);
+        if (newImages.length > 0 && !newImages.some(img => img.isPrimary)) {
+            newImages[0].isPrimary = true;
+        }
+        setForm({ ...form, images: newImages });
+    };
+
+    const setPrimary = (index) => {
+        setForm({
+            ...form,
+            images: images.map((img, i) => ({ ...img, isPrimary: i === index })),
+        });
+    };
+
+    const moveImage = (index, direction) => {
+        const newImages = [...images];
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= newImages.length) return;
+        [newImages[index], newImages[targetIndex]] = [newImages[targetIndex], newImages[index]];
+        newImages.forEach((img, i) => img.order = i);
+        setForm({ ...form, images: newImages });
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{
+                padding: '12px 16px',
+                background: 'rgba(59,130,246,0.06)',
+                border: '1px solid rgba(59,130,246,0.15)',
+                borderRadius: 10,
+                fontSize: 13,
+            }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>📸 Operatsiya rasmlari</div>
+                <div style={{ color: 'var(--text-muted)' }}>
+                    Operatsiya jarayoni, natijalar yoki jihozlar rasmlarini yuklang. Birinchi rasm asosiy rasm sifatida ko'rsatiladi.
+                </div>
+            </div>
+
+            {/* Upload button */}
+            <label style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '32px 20px',
+                border: '2px dashed var(--border-color)',
+                borderRadius: 12,
+                cursor: uploading ? 'not-allowed' : 'pointer',
+                background: 'var(--bg-secondary)',
+                transition: 'all 0.2s',
+                opacity: uploading ? 0.6 : 1,
+            }}>
+                <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileSelect}
+                    disabled={uploading}
+                    style={{ display: 'none' }}
+                />
+                {uploading ? (
+                    <Loader2 size={32} className="ca-spin" style={{ color: 'var(--color-primary)' }} />
+                ) : (
+                    <Upload size={32} style={{ color: 'var(--color-primary)', marginBottom: 8 }} />
+                )}
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
+                    {uploading ? 'Yuklanmoqda...' : 'Rasm yuklash'}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    JPG, PNG yoki WebP (maks. 5MB)
+                </div>
+            </label>
+
+            {/* Images grid */}
+            {images.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+                    {images.map((img, idx) => (
+                        <div key={idx} style={{
+                            position: 'relative',
+                            borderRadius: 10,
+                            overflow: 'hidden',
+                            border: img.isPrimary ? '2px solid var(--color-primary)' : '1px solid var(--border-color)',
+                            background: 'var(--bg-secondary)',
+                        }}>
+                            <img
+                                src={img.url}
+                                alt={`Surgery ${idx + 1}`}
+                                style={{
+                                    width: '100%',
+                                    height: 120,
+                                    objectFit: 'cover',
+                                    display: 'block',
+                                }}
+                            />
+                            {img.isPrimary && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: 6,
+                                    left: 6,
+                                    padding: '3px 8px',
+                                    background: 'var(--color-primary)',
+                                    color: 'white',
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    borderRadius: 4,
+                                }}>ASOSIY</div>
+                            )}
+                            <div style={{
+                                position: 'absolute',
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                padding: '6px',
+                                background: 'rgba(0,0,0,0.7)',
+                                display: 'flex',
+                                gap: 4,
+                                justifyContent: 'center',
+                            }}>
+                                {!img.isPrimary && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setPrimary(idx)}
+                                        style={{
+                                            padding: '4px 8px',
+                                            background: 'rgba(255,255,255,0.2)',
+                                            border: 'none',
+                                            borderRadius: 4,
+                                            color: 'white',
+                                            fontSize: 10,
+                                            cursor: 'pointer',
+                                            fontWeight: 600,
+                                        }}
+                                        title="Asosiy qilish"
+                                    >
+                                        <ImageIcon size={12} />
+                                    </button>
+                                )}
+                                {idx > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => moveImage(idx, 'up')}
+                                        style={{
+                                            padding: '4px 6px',
+                                            background: 'rgba(255,255,255,0.2)',
+                                            border: 'none',
+                                            borderRadius: 4,
+                                            color: 'white',
+                                            fontSize: 10,
+                                            cursor: 'pointer',
+                                        }}
+                                        title="Chapga"
+                                    >←</button>
+                                )}
+                                {idx < images.length - 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => moveImage(idx, 'down')}
+                                        style={{
+                                            padding: '4px 6px',
+                                            background: 'rgba(255,255,255,0.2)',
+                                            border: 'none',
+                                            borderRadius: 4,
+                                            color: 'white',
+                                            fontSize: 10,
+                                            cursor: 'pointer',
+                                        }}
+                                        title="O'ngga"
+                                    >→</button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => removeImage(idx)}
+                                    style={{
+                                        padding: '4px 6px',
+                                        background: 'rgba(239,68,68,0.8)',
+                                        border: 'none',
+                                        borderRadius: 4,
+                                        color: 'white',
+                                        fontSize: 10,
+                                        cursor: 'pointer',
+                                    }}
+                                    title="O'chirish"
+                                >
+                                    <Trash2 size={12} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {images.length === 0 && (
+                <div style={{
+                    padding: '24px',
+                    textAlign: 'center',
+                    color: 'var(--text-muted)',
+                    fontSize: 13,
+                }}>
+                    Hozircha rasmlar yuklanmagan
+                </div>
+            )}
+        </div>
+    );
+}
+
 // Props match ServiceCustomizationDrawer: open, onClose, service, activateMode, onSaveAndActivate
 export default function SurgeryCustomizationDrawer({
     open, onClose, service,
@@ -513,6 +762,7 @@ export default function SurgeryCustomizationDrawer({
                                     {activeTab === 1 && <DescriptionTab form={form} setForm={setForm} />}
                                     {activeTab === 2 && <PreparationTab form={form} setForm={setForm} />}
                                     {activeTab === 3 && <RecoveryTab form={form} setForm={setForm} />}
+                                    {activeTab === 4 && <ImagesTab form={form} setForm={setForm} />}
                                 </>
                             )}
                         </div>

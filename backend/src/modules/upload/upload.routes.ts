@@ -80,4 +80,21 @@ router.post(
     }
 );
 
+// ─── Service Images Upload (Multiple) ──────────────────────────────────────────
+router.post(
+    '/service-images',
+    requireAuth,
+    requireRole(['CLINIC_ADMIN']),
+    upload.array('images', 10),
+    (req: Request, res: Response, next: NextFunction) => {
+        const files = req.files as Express.Multer.File[];
+        if (!files || files.length === 0) {
+            res.status(400).json({ success: false, message: 'No files uploaded' });
+            return;
+        }
+        const urls = files.map(file => `/uploads/images/${file.filename}`);
+        res.json({ success: true, data: { urls } });
+    }
+);
+
 export default router;
