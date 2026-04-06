@@ -241,33 +241,49 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
 
                 const result = {
                     id,
+                    isSurgical: true,
                     category: 'operatsiya',
+                    specialty: s.category?.nameUz || 'Jarrohlik',
                     nameUz: cust.customNameUz || s.nameUz,
                     nameRu: cust.customNameRu || s.nameRu,
                     nameEn: s.nameEn,
+                    // Descriptions
                     shortDescription: cust.descriptionShortUz || s.shortDescription || '',
                     fullDescription: cust.descriptionFullUz || s.fullDescription || s.shortDescription || '',
-                    processDescription: cust.processDescriptionUz || null,
-                    preparation: cust.preparationUz || null,
-                    contraindications: cust.contraindicationsUz || null,
-                    postOpInstructions: cust.postOpInstructionsUz || null,
-                    postOpDiet: cust.postOpDietUz || null,
-                    postOpActivityRestrictions: cust.postOpActivityRestrictions || null,
-                    postOpFollowUpDays: cust.postOpFollowUpDays || null,
-                    specialty: s.category?.nameUz || 'Jarrohlik',
+                    // Surgery specifics
+                    surgeryMethod: cust.surgeryMethod || null,
+                    anesthesiaType: cust.anesthesiaType || String(s.anesthesiaType),
+                    durationMinutes: cust.durationMinutes || s.durationMinutes,
+                    duration: cust.durationMinutes ? `${cust.durationMinutes} daqiqa` : duration,
+                    recoveryDays: cust.recoveryDays ?? s.recoveryDays,
+                    hospitalizationDays: cust.hospitalizationDays ?? null,
+                    requiresHospitalization: s.requiresHospitalization,
+                    // Pricing
                     price: finalPrice,
                     originalPrice: discount > 0 ? price : null,
                     discountPercent: discount > 0 ? discount : null,
                     priceMin: s.priceMin,
                     priceMax: s.priceMax,
                     priceRecommended: s.priceRecommended,
-                    durationMinutes: cust.durationMinutes || s.durationMinutes,
-                    duration: cust.durationMinutes ? `${cust.durationMinutes} daqiqa` : duration,
-                    anesthesiaType: s.anesthesiaType,
-                    recoveryDays: s.recoveryDays,
-                    requiresHospitalization: s.requiresHospitalization,
+                    priceIncludesUz: cust.priceIncludesUz || '',
+                    installmentAvailable: cust.installmentAvailable || false,
+                    installmentMonths: cust.installmentMonths || null,
+                    insuranceAccepted: cust.insuranceAccepted || false,
+                    insuranceProviders: cust.insuranceProviders || '',
+                    // Pre-op preparation
+                    preparation: cust.preOpInstructionsUz || null,
+                    preOpFastingHours: cust.preOpFastingHours ?? null,
+                    preOpMedicationStop: cust.preOpMedicationStop || '',
+                    preOpTestsRequired: cust.preOpTestsRequired || '',
+                    // Post-op recovery
+                    postOpInstructions: cust.postOpInstructionsUz || null,
+                    postOpDiet: cust.postOpDietUz || '',
+                    postOpActivityRestrictions: cust.postOpActivityRestrictions || '',
+                    postOpFollowUpDays: cust.postOpFollowUpDays ?? null,
+                    // Images
                     images,
                     imageUrl: images[0] || null,
+                    activeClinicsCount: 1,
                     clinics: [{
                         id: c.id,
                         name: c.nameUz,
@@ -286,7 +302,6 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
                         discountPercent: discount > 0 ? discount : null,
                         images: custImages,
                     }],
-                    activeClinicsCount: 1,
                 };
 
                 return res.json({ success: true, data: result });

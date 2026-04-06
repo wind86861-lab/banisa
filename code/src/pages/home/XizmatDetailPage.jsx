@@ -108,6 +108,13 @@ export default function XizmatDetailPage() {
     const hasInd = ind.symptoms?.length > 0 || ind.diseases?.length > 0 || ind.preventive || ind.mandatoryFor?.length > 0;
     const hasContra = contra.absolute?.length > 0 || contra.relative?.length > 0 || contra.temporary?.length > 0 || svc.contraindications;
 
+    // Surgical-specific
+    const isSurgical = !!svc.isSurgical;
+    const SURGERY_METHOD_LABELS = { LAPAROSCOPIC: 'Laparoskopik', OPEN: 'Ochiq jarrohlik', ENDOSCOPIC: 'Endoskopik', ROBOTIC: 'Robot yordamida', MINIMALLY_INVASIVE: 'Minimal invaziv' };
+    const ANESTHESIA_LABELS = { GENERAL: 'Umumiy narkoz', LOCAL: 'Lokal anesteziya', REGIONAL: 'Regional anesteziya', SPINAL: 'Spinal anesteziya', EPIDURAL: 'Epidural anesteziya', SEDATION: 'Sedatsiya' };
+    const hasPostOp = svc.postOpInstructions || svc.postOpDiet || svc.postOpActivityRestrictions || svc.postOpFollowUpDays;
+    const hasSurgicalPrep = svc.preOpFastingHours != null || svc.preOpMedicationStop || svc.preOpTestsRequired;
+
     return (
         <div className="xd-page">
             <TopBar />
@@ -172,7 +179,7 @@ export default function XizmatDetailPage() {
                         )}
 
                         {/* Blockquote - Process Description */}
-                        {activeProcess && (
+                        {activeProcess && !isSurgical && (
                             <blockquote className="xd-blockquote">
                                 <FlaskConical size={20} />
                                 <div>
@@ -182,12 +189,76 @@ export default function XizmatDetailPage() {
                             </blockquote>
                         )}
 
+                        {/* ── SURGICAL OVERVIEW CARD ── */}
+                        {isSurgical && (
+                            <div className="xd-content-block">
+                                <h2 className="xd-section-title"><Stethoscope size={22} /> Operatsiya haqida</h2>
+                                <div className="xd-prep-grid">
+                                    {svc.surgeryMethod && (
+                                        <div className="xd-prep-item">
+                                            <div className="xd-prep-icon ok"><Zap size={20} /></div>
+                                            <div><p className="xd-prep-label">Operatsiya usuli</p><p className="xd-prep-value">{SURGERY_METHOD_LABELS[svc.surgeryMethod] || svc.surgeryMethod}</p></div>
+                                        </div>
+                                    )}
+                                    {svc.anesthesiaType && (
+                                        <div className="xd-prep-item">
+                                            <div className="xd-prep-icon ok"><Shield size={20} /></div>
+                                            <div><p className="xd-prep-label">Anesteziya turi</p><p className="xd-prep-value">{ANESTHESIA_LABELS[svc.anesthesiaType] || svc.anesthesiaType}</p></div>
+                                        </div>
+                                    )}
+                                    {svc.durationMinutes > 0 && (
+                                        <div className="xd-prep-item">
+                                            <div className="xd-prep-icon ok"><Clock size={20} /></div>
+                                            <div><p className="xd-prep-label">Davomiyligi</p><p className="xd-prep-value">{svc.durationMinutes} daqiqa</p></div>
+                                        </div>
+                                    )}
+                                    {svc.recoveryDays > 0 && (
+                                        <div className="xd-prep-item">
+                                            <div className="xd-prep-icon warn"><Timer size={20} /></div>
+                                            <div><p className="xd-prep-label">Tiklanish muddati</p><p className="xd-prep-value">{svc.recoveryDays} kun</p></div>
+                                        </div>
+                                    )}
+                                    {svc.hospitalizationDays != null && (
+                                        <div className="xd-prep-item">
+                                            <div className="xd-prep-icon ok"><Building2 size={20} /></div>
+                                            <div>
+                                                <p className="xd-prep-label">Yotoqxonada qolish</p>
+                                                <p className="xd-prep-value">{svc.hospitalizationDays === 0 ? 'Ambulatoriya (yotmasdan)' : `${svc.hospitalizationDays} kun`}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Preparation Section */}
                         {hasPrep && (
                             <div className="xd-content-block">
-                                <h2 className="xd-section-title"><ClipboardList size={22} /> Tayyorgarlik</h2>
+                                <h2 className="xd-section-title"><ClipboardList size={22} /> {isSurgical ? 'Operatsiyadan oldin tayyorgarlik' : 'Tayyorgarlik'}</h2>
                                 {activePreparationText && <p className="xd-text">{activePreparationText}</p>}
-                                {Object.keys(prep).length > 0 && (
+                                {isSurgical && hasSurgicalPrep && (
+                                    <div className="xd-prep-grid" style={{ marginTop: 12 }}>
+                                        {svc.preOpFastingHours != null && (
+                                            <div className="xd-prep-item">
+                                                <div className="xd-prep-icon warn"><AlertTriangle size={20} /></div>
+                                                <div><p className="xd-prep-label">Och qorin</p><p className="xd-prep-value">{svc.preOpFastingHours} soat ovqatlanmaslik</p></div>
+                                            </div>
+                                        )}
+                                        {svc.preOpMedicationStop && (
+                                            <div className="xd-prep-item">
+                                                <div className="xd-prep-icon warn"><XCircle size={20} /></div>
+                                                <div><p className="xd-prep-label">Dori-darmonlarni to'xtatish</p><p className="xd-prep-value">{svc.preOpMedicationStop}</p></div>
+                                            </div>
+                                        )}
+                                        {svc.preOpTestsRequired && (
+                                            <div className="xd-prep-item">
+                                                <div className="xd-prep-icon ok"><FlaskConical size={20} /></div>
+                                                <div><p className="xd-prep-label">Kerakli tahlillar</p><p className="xd-prep-value">{svc.preOpTestsRequired}</p></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {!isSurgical && Object.keys(prep).length > 0 && (
                                     <div className="xd-prep-grid">
                                         {prep.fastingHours != null && (
                                             <div className="xd-prep-item">
@@ -199,6 +270,58 @@ export default function XizmatDetailPage() {
                                             <div className="xd-prep-item">
                                                 <div className="xd-prep-icon ok"><Clock size={20} /></div>
                                                 <div><p className="xd-prep-label">Eng yaxshi vaqt</p><p className="xd-prep-value">{prep.bestTime}</p></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ── SURGICAL POST-OP RECOVERY ── */}
+                        {isSurgical && hasPostOp && (
+                            <div className="xd-content-block">
+                                <h2 className="xd-section-title"><Activity size={22} /> Operatsiyadan keyin tiklanish</h2>
+                                {svc.postOpInstructions && <p className="xd-text">{svc.postOpInstructions}</p>}
+                                <div className="xd-prep-grid" style={{ marginTop: svc.postOpInstructions ? 12 : 0 }}>
+                                    {svc.postOpDiet && (
+                                        <div className="xd-prep-item">
+                                            <div className="xd-prep-icon ok"><Droplets size={20} /></div>
+                                            <div><p className="xd-prep-label">Ovqatlanish rejimi</p><p className="xd-prep-value">{svc.postOpDiet}</p></div>
+                                        </div>
+                                    )}
+                                    {svc.postOpActivityRestrictions && (
+                                        <div className="xd-prep-item">
+                                            <div className="xd-prep-icon warn"><AlertTriangle size={20} /></div>
+                                            <div><p className="xd-prep-label">Faoliyat cheklovlari</p><p className="xd-prep-value">{svc.postOpActivityRestrictions}</p></div>
+                                        </div>
+                                    )}
+                                    {svc.postOpFollowUpDays != null && (
+                                        <div className="xd-prep-item">
+                                            <div className="xd-prep-icon ok"><Calendar size={20} /></div>
+                                            <div><p className="xd-prep-label">Nazorat ko'rigi</p><p className="xd-prep-value">{svc.postOpFollowUpDays} kundan keyin</p></div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── PRICE INCLUDES (surgical) ── */}
+                        {isSurgical && svc.priceIncludesUz && (
+                            <div className="xd-content-block">
+                                <h2 className="xd-section-title"><BadgeCheck size={22} /> Narxga nima kiritilgan</h2>
+                                <p className="xd-text">{svc.priceIncludesUz}</p>
+                                {(svc.installmentAvailable || svc.insuranceAccepted) && (
+                                    <div className="xd-prep-grid" style={{ marginTop: 12 }}>
+                                        {svc.installmentAvailable && (
+                                            <div className="xd-prep-item">
+                                                <div className="xd-prep-icon ok"><CheckCircle2 size={20} /></div>
+                                                <div><p className="xd-prep-label">Bo'lib to'lash</p><p className="xd-prep-value">{svc.installmentMonths ? `${svc.installmentMonths} oygacha` : 'Mavjud'}</p></div>
+                                            </div>
+                                        )}
+                                        {svc.insuranceAccepted && (
+                                            <div className="xd-prep-item">
+                                                <div className="xd-prep-icon ok"><Shield size={20} /></div>
+                                                <div><p className="xd-prep-label">Sug'urta</p><p className="xd-prep-value">{svc.insuranceProviders || 'Qabul qilinadi'}</p></div>
                                             </div>
                                         )}
                                     </div>
