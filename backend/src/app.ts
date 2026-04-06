@@ -77,9 +77,12 @@ app.use('/api/upload', uploadRoutes);
 // ─── Serve frontend in production ────────────────────────────────────────────
 if (env.NODE_ENV === 'production') {
     const frontendPath = path.join(__dirname, '../../code/dist');
-    app.use(express.static(frontendPath));
+    app.use(express.static(frontendPath, { index: false }));
     // Catch-all route for SPA - must be after all API routes
     app.use((_req, res) => {
+        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.set('Pragma', 'no-cache');
+        res.set('Expires', '0');
         res.sendFile(path.join(frontendPath, 'index.html'));
     });
 }
