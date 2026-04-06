@@ -153,12 +153,13 @@ function InfoTab({ clinic }) {
                     <h4 className="cdd-section-title">🕐 Ish vaqti</h4>
                     <div className="cdd-hours-table">
                         {DAY_ORDER.map(day => {
-                            const hours = normalizeWHCDD(wh)[day] ?? wh[day];
+                            const normalized = normalizeWHCDD(wh);
+                            const hours = normalized[day];
                             const isToday = day === today;
-                            const isDayOffVal = hours ? (hours.isDayOff !== undefined ? hours.isDayOff : (hours.isWorking !== undefined ? !hours.isWorking : (hours.isOpen !== undefined ? !hours.isOpen : false))) : true;
+                            const isDayOffVal = hours?.isDayOff ?? true;
                             const working = !isDayOffVal;
-                            const openT = hours?.open ?? hours?.start ?? hours?.openTime ?? '';
-                            const closeT = hours?.close ?? hours?.end ?? hours?.closeTime ?? '';
+                            const openT = hours?.start ?? '';
+                            const closeT = hours?.end ?? '';
                             return (
                                 <div key={day} className={`cdd-hours-row ${isToday ? 'today' : ''}`}>
                                     <span className="cdd-hours-day">{DAYS_UZ[day]}</span>

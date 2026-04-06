@@ -18,6 +18,25 @@ const DAY_LABELS = {
     thursday: 'Payshanba', friday: 'Juma', saturday: 'Shanba', sunday: 'Yakshanba',
 };
 
+const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+function normalizeWorkingHours(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    const schedule = raw.schedule || raw;
+    if (typeof schedule !== 'object') return [];
+    return DAY_ORDER.map(day => {
+        const dayData = schedule[day];
+        if (!dayData || typeof dayData !== 'object') return null;
+        return {
+            day,
+            isOpen: dayData.isDayOff !== undefined ? !dayData.isDayOff : (dayData.isOpen ?? true),
+            openTime: dayData.start || dayData.openTime || '08:00',
+            closeTime: dayData.end || dayData.closeTime || '18:00',
+        };
+    }).filter(Boolean);
+}
+
 const STATUS_MAP = {
     PENDING: { label: 'Kutilmoqda', cls: 'pending' },
     APPROVED: { label: 'Tasdiqlangan', cls: 'approved' },
@@ -80,7 +99,7 @@ export default function ClinicDetailPage() {
     const status = STATUS_MAP[clinic.status] || STATUS_MAP.PENDING;
     const phones = Array.isArray(clinic.phones) ? clinic.phones : [];
     const emails = Array.isArray(clinic.emails) ? clinic.emails : [];
-    const workingHours = Array.isArray(clinic.workingHours) ? clinic.workingHours : [];
+    const workingHours = normalizeWorkingHours(clinic.workingHours);
 
     const mapSrc = clinic.latitude && clinic.longitude
         ? `https://maps.google.com/maps?q=${clinic.latitude},${clinic.longitude}&z=15&output=embed`
@@ -152,16 +171,18 @@ export default function ClinicDetailPage() {
 
                 {/* Staff */}
                 <div className="cdp-section-card">
-                    <div className="cdp-section-label">Mas'ul shaxslar</div>
+                    <div className="cdp-section-label">👤 Mas'ul shaxslar</div>
                     <div className="cdp-staff-row">
                         {clinic.adminFirstName ? (
                             <div className="cdp-staff-card">
                                 <div className="cdp-staff-avatar">
                                     {clinic.adminFirstName?.[0]}{clinic.adminLastName?.[0]}
                                 </div>
-                                <div className="cdp-staff-name">{clinic.adminFirstName} {clinic.adminLastName}</div>
-                                <div className="cdp-staff-position">{clinic.adminPosition || "Mas'ul shaxs"}</div>
-                                {clinic.adminPhone && <div className="cdp-staff-phone">{clinic.adminPhone}</div>}
+                                <div>
+                                    <div className="cdp-staff-name">{clinic.adminFirstName} {clinic.adminLastName}</div>
+                                    <div className="cdp-staff-position">{clinic.adminPosition || "Mas'ul shaxs"}</div>
+                                    {clinic.adminPhone && <div className="cdp-staff-phone">📞 {clinic.adminPhone}</div>}
+                                </div>
                             </div>
                         ) : (
                             <div className="cdp-empty" style={{ width: '100%' }}>Ma'lumot yo'q</div>
@@ -202,20 +223,42 @@ export default function ClinicDetailPage() {
 
                 {/* Working hours */}
                 <div className="cdp-section-card">
-                    <div className="cdp-section-label">Ish vaqti</div>
+                    <div className="cdp-section-label">📅 Ish vaqti</div>
                     {workingHours.length > 0 ? (
                         <div className="cdp-wh-grid">
                             {workingHours.map((wh, i) => (
                                 <div className="cdp-wh-item" key={i}>
                                     <span className="cdp-wh-day">{DAY_LABELS[wh.day] || wh.day}</span>
-                                    {wh.isOpen
-                                        ? <span className="cdp-wh-time">{wh.openTime} – {wh.closeTime}</span>
-                                        : <span className="cdp-wh-closed">Dam olish</span>
-                                    }
+                                    {wh.isOpen ? (
+                                        <span className="cdp-wh-time">
+                                            <span style={{ color: 'var(--color-success)', marginRight: '6px' }}>●</span>
+                                            {wh.openTime} – {wh.closeTime}
+                                        </span>
+                                    ) : (
+                                        <span className="cdp-wh-closed">
+                                            <span style={{ color: 'var(--color-error)', marginRight: '6px' }}>●</span>
+                                            Dam olish
+                                        </span>
+                                    )}
                                 </div>
                             ))}
                         </div>
                     ) : <div className="cdp-empty">Ish vaqti belgilanmagan</div>}
+                </div>
+
+                {/* Amenities */}
+                <div className="cdp-section-card">
+                    <div className="cdp-section-label">✨ Imkoniyatlar</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {clinic.hasEmergency && <span className="cdp-amenity-chip">🚑 Tez yordam</span>}
+                        {clinic.hasAmbulance && <span className="cdp-amenity-chip">🚐 Ambulans</span>}
+                        {clinic.parkingAvailable && <span className="cdp-amenity-chip">🅿️ Parking</span>}
+                        {clinic.hasOnlineBooking && <span className="cdp-amenity-chip">💻 Onlayn bron</span>}
+                        {clinic.bedsCount > 0 && <span className="cdp-amenity-chip">🛏️ {clinic.bedsCount} karavot</span>}
+                        {!clinic.hasEmergency && !clinic.hasAmbulance && !clinic.parkingAvailable && !clinic.hasOnlineBooking && clinic.bedsCount === 0 && (
+                            <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>Ma'lumot yo'q</span>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

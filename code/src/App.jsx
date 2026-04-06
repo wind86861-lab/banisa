@@ -22,7 +22,6 @@ import AdminProfile from './pages/AdminProfile';
 import AdminClinicDetailPage from './admin/pages/clinics/ClinicDetailPage';
 import HomepageSettings from './admin/pages/HomepageSettings';
 import Users from './pages/Users';
-import ClinicAdmins from './pages/ClinicAdmins';
 
 // Clinic registration pages
 import RegisterPage from './clinic-registration/pages/RegisterPage';
@@ -168,7 +167,6 @@ function App() {
                             }>
                                 <Route index element={<Navigate to="dashboard" replace />} />
                                 <Route path="dashboard" element={<Dashboard />} />
-                                <Route path="clinic-admins" element={<ClinicAdmins />} />
                                 <Route path="users" element={<Users />} />
                                 <Route path="services" element={<Services />} />
                                 <Route path="clinics" element={<Clinics />} />

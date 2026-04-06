@@ -60,7 +60,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         {
             items: [
                 { key: 'clinics', icon: <Building2 size={20} />, label: 'Klinikalar', path: '/admin/clinics' },
-                { key: 'clinic-admins', icon: <UserPlus size={20} />, label: 'Clinic Admins', path: '/admin/clinic-admins' },
                 { key: 'users', icon: <Users size={20} />, label: 'Patients', path: '/admin/users' },
                 { key: 'services', icon: <Briefcase size={20} />, label: 'Diagnostika', path: '/admin/services?root=diagnostics' },
                 { key: 'operations', icon: <Activity size={20} />, label: 'Operatsiyalar', path: '/admin/services?root=operations' },
