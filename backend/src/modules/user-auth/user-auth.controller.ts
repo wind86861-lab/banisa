@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { registerUser, loginUser, getUserProfile } from './user-auth.service';
+import { registerUser, loginUser, getUserProfile, refreshAccessToken } from './user-auth.service';
 import { sendSuccess } from '../../utils/response';
 import { AuthRequest } from '../../middleware/auth.middleware';
 
@@ -41,6 +41,28 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
     try {
         const user = await getUserProfile(req.user!.id);
         sendSuccess(res, user);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ─── REFRESH TOKEN ──────────────────────────────────────────────────────────
+export const refresh = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const refreshToken = req.cookies.user_refreshToken;
+
+        if (!refreshToken) {
+            return res.status(401).json({
+                success: false,
+                error: {
+                    code: 'UNAUTHORIZED',
+                    message: 'Refresh token topilmadi',
+                },
+            });
+        }
+
+        const result = await refreshAccessToken(refreshToken);
+        sendSuccess(res, result);
     } catch (error) {
         next(error);
     }

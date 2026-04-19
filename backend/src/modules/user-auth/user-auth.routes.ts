@@ -23,6 +23,7 @@ const loginLimiter = rateLimit({
 // ─── PUBLIC ROUTES ──────────────────────────────────────────────────────────
 router.post('/register', registerLimiter, validate(userRegisterSchema), userAuthController.register);
 router.post('/login', loginLimiter, validate(userLoginSchema), userAuthController.login);
+router.post('/refresh', userAuthController.refresh); // Refresh token endpoint
 
 // ─── PROTECTED ROUTES ───────────────────────────────────────────────────────
 router.get('/profile', requireAuth, userAuthController.getProfile);

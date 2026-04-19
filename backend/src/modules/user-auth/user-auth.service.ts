@@ -13,8 +13,8 @@ const normalizePhone = (phone: string): string => {
 
 // Generate tokens
 const generateAccessToken = (payload: { id: string; role: string }): string =>
-    jwt.sign(payload, env.JWT_ACCESS_SECRET as jwt.Secret, { 
-        expiresIn: env.NODE_ENV === 'production' ? '15m' : '1h' 
+    jwt.sign(payload, env.JWT_ACCESS_SECRET as jwt.Secret, {
+        expiresIn: env.NODE_ENV === 'production' ? '15m' : '1h'
     } as jwt.SignOptions);
 
 const generateRefreshToken = (payload: { id: string }): string =>
@@ -124,6 +124,34 @@ export const loginUser = async (credentials: { phone: string; password: string }
         accessToken,
         refreshToken,
     };
+};
+
+// ─── REFRESH ACCESS TOKEN ───────────────────────────────────────────────────
+export const refreshAccessToken = async (refreshToken: string) => {
+    try {
+        // Verify refresh token
+        const decoded = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET as jwt.Secret) as { id: string };
+
+        // Get user
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.id, isActive: true },
+            select: {
+                id: true,
+                role: true,
+            },
+        });
+
+        if (!user) {
+            throw new AppError('Foydalanuvchi topilmadi', 401, ErrorCodes.UNAUTHORIZED);
+        }
+
+        // Generate new access token
+        const accessToken = generateAccessToken({ id: user.id, role: user.role });
+
+        return { accessToken };
+    } catch (error) {
+        throw new AppError('Token yaroqsiz yoki muddati o\'tgan', 401, ErrorCodes.UNAUTHORIZED);
+    }
 };
 
 // ─── GET USER PROFILE ───────────────────────────────────────────────────────
