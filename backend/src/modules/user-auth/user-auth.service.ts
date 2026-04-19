@@ -132,11 +132,15 @@ export const refreshAccessToken = async (refreshToken: string) => {
         // Verify refresh token
         const decoded = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET as jwt.Secret) as { id: string };
 
-        // Get user
+        // Get user with full profile data
         const user = await prisma.user.findUnique({
             where: { id: decoded.id, isActive: true },
             select: {
                 id: true,
+                phone: true,
+                email: true,
+                firstName: true,
+                lastName: true,
                 role: true,
             },
         });
@@ -147,8 +151,10 @@ export const refreshAccessToken = async (refreshToken: string) => {
 
         // Generate new access token
         const accessToken = generateAccessToken({ id: user.id, role: user.role });
+        // Generate new refresh token (rotation)
+        const newRefreshToken = generateRefreshToken({ id: user.id });
 
-        return { accessToken };
+        return { accessToken, refreshToken: newRefreshToken, user };
     } catch (error) {
         throw new AppError('Token yaroqsiz yoki muddati o\'tgan', 401, ErrorCodes.UNAUTHORIZED);
     }

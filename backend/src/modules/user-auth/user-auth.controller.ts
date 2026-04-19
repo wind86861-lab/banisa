@@ -62,8 +62,23 @@ export const refresh = async (req: Request, res: Response, next: NextFunction) =
         }
 
         const result = await refreshAccessToken(refreshToken);
-        sendSuccess(res, result);
+
+        // Rotate refresh token cookie
+        res.cookie('user_refreshToken', result.refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            path: '/api/user/auth',
+        });
+
+        sendSuccess(res, {
+            accessToken: result.accessToken,
+            user: result.user,
+        });
     } catch (error) {
+        // Clear invalid cookie
+        res.clearCookie('user_refreshToken', { path: '/api/user/auth' });
         next(error);
     }
 };
