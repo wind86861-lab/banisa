@@ -1015,6 +1015,8 @@
 .form-content {
     padding: 40px;
     min-height: 400px;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .step-content h3 {

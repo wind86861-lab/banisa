@@ -24,7 +24,7 @@ export default function BookingSuccessPage() {
         ? new Date(appointment.scheduledAt).toLocaleString('uz-UZ', {
             day: '2-digit', month: 'long', year: 'numeric',
             hour: '2-digit', minute: '2-digit',
-          })
+        })
         : '—';
 
     return (
@@ -45,7 +45,7 @@ export default function BookingSuccessPage() {
                     <div className="bs-details">
                         <div className="bs-detail-row">
                             <span className="bs-detail-label">Bron raqami</span>
-                            <span className="bs-detail-value bs-mono">#{shortId}</span>
+                            <span className="bs-detail-value bs-mono">{appointment.bookingNumber || `#${shortId}`}</span>
                         </div>
                         <div className="bs-detail-row">
                             <span className="bs-detail-label">Xizmat</span>
@@ -84,11 +84,11 @@ export default function BookingSuccessPage() {
 
                     {/* Buttons */}
                     <div className="bs-actions">
-                        <Link to="/user/appointments" className="bs-btn-primary">
-                            Uchrashuvlarimga <ArrowRight size={18} />
+                        <Link to={`/user/appointments/${appointment.id}`} className="bs-btn-primary">
+                            Bron tafsiloti <ArrowRight size={18} />
                         </Link>
-                        <Link to="/" className="bs-btn-secondary">
-                            <Home size={18} /> Bosh sahifaga
+                        <Link to="/user/appointments" className="bs-btn-secondary">
+                            Barcha bronlar
                         </Link>
                     </div>
                 </div>

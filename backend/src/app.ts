@@ -24,6 +24,12 @@ import { apiLimiter } from './middleware/rateLimiter';
 import paymeRoutes from './modules/payme/payme.routes';
 import homepageRoutes from './modules/homepage/homepage.routes';
 import uploadRoutes from './modules/upload/upload.routes';
+import cartRoutes from './modules/cart/cart.routes';
+import {
+    patientAppointmentRouter,
+    operatorAppointmentRouter,
+    clinicAppointmentRouter,
+} from './modules/appointments/appointment.routes';
 
 const app = express();
 
@@ -42,6 +48,9 @@ app.use(cors({
     credentials: true,
 }));
 
+// Trust proxy (behind nginx) — required for express-rate-limit to read X-Forwarded-For
+app.set('trust proxy', 1);
+
 // Global rate limiter — 100 req / 15 min per IP (VULN-02)
 app.use('/api/', apiLimiter);
 
@@ -56,6 +65,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user/auth', userAuthRoutes);
+app.use('/api/user/appointments', patientAppointmentRouter);
 app.use('/api/user', userRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/diagnostics', diagnosticRoutes);
@@ -73,6 +83,11 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/payme', paymeRoutes);
 app.use('/api/homepage', homepageRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/cart', cartRoutes);
+
+// ─── Appointment workflow (new) ──────────────────────────────────────────────
+app.use('/api/admin/appointments', operatorAppointmentRouter);
+app.use('/api/clinic/appointments', clinicAppointmentRouter);
 
 // ─── Serve frontend in production ────────────────────────────────────────────
 if (env.NODE_ENV === 'production') {

@@ -35,29 +35,103 @@ export const useUpdateProfile = () => {
     });
 };
 
-// ─── Bookings ─────────────────────────────────────────────────────────────────
+// ─── Bookings / Appointments (new workflow) ──────────────────────────────────
 export const useClinicBookings = (filters = {}) =>
     useQuery({
         queryKey: ['clinic', 'bookings', filters],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (filters.status && filters.status !== 'ALL') params.append('status', filters.status);
-            if (filters.search)   params.append('search',   filters.search);
-            if (filters.page)     params.append('page',     String(filters.page));
-            if (filters.limit)    params.append('limit',    String(filters.limit));
-            const { data } = await api.get(`/clinic/bookings?${params}`);
+            if (filters.search) params.append('search', filters.search);
+            if (filters.page) params.append('page', String(filters.page));
+            if (filters.limit) params.append('limit', String(filters.limit));
+            const { data } = await api.get(`/clinic/appointments?${params}`);
             return { data: data.data ?? [], meta: data.meta ?? {} };
         },
     });
 
+const invalidateBookings = (qc) => {
+    qc.invalidateQueries({ queryKey: ['clinic', 'bookings'] });
+};
+
+export const useAcceptBooking = () => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ id, notes }) => {
+            const { data } = await api.post(`/clinic/appointments/${id}/accept`, { notes });
+            return data.data;
+        },
+        onSuccess: () => invalidateBookings(qc),
+    });
+};
+
+export const useRescheduleBooking = () => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ id, scheduledAt, reason }) => {
+            const { data } = await api.post(`/clinic/appointments/${id}/reschedule`, { scheduledAt, reason });
+            return data.data;
+        },
+        onSuccess: () => invalidateBookings(qc),
+    });
+};
+
+export const useStartBooking = () => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ id }) => {
+            const { data } = await api.post(`/clinic/appointments/${id}/start`);
+            return data.data;
+        },
+        onSuccess: () => invalidateBookings(qc),
+    });
+};
+
+export const useCompleteBooking = () => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ id, note, paymentMethod }) => {
+            const { data } = await api.post(`/clinic/appointments/${id}/complete`, { note, paymentMethod });
+            return data.data;
+        },
+        onSuccess: () => invalidateBookings(qc),
+    });
+};
+
+export const useNoShowBooking = () => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ id }) => {
+            const { data } = await api.post(`/clinic/appointments/${id}/no-show`);
+            return data.data;
+        },
+        onSuccess: () => invalidateBookings(qc),
+    });
+};
+
+// Backwards-compatible wrapper for old ClinicBookings page — maps old statuses to new actions
 export const useUpdateBookingStatus = () => {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: async ({ id, status, cancellationReason }) => {
-            const { data } = await api.patch(`/clinic/bookings/${id}/status`, { status, cancellationReason });
+        mutationFn: async ({ id, status }) => {
+            let endpoint;
+            switch (status) {
+                case 'CONFIRMED':
+                case 'CLINIC_ACCEPTED':
+                    endpoint = `/clinic/appointments/${id}/accept`; break;
+                case 'IN_PROGRESS':
+                    endpoint = `/clinic/appointments/${id}/start`; break;
+                case 'COMPLETED':
+                    endpoint = `/clinic/appointments/${id}/complete`; break;
+                case 'NO_SHOW':
+                    endpoint = `/clinic/appointments/${id}/no-show`; break;
+                default:
+                    throw new Error(`Bu status uchun amal mavjud emas: ${status}`);
+            }
+            const { data } = await api.post(endpoint);
             return data.data;
         },
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['clinic', 'bookings'] }),
+        onSuccess: () => invalidateBookings(qc),
     });
 };
 
@@ -68,7 +142,7 @@ export const useClinicStaff = (filters = {}) =>
         queryFn: async () => {
             const params = new URLSearchParams();
             if (filters.search) params.append('search', filters.search);
-            if (filters.page)   params.append('page',   String(filters.page));
+            if (filters.page) params.append('page', String(filters.page));
             const { data } = await api.get(`/clinic/staff?${params}`);
             return { data: data.data ?? [], meta: data.meta ?? {} };
         },

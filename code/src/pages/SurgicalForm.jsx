@@ -355,29 +355,100 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                     <div className="step-content animated fade-in review-step">
                         <h3><HelpCircle className="step-icon" /> Yakuniy Tekshirish</h3>
                         <div className="review-summary">
+                            {/* Step 1: Basic Info */}
                             <div className="summary-card">
                                 <h4>{formData.nameUz}</h4>
-                                <p>{formData.shortDescription}</p>
+                                {formData.nameRu && <p style={{ fontSize: 13, color: '#64748b' }}>{formData.nameRu}</p>}
+                                {formData.shortDescription && <p>{formData.shortDescription}</p>}
+                                {formData.fullDescription && <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{formData.fullDescription.substring(0, 150)}{formData.fullDescription.length > 150 ? '...' : ''}</p>}
+                            </div>
+
+                            {/* Step 2: Price & Time */}
+                            <div className="review-section">
+                                <h5 className="review-section-title">💰 Narx va Vaqt</h5>
                                 <div className="summary-stats">
                                     <div className="stat"><span>Narx:</span> {Number(formData.priceRecommended).toLocaleString()} UZS</div>
                                     <div className="stat"><span>Vaqt:</span> {formData.durationMinutes} daqiqa</div>
                                     <div className="stat"><span>Sog'ayish:</span> {formData.recoveryDays} kun</div>
                                 </div>
                             </div>
-                            <div className="review-grid">
-                                <div className="grid-item">
-                                    <h5>Anesteziya</h5>
-                                    <p>{formData.anesthesiaType}</p>
+
+                            {/* Step 3: Anesthesia & Hospital */}
+                            <div className="review-section">
+                                <h5 className="review-section-title">🏥 Anesteziya va Shifoxona</h5>
+                                <div className="review-grid">
+                                    <div className="grid-item">
+                                        <h5>Anesteziya</h5>
+                                        <p>{formData.anesthesiaType}</p>
+                                    </div>
+                                    <div className="grid-item">
+                                        <h5>Shifoxona</h5>
+                                        <p>{formData.hospitalizationDays} kun ({formData.roomType})</p>
+                                    </div>
+                                    <div className="grid-item">
+                                        <h5>ICU</h5>
+                                        <p>{formData.requiresICU ? `Ha (${formData.icuDays} kun)` : 'Yo\'q'}</p>
+                                    </div>
                                 </div>
-                                <div className="grid-item">
-                                    <h5>Shifoxona</h5>
-                                    <p>{formData.requiresHospitalization ? `${formData.hospitalizationDays} kun (${formData.roomType})` : 'Talab etilmaydi'}</p>
-                                </div>
-                                <div className="grid-item">
-                                    <h5>Murakkablik</h5>
-                                    <p>{formData.complexity} (Risk: {formData.riskLevel})</p>
-                                </div>
+                                {formData.hospitalizationNotes && <p style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>{formData.hospitalizationNotes}</p>}
                             </div>
+
+                            {/* Step 4: Preparation */}
+                            <div className="review-section">
+                                <h5 className="review-section-title">📋 Tayyorgarlik</h5>
+                                {(formData.requiredTests || []).length > 0 && (
+                                    <div style={{ marginBottom: 8 }}>
+                                        <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Zaruriy tahlillar:</span>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                                            {formData.requiredTests.map((t, i) => t && (
+                                                <span key={i} style={{ fontSize: 11, background: '#f1f5f9', padding: '2px 8px', borderRadius: 6 }}>{t}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {formData.preparationFasting && <p style={{ fontSize: 12 }}>🍽️ Ochlik: {formData.fastingHours} soat</p>}
+                                {!formData.preparationFasting && (formData.requiredTests || []).length === 0 && <p style={{ fontSize: 12, color: '#94a3b8' }}>Ma'lumot kiritilmagan</p>}
+                            </div>
+
+                            {/* Step 5: Operation Details */}
+                            <div className="review-section">
+                                <h5 className="review-section-title">⚕️ Operatsiya Tafsilotlari</h5>
+                                <div className="review-grid">
+                                    <div className="grid-item">
+                                        <h5>Murakkablik</h5>
+                                        <p>{formData.complexity}</p>
+                                    </div>
+                                    <div className="grid-item">
+                                        <h5>Xavf darajasi</h5>
+                                        <p>{formData.riskLevel}</p>
+                                    </div>
+                                    <div className="grid-item">
+                                        <h5>Jarroh tajribasi</h5>
+                                        <p>{formData.minSurgeonExperience} yil</p>
+                                    </div>
+                                </div>
+                                {formData.surgeonSpecialization && <p style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>Mutaxassislik: {formData.surgeonSpecialization}</p>}
+                            </div>
+
+                            {/* Step 6: Post-operation */}
+                            <div className="review-section">
+                                <h5 className="review-section-title">🩺 Operatsiyadan Keyin</h5>
+                                {formData.postOpImmediate?.monitoring && <p style={{ fontSize: 12 }}><strong>Monitoring:</strong> {formData.postOpImmediate.monitoring.substring(0, 100)}</p>}
+                                {formData.postOpHome?.care && <p style={{ fontSize: 12 }}><strong>Uy parvarishi:</strong> {formData.postOpHome.care.substring(0, 100)}</p>}
+                                {!formData.postOpImmediate?.monitoring && !formData.postOpHome?.care && <p style={{ fontSize: 12, color: '#94a3b8' }}>Ma'lumot kiritilmagan</p>}
+                            </div>
+
+                            {/* Step 7: Package */}
+                            {(formData.packageIncluded || []).length > 0 && (
+                                <div className="review-section">
+                                    <h5 className="review-section-title">📦 Paket Tarkibi</h5>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                        {formData.packageIncluded.map((p, i) => p?.item && (
+                                            <span key={i} style={{ fontSize: 11, background: '#ecfdf5', color: '#065f46', padding: '2px 8px', borderRadius: 6 }}>✅ {p.item}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="form-group" style={{ marginTop: 20 }}>
                             <label>Muvaffaqiyat ko'rsatkichi (%)</label>
@@ -536,6 +607,20 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                     margin-top: 20px;
                 }
                 .grid-item h5 { font-size: 11px; text-transform: uppercase; color: var(--text-muted); }
+                .review-section {
+                    margin-top: 16px;
+                    padding-top: 16px;
+                    border-top: 1px solid #e2e8f0;
+                }
+                .review-section-title {
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #334155;
+                    margin-bottom: 10px;
+                }
+                .summary-card {
+                    padding-bottom: 12px;
+                }
             `}</style>
         </div>
     );

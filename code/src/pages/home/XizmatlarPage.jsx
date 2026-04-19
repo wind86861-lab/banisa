@@ -1,15 +1,17 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
     Search, SlidersHorizontal, X, ChevronDown, ChevronRight,
     LayoutGrid, List, Star, Users, Clock, MapPin, ArrowUpRight,
     Stethoscope, Activity, Leaf, Package, Home, ChevronLeft,
-    Filter, Loader2
+    Filter, Loader2, ShoppingCart
 } from 'lucide-react';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
 import Footer from './Footer';
 import { usePublicServices } from '../../hooks/usePublicServices';
+import { useCart } from '../../contexts/CartContext';
+import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import './css/base.css';
 import './css/XizmatlarPage.css';
 
@@ -72,7 +74,7 @@ const FALLBACK_IMAGES = {
     checkup: '/images/default-checkup.svg',
 };
 
-function ServiceCard({ service, listView }) {
+function ServiceCard({ service, listView, onAddToCart, isLoggedIn }) {
     const cat = CATEGORIES.find(c => c.id === service.category);
 
     // Fix image URL - add backend base URL if it's a relative path
@@ -132,7 +134,22 @@ function ServiceCard({ service, listView }) {
                         {formatPrice(service.price)} <span>so'm</span>
                     </span>
                 </div>
-                <span className="xp-card-book-btn">Batafsil →</span>
+                <div className="xp-card-actions">
+                    {isLoggedIn && (
+                        <button
+                            className="xp-card-cart-btn"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onAddToCart(service);
+                            }}
+                            title="Savatga qo'shish"
+                        >
+                            <ShoppingCart size={18} />
+                        </button>
+                    )}
+                    <span className="xp-card-book-btn">Batafsil →</span>
+                </div>
             </div>
         </Link>
     );
@@ -158,6 +175,9 @@ const ITEMS_PER_PAGE = 9;
 
 export default function XizmatlarPage() {
     const location = useLocation();
+    const navigate = useNavigate();
+    const { user } = useUserAuth();
+    const { addToCart } = useCart();
     const [activeCategory, setActiveCategory] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSpecialties, setSelectedSpecialties] = useState([]);
@@ -172,6 +192,50 @@ export default function XizmatlarPage() {
 
     // Fetch real services data
     const { data: SERVICES_DATA = [], isLoading, error } = usePublicServices();
+
+    // Handle add to cart
+    const handleAddToCart = async (service) => {
+        if (!user) {
+            navigate('/user/login', { state: { from: location.pathname } });
+            return;
+        }
+
+        // Determine service type based on category
+        let serviceType = 'DIAGNOSTIC';
+        if (service.category === 'operatsiya') serviceType = 'SURGICAL';
+        else if (service.category === 'sanatoriya') serviceType = 'SANATORIUM';
+        else if (service.category === 'checkup') serviceType = 'CHECKUP';
+
+        // Get clinic ID from service
+        const clinicId = service.clinic?.id;
+        if (!clinicId) {
+            alert('Klinika ma\'lumoti topilmadi');
+            return;
+        }
+
+        const result = await addToCart(clinicId, serviceType, service.serviceId || service.id, 1);
+        if (result.success) {
+            // Show success notification
+            const notification = document.createElement('div');
+            notification.className = 'xp-cart-notification';
+            notification.innerHTML = `
+                <div class="xp-cart-notification-content">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>Savatga qo'shildi!</span>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.classList.add('show'), 10);
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 2000);
+        } else {
+            alert(result.message || 'Xatolik yuz berdi');
+        }
+    };
 
     // Handle navigation state - auto-select subcategory if passed from home page
     useEffect(() => {
@@ -660,7 +724,13 @@ export default function XizmatlarPage() {
                             </div>
                         ) : paginated.length > 0 ? (
                             paginated.map((service, idx) => (
-                                <ServiceCard key={`${service.id}-${service.clinic?.id || idx}`} service={service} listView={viewMode === 'list'} />
+                                <ServiceCard
+                                    key={`${service.id}-${service.clinic?.id || idx}`}
+                                    service={service}
+                                    listView={viewMode === 'list'}
+                                    onAddToCart={handleAddToCart}
+                                    isLoggedIn={!!user}
+                                />
                             ))
                         ) : (
                             <div className="xp-empty">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Search, Plus, LayoutGrid, List, ChevronRight, ChevronDown,
-    Info, Trash2, Edit3, Eye,
+    Info, Trash2, Edit3, Eye, Download,
     CheckCircle2, Clock, Beaker, AlertCircle,
     ArrowLeft, ArrowRight, X, Loader2, RefreshCw
 } from 'lucide-react';
@@ -66,7 +66,7 @@ const Services = () => {
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
     const [showCatForm, setShowCatForm] = useState(false);
-    const [catFormData, setCatFormData] = useState({ nameUz: '', parentId: '', icon: '' });
+    const [catFormData, setCatFormData] = useState({ nameUz: '', parentId: '', icon: '', level: 2 });
     const [editCatId, setEditCatId] = useState(null);
     const [activeRootId, setActiveRootId] = useState(null);
 
@@ -203,32 +203,53 @@ const Services = () => {
         };
         const parentId = findParentId(categories, service.categoryId);
 
-        setFormData({
-            nameUz: service.nameUz || '',
-            nameRu: service.nameRu || '',
-            nameEn: service.nameEn || '',
-            parentCatId: parentId,
-            categoryId: service.categoryId || '',
-            shortDescription: service.shortDescription || '',
-            fullDescription: service.fullDescription || '',
-            priceRecommended: service.priceRecommended || '',
-            priceMin: service.priceMin || '',
-            priceMax: service.priceMax || '',
-            durationMinutes: service.durationMinutes || 15,
-            resultTimeHours: service.resultTimeHours || 24,
-            preparation: service.preparation || '',
-            contraindications: service.contraindications || '',
-            sampleType: service.sampleType || '',
-            sampleVolume: service.sampleVolume || '',
-            resultFormat: service.resultFormat || '',
-            processDescription: service.processDescription || '',
-            resultParameters: service.resultParameters || [],
-            preparationJson: service.preparationJson || EMPTY_FORM.preparationJson,
-            indicationsJson: service.indicationsJson || EMPTY_FORM.indicationsJson,
-            contraindicationsJson: service.contraindicationsJson || EMPTY_FORM.contraindicationsJson,
-            additionalInfo: service.additionalInfo || EMPTY_FORM.additionalInfo,
-            bookingPolicy: service.bookingPolicy || EMPTY_FORM.bookingPolicy,
+        // Detect service type — surgical has fields like anesthesiaType/complexity/riskLevel
+        const isSurgicalLike = rootQuery === 'operations' || rootQuery === 'sanatorium' ||
+            service.anesthesiaType !== undefined || service.complexity !== undefined || service.riskLevel !== undefined;
+
+        // Use the correct empty template as base, then overlay the service fields
+        const base = isSurgicalLike ? EMPTY_SURGICAL_FORM : EMPTY_FORM;
+
+        // Strip backend-only fields that must not enter the form state
+        const { id, createdAt, updatedAt, category, createdBy, appointments, clinicLinks, serviceReviews, createdById, ...serviceData } = service;
+
+        const merged = { ...base, ...serviceData };
+
+        // Normalize numeric fields that may come back as null from the API
+        ['priceRecommended', 'priceMin', 'priceMax', 'durationMinutes', 'recoveryDays', 'hospitalizationDays', 'icuDays', 'fastingHours', 'minSurgeonExperience', 'successRate', 'resultTimeHours'].forEach(k => {
+            if (merged[k] === null) merged[k] = base[k] ?? '';
         });
+
+        // Ensure nested JSON objects are never null (prevents SurgicalForm/DiagnosticForm crashes)
+        if (isSurgicalLike) {
+            merged.postOpImmediate = merged.postOpImmediate || base.postOpImmediate || { monitoring: '', meds: '', restrictions: '' };
+            merged.postOpHome = merged.postOpHome || base.postOpHome || { care: '', signs: '', meds: '' };
+            merged.requiredTests = merged.requiredTests || [];
+            merged.packageIncluded = merged.packageIncluded || [];
+            merged.packageExcluded = merged.packageExcluded || [];
+            merged.preparationRestrictions = merged.preparationRestrictions || [];
+            merged.contraindicationsAbsolute = merged.contraindicationsAbsolute || [];
+            merged.contraindicationsRelative = merged.contraindicationsRelative || [];
+            merged.surgeonQualifications = merged.surgeonQualifications || [];
+            merged.requiredEquipment = merged.requiredEquipment || [];
+            merged.operationStages = merged.operationStages || [];
+            merged.followUpSchedule = merged.followUpSchedule || [];
+            merged.recoveryMilestones = merged.recoveryMilestones || [];
+            merged.alternatives = merged.alternatives || [];
+            merged.faqs = merged.faqs || [];
+        } else {
+            merged.preparationJson = merged.preparationJson || base.preparationJson;
+            merged.indicationsJson = merged.indicationsJson || base.indicationsJson;
+            merged.contraindicationsJson = merged.contraindicationsJson || base.contraindicationsJson;
+            merged.additionalInfo = merged.additionalInfo || base.additionalInfo;
+            merged.bookingPolicy = merged.bookingPolicy || base.bookingPolicy;
+            merged.resultParameters = merged.resultParameters || [];
+        }
+
+        merged.parentCatId = parentId;
+        merged.categoryId = service.categoryId || '';
+
+        setFormData(merged);
         setFormStep(1);
         setShowForm(true);
     };
@@ -255,7 +276,7 @@ const Services = () => {
                 await categoriesApi.create({
                     ...payload,
                     parentId: catFormData.parentId,
-                    level: 2,
+                    level: catFormData.level || 2,
                     icon: catFormData.icon || '•'
                 });
                 alert('Kategoriya yaratildi!');
@@ -263,7 +284,7 @@ const Services = () => {
 
             setShowCatForm(false);
             setEditCatId(null);
-            setCatFormData({ nameUz: '', parentId: '', icon: '' });
+            setCatFormData({ nameUz: '', parentId: '', icon: '', level: 2 });
             // Refresh categories
             const data = await categoriesApi.list();
             setCategories(data || []);
@@ -286,6 +307,14 @@ const Services = () => {
     };
 
     const handleSave = async () => {
+        // Infer service type from form shape (which was fixed at form-open time),
+        // NOT from rootQuery URL param (which can be stale/null at save time).
+        // Surgical/sanatorium forms never carry `resultTimeHours`; diagnostics always do.
+        const hasSurgicalShape = formData.anesthesiaType !== undefined || formData.complexity !== undefined || formData.riskLevel !== undefined;
+        const isOps = rootQuery === 'operations' || (hasSurgicalShape && rootQuery !== 'sanatorium');
+        const isSan = rootQuery === 'sanatorium';
+        const isDiag = !isOps && !isSan && rootQuery === 'diagnostics';
+
         // Frontend validation
         const errors = [];
         if (!formData.nameUz || formData.nameUz.trim().length < 3) {
@@ -294,27 +323,31 @@ const Services = () => {
         if (!formData.categoryId) {
             errors.push('Kategoriya tanlanmagan');
         }
-        if (!formData.priceRecommended || isNaN(Number(formData.priceRecommended)) || Number(formData.priceRecommended) < 0) {
+        if (formData.priceRecommended !== undefined && formData.priceRecommended !== '' && (isNaN(Number(formData.priceRecommended)) || Number(formData.priceRecommended) < 0)) {
             errors.push('Tavsiya etilgan narx noto\'g\'ri');
         }
-        if (!formData.priceMin || isNaN(Number(formData.priceMin)) || Number(formData.priceMin) < 0) {
-            errors.push('Minimal narx noto\'g\'ri');
-        }
-        if (!formData.priceMax || isNaN(Number(formData.priceMax)) || Number(formData.priceMax) < 0) {
-            errors.push('Maksimal narx noto\'g\'ri');
-        }
-        if (!formData.durationMinutes || isNaN(Number(formData.durationMinutes)) || Number(formData.durationMinutes) < 1) {
-            errors.push('Davomiyligi noto\'g\'ri');
-        }
-        if (!formData.resultTimeHours || isNaN(Number(formData.resultTimeHours)) || Number(formData.resultTimeHours) < 0.5) {
-            errors.push('Natija vaqti noto\'g\'ri');
+        if (isDiag) {
+            if (!formData.priceMin || isNaN(Number(formData.priceMin)) || Number(formData.priceMin) < 0) {
+                errors.push('Minimal narx noto\'g\'ri');
+            }
+            if (!formData.priceMax || isNaN(Number(formData.priceMax)) || Number(formData.priceMax) < 0) {
+                errors.push('Maksimal narx noto\'g\'ri');
+            }
+            if (!formData.durationMinutes || isNaN(Number(formData.durationMinutes)) || Number(formData.durationMinutes) < 1) {
+                errors.push('Davomiyligi noto\'g\'ri');
+            }
+            if (!formData.resultTimeHours || isNaN(Number(formData.resultTimeHours)) || Number(formData.resultTimeHours) < 0.5) {
+                errors.push('Natija vaqti noto\'g\'ri');
+            }
         }
 
-        const priceMin = Number(formData.priceMin);
-        const priceRec = Number(formData.priceRecommended);
-        const priceMax = Number(formData.priceMax);
-        if (priceMin > priceRec || priceRec > priceMax) {
-            errors.push('Narxlar: min <= tavsiya <= max bo\'lishi kerak');
+        const priceMin = Number(formData.priceMin) || 0;
+        const priceRec = Number(formData.priceRecommended) || 0;
+        const priceMax = Number(formData.priceMax) || 0;
+        if (isDiag && priceMin > priceRec || priceRec > priceMax) {
+            if (priceMin && priceRec && priceMax && (priceMin > priceRec || priceRec > priceMax)) {
+                errors.push('Narxlar: min <= tavsiya <= max bo\'lishi kerak');
+            }
         }
 
         if (errors.length > 0) {
@@ -324,27 +357,38 @@ const Services = () => {
 
         setSaving(true);
         try {
-            const isOps = rootQuery === 'operations';
-            const isSan = rootQuery === 'sanatorium';
             const api = isSan ? sanatoriumApi : isOps ? surgicalApi : diagnosticsApi;
 
             const payload = { ...formData };
 
-            // Convert numbers
-            ['priceRecommended', 'priceMin', 'priceMax', 'durationMinutes', 'resultTimeHours', 'recoveryDays', 'hospitalizationDays', 'icuDays', 'fastingHours', 'minSurgeonExperience', 'successRate']
+            // Convert numbers and clamp to INT4 range for integer DB fields
+            const INT4_MAX = 2147483647;
+            ['priceRecommended', 'priceMin', 'priceMax', 'durationMinutes', 'recoveryDays', 'hospitalizationDays', 'icuDays', 'fastingHours', 'minSurgeonExperience', 'successRate']
                 .forEach(key => {
                     if (payload[key] !== undefined && payload[key] !== null && payload[key] !== '') {
-                        payload[key] = Number(payload[key]);
+                        payload[key] = Math.min(Number(payload[key]), INT4_MAX);
                     }
                 });
+            // Float fields (no INT4 clamp needed)
+            if (payload.resultTimeHours !== undefined && payload.resultTimeHours !== null && payload.resultTimeHours !== '') {
+                payload.resultTimeHours = Number(payload.resultTimeHours);
+            }
 
             // Remove UI-only fields that aren't in the database schema
             delete payload.parentCatId;
 
             // Clean empty strings to undefined for optional fields
-            ['shortDescription', 'fullDescription', 'preparation', 'contraindications', 'sampleType', 'imageUrl', 'nameRu', 'nameEn', 'sampleVolume', 'resultFormat', 'processDescription'].forEach(key => {
-                if (payload[key] === '') payload[key] = undefined;
-            });
+            ['shortDescription', 'fullDescription', 'preparation', 'contraindications', 'sampleType', 'imageUrl', 'nameRu', 'nameEn', 'sampleVolume', 'resultFormat', 'processDescription',
+                'anesthesiaNotes', 'hospitalizationNotes', 'preparationMedication', 'preparationTimeline', 'surgeonSpecialization', 'videoUrl'].forEach(key => {
+                    if (payload[key] === '') payload[key] = undefined;
+                });
+
+            // Clean empty arrays for surgical JSON fields
+            ['requiredTests', 'preparationRestrictions', 'contraindicationsAbsolute', 'contraindicationsRelative',
+                'surgeonQualifications', 'requiredEquipment', 'operationStages', 'followUpSchedule', 'recoveryMilestones',
+                'packageIncluded', 'packageExcluded', 'alternatives', 'faqs'].forEach(key => {
+                    if (Array.isArray(payload[key]) && payload[key].length === 0) payload[key] = undefined;
+                });
 
             // Convert preparationJson number fields
             if (payload.preparationJson) {
@@ -369,6 +413,10 @@ const Services = () => {
             if (payload.indicationsJson && !payload.indicationsJson.symptoms?.length && !payload.indicationsJson.diseases?.length && !payload.indicationsJson.preventive && !payload.indicationsJson.mandatoryFor?.length) payload.indicationsJson = undefined;
             if (payload.contraindicationsJson && !payload.contraindicationsJson.absolute?.length && !payload.contraindicationsJson.relative?.length && !payload.contraindicationsJson.temporary?.length && !payload.contraindicationsJson.warnings?.length) payload.contraindicationsJson = undefined;
 
+            // Clean surgical post-op objects if all values are empty
+            if (payload.postOpImmediate && !Object.values(payload.postOpImmediate).some(v => v && v.trim())) payload.postOpImmediate = undefined;
+            if (payload.postOpHome && !Object.values(payload.postOpHome).some(v => v && v.trim())) payload.postOpHome = undefined;
+
             if (editingId) {
                 await api.update(editingId, payload);
             } else {
@@ -377,7 +425,8 @@ const Services = () => {
             setShowForm(false);
             fetchServices(meta.page);
         } catch (err) {
-            alert(err.message || 'Saqlashda xatolik');
+            const msg = err.response?.data?.error?.message || err.message || 'Saqlashda xatolik';
+            alert(msg);
         } finally {
             setSaving(false);
         }
@@ -387,7 +436,10 @@ const Services = () => {
         e?.stopPropagation();
         if (!window.confirm('Xizmatni o\'chirmoqchimisiz?')) return;
         try {
-            await diagnosticsApi.delete(id);
+            const isOps = rootQuery === 'operations';
+            const isSan = rootQuery === 'sanatorium';
+            const api = isSan ? sanatoriumApi : isOps ? surgicalApi : diagnosticsApi;
+            await api.delete(id);
             fetchServices(meta.page);
             if (activeService?.id === id) setActiveService(null);
         } catch (err) {
@@ -404,6 +456,56 @@ const Services = () => {
 
 
     const activeRoot = categories.find(c => c.id === activeRootId);
+
+    // ── CSV Export ─────────────────────────────────────────────────────────────
+    const [exporting, setExporting] = useState(false);
+
+    const exportCSV = async () => {
+        setExporting(true);
+        try {
+            const isOps = rootQuery === 'operations';
+            const isSan = rootQuery === 'sanatorium';
+            const api = isSan ? sanatoriumApi : isOps ? surgicalApi : diagnosticsApi;
+            const result = await api.list({ page: 1, limit: 10000 });
+            const rows = result.data || [];
+            if (!rows.length) { alert('Eksport qilish uchun ma\'lumot topilmadi'); return; }
+
+            const flattenValue = (val) => {
+                if (val === null || val === undefined) return '';
+                if (Array.isArray(val)) return JSON.stringify(val);
+                if (typeof val === 'object') return JSON.stringify(val);
+                return String(val);
+            };
+
+            const allKeys = new Set();
+            rows.forEach(r => Object.keys(r).forEach(k => allKeys.add(k)));
+            const headers = [...allKeys];
+
+            const csvRows = [
+                headers.join(','),
+                ...rows.map(row =>
+                    headers.map(h => {
+                        const val = flattenValue(row[h]);
+                        return `"${val.replace(/"/g, '""')}"`;
+                    }).join(',')
+                )
+            ];
+
+            const BOM = '\uFEFF';
+            const blob = new Blob([BOM + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const typeName = isOps ? 'operatsiyalar' : isSan ? 'sanatoriya' : 'diagnostika';
+            a.href = url;
+            a.download = `${typeName}_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            alert(err.response?.data?.error?.message || err.message || 'Eksportda xatolik');
+        } finally {
+            setExporting(false);
+        }
+    };
 
     // ── Get page title based on rootQuery ────────────────────────────────────
     const getPageInfo = () => {
@@ -431,10 +533,21 @@ const Services = () => {
                     <h1>{pageInfo.icon} {pageInfo.title}</h1>
                     <p>Super Admin Panel › {pageInfo.subtitle} Boshqaruvi</p>
                 </div>
-                <button className="btn-add-service" onClick={openCreate}>
-                    <Plus size={20} />
-                    <span>Yangi xizmat qo'shish</span>
-                </button>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <button
+                        className="btn-add-service"
+                        style={{ background: '#059669', minWidth: 'auto' }}
+                        onClick={exportCSV}
+                        disabled={exporting}
+                    >
+                        {exporting ? <Loader2 size={18} className="spin" /> : <Download size={18} />}
+                        <span>CSV Export</span>
+                    </button>
+                    <button className="btn-add-service" onClick={openCreate}>
+                        <Plus size={20} />
+                        <span>Yangi xizmat qo'shish</span>
+                    </button>
+                </div>
             </div>
 
             <div className="services-layout">
@@ -520,7 +633,7 @@ const Services = () => {
                                                     className="btn-add-cat-sidebar"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setCatFormData({ nameUz: '', parentId: group.id, icon: '' });
+                                                        setCatFormData({ nameUz: '', parentId: group.id, icon: '', level: 2 });
                                                         setShowCatForm(true);
                                                     }}
                                                 >
@@ -533,6 +646,18 @@ const Services = () => {
                             })()
                         )}
                     </div>
+                    {!isSidebarMinimized && activeRootId && (
+                        <button
+                            className="btn-add-cat-sidebar" style={{ margin: '8px 10px' }}
+                            onClick={() => {
+                                setCatFormData({ nameUz: '', parentId: activeRootId, icon: '', level: 1 });
+                                setEditCatId(null);
+                                setShowCatForm(true);
+                            }}
+                        >
+                            <Plus size={14} /> Kategoriya qo'shish
+                        </button>
+                    )}
                 </aside>
 
                 {/* MAIN CONTENT */}
@@ -1109,15 +1234,15 @@ const Services = () => {
                                                 <h3>Indikatsiya va Kontraindikatsiya</h3>
                                                 <div className="form-group">
                                                     <label>Belgilar (qachon kerak) — vergul bilan ajrating</label>
-                                                    <textarea rows={2} placeholder="Zaiflik, Bosh og'rig'i, Tez charchash..." value={(formData.indicationsJson?.symptoms || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, indicationsJson: { ...p.indicationsJson, symptoms: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
+                                                    <textarea rows={2} placeholder="Zaiflik, Bosh og'rig'i, Tez charchash..." value={(formData.indicationsJson?.symptoms || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, indicationsJson: { ...p.indicationsJson, symptoms: e.target.value ? e.target.value.split(',').map(s => s.trimStart()) : [] } }))} />
                                                 </div>
                                                 <div className="form-group">
                                                     <label>Kasalliklar uchun tavsiya — vergul bilan ajrating</label>
-                                                    <textarea rows={2} placeholder="Anemiya, Diabet, Tireoid kasalliklari..." value={(formData.indicationsJson?.diseases || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, indicationsJson: { ...p.indicationsJson, diseases: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
+                                                    <textarea rows={2} placeholder="Anemiya, Diabet, Tireoid kasalliklari..." value={(formData.indicationsJson?.diseases || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, indicationsJson: { ...p.indicationsJson, diseases: e.target.value ? e.target.value.split(',').map(s => s.trimStart()) : [] } }))} />
                                                 </div>
                                                 <div className="form-group">
                                                     <label>Kimlar uchun majburiy — vergul bilan ajrating</label>
-                                                    <input type="text" placeholder="Homiladorlar, Operatsiya oldinlari..." value={(formData.indicationsJson?.mandatoryFor || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, indicationsJson: { ...p.indicationsJson, mandatoryFor: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
+                                                    <input type="text" placeholder="Homiladorlar, Operatsiya oldinlari..." value={(formData.indicationsJson?.mandatoryFor || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, indicationsJson: { ...p.indicationsJson, mandatoryFor: e.target.value ? e.target.value.split(',').map(s => s.trimStart()) : [] } }))} />
                                                 </div>
                                                 <div className="form-group">
                                                     <label>Profilaktik tekshiruv sifatida</label>
@@ -1131,15 +1256,15 @@ const Services = () => {
                                                 </div>
                                                 <div className="form-group">
                                                     <label>Absolyut (mutlaqo mumkin emas) — vergul bilan</label>
-                                                    <input type="text" placeholder="Og'ir allergiya..." value={(formData.contraindicationsJson?.absolute || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, contraindicationsJson: { ...p.contraindicationsJson, absolute: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
+                                                    <input type="text" placeholder="Og'ir allergiya..." value={(formData.contraindicationsJson?.absolute || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, contraindicationsJson: { ...p.contraindicationsJson, absolute: e.target.value ? e.target.value.split(',').map(s => s.trimStart()) : [] } }))} />
                                                 </div>
                                                 <div className="form-group">
                                                     <label>Nisbiy (ehtiyotkorlik bilan) — vergul bilan</label>
-                                                    <input type="text" placeholder="Qon ketish xavfi..." value={(formData.contraindicationsJson?.relative || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, contraindicationsJson: { ...p.contraindicationsJson, relative: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
+                                                    <input type="text" placeholder="Qon ketish xavfi..." value={(formData.contraindicationsJson?.relative || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, contraindicationsJson: { ...p.contraindicationsJson, relative: e.target.value ? e.target.value.split(',').map(s => s.trimStart()) : [] } }))} />
                                                 </div>
                                                 <div className="form-group">
                                                     <label>Vaqtinchalik (keyinroq mumkin) — vergul bilan</label>
-                                                    <input type="text" placeholder="Infeksion kasallik davri..." value={(formData.contraindicationsJson?.temporary || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, contraindicationsJson: { ...p.contraindicationsJson, temporary: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
+                                                    <input type="text" placeholder="Infeksion kasallik davri..." value={(formData.contraindicationsJson?.temporary || []).join(', ')} onChange={(e) => setFormData(p => ({ ...p, contraindicationsJson: { ...p.contraindicationsJson, temporary: e.target.value ? e.target.value.split(',').map(s => s.trimStart()) : [] } }))} />
                                                 </div>
                                             </div>
                                         )}

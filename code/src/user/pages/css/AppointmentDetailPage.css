@@ -1,0 +1,145 @@
+.apd-main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 20px 80px;
+}
+.apd-loading, .apd-error {
+    padding: 120px 20px;
+    text-align: center;
+    color: #64748b;
+}
+.apd-error svg { color: #ef4444; margin-bottom: 12px; }
+.apd-back {
+    background: none; border: none;
+    color: #0ea5e9; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 14px; margin-bottom: 20px;
+}
+.apd-back:hover { text-decoration: underline; }
+
+.apd-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 24px;
+}
+.apd-booking-number {
+    font-size: 24px; font-weight: 700; color: #0f172a; margin: 0;
+    font-family: 'JetBrains Mono', monospace;
+}
+.apd-subtitle { color: #64748b; font-size: 14px; margin: 4px 0 0; }
+.apd-status {
+    padding: 8px 16px; border-radius: 999px; font-weight: 600; font-size: 13px;
+}
+
+.apd-grid {
+    display: grid; grid-template-columns: 1fr 400px; gap: 24px;
+}
+@media (max-width: 900px) {
+    .apd-grid { grid-template-columns: 1fr; }
+}
+.apd-col-left, .apd-col-right {
+    display: flex; flex-direction: column; gap: 16px;
+}
+
+/* QR Card */
+.apd-qr-card {
+    background: linear-gradient(135deg, #00BDE0 0%, #0891b2 100%);
+    color: #fff; border-radius: 16px; padding: 24px; text-align: center;
+    box-shadow: 0 10px 30px rgba(0,189,224,0.3);
+}
+.apd-qr-header {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-bottom: 16px; font-size: 18px; font-weight: 600;
+}
+.apd-qr-header h3 { margin: 0; font-size: 18px; }
+.apd-qr-img-wrap {
+    background: #fff; padding: 16px; border-radius: 12px;
+    display: inline-block; margin-bottom: 16px;
+}
+.apd-qr-img { width: 240px; height: 240px; display: block; }
+.apd-qr-note { font-size: 14px; opacity: 0.95; margin: 0 0 12px; }
+.apd-qr-code-text {
+    font-family: 'JetBrains Mono', monospace; font-size: 14px;
+    background: rgba(255,255,255,0.15); padding: 8px 12px;
+    border-radius: 6px; display: inline-block;
+}
+
+/* Pay Card */
+.apd-pay-card {
+    background: #fff; border-radius: 12px; padding: 24px; text-align: center;
+    border: 2px solid #00BDE0;
+}
+.apd-pay-card svg { color: #00BDE0; margin-bottom: 8px; }
+.apd-pay-card h3 { margin: 0 0 6px; font-size: 18px; color: #0f172a; }
+.apd-pay-card p { color: #64748b; font-size: 14px; margin: 0 0 16px; }
+.apd-price-summary { background: #f8fafc; padding: 12px; border-radius: 8px; margin-bottom: 16px; }
+.apd-pay-btn {
+    width: 100%; padding: 14px; border: none; border-radius: 8px;
+    background: #00BDE0; color: #fff; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.apd-pay-btn:hover { background: #0891b2; }
+
+/* Completed Card */
+.apd-completed-card {
+    background: #f0fdf4; border-radius: 12px; padding: 24px; text-align: center;
+    border: 1px solid #bbf7d0;
+}
+.apd-completed-card svg { color: #22c55e; margin-bottom: 8px; }
+.apd-completed-card h3 { margin: 0 0 6px; color: #15803d; }
+.apd-completed-card p { color: #166534; margin: 0; }
+
+/* Info Card */
+.apd-info-card, .apd-price-card, .apd-timeline-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;
+}
+.apd-info-card h3, .apd-price-card h3, .apd-timeline-card h3 {
+    font-size: 16px; margin: 0 0 16px; color: #0f172a;
+}
+.apd-info-row {
+    display: flex; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+.apd-info-row:last-child { border-bottom: none; }
+.apd-info-row svg { color: #64748b; flex-shrink: 0; margin-top: 2px; }
+.apd-label { font-size: 12px; color: #64748b; margin-bottom: 2px; }
+.apd-value { font-size: 14px; color: #0f172a; font-weight: 500; }
+
+/* Price Card */
+.apd-price-row {
+    display: flex; justify-content: space-between; padding: 6px 0;
+    font-size: 14px; color: #475569;
+}
+.apd-price-row.apd-discount { color: #16a34a; }
+.apd-price-row.apd-total { font-weight: 700; font-size: 16px; color: #0f172a; padding-top: 12px; }
+.apd-price-divider { height: 1px; background: #e2e8f0; margin: 8px 0; }
+.apd-payment-status {
+    margin-top: 12px; padding: 8px 12px; background: #f0f9ff;
+    border-radius: 6px; display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: #0369a1;
+}
+
+/* Timeline */
+.apd-timeline { list-style: none; padding: 0; margin: 0; }
+.apd-timeline-item {
+    position: relative; padding-left: 24px; padding-bottom: 16px;
+    border-left: 2px solid #e2e8f0;
+}
+.apd-timeline-item:last-child { border-left-color: transparent; padding-bottom: 0; }
+.apd-timeline-dot {
+    position: absolute; left: -7px; top: 2px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #00BDE0; border: 2px solid #fff;
+}
+.apd-timeline-action { font-weight: 600; color: #0f172a; font-size: 14px; }
+.apd-timeline-time { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+.apd-timeline-note {
+    margin-top: 6px; font-size: 13px; color: #475569;
+    background: #f8fafc; padding: 6px 10px; border-radius: 6px;
+}
+
+.apd-cancel-btn {
+    width: 100%; padding: 12px; border: 1px solid #ef4444;
+    background: #fff; color: #ef4444; border-radius: 8px;
+    font-weight: 500; cursor: pointer;
+}
+.apd-cancel-btn:hover { background: #fef2f2; }

@@ -30,10 +30,18 @@ export default function UserAppointments() {
 
     const getStatusBadge = (status) => {
         const badges = {
-            PENDING: { bg: '#FEF3C7', color: '#D97706', text: 'Kutilmoqda' },
+            PENDING: { bg: '#FEF3C7', color: '#D97706', text: 'Operator kutmoqda' },
+            OPERATOR_CONFIRMED: { bg: '#DBEAFE', color: '#1D4ED8', text: 'Tasdiqlangan' },
+            SENT_TO_CLINIC: { bg: '#DBEAFE', color: '#1D4ED8', text: 'Klinikada' },
+            CLINIC_ACCEPTED: { bg: '#D1FAE5', color: '#059669', text: 'Qabul qilindi' },
+            PAID: { bg: '#D1FAE5', color: '#059669', text: 'To\'langan' },
+            CHECKED_IN: { bg: '#EDE9FE', color: '#7C3AED', text: 'Keldi' },
+            IN_PROGRESS: { bg: '#EDE9FE', color: '#7C3AED', text: 'Jarayonda' },
             CONFIRMED: { bg: '#DBEAFE', color: '#1D4ED8', text: 'Tasdiqlangan' },
             COMPLETED: { bg: '#D1FAE5', color: '#065F46', text: 'Yakunlangan' },
             CANCELLED: { bg: '#FEE2E2', color: '#991B1B', text: 'Bekor qilingan' },
+            NO_SHOW: { bg: '#FEE2E2', color: '#991B1B', text: 'Kelmadi' },
+            RESCHEDULED: { bg: '#FEF3C7', color: '#D97706', text: 'O\'zgartirildi' },
         };
         return badges[status] || badges.PENDING;
     };
@@ -132,9 +140,11 @@ export default function UserAppointments() {
                                     {/* Price & Action */}
                                     <div className="ua-price">
                                         <div className="ua-price-amount">
-                                            {appointment.price?.toLocaleString('uz-UZ')} so'm
+                                            {(appointment.finalPrice || appointment.price)?.toLocaleString('uz-UZ')} so'm
                                         </div>
-                                        <button className="ua-details-btn">Batafsil</button>
+                                        <Link to={`/user/appointments/${appointment.id}`} className="ua-details-btn">
+                                            Batafsil
+                                        </Link>
                                     </div>
                                 </div>
                             );

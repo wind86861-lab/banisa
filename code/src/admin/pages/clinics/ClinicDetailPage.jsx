@@ -157,7 +157,10 @@ export default function ClinicDetailPage() {
                             { label: 'INN / STIR', value: clinic.taxId, icon: <Shield size={16} /> },
                             { label: "Ro'yxat raqami", value: clinic.registrationNumber, icon: <FileText size={16} /> },
                             { label: 'Litsenziya muddati', value: clinic.licenseExpiresAt ? new Date(clinic.licenseExpiresAt).toLocaleDateString('uz-UZ') : null, icon: <Clock size={16} /> },
-                        ].map(({ label, value, icon }) => (
+                            { label: 'Yuridik shakli', value: clinic.legalForm, icon: <FileText size={16} /> },
+                            { label: 'Yuridik nomi', value: clinic.legalName, icon: <FileText size={16} /> },
+                            { label: 'Litsenziya beruvchi', value: clinic.licenseIssuedBy, icon: <Shield size={16} /> },
+                        ].filter(item => item.value).map(({ label, value, icon }) => (
                             <div className="cdp-doc-item" key={label}>
                                 <div className="cdp-doc-icon">{icon}</div>
                                 <div>
@@ -250,16 +253,45 @@ export default function ClinicDetailPage() {
                 <div className="cdp-section-card">
                     <div className="cdp-section-label">✨ Imkoniyatlar</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {clinic.hasEmergency && <span className="cdp-amenity-chip">🚑 Tez yordam</span>}
-                        {clinic.hasAmbulance && <span className="cdp-amenity-chip">🚐 Ambulans</span>}
+                        {clinic.hasEmergency && <span className="cdp-amenity-chip">� Shoshilinch yordam</span>}
+                        {clinic.hasAmbulance && <span className="cdp-amenity-chip">� Tez yordam</span>}
                         {clinic.parkingAvailable && <span className="cdp-amenity-chip">🅿️ Parking</span>}
-                        {clinic.hasOnlineBooking && <span className="cdp-amenity-chip">💻 Onlayn bron</span>}
+                        {clinic.hasOnlineBooking && <span className="cdp-amenity-chip">� Onlayn bron</span>}
                         {clinic.bedsCount > 0 && <span className="cdp-amenity-chip">🛏️ {clinic.bedsCount} karavot</span>}
-                        {!clinic.hasEmergency && !clinic.hasAmbulance && !clinic.parkingAvailable && !clinic.hasOnlineBooking && clinic.bedsCount === 0 && (
+                        {clinic.floorsCount > 0 && <span className="cdp-amenity-chip">🏢 {clinic.floorsCount} qavat</span>}
+                        {Array.isArray(clinic.amenities) && clinic.amenities.map((a, i) => (
+                            <span className="cdp-amenity-chip" key={i}>✅ {a}</span>
+                        ))}
+                        {!clinic.hasEmergency && !clinic.hasAmbulance && !clinic.parkingAvailable && !clinic.hasOnlineBooking && !clinic.bedsCount && !(Array.isArray(clinic.amenities) && clinic.amenities.length) && (
                             <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>Ma'lumot yo'q</span>
                         )}
                     </div>
                 </div>
+
+                {/* Payment Methods */}
+                {Array.isArray(clinic.paymentMethods) && clinic.paymentMethods.length > 0 && (
+                    <div className="cdp-section-card">
+                        <div className="cdp-section-label">💳 To'lov usullari</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {clinic.paymentMethods.map((pm, i) => (
+                                <span className="cdp-amenity-chip" key={i}>{pm}</span>
+                            ))}
+                        </div>
+                        {clinic.priceRange && <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>Narx diapazoni: {clinic.priceRange}</div>}
+                    </div>
+                )}
+
+                {/* Social Media */}
+                {clinic.socialMedia && typeof clinic.socialMedia === 'object' && Object.values(clinic.socialMedia).some(Boolean) && (
+                    <div className="cdp-section-card">
+                        <div className="cdp-section-label">📱 Ijtimoiy tarmoqlar</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {clinic.socialMedia.telegram && <div style={{ fontSize: 13 }}>Telegram: <a href={clinic.socialMedia.telegram.startsWith('http') ? clinic.socialMedia.telegram : `https://t.me/${clinic.socialMedia.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)' }}>{clinic.socialMedia.telegram}</a></div>}
+                            {clinic.socialMedia.instagram && <div style={{ fontSize: 13 }}>Instagram: <span style={{ color: 'var(--color-primary)' }}>{clinic.socialMedia.instagram}</span></div>}
+                            {clinic.socialMedia.facebook && <div style={{ fontSize: 13 }}>Facebook: <a href={clinic.socialMedia.facebook.startsWith('http') ? clinic.socialMedia.facebook : '#'} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)' }}>{clinic.socialMedia.facebook}</a></div>}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

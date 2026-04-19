@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
+import { useCart } from '../../contexts/CartContext';
 import UserAuthModal from './UserAuthModal';
 import {
     ArrowLeft, Clock, Star, Phone, MapPin, Calendar, Building2, Share2,
     Heart, Award, Shield, Users, Zap, TrendingUp, Activity, Beaker,
     FileText, AlertTriangle, CheckCircle2, XCircle, Info, Droplets,
     Timer, ClipboardList, Stethoscope, BadgeCheck, Gauge, FlaskConical,
-    ChevronRight, Tag
+    ChevronRight, Tag, ShoppingCart
 } from 'lucide-react';
 import axios from 'axios';
 import TopBar from './TopBar';
@@ -22,7 +23,9 @@ const fmt = (n) => n ? Number(n).toLocaleString('uz-UZ') : '0';
 export default function XizmatDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useUserAuth();
+    const { addToCart } = useCart();
     const [svc, setSvc] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -45,6 +48,58 @@ export default function XizmatDetailPage() {
                     selectedClinic: selectedClinic,
                 },
             });
+        }
+    };
+
+    const handleAddToCart = async () => {
+        if (!user) {
+            navigate('/user/login', { state: { from: location.pathname } });
+            return;
+        }
+
+        if (!activeClinic) {
+            alert('Klinika ma\'lumoti topilmadi');
+            return;
+        }
+
+        // Determine service type and extract raw service ID
+        let serviceType = 'DIAGNOSTIC';
+        let rawServiceId = svc.id;
+
+        if (id.startsWith('surgical-')) {
+            serviceType = 'SURGICAL';
+            // Composite ID: surgical-{clinicId}-{serviceId} — extract raw serviceId
+            const parts = id.substring('surgical-'.length).split('-');
+            if (parts.length >= 10) rawServiceId = parts.slice(5).join('-');
+        } else if (id.startsWith('sanatorium-')) {
+            serviceType = 'SANATORIUM';
+            const parts = id.substring('sanatorium-'.length).split('-');
+            if (parts.length >= 10) rawServiceId = parts.slice(5).join('-');
+        } else if (svc.category === 'checkup') {
+            serviceType = 'CHECKUP';
+        }
+
+        const result = await addToCart(activeClinic.id, serviceType, rawServiceId, 1);
+        if (result.success) {
+            // Show success notification
+            const notification = document.createElement('div');
+            notification.className = 'xd-cart-notification';
+            notification.innerHTML = `
+                <div class="xd-cart-notification-content">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>Savatga qo'shildi!</span>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.classList.add('show'), 10);
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 2000);
+        } else {
+            alert(result.message || 'Xatolik yuz berdi');
         }
     };
 
@@ -677,9 +732,14 @@ export default function XizmatDetailPage() {
                                 )}
                             </div>
                             <div className="xd-sb-body">
-                                <button className="xd-sb-book-btn" onClick={handleBooking}>
-                                    <Calendar size={20} /> Bron qilish
-                                </button>
+                                <div className="xd-sb-main-actions">
+                                    <button className="xd-sb-cart-btn" onClick={handleAddToCart} title="Savatga qo'shish">
+                                        <ShoppingCart size={20} />
+                                    </button>
+                                    <button className="xd-sb-book-btn" onClick={handleBooking}>
+                                        <Calendar size={20} /> Bron qilish
+                                    </button>
+                                </div>
                                 <div className="xd-sb-actions">
                                     <button className={`xd-sb-action ${liked ? 'liked' : ''}`} onClick={() => setLiked(!liked)}>
                                         <Heart size={18} fill={liked ? '#e74c3c' : 'none'} />

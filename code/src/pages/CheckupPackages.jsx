@@ -8,10 +8,11 @@ import {
     useTogglePackageStatus
 } from '../features/checkup-packages/hooks/useCheckupPackages';
 import {
-    Plus, Edit3, Trash2, Eye, CheckCircle, Ban, Search,
+    Plus, Edit3, Trash2, Eye, CheckCircle, Ban, Search, Download, Loader2,
     Package, Activity, AlertCircle, TrendingDown, X, Beaker, Stethoscope
 } from 'lucide-react';
 import CheckupPackageForm from '../features/checkup-packages/components/CheckupPackageForm';
+import { checkupPackagesApi } from '../features/checkup-packages/api/checkupPackagesApi';
 import './CheckupPackages.css';
 
 const CATEGORY_LABELS = {
@@ -154,6 +155,42 @@ const CheckupPackages = () => {
     const openCreate = () => { setEditingId(null); setFormOpen(true); };
     const openEdit = (pkg) => { setEditingId(pkg.id); setFormOpen(true); };
 
+    // ── CSV Export ──
+    const [csvExporting, setCsvExporting] = useState(false);
+    const exportCheckupCSV = async () => {
+        setCsvExporting(true);
+        try {
+            const result = await checkupPackagesApi.getAll({ page: 1, limit: 10000 });
+            const rows = result.items || [];
+            if (!rows.length) { alert('Eksport uchun ma\'lumot topilmadi'); return; }
+            const flattenValue = (val) => {
+                if (val === null || val === undefined) return '';
+                if (Array.isArray(val)) return JSON.stringify(val);
+                if (typeof val === 'object') return JSON.stringify(val);
+                return String(val);
+            };
+            const allKeys = new Set();
+            rows.forEach(r => Object.keys(r).forEach(k => allKeys.add(k)));
+            const headers = [...allKeys];
+            const csvRows = [
+                headers.join(','),
+                ...rows.map(row => headers.map(h => `"${flattenValue(row[h]).replace(/"/g, '""')}"`).join(','))
+            ];
+            const BOM = '\uFEFF';
+            const blob = new Blob([BOM + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `checkup_paketlar_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            alert(err.response?.data?.error?.message || err.message || 'Eksportda xatolik');
+        } finally {
+            setCsvExporting(false);
+        }
+    };
+
     const handleToggle = (id, current) => {
         if (window.confirm(`Paketni ${current ? 'nofaol' : 'faol'} qilmoqchimisiz?`))
             toggleMutation.mutate({ id, activate: !current });
@@ -176,9 +213,14 @@ const CheckupPackages = () => {
                     <h1><Package size={24} /> Checkup Paketlar</h1>
                     <p>Super admin panel — barcha checkup paketlarni boshqaring</p>
                 </div>
-                <button className="btn-add-package" onClick={openCreate}>
-                    <Plus size={18} /> Yangi Yaratish
-                </button>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <button className="btn-add-package" style={{ background: '#059669' }} onClick={exportCheckupCSV} disabled={csvExporting}>
+                        {csvExporting ? <Loader2 size={16} className="spin" /> : <Download size={16} />} CSV Export
+                    </button>
+                    <button className="btn-add-package" onClick={openCreate}>
+                        <Plus size={18} /> Yangi Yaratish
+                    </button>
+                </div>
             </div>
 
             {/* ── Stats ── */}

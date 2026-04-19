@@ -6,7 +6,7 @@ const isDev = env.NODE_ENV === 'development';
 // General API limit — applied to all routes (disabled in dev)
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isDev ? 10000 : 1000, // Increased for testing
+  max: isDev ? 10000 : 5000, // Increased to 5000 requests per 15 minutes
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Too many requests. Try again in 15 minutes.' },

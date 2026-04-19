@@ -52,7 +52,7 @@ export default function UserLoginPage() {
                                 <rect x="20" y="13" width="6" height="20" rx="1.5" fill="#fff" />
                             </svg>
                         </div>
-                        <div className="auth-brand-name">BANISA <span>Medical</span></div>
+                        <div className="auth-brand-name">BANISA</div>
                     </div>
                     <div className="auth-brand-body">
                         <h2 className="auth-brand-heading">Sog'liqingiz bizning ustuvorligimiz</h2>

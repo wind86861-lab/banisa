@@ -72,42 +72,17 @@ export const authApi = {
     },
 };
 
+// ─── Helper: unwrap axios response ───────────────────────────────────────────
+const axiosData = (res) => res.data?.data;
+const axiosFull = (res) => res.data;
+
 // ─── CATEGORIES ──────────────────────────────────────────────────────────────
 
 export const categoriesApi = {
-    list: async () => {
-        const res = await fetch(`${BASE_URL}/categories`, { headers: getHeaders() });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    create: async (payload) => {
-        const res = await fetch(`${BASE_URL}/categories`, {
-            method: 'POST',
-            headers: getHeaders(),
-            body: JSON.stringify(payload),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    update: async (id, payload) => {
-        const res = await fetch(`${BASE_URL}/categories/${id}`, {
-            method: 'PUT',
-            headers: getHeaders(),
-            body: JSON.stringify(payload),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    delete: async (id) => {
-        const res = await fetch(`${BASE_URL}/categories/${id}`, {
-            method: 'DELETE',
-            headers: getHeaders(),
-        });
-        return handleResponse(res);
-    },
+    list: async () => axiosData(await axiosInstance.get('/categories')),
+    create: async (payload) => axiosData(await axiosInstance.post('/categories', payload)),
+    update: async (id, payload) => axiosData(await axiosInstance.put(`/categories/${id}`, payload)),
+    delete: async (id) => axiosFull(await axiosInstance.delete(`/categories/${id}`)),
 };
 
 // ─── DIAGNOSTICS ─────────────────────────────────────────────────────────────
@@ -121,44 +96,12 @@ export const diagnosticsApi = {
         if (params.categoryId) query.set('categoryId', params.categoryId);
         if (params.minPrice) query.set('minPrice', params.minPrice);
         if (params.maxPrice) query.set('maxPrice', params.maxPrice);
-
-        const res = await fetch(`${BASE_URL}/diagnostics?${query}`, { headers: getHeaders() });
-        return handleResponse(res);
+        return axiosFull(await axiosInstance.get(`/diagnostics?${query}`));
     },
-
-    getById: async (id) => {
-        const res = await fetch(`${BASE_URL}/diagnostics/${id}`, { headers: getHeaders() });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    create: async (payload) => {
-        const res = await fetch(`${BASE_URL}/diagnostics`, {
-            method: 'POST',
-            headers: getHeaders(),
-            body: JSON.stringify(payload),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    update: async (id, payload) => {
-        const res = await fetch(`${BASE_URL}/diagnostics/${id}`, {
-            method: 'PUT',
-            headers: getHeaders(),
-            body: JSON.stringify(payload),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    delete: async (id) => {
-        const res = await fetch(`${BASE_URL}/diagnostics/${id}`, {
-            method: 'DELETE',
-            headers: getHeaders(),
-        });
-        return handleResponse(res);
-    },
+    getById: async (id) => axiosData(await axiosInstance.get(`/diagnostics/${id}`)),
+    create: async (payload) => axiosData(await axiosInstance.post('/diagnostics', payload)),
+    update: async (id, payload) => axiosData(await axiosInstance.put(`/diagnostics/${id}`, payload)),
+    delete: async (id) => axiosFull(await axiosInstance.delete(`/diagnostics/${id}`)),
 };
 
 // ─── SURGICAL ────────────────────────────────────────────────────────────────
@@ -174,44 +117,12 @@ export const surgicalApi = {
         if (params.maxPrice) query.set('maxPrice', params.maxPrice);
         if (params.complexity) query.set('complexity', params.complexity);
         if (params.riskLevel) query.set('riskLevel', params.riskLevel);
-
-        const res = await fetch(`${BASE_URL}/surgical?${query}`, { headers: getHeaders() });
-        return handleResponse(res);
+        return axiosFull(await axiosInstance.get(`/surgical?${query}`));
     },
-
-    getById: async (id) => {
-        const res = await fetch(`${BASE_URL}/surgical/${id}`, { headers: getHeaders() });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    create: async (payload) => {
-        const res = await fetch(`${BASE_URL}/surgical`, {
-            method: 'POST',
-            headers: getHeaders(),
-            body: JSON.stringify(payload),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    update: async (id, payload) => {
-        const res = await fetch(`${BASE_URL}/surgical/${id}`, {
-            method: 'PUT',
-            headers: getHeaders(),
-            body: JSON.stringify(payload),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    delete: async (id) => {
-        const res = await fetch(`${BASE_URL}/surgical/${id}`, {
-            method: 'DELETE',
-            headers: getHeaders(),
-        });
-        return handleResponse(res);
-    },
+    getById: async (id) => axiosData(await axiosInstance.get(`/surgical/${id}`)),
+    create: async (payload) => axiosData(await axiosInstance.post('/surgical', payload)),
+    update: async (id, payload) => axiosData(await axiosInstance.put(`/surgical/${id}`, payload)),
+    delete: async (id) => axiosFull(await axiosInstance.delete(`/surgical/${id}`)),
 };
 
 // ─── SANATORIUM ──────────────────────────────────────────────────────────────
@@ -226,44 +137,12 @@ export const sanatoriumApi = {
         if (params.minPrice) query.set('minPrice', params.minPrice);
         if (params.maxPrice) query.set('maxPrice', params.maxPrice);
         if (params.serviceType) query.set('serviceType', params.serviceType);
-
-        const res = await fetch(`${BASE_URL}/sanatorium?${query}`, { headers: getHeaders() });
-        return handleResponse(res);
+        return axiosFull(await axiosInstance.get(`/sanatorium?${query}`));
     },
-
-    getById: async (id) => {
-        const res = await fetch(`${BASE_URL}/sanatorium/${id}`, { headers: getHeaders() });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    create: async (payload) => {
-        const res = await fetch(`${BASE_URL}/sanatorium`, {
-            method: 'POST',
-            headers: getHeaders(),
-            body: JSON.stringify(payload),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    update: async (id, payload) => {
-        const res = await fetch(`${BASE_URL}/sanatorium/${id}`, {
-            method: 'PUT',
-            headers: getHeaders(),
-            body: JSON.stringify(payload),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    delete: async (id) => {
-        const res = await fetch(`${BASE_URL}/sanatorium/${id}`, {
-            method: 'DELETE',
-            headers: getHeaders(),
-        });
-        return handleResponse(res);
-    },
+    getById: async (id) => axiosData(await axiosInstance.get(`/sanatorium/${id}`)),
+    create: async (payload) => axiosData(await axiosInstance.post('/sanatorium', payload)),
+    update: async (id, payload) => axiosData(await axiosInstance.put(`/sanatorium/${id}`, payload)),
+    delete: async (id) => axiosFull(await axiosInstance.delete(`/sanatorium/${id}`)),
 };
 
 // ─── CLINICS ─────────────────────────────────────────────────────────────────
@@ -279,107 +158,24 @@ export const clinicsApi = {
         if (params.type) query.set('type', params.type);
         if (params.source) query.set('source', params.source);
         if (params.sort) query.set('sort', params.sort);
-        const res = await fetch(`${BASE_URL}/admin/clinics?${query}`, { headers: getHeaders() });
-        const data = await handleResponse(res);
+        const res = await axiosInstance.get(`/admin/clinics?${query}`);
         // admin endpoint returns { clinics, meta } — normalize to { data, meta }
-        return { data: data.data || [], meta: data.meta || {} };
+        return { data: res.data?.data || [], meta: res.data?.meta || {} };
     },
-
-    getById: async (id) => {
-        const res = await fetch(`${BASE_URL}/clinics/${id}`, { headers: getHeaders() });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    create: async (payload) => {
-        const res = await fetch(`${BASE_URL}/clinics`, {
-            method: 'POST',
-            headers: getHeaders(),
-            body: JSON.stringify(payload),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    update: async (id, payload) => {
-        const res = await fetch(`${BASE_URL}/clinics/${id}`, {
-            method: 'PUT',
-            headers: getHeaders(),
-            body: JSON.stringify(payload),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    updateStatus: async (id, status, rejectionReason) => {
-        const res = await fetch(`${BASE_URL}/clinics/${id}/status`, {
-            method: 'PATCH',
-            headers: getHeaders(),
-            body: JSON.stringify({ status, rejectionReason }),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    delete: async (id) => {
-        const res = await fetch(`${BASE_URL}/clinics/${id}`, {
-            method: 'DELETE',
-            headers: getHeaders(),
-        });
-        return handleResponse(res);
-    },
+    getById: async (id) => axiosData(await axiosInstance.get(`/clinics/${id}`)),
+    create: async (payload) => axiosData(await axiosInstance.post('/clinics', payload)),
+    update: async (id, payload) => axiosData(await axiosInstance.put(`/clinics/${id}`, payload)),
+    updateStatus: async (id, status, rejectionReason) => axiosData(await axiosInstance.patch(`/clinics/${id}/status`, { status, rejectionReason })),
+    delete: async (id) => axiosFull(await axiosInstance.delete(`/clinics/${id}`)),
 };
 
 // ─── ADMIN ───────────────────────────────────────────────────────────────────
 
 export const adminApi = {
-    getProfile: async () => {
-        const res = await fetch(`${BASE_URL}/admin/profile`, { headers: getHeaders() });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    updateProfile: async (payload) => {
-        const res = await fetch(`${BASE_URL}/admin/profile`, {
-            method: 'PUT',
-            headers: getHeaders(),
-            body: JSON.stringify(payload),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    updatePassword: async (payload) => {
-        const res = await fetch(`${BASE_URL}/admin/password`, {
-            method: 'PUT',
-            headers: getHeaders(),
-            body: JSON.stringify(payload),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    getNotifications: async () => {
-        const res = await fetch(`${BASE_URL}/admin/notifications`, { headers: getHeaders() });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    markNotificationAsRead: async (id) => {
-        const res = await fetch(`${BASE_URL}/admin/notifications/${id}/read`, {
-            method: 'PATCH',
-            headers: getHeaders(),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
-
-    markAllNotificationsAsRead: async () => {
-        const res = await fetch(`${BASE_URL}/admin/notifications/read-all`, {
-            method: 'PATCH',
-            headers: getHeaders(),
-        });
-        const data = await handleResponse(res);
-        return data.data;
-    },
+    getProfile: async () => axiosData(await axiosInstance.get('/admin/profile')),
+    updateProfile: async (payload) => axiosData(await axiosInstance.put('/admin/profile', payload)),
+    updatePassword: async (payload) => axiosData(await axiosInstance.put('/admin/password', payload)),
+    getNotifications: async () => axiosData(await axiosInstance.get('/admin/notifications')),
+    markNotificationAsRead: async (id) => axiosData(await axiosInstance.patch(`/admin/notifications/${id}/read`)),
+    markAllNotificationsAsRead: async () => axiosData(await axiosInstance.patch('/admin/notifications/read-all')),
 };

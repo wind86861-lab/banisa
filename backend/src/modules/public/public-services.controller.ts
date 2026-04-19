@@ -83,6 +83,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
 
                 return {
                     id: s.id,
+                    serviceId: s.id,
                     category: 'diagnostika',
                     title: cust?.customNameUz ?? s.nameUz,
                     customNameUz: cust?.customNameUz,
@@ -122,6 +123,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                 const finalPrice = discount > 0 ? Math.round(price * (1 - discount / 100)) : price;
                 return {
                     id: `surgical-${link.clinicId}-${link.surgicalServiceId}`,
+                    serviceId: link.surgicalServiceId,
                     category: 'operatsiya',
                     title: (cust.customNameUz || s.nameUz) as string,
                     desc: (cust.descriptionShortUz || s.shortDescription || '') as string,
@@ -155,6 +157,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                         : '';
                 return {
                     id: `sanatorium-${link.clinicId}-${link.sanatoriumServiceId}`,
+                    serviceId: link.sanatoriumServiceId,
                     category: 'sanatoriya',
                     title: link.customNameUz ?? s.nameUz,
                     desc: link.customDescription ?? s.shortDescription ?? '',
@@ -176,6 +179,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                 const p = link.package;
                 return {
                     id: link.id,
+                    serviceId: p.id,
                     category: 'checkup',
                     title: p.nameUz,
                     desc: p.shortDescription ?? '',

@@ -7,7 +7,7 @@ const SECTIONS = ['topbar', 'navigation', 'hero', 'services', 'stats', 'why_choo
 const DEFAULTS: Record<string, object> = {
     navigation: {
         siteName: 'BANISA',
-        siteTagline: 'Hospital Booking System',
+        siteTagline: 'Tibbiy Xizmatlar Platformasi',
         logoColor: '#1dbfc1',
         logoUrl: '',
     },

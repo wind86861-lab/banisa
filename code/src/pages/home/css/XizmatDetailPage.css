@@ -1285,33 +1285,71 @@
     padding: 20px 24px 24px;
 }
 
+.xd-sb-main-actions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.xd-sb-cart-btn {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    background: white;
+    border: 2px solid #00BDE0;
+    border-radius: 12px;
+    color: #00BDE0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 189, 224, 0.1);
+}
+
+.xd-sb-cart-btn:hover {
+    background: linear-gradient(135deg, #00BDE0 0%, #0099cc 100%);
+    color: white;
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 20px rgba(0, 189, 224, 0.3);
+}
+
+.xd-sb-cart-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
 .xd-sb-book-btn {
-    width: 100%;
+    flex: 1;
     padding: 14px;
-    background: #00BDE0;
+    background: linear-gradient(135deg, #00BDE0 0%, #0099cc 100%);
     color: white;
     border: none;
-    border-radius: 10px;
-    font-size: 16px;
-    font-weight: 700;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 16px rgba(0, 189, 224, 0.3);
 }
 
 .xd-sb-book-btn:hover {
-    background: #0099b8;
-    transform: translateY(-1px);
+    background: linear-gradient(135deg, #0099cc 0%, #007a99 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(0, 189, 224, 0.4);
+}
+
+.xd-sb-book-btn:active {
+    transform: translateY(0);
 }
 
 .xd-sb-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
-    margin-top: 12px;
 }
 
 .xd-sb-action {
@@ -1328,6 +1366,7 @@
 }
 
 .xd-sb-action:hover {
+    background: #f5f8fa;
     border-color: #00BDE0;
     color: #00BDE0;
 }
@@ -1335,6 +1374,39 @@
 .xd-sb-action.liked {
     border-color: #e74c3c;
     color: #e74c3c;
+}
+
+/* Cart notification for detail page */
+.xd-cart-notification {
+    position: fixed;
+    top: 100px;
+    right: 24px;
+    background: linear-gradient(135deg, #00BDE0 0%, #0099cc 100%);
+    color: white;
+    padding: 16px 24px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 189, 224, 0.4);
+    z-index: 10000;
+    opacity: 0;
+    transform: translateX(400px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.xd-cart-notification.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.xd-cart-notification-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.xd-cart-notification-content svg {
+    flex-shrink: 0;
 }
 
 /* ============================================

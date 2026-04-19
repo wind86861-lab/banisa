@@ -11,19 +11,30 @@ import './clinic-admin.css';
 
 const STATUS_OPTS = [
     { value: 'ALL', label: 'Barchasi' },
-    { value: 'PENDING', label: 'Kutilmoqda' },
-    { value: 'CONFIRMED', label: 'Tasdiqlangan' },
-    { value: 'COMPLETED', label: 'Bajarilgan' },
-    { value: 'CANCELLED', label: 'Bekor' },
+    { value: 'SENT_TO_CLINIC', label: 'Yangi' },
+    { value: 'CLINIC_ACCEPTED', label: 'Qabul qilingan' },
+    { value: 'PAID', label: "To'langan" },
+    { value: 'CHECKED_IN', label: 'Keldi' },
+    { value: 'IN_PROGRESS', label: 'Jarayonda' },
+    { value: 'COMPLETED', label: 'Yakunlangan' },
     { value: 'NO_SHOW', label: 'Kelmadi' },
+    { value: 'RESCHEDULED', label: "O'zgartirilgan" },
+    { value: 'CANCELLED', label: 'Bekor' },
 ];
 
 const STATUS_MAP = {
-    PENDING: { label: 'Kutilmoqda', cls: 'pending' },
+    PENDING: { label: 'Operatorda', cls: 'pending' },
+    OPERATOR_CONFIRMED: { label: 'Tasdiqlangan', cls: 'confirmed' },
+    SENT_TO_CLINIC: { label: 'Yangi', cls: 'pending' },
+    CLINIC_ACCEPTED: { label: 'Qabul qilingan', cls: 'confirmed' },
+    PAID: { label: "To'langan", cls: 'confirmed' },
+    CHECKED_IN: { label: 'Keldi', cls: 'confirmed' },
+    IN_PROGRESS: { label: 'Jarayonda', cls: 'confirmed' },
     CONFIRMED: { label: 'Tasdiqlangan', cls: 'confirmed' },
-    COMPLETED: { label: 'Bajarilgan', cls: 'completed' },
+    COMPLETED: { label: 'Yakunlangan', cls: 'completed' },
     CANCELLED: { label: 'Bekor qilingan', cls: 'cancelled' },
     NO_SHOW: { label: 'Kelmadi', cls: 'inactive' },
+    RESCHEDULED: { label: "O'zgartirilgan", cls: 'pending' },
 };
 
 const SERVICE_TYPE_MAP = {
@@ -44,9 +55,19 @@ function StatusBadge({ status }) {
 }
 
 function ConfirmDialog({ booking, action, onConfirm, onClose }) {
-    const [reason, setReason] = useState('');
-    const isCancel = action === 'cancel';
-    const isDanger = isCancel;
+    const isDanger = action === 'no_show';
+    const titles = {
+        confirm: 'Bronni qabul qilasizmi?',
+        start: 'Xizmatni boshlash?',
+        complete: 'Xizmatni tugatish?',
+        no_show: 'Bemor kelmaganini belgilash?',
+    };
+    const confirmLabels = {
+        confirm: 'Ha, qabul qilaman',
+        start: 'Boshlash',
+        complete: 'Tugatish',
+        no_show: 'NO_SHOW deb belgilash',
+    };
 
     return (
         <div className="ca-dialog-overlay" onClick={onClose}>
@@ -60,31 +81,17 @@ function ConfirmDialog({ booking, action, onConfirm, onClose }) {
                 >
                     {isDanger ? <XCircle size={26} /> : <CheckCircle2 size={26} />}
                 </div>
-                <div className="ca-dialog-title">
-                    {isCancel ? 'Bronni bekor qilish?' : 'Bronni tasdiqlash?'}
-                </div>
+                <div className="ca-dialog-title">{titles[action] ?? 'Tasdiqlaysizmi?'}</div>
                 <div className="ca-dialog-desc">
                     {booking?.patient?.firstName} {booking?.patient?.lastName} — {fmtDate(booking?.scheduledAt)}
                 </div>
-                {isCancel && (
-                    <div className="ca-dialog-form">
-                        <label className="ca-label">Bekor qilish sababi (ixtiyoriy)</label>
-                        <textarea
-                            className="ca-input"
-                            rows={3}
-                            value={reason}
-                            onChange={e => setReason(e.target.value)}
-                            placeholder="Sababni kiriting..."
-                        />
-                    </div>
-                )}
                 <div className="ca-dialog-actions">
                     <button className="ca-btn-secondary" onClick={onClose}>Bekor qilish</button>
                     <button
                         className={isDanger ? 'ca-btn-danger' : 'ca-btn-primary'}
-                        onClick={() => onConfirm(reason)}
+                        onClick={() => onConfirm()}
                     >
-                        {isCancel ? 'Ha, bekor qilish' : 'Tasdiqlash'}
+                        {confirmLabels[action] ?? 'Tasdiqlash'}
                     </button>
                 </div>
             </div>
@@ -200,19 +207,21 @@ function BookingDrawer({ booking, onClose, onConfirm, onCancel }) {
                 </div>
 
                 {/* Footer actions */}
-                {['PENDING', 'CONFIRMED'].includes(booking.status) && (
+                {['SENT_TO_CLINIC', 'CHECKED_IN', 'IN_PROGRESS'].includes(booking.status) && (
                     <div className="ca-drawer-footer">
-                        <button className="ca-btn-danger" onClick={() => onCancel(booking)}>
-                            <XCircle size={15} /> Bekor qilish
-                        </button>
-                        {booking.status === 'PENDING' && (
+                        {booking.status === 'SENT_TO_CLINIC' && (
                             <button className="ca-btn-primary" onClick={() => onConfirm(booking)}>
-                                <CheckCircle2 size={15} /> Tasdiqlash
+                                <CheckCircle2 size={15} /> Qabul qilish
                             </button>
                         )}
-                        {booking.status === 'CONFIRMED' && (
+                        {booking.status === 'CHECKED_IN' && (
+                            <button className="ca-btn-primary" onClick={() => onConfirm(booking, 'start')}>
+                                <CheckCircle2 size={15} /> Xizmatni boshlash
+                            </button>
+                        )}
+                        {booking.status === 'IN_PROGRESS' && (
                             <button className="ca-btn-primary" onClick={() => onConfirm(booking, 'complete')}>
-                                <CheckCircle2 size={15} /> Bajarildi
+                                <CheckCircle2 size={15} /> Xizmatni tugatish
                             </button>
                         )}
                     </div>
@@ -240,25 +249,33 @@ export default function ClinicBookings() {
     useEffect(() => { setPage(1); }, [status, search]);
 
     const handleConfirm = (booking, mode) => {
-        setDialog({ booking, action: mode === 'complete' ? 'complete' : 'confirm' });
-        setDrawer(null);
-    };
-    const handleCancel = (booking) => {
-        setDialog({ booking, action: 'cancel' });
+        const action = mode === 'complete' ? 'complete'
+            : mode === 'start' ? 'start'
+                : 'confirm';
+        setDialog({ booking, action });
         setDrawer(null);
     };
 
-    const executeAction = async (reason) => {
+    const executeAction = async () => {
         if (!dialog) return;
+        // Clinic can only: accept (SENT_TO_CLINIC → CLINIC_ACCEPTED),
+        // start (CHECKED_IN → IN_PROGRESS), complete (→ COMPLETED), or no-show.
+        // Clinic CANNOT reject bookings — only operator/patient can cancel.
         const newStatus =
-            dialog.action === 'confirm' ? 'CONFIRMED' :
-                dialog.action === 'complete' ? 'COMPLETED' :
-                    'CANCELLED';
-        await updateStatus.mutateAsync({
-            id: dialog.booking.id,
-            status: newStatus,
-            cancellationReason: reason || undefined,
-        });
+            dialog.action === 'confirm' ? 'CLINIC_ACCEPTED' :
+                dialog.action === 'start' ? 'IN_PROGRESS' :
+                    dialog.action === 'complete' ? 'COMPLETED' :
+                        dialog.action === 'no_show' ? 'NO_SHOW' :
+                            null;
+        if (!newStatus) { setDialog(null); return; }
+        try {
+            await updateStatus.mutateAsync({
+                id: dialog.booking.id,
+                status: newStatus,
+            });
+        } catch (e) {
+            alert(e.response?.data?.message || e.message || 'Xatolik');
+        }
         setDialog(null);
     };
 
@@ -352,13 +369,23 @@ export default function ClinicBookings() {
                                             <button className="ca-icon-btn" title="Ko'rish" onClick={() => setDrawer(b)}>
                                                 <Eye size={15} />
                                             </button>
-                                            {b.status === 'PENDING' && (
-                                                <button className="ca-icon-btn success" title="Tasdiqlash" onClick={() => handleConfirm(b)}>
+                                            {b.status === 'SENT_TO_CLINIC' && (
+                                                <button className="ca-icon-btn success" title="Qabul qilish" onClick={() => handleConfirm(b)}>
                                                     <CheckCircle2 size={15} />
                                                 </button>
                                             )}
-                                            {['PENDING', 'CONFIRMED'].includes(b.status) && (
-                                                <button className="ca-icon-btn danger" title="Bekor qilish" onClick={() => handleCancel(b)}>
+                                            {b.status === 'CHECKED_IN' && (
+                                                <button className="ca-icon-btn success" title="Boshlash" onClick={() => setDialog({ booking: b, action: 'start' })}>
+                                                    <CheckCircle2 size={15} />
+                                                </button>
+                                            )}
+                                            {b.status === 'IN_PROGRESS' && (
+                                                <button className="ca-icon-btn success" title="Tugatish" onClick={() => setDialog({ booking: b, action: 'complete' })}>
+                                                    <CheckCircle2 size={15} />
+                                                </button>
+                                            )}
+                                            {['CHECKED_IN', 'PAID'].includes(b.status) && (
+                                                <button className="ca-icon-btn danger" title="Kelmadi" onClick={() => setDialog({ booking: b, action: 'no_show' })}>
                                                     <XCircle size={15} />
                                                 </button>
                                             )}
@@ -408,14 +435,19 @@ export default function ClinicBookings() {
                             </div>
                             <div className="ca-card-actions" onClick={e => e.stopPropagation()}>
                                 <button className="ca-icon-btn" title="Ko'rish" onClick={() => setDrawer(b)}><Eye size={15} /></button>
-                                {b.status === 'PENDING' && (
-                                    <button className="ca-icon-btn success" title="Tasdiqlash" onClick={() => handleConfirm(b)}>
+                                {b.status === 'SENT_TO_CLINIC' && (
+                                    <button className="ca-icon-btn success" title="Qabul qilish" onClick={() => handleConfirm(b)}>
                                         <CheckCircle2 size={15} />
                                     </button>
                                 )}
-                                {['PENDING', 'CONFIRMED'].includes(b.status) && (
-                                    <button className="ca-icon-btn danger" title="Bekor" onClick={() => handleCancel(b)}>
-                                        <XCircle size={15} />
+                                {b.status === 'CHECKED_IN' && (
+                                    <button className="ca-icon-btn success" title="Boshlash" onClick={() => setDialog({ booking: b, action: 'start' })}>
+                                        <CheckCircle2 size={15} />
+                                    </button>
+                                )}
+                                {b.status === 'IN_PROGRESS' && (
+                                    <button className="ca-icon-btn success" title="Tugatish" onClick={() => setDialog({ booking: b, action: 'complete' })}>
+                                        <CheckCircle2 size={15} />
                                     </button>
                                 )}
                             </div>
@@ -431,7 +463,6 @@ export default function ClinicBookings() {
                         booking={drawer}
                         onClose={() => setDrawer(null)}
                         onConfirm={handleConfirm}
-                        onCancel={handleCancel}
                     />
                 )}
             </AnimatePresence>

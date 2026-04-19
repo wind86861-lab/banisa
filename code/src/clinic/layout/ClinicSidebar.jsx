@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import {
-    Home, Briefcase, Calendar, Tag,
+    Home, Briefcase, Calendar, Tag, QrCode,
     Building2, Users, BarChart2,
     LogOut, ChevronDown, Activity, Bell,
 } from 'lucide-react';
@@ -19,6 +19,7 @@ const NAV_GROUPS = [
             { key: 'dashboard', label: 'Dashboard', path: '/clinic/dashboard', icon: <Home size={20} /> },
             { key: 'services', label: 'Xizmatlar', path: '/clinic/services', icon: <Briefcase size={20} /> },
             { key: 'bookings', label: 'Bronlar', path: '/clinic/bookings', icon: <Calendar size={20} /> },
+            { key: 'scan', label: 'QR Skaner', path: '/clinic/scan', icon: <QrCode size={20} /> },
             { key: 'discounts', label: 'Chegirmalar', path: '/clinic/discounts', icon: <Tag size={20} /> },
         ],
     },

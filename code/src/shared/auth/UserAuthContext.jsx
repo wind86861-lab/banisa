@@ -60,6 +60,12 @@ export const UserAuthProvider = ({ children }) => {
   useEffect(() => {
     const restoreSession = async () => {
       try {
+        // Skip patient session restore on admin pages — prevents spurious 401
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+          setIsLoading(false);
+          return;
+        }
+
         // 1. Check sessionStorage first
         const existingToken = userTokenStorage.getToken();
         const existingUser = userTokenStorage.getUser();

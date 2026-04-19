@@ -1,17 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
-import { Menu, X, User, LogOut, ChevronDown, Calendar, Heart, Bell, LayoutDashboard } from 'lucide-react';
+import { Menu, X, User, LogOut, ChevronDown, Calendar, Heart, Bell, LayoutDashboard, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import { useAuth } from '../../shared/auth/AuthContext';
 import { useHomepageSettings } from '../../hooks/useHomepageSettings';
+import { useCart } from '../../contexts/CartContext';
 import './css/Navigation.css';
 
 const NAV_LINKS = [
-    { href: '/', label: 'Bosh Sahifa', isAnchor: false },
+    { href: '/', label: 'Bosh sahifa', isAnchor: false },
     { href: '/xizmatlar', label: 'Xizmatlar', isAnchor: false },
-    { href: '#how', label: 'Qanday Ishlaydi', isAnchor: true },
+    { href: '#how', label: 'Qanday ishlaydi', isAnchor: true },
     { href: '/klinikalar', label: 'Klinikalar', isAnchor: false },
-    { href: '#why', label: 'Nega Biz', isAnchor: true },
+    { href: '#why', label: 'Nega biz', isAnchor: true },
     { href: '#contact', label: 'Aloqa', isAnchor: true },
 ];
 
@@ -22,10 +23,11 @@ export default function Navigation() {
     const { user, logout } = useUserAuth();
     const { user: clinicUser } = useAuth();
     const { data: hpData } = useHomepageSettings();
+    const { cartCount } = useCart();
     const nav = hpData?.navigation || {};
 
     const siteName = nav.siteName || 'BANISA';
-    const siteTagline = nav.siteTagline || 'Hospital Booking System';
+    const siteTagline = nav.siteTagline || 'Tibbiy Xizmatlar Platformasi';
     const logoColor = nav.logoColor || '#1dbfc1';
     const logoUrl = nav.logoUrl || '';
 
@@ -77,6 +79,17 @@ export default function Navigation() {
 
                     {/* Right side */}
                     <div className="cm-nav-right">
+                        {/* Cart icon - visible to all users */}
+                        <Link
+                            to={user ? "/user/cart" : "/user/login"}
+                            className="cm-nav-cart"
+                            aria-label="Savat"
+                            state={!user ? { from: location.pathname } : undefined}
+                        >
+                            <ShoppingCart size={20} />
+                            {cartCount > 0 && <span className="cm-nav-cart-badge">{cartCount}</span>}
+                        </Link>
+
                         {user ? (
                             /* ─── Logged-in PATIENT ─── */
                             <div className="cm-nav-user" ref={dropdownRef}>
@@ -107,6 +120,9 @@ export default function Navigation() {
                                         </Link>
                                         <Link to="/user/appointments" className="cm-nav-dropdown-item" onClick={() => setDropdownOpen(false)}>
                                             <Calendar size={16} /> Uchrashuvlarim
+                                        </Link>
+                                        <Link to="/user/cart" className="cm-nav-dropdown-item" onClick={() => setDropdownOpen(false)}>
+                                            <ShoppingCart size={16} /> Savat {cartCount > 0 && `(${cartCount})`}
                                         </Link>
                                         <Link to="/user/favorites" className="cm-nav-dropdown-item" onClick={() => setDropdownOpen(false)}>
                                             <Heart size={16} /> Sevimlilar
@@ -163,6 +179,7 @@ export default function Navigation() {
                         <>
                             <Link to="/user/dashboard" className="cm-mobile-link" onClick={() => setOpen(false)}>Profilim</Link>
                             <Link to="/user/appointments" className="cm-mobile-link" onClick={() => setOpen(false)}>Uchrashuvlarim</Link>
+                            <Link to="/user/cart" className="cm-mobile-link" onClick={() => setOpen(false)}>Savat {cartCount > 0 && `(${cartCount})`}</Link>
                             <button className="cm-mobile-logout" onClick={() => { logout(); setOpen(false); }}>Chiqish</button>
                         </>
                     ) : isClinicAdmin ? (

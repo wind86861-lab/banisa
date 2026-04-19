@@ -103,9 +103,14 @@ export const createSanatorium = async (data: any, userId: string) => {
 };
 
 export const updateSanatorium = async (id: string, data: any) => {
+    const { categoryId, createdById, id: _id, createdAt, updatedAt, category, createdBy, clinicLinks, serviceReviews, ...rest } = data;
+    const updateData: any = { ...rest };
+    if (categoryId) {
+        updateData.category = { connect: { id: categoryId } };
+    }
     return prisma.sanatoriumService.update({
         where: { id },
-        data,
+        data: updateData,
     });
 };
 

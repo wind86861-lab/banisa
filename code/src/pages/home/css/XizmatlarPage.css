@@ -7,6 +7,7 @@
   min-height: 100vh;
   background: #f0f4fa;
   font-family: 'Inter', 'Segoe UI', sans-serif;
+  overflow-x: hidden;
 }
 
 /* ── HERO BANNER ── */
@@ -925,6 +926,14 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.xp-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .xp-card-price {
@@ -967,6 +976,65 @@
 
 .xp-card-book-btn:hover {
   background: #00BDE0;
+}
+
+.xp-card-cart-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 2px solid #00BDE0;
+  background: white;
+  color: #00BDE0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.xp-card-cart-btn:hover {
+  background: #00BDE0;
+  color: white;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 189, 224, 0.3);
+}
+
+.xp-card-cart-btn:active {
+  transform: scale(0.95);
+}
+
+/* Cart notification */
+.xp-cart-notification {
+  position: fixed;
+  top: 100px;
+  right: 24px;
+  background: linear-gradient(135deg, #00BDE0 0%, #0099cc 100%);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 189, 224, 0.4);
+  z-index: 10000;
+  opacity: 0;
+  transform: translateX(400px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.xp-cart-notification.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.xp-cart-notification-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.xp-cart-notification-content svg {
+  flex-shrink: 0;
 }
 
 /* ── EMPTY STATE ── */
@@ -1107,4 +1175,313 @@
 .xp-page-btn.disabled:hover {
   border-color: #e0e7f0;
   color: #6b7a99;
+}
+
+/* ══════════════════════════════════════════
+   XIZMATLAR PAGE — RESPONSIVE (mobile)
+══════════════════════════════════════════ */
+
+/* ── 768px ── */
+@media (max-width: 768px) {
+  .xp-hero {
+    padding: 60px 0 40px;
+  }
+
+  .xp-hero-inner {
+    padding: 0 16px;
+  }
+
+  .xp-hero-title {
+    font-size: 24px;
+  }
+
+  .xp-hero-sub {
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+
+  .xp-hero-search {
+    flex-wrap: wrap;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .xp-hero-search input {
+    font-size: 14px;
+    min-width: 0;
+    padding: 8px;
+  }
+
+  .xp-hero-search-btn {
+    width: 100%;
+    text-align: center;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .xp-hero-stats {
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .xp-hero-stat strong {
+    font-size: 18px;
+  }
+
+  .xp-hero-stat span {
+    font-size: 11px;
+  }
+
+  .xp-tabs-inner {
+    padding: 0 12px;
+    gap: 2px;
+  }
+
+  .xp-cat-tab {
+    padding: 12px 12px;
+    font-size: 13px;
+    gap: 6px;
+  }
+
+  .xp-main {
+    padding: 0 12px;
+    margin: 20px auto;
+    gap: 16px;
+  }
+
+  .xp-toolbar {
+    gap: 10px;
+  }
+
+  .xp-toolbar-right {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .xp-sort-select {
+    font-size: 12px;
+    padding: 6px 28px 6px 10px;
+  }
+
+  .xp-view-btns {
+    display: none;
+  }
+
+  .xp-card-body {
+    padding: 14px;
+  }
+
+  .xp-card-footer {
+    padding: 12px 14px;
+  }
+
+  .xp-card-price-num {
+    font-size: 16px;
+  }
+
+  .xp-card-book-btn {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+}
+
+/* ── 480px ── */
+@media (max-width: 480px) {
+  .xp-hero {
+    padding: 48px 0 32px;
+  }
+
+  .xp-hero-inner {
+    padding: 0 14px;
+  }
+
+  .xp-hero-title {
+    font-size: 22px;
+  }
+
+  .xp-hero-sub {
+    font-size: 13px;
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  .xp-hero-search {
+    border-radius: 10px;
+  }
+
+  .xp-hero-search-icon {
+    display: none;
+  }
+
+  .xp-hero-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .xp-hero-stat {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+
+  .xp-hero-stat strong {
+    font-size: 16px;
+  }
+
+  .xp-breadcrumb {
+    font-size: 12px;
+    gap: 5px;
+    margin-bottom: 14px;
+  }
+
+  .xp-cat-tab {
+    padding: 10px 10px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .xp-cat-tab-count {
+    font-size: 10px;
+    padding: 1px 5px;
+  }
+
+  .xp-main {
+    padding: 0 10px;
+    margin: 14px auto;
+  }
+
+  .xp-results-count {
+    font-size: 13px;
+  }
+
+  .xp-mobile-filter-btn {
+    padding: 7px 12px;
+    font-size: 13px;
+    gap: 6px;
+  }
+
+  .xp-active-filter-chip {
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+
+  .xp-card-img {
+    height: 150px;
+  }
+
+  .xp-card-title {
+    font-size: 14px;
+  }
+
+  .xp-card-desc {
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+
+  .xp-pagination {
+    gap: 4px;
+    margin-top: 24px;
+  }
+
+  .xp-page-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 13px;
+    border-radius: 8px;
+  }
+
+  .xp-empty {
+    padding: 40px 16px;
+  }
+
+  .xp-empty h3 {
+    font-size: 17px;
+  }
+
+  .xp-sidebar-drawer {
+    padding: 16px;
+    max-height: 80vh;
+  }
+}
+
+/* ── 360px and below ── */
+@media (max-width: 360px) {
+  .xp-hero {
+    padding: 40px 0 24px;
+  }
+
+  .xp-hero-inner {
+    padding: 0 10px;
+  }
+
+  .xp-hero-title {
+    font-size: 20px;
+    word-break: break-word;
+  }
+
+  .xp-hero-sub {
+    font-size: 12px;
+  }
+
+  .xp-hero-search input {
+    font-size: 13px;
+  }
+
+  .xp-hero-search-btn {
+    font-size: 12px;
+    padding: 9px 12px;
+  }
+
+  .xp-hero-stat strong {
+    font-size: 15px;
+  }
+
+  .xp-hero-stat span {
+    font-size: 10px;
+  }
+
+  .xp-tabs-inner {
+    padding: 0 8px;
+  }
+
+  .xp-cat-tab {
+    padding: 8px 8px;
+    font-size: 11px;
+    gap: 3px;
+  }
+
+  .xp-cat-tab svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .xp-main {
+    padding: 0 8px;
+    margin: 10px auto;
+  }
+
+  .xp-card-body {
+    padding: 12px;
+  }
+
+  .xp-card-footer {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+  }
+
+  .xp-card-price-num {
+    font-size: 14px;
+  }
+
+  .xp-card-book-btn {
+    padding: 7px 12px;
+    font-size: 11px;
+  }
+
+  .xp-sort-select {
+    max-width: 120px;
+    font-size: 11px;
+  }
 }
