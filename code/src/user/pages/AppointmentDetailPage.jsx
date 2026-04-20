@@ -38,11 +38,8 @@ export default function AppointmentDetailPage() {
             const res = await api.get(`/user/appointments/${id}`);
             return res.data.data;
         },
-        refetchInterval: (q) => {
-            // Poll while waiting for payment confirmation
-            const s = q?.state?.data?.status;
-            return s === 'PAID' || s === 'COMPLETED' || s === 'CANCELLED' ? false : 10000;
-        },
+        retry: 1,
+        refetchInterval: false, // Disable auto-refetch to prevent infinite loops
     });
 
     // Fetch QR image as authenticated blob URL when appointment is PAID
