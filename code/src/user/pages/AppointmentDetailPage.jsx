@@ -86,7 +86,22 @@ export default function AppointmentDetailPage() {
         );
     }
 
-    if (error || !data) {
+    if (error) {
+        // Check if it's an auth error
+        if (error?.response?.status === 401) {
+            return (
+                <div className="home-page">
+                    <TopBar /><Navigation />
+                    <div className="apd-error">
+                        <AlertCircle size={48} />
+                        <h3>Sessiya tugadi</h3>
+                        <p>Iltimos, qaytadan tizimga kiring</p>
+                        <Link to="/user/login">Tizimga kirish</Link>
+                    </div>
+                    <Footer />
+                </div>
+            );
+        }
         return (
             <div className="home-page">
                 <TopBar /><Navigation />
@@ -95,6 +110,16 @@ export default function AppointmentDetailPage() {
                     <h3>Bron topilmadi</h3>
                     <Link to="/user/appointments">Bronlarga qaytish</Link>
                 </div>
+                <Footer />
+            </div>
+        );
+    }
+
+    if (!data) {
+        return (
+            <div className="home-page">
+                <TopBar /><Navigation />
+                <div className="apd-loading"><p>Yuklanmoqda...</p></div>
                 <Footer />
             </div>
         );
