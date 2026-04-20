@@ -15,7 +15,6 @@ export default function CartCheckoutPage() {
     const { cart, clearCart, refreshCart } = useCart();
     const [paymentMethod, setPaymentMethod] = useState('naqd');
     const [selectedDate, setSelectedDate] = useState('');
-    const [selectedTime, setSelectedTime] = useState('');
     const [notes, setNotes] = useState('');
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -37,22 +36,14 @@ export default function CartCheckoutPage() {
     const grandTotal = cart.reduce((sum, g) => sum + g.totalPrice, 0);
     const totalItems = cart.reduce((sum, g) => sum + g.itemCount, 0);
 
-    // Generate available time slots
-    const timeSlots = [];
-    for (let h = 9; h < 18; h++) {
-        for (let m = 0; m < 60; m += 30) {
-            timeSlots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
-        }
-    }
-
     // Min date = tomorrow
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const minDate = tomorrow.toISOString().split('T')[0];
 
     const handleCheckout = async () => {
-        if (!selectedDate || !selectedTime) {
-            setError('Iltimos, sana va vaqtni tanlang');
+        if (!selectedDate) {
+            setError('Iltimos, sanani tanlang');
             return;
         }
 
@@ -60,7 +51,7 @@ export default function CartCheckoutPage() {
         setSubmitting(true);
 
         try {
-            const scheduledAt = `${selectedDate}T${selectedTime}:00.000Z`;
+            const scheduledAt = `${selectedDate}T09:00:00.000Z`;
             const response = await axiosInstance.post('/cart/checkout', {
                 scheduledAt,
                 notes: notes || undefined,
@@ -149,35 +140,20 @@ export default function CartCheckoutPage() {
                             ))}
                         </div>
 
-                        {/* Date & Time Selection */}
+                        {/* Date Selection */}
                         <div className="co-card">
                             <h3 className="co-card-title">
-                                <Calendar size={18} /> Sana va vaqt
+                                <Calendar size={18} /> Sana
                             </h3>
-                            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                                <div style={{ flex: 1, minWidth: 200 }}>
-                                    <label style={{ display: 'block', fontWeight: 500, marginBottom: 6, fontSize: 14 }}>Sana</label>
-                                    <input
-                                        type="date"
-                                        min={minDate}
-                                        value={selectedDate}
-                                        onChange={(e) => setSelectedDate(e.target.value)}
-                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 }}
-                                    />
-                                </div>
-                                <div style={{ flex: 1, minWidth: 200 }}>
-                                    <label style={{ display: 'block', fontWeight: 500, marginBottom: 6, fontSize: 14 }}>Vaqt</label>
-                                    <select
-                                        value={selectedTime}
-                                        onChange={(e) => setSelectedTime(e.target.value)}
-                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14, background: '#fff' }}
-                                    >
-                                        <option value="">Vaqtni tanlang</option>
-                                        {timeSlots.map(t => (
-                                            <option key={t} value={t}>{t}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                            <div>
+                                <label style={{ display: 'block', fontWeight: 500, marginBottom: 6, fontSize: 14 }}>Sana</label>
+                                <input
+                                    type="date"
+                                    min={minDate}
+                                    value={selectedDate}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 }}
+                                />
                             </div>
 
                             <div style={{ marginTop: 16 }}>
