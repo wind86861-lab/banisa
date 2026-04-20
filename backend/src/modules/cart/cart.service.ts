@@ -176,7 +176,7 @@ export class CartService {
         return { count };
     }
 
-    async checkout(userId: string, data: { scheduledAt: string; notes?: string }) {
+    async checkout(userId: string, data: { scheduledAt: string; notes?: string; paymentMethod?: string }) {
         const cartItems = await prisma.cartItem.findMany({
             where: { userId },
             include: { clinic: true },
@@ -231,7 +231,7 @@ export class CartService {
                 serviceType: primaryItem.serviceType,
                 scheduledAt: new Date(data.scheduledAt),
                 price: totalPrice,
-                notes: data.notes || `Savat orqali buyurtma: ${items.length} ta xizmat`,
+                notes: data.notes || `Savat orqali buyurtma: ${items.length} ta xizmat. To'lov: ${data.paymentMethod || 'naqd'}`,
                 status: 'PENDING',
                 bookingNumber,
                 qrToken,

@@ -142,6 +142,7 @@ export default function CheckoutPage() {
                             <h4 className="co-payment-title"><CreditCard size={16} /> To'lov usuli</h4>
                             <div className="co-payment-methods">
                                 {[
+                                    { id: 'naqd', label: 'Naqd', icon: '💵' },
                                     { id: 'card', label: 'Karta', icon: '💳' },
                                     { id: 'payme', label: 'Payme', icon: '🔵' },
                                     { id: 'click', label: 'Click', icon: '🟠' },

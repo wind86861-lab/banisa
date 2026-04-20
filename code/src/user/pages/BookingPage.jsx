@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
-import { Calendar, Clock, ChevronRight, ChevronLeft, CheckCircle2, Building2, ArrowRight } from 'lucide-react';
+import { Calendar, Clock, ChevronRight, ChevronLeft, CheckCircle2, Building2, ArrowRight, ShoppingCart } from 'lucide-react';
 import api from '../../shared/api/axios';
-import { useBookingState, useCreateAppointment } from '../hooks/useBooking';
+import { useBookingState } from '../hooks/useBooking';
+import { useCart } from '../../contexts/CartContext';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
@@ -100,7 +101,8 @@ export default function BookingPage() {
     const [error, setError] = useState('');
 
     const { state, update, nextStep, prevStep } = useBookingState();
-    const createAppointment = useCreateAppointment();
+    const { addToCart } = useCart();
+    const [addingToCart, setAddingToCart] = useState(false);
 
     useEffect(() => {
         if (!serviceData) {
@@ -121,26 +123,24 @@ export default function BookingPage() {
         nextStep();
     };
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         if (!selectedClinic?.id) { setError('Klinika tanlanmagan'); return; }
         if (!state.selectedDate) { setError('Sana tanlanmagan'); return; }
         setError('');
+        setAddingToCart(true);
 
-        const paymentData = {
-            clinicId: selectedClinic.id,
-            clinicName: selectedClinic.nameUz || selectedClinic.name,
-            serviceType,
-            serviceId,
-            serviceName: svc?.nameUz || 'Xizmat',
-            diagnosticServiceId: serviceType === 'DIAGNOSTIC' ? serviceId : undefined,
-            surgicalServiceId: serviceType === 'SURGICAL' ? serviceId : undefined,
-            scheduledAt: `${state.selectedDate}T09:00:00.000Z`,
-            selectedDate: state.selectedDate,
-            notes: state.notes || undefined,
-            price: selectedClinic.price || svc?.priceRecommended || 0,
-        };
-
-        navigate('/payment', { state: { bookingData: paymentData } });
+        try {
+            const result = await addToCart(selectedClinic.id, serviceType, serviceId, 1);
+            if (result.success) {
+                navigate('/user/cart');
+            } else {
+                setError(result.message || 'Savatga qo\'shishda xatolik');
+            }
+        } catch (err) {
+            setError('Xatolik yuz berdi');
+        } finally {
+            setAddingToCart(false);
+        }
     };
 
     if (loadingSvc) {
@@ -296,10 +296,10 @@ export default function BookingPage() {
                                 <button
                                     className="bp-btn-confirm"
                                     onClick={handleConfirm}
-                                    disabled={createAppointment.isPending}
+                                    disabled={addingToCart}
                                 >
-                                    {createAppointment.isPending ? 'Saqlanmoqda...' : 'Bronni tasdiqlash'}
-                                    <ArrowRight size={18} />
+                                    {addingToCart ? 'Qo\'shilmoqda...' : 'Savatga qo\'shish'}
+                                    <ShoppingCart size={18} />
                                 </button>
                             </div>
                         </div>

@@ -10,6 +10,9 @@ const fmt = (n) => n ? Number(n).toLocaleString('uz-UZ') : '0';
 export default function BookingSuccessPage() {
     const location = useLocation();
     const appointment = location.state?.appointment;
+    const cartCheckout = location.state?.cartCheckout;
+    const totalAppointments = location.state?.totalAppointments || 1;
+    const appointments = location.state?.appointments || [];
 
     if (!appointment) {
         return <Navigate to="/user/dashboard" replace />;
@@ -27,6 +30,10 @@ export default function BookingSuccessPage() {
         })
         : '—';
 
+    const totalPrice = cartCheckout
+        ? appointments.reduce((sum, a) => sum + (a.price || 0), 0)
+        : appointment.price;
+
     return (
         <div className="home-page">
             <TopBar />
@@ -38,37 +45,68 @@ export default function BookingSuccessPage() {
                         <CheckCircle2 size={64} className="bs-icon" />
                     </div>
 
-                    <h1 className="bs-title">Broningiz qabul qilindi!</h1>
+                    <h1 className="bs-title">
+                        {cartCheckout ? `${totalAppointments} ta broningiz qabul qilindi!` : 'Broningiz qabul qilindi!'}
+                    </h1>
                     <p className="bs-subtitle">Klinika tez orada siz bilan bog'lanadi va bronni tasdiqlaydi</p>
 
                     {/* Booking Details */}
                     <div className="bs-details">
-                        <div className="bs-detail-row">
-                            <span className="bs-detail-label">Bron raqami</span>
-                            <span className="bs-detail-value bs-mono">{appointment.bookingNumber || `#${shortId}`}</span>
-                        </div>
-                        <div className="bs-detail-row">
-                            <span className="bs-detail-label">Xizmat</span>
-                            <span className="bs-detail-value">{svcName}</span>
-                        </div>
-                        <div className="bs-detail-row">
-                            <span className="bs-detail-label">
-                                <Building2 size={14} /> Klinika
-                            </span>
-                            <span className="bs-detail-value">{clinicName}</span>
-                        </div>
-                        <div className="bs-detail-row">
-                            <span className="bs-detail-label">
-                                <Calendar size={14} /> Sana va vaqt
-                            </span>
-                            <span className="bs-detail-value">{scheduledDate}</span>
-                        </div>
-                        <div className="bs-detail-row">
-                            <span className="bs-detail-label">
-                                <CreditCard size={14} /> Narx
-                            </span>
-                            <span className="bs-detail-value bs-price">{fmt(appointment.price)} so'm</span>
-                        </div>
+                        {cartCheckout && appointments.length > 1 ? (
+                            <>
+                                {appointments.map((appt, idx) => (
+                                    <div key={appt.id} className="bs-detail-row">
+                                        <span className="bs-detail-label">
+                                            <Building2 size={14} /> Bron #{idx + 1}
+                                        </span>
+                                        <span className="bs-detail-value">
+                                            {appt.clinic?.nameUz || 'Klinika'} — {appt.bookingNumber || appt.id?.slice(0, 8).toUpperCase()}
+                                        </span>
+                                    </div>
+                                ))}
+                                <div className="bs-detail-row">
+                                    <span className="bs-detail-label">
+                                        <Calendar size={14} /> Sana va vaqt
+                                    </span>
+                                    <span className="bs-detail-value">{scheduledDate}</span>
+                                </div>
+                                <div className="bs-detail-row">
+                                    <span className="bs-detail-label">
+                                        <CreditCard size={14} /> Jami narx
+                                    </span>
+                                    <span className="bs-detail-value bs-price">{fmt(totalPrice)} so'm</span>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="bs-detail-row">
+                                    <span className="bs-detail-label">Bron raqami</span>
+                                    <span className="bs-detail-value bs-mono">{appointment.bookingNumber || `#${shortId}`}</span>
+                                </div>
+                                <div className="bs-detail-row">
+                                    <span className="bs-detail-label">Xizmat</span>
+                                    <span className="bs-detail-value">{svcName}</span>
+                                </div>
+                                <div className="bs-detail-row">
+                                    <span className="bs-detail-label">
+                                        <Building2 size={14} /> Klinika
+                                    </span>
+                                    <span className="bs-detail-value">{clinicName}</span>
+                                </div>
+                                <div className="bs-detail-row">
+                                    <span className="bs-detail-label">
+                                        <Calendar size={14} /> Sana va vaqt
+                                    </span>
+                                    <span className="bs-detail-value">{scheduledDate}</span>
+                                </div>
+                                <div className="bs-detail-row">
+                                    <span className="bs-detail-label">
+                                        <CreditCard size={14} /> Narx
+                                    </span>
+                                    <span className="bs-detail-value bs-price">{fmt(appointment.price)} so'm</span>
+                                </div>
+                            </>
+                        )}
                         <div className="bs-detail-row">
                             <span className="bs-detail-label">
                                 <Clock size={14} /> Holat

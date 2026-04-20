@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Building2, Calendar, Clock, CreditCard, ArrowRight, ArrowLeft, ShoppingCart, Package } from 'lucide-react';
+import { Building2, Calendar, CreditCard, ArrowRight, ArrowLeft, ShoppingCart, Package, Banknote } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import axiosInstance from '../../shared/api/axios';
 import TopBar from '../../pages/home/TopBar';
@@ -13,7 +13,7 @@ const fmt = (n) => n ? Number(n).toLocaleString('uz-UZ') : '0';
 export default function CartCheckoutPage() {
     const navigate = useNavigate();
     const { cart, clearCart, refreshCart } = useCart();
-    const [paymentMethod, setPaymentMethod] = useState('card');
+    const [paymentMethod, setPaymentMethod] = useState('naqd');
     const [selectedDate, setSelectedDate] = useState('');
     const [selectedTime, setSelectedTime] = useState('');
     const [notes, setNotes] = useState('');
@@ -64,6 +64,7 @@ export default function CartCheckoutPage() {
             const response = await axiosInstance.post('/cart/checkout', {
                 scheduledAt,
                 notes: notes || undefined,
+                paymentMethod,
             });
 
             const result = response.data.data;
@@ -71,14 +72,37 @@ export default function CartCheckoutPage() {
             // Clear frontend cart
             await refreshCart();
 
-            navigate('/user/booking-success', {
-                state: {
-                    appointment: result.appointments?.[0],
-                    cartCheckout: true,
-                    totalAppointments: result.count,
-                    appointments: result.appointments,
-                },
-            });
+            if (paymentMethod === 'naqd') {
+                // Cash — go straight to success
+                navigate('/user/booking-success', {
+                    state: {
+                        appointment: result.appointments?.[0],
+                        cartCheckout: true,
+                        totalAppointments: result.count,
+                        appointments: result.appointments,
+                    },
+                });
+            } else {
+                // Card/Payme/Click — go to payment page
+                const firstAppointment = result.appointments?.[0];
+                navigate('/payment', {
+                    state: {
+                        bookingData: {
+                            clinicId: firstAppointment?.clinicId,
+                            clinicName: firstAppointment?.clinic?.nameUz || 'Klinika',
+                            serviceType: firstAppointment?.serviceType || 'DIAGNOSTIC',
+                            serviceName: `Savat buyurtmasi (${result.count} ta)`,
+                            diagnosticServiceId: firstAppointment?.diagnosticServiceId,
+                            surgicalServiceId: firstAppointment?.surgicalServiceId,
+                            scheduledAt,
+                            selectedDate,
+                            price: grandTotal,
+                            appointmentId: firstAppointment?.id,
+                            skipCreate: true,
+                        },
+                    },
+                });
+            }
         } catch (err) {
             setError(err.response?.data?.error?.message || err.response?.data?.message || 'Xatolik yuz berdi');
         } finally {
@@ -197,6 +221,7 @@ export default function CartCheckoutPage() {
                             <h4 className="co-payment-title"><CreditCard size={16} /> To'lov usuli</h4>
                             <div className="co-payment-methods">
                                 {[
+                                    { id: 'naqd', label: 'Naqd', icon: '💵' },
                                     { id: 'card', label: 'Karta', icon: '💳' },
                                     { id: 'payme', label: 'Payme', icon: '🔵' },
                                     { id: 'click', label: 'Click', icon: '🟠' },

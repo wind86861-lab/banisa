@@ -34,8 +34,13 @@ export default function PaymePage() {
     const [error, setError] = useState('');
 
     // Create appointment first, then use its real ID for Payme
+    // If skipCreate is true (cart checkout already created it), use the provided appointmentId
     useEffect(() => {
         if (bookingData && !orderId && !creatingAppointment && !error) {
+            if (bookingData.skipCreate && bookingData.appointmentId) {
+                setOrderId(bookingData.appointmentId);
+                return;
+            }
             setCreatingAppointment(true);
             axiosInstance.post('/user/appointments', {
                 clinicId: bookingData.clinicId,
