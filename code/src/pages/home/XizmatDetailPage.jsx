@@ -34,21 +34,18 @@ export default function XizmatDetailPage() {
     const [lightbox, setLightbox] = useState(false);
     const [showAuthModal, setShowAuthModal] = useState(false);
 
-    const handleBooking = (clinic = null) => {
+    const handleBooking = async (clinic = null) => {
         // Prevent event object from being passed as clinic parameter
         const selectedClinic = (clinic && typeof clinic === 'object' && clinic.id) ? clinic : activeClinic;
 
         if (!user) {
             setShowAuthModal(true);
-        } else {
-            navigate(`/user/book/${id}`, {
-                state: {
-                    serviceType: 'DIAGNOSTIC',
-                    serviceData: svc,
-                    selectedClinic: selectedClinic,
-                },
-            });
+            return;
         }
+
+        // Add to cart and navigate to cart
+        await handleAddToCart();
+        navigate('/user/cart');
     };
 
     const handleAddToCart = async () => {

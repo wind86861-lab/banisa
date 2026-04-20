@@ -53,7 +53,6 @@ import UserSignupPage from './pages/user/UserSignupPage';
 import UserDashboard from './user/pages/UserDashboard';
 import UserProfilePage from './user/pages/UserProfile';
 import UserAppointments from './user/pages/UserAppointments';
-import BookingPage from './user/pages/BookingPage';
 import CheckoutPage from './user/pages/CheckoutPage';
 import BookingSuccessPage from './user/pages/BookingSuccessPage';
 import AppointmentDetailPage from './user/pages/AppointmentDetailPage';
@@ -125,7 +124,6 @@ function App() {
                                 <Route path="/user/appointments" element={<UserGuard><UserAppointments /></UserGuard>} />
                                 <Route path="/user/appointments/:id" element={<UserGuard><AppointmentDetailPage /></UserGuard>} />
                                 <Route path="/user/cart" element={<UserGuard><CartPage /></UserGuard>} />
-                                <Route path="/user/book/:serviceId" element={<UserGuard><BookingPage /></UserGuard>} />
                                 <Route path="/user/checkout" element={<UserGuard><CheckoutPage /></UserGuard>} />
                                 <Route path="/user/cart-checkout" element={<UserGuard><CartCheckoutPage /></UserGuard>} />
                                 <Route path="/user/booking-success" element={<UserGuard><BookingSuccessPage /></UserGuard>} />
