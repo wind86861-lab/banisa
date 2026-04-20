@@ -29,8 +29,7 @@ const CartPage = () => {
     };
 
     const handleCheckout = () => {
-        // Navigate to checkout page with cart data
-        navigate('/user/checkout');
+        navigate('/user/cart-checkout');
     };
 
     if (loading) {

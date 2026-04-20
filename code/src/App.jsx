@@ -61,6 +61,7 @@ import ClinicQRScanner from './clinic/pages/ClinicQRScanner';
 import PaymePage from './pages/payment/PaymePage';
 import PaymentResultPage from './pages/payment/PaymentResultPage';
 import CartPage from './pages/CartPage';
+import CartCheckoutPage from './user/pages/CartCheckoutPage';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -126,6 +127,7 @@ function App() {
                                 <Route path="/user/cart" element={<UserGuard><CartPage /></UserGuard>} />
                                 <Route path="/user/book/:serviceId" element={<UserGuard><BookingPage /></UserGuard>} />
                                 <Route path="/user/checkout" element={<UserGuard><CheckoutPage /></UserGuard>} />
+                                <Route path="/user/cart-checkout" element={<UserGuard><CartCheckoutPage /></UserGuard>} />
                                 <Route path="/user/booking-success" element={<UserGuard><BookingSuccessPage /></UserGuard>} />
 
                                 {/* ─── PAYMENT (PAYME) ─────────────────────────── */}

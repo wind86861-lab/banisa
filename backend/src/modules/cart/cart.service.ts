@@ -175,6 +175,90 @@ export class CartService {
         const count = await prisma.cartItem.count({ where: { userId } });
         return { count };
     }
+
+    async checkout(userId: string, data: { scheduledAt: string; notes?: string }) {
+        const cartItems = await prisma.cartItem.findMany({
+            where: { userId },
+            include: { clinic: true },
+        });
+
+        if (cartItems.length === 0) {
+            throw new AppError('Savat bo\'sh', 400, ErrorCodes.VALIDATION_ERROR);
+        }
+
+        // Group by clinic
+        const byClinic = cartItems.reduce((acc, item) => {
+            if (!acc[item.clinicId]) acc[item.clinicId] = [];
+            acc[item.clinicId].push(item);
+            return acc;
+        }, {} as Record<string, typeof cartItems>);
+
+        const appointments: any[] = [];
+
+        // Create one appointment per clinic
+        for (const [clinicId, items] of Object.entries(byClinic)) {
+            // Calculate total price for this clinic group
+            let totalPrice = 0;
+            for (const item of items) {
+                let service: any;
+                switch (item.serviceType) {
+                    case 'DIAGNOSTIC':
+                        service = await prisma.diagnosticService.findUnique({ where: { id: item.serviceId } });
+                        break;
+                    case 'SURGICAL':
+                        service = await prisma.surgicalService.findUnique({ where: { id: item.serviceId } });
+                        break;
+                    case 'SANATORIUM':
+                        service = await prisma.sanatoriumService.findUnique({ where: { id: item.serviceId } });
+                        break;
+                    case 'CHECKUP':
+                        service = await prisma.checkupPackage.findUnique({ where: { id: item.serviceId } });
+                        break;
+                }
+                if (service) {
+                    totalPrice += (service.priceRecommended || service.recommendedPrice || 0) * item.quantity;
+                }
+            }
+
+            // Use the first item's service as the primary for the appointment
+            const primaryItem = items[0];
+            const bookingNumber = `BN-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+            const qrToken = `${bookingNumber}-${require('crypto').randomBytes(16).toString('hex')}`;
+
+            const appointmentData: any = {
+                patientId: userId,
+                clinicId,
+                serviceType: primaryItem.serviceType,
+                scheduledAt: new Date(data.scheduledAt),
+                price: totalPrice,
+                notes: data.notes || `Savat orqali buyurtma: ${items.length} ta xizmat`,
+                status: 'PENDING',
+                bookingNumber,
+                qrToken,
+            };
+
+            // Set the appropriate service ID field
+            if (primaryItem.serviceType === 'DIAGNOSTIC') {
+                appointmentData.diagnosticServiceId = primaryItem.serviceId;
+            } else if (primaryItem.serviceType === 'SURGICAL') {
+                appointmentData.surgicalServiceId = primaryItem.serviceId;
+            }
+
+            const appointment = await prisma.appointment.create({
+                data: appointmentData,
+                include: {
+                    clinic: { select: { id: true, nameUz: true, nameRu: true } },
+                },
+            });
+
+            appointments.push(appointment);
+        }
+
+        // Clear cart after successful checkout
+        await prisma.cartItem.deleteMany({ where: { userId } });
+
+        return { appointments, count: appointments.length };
+    }
 }
 
 export const cartService = new CartService();

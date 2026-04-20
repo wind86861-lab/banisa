@@ -10,44 +10,32 @@ export const useCart = () => {
     return context;
 };
 
-const CART_STORAGE_KEY = 'banisa_cart_items';
+const CART_STORAGE_PREFIX = 'banisa_cart_';
+const getCartKey = (userId) => userId ? `${CART_STORAGE_PREFIX}${userId}` : null;
 
 export const CartProvider = ({ children }) => {
     const { user } = useUserAuth();
-    const [cart, setCart] = useState(() => {
-        try {
-            const savedCart = localStorage.getItem(CART_STORAGE_KEY);
-            return savedCart ? JSON.parse(savedCart) : [];
-        } catch {
-            return [];
-        }
-    });
+    const [cart, setCart] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [cartCount, setCartCount] = useState(() => {
-        try {
-            const savedCart = localStorage.getItem(CART_STORAGE_KEY);
-            if (savedCart) {
-                const cartData = JSON.parse(savedCart);
-                return cartData.reduce((sum, group) => sum + group.itemCount, 0);
-            }
-        } catch { }
-        return 0;
-    });
-    
+    const [cartCount, setCartCount] = useState(0);
+
     const abortControllerRef = useRef(null);
     const syncTimeoutRef = useRef(null);
+    const prevUserIdRef = useRef(null);
 
-    // Sync cart to localStorage whenever it changes
+    // Sync cart to localStorage whenever it changes (tied to user ID)
     useEffect(() => {
+        const key = getCartKey(user?.id);
+        if (!key) return;
         if (cart.length > 0) {
-            localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+            localStorage.setItem(key, JSON.stringify(cart));
             const total = cart.reduce((sum, group) => sum + group.itemCount, 0);
             setCartCount(total);
         } else {
-            localStorage.removeItem(CART_STORAGE_KEY);
+            localStorage.removeItem(key);
             setCartCount(0);
         }
-    }, [cart]);
+    }, [cart, user?.id]);
 
     // Fetch cart from backend (only when user is logged in)
     const fetchCart = useCallback(async () => {
@@ -207,23 +195,34 @@ export const CartProvider = ({ children }) => {
         }
     };
 
-    // Fetch cart when user logs in
+    // When user changes: load their cart from localStorage, then fetch from backend
     useEffect(() => {
-        if (user) {
-            fetchCart();
-        } else {
-            // User logged out - keep localStorage data but don't fetch
-            const savedCart = localStorage.getItem(CART_STORAGE_KEY);
-            if (savedCart) {
-                try {
+        const currentUserId = user?.id || null;
+        const prevUserId = prevUserIdRef.current;
+        prevUserIdRef.current = currentUserId;
+
+        if (currentUserId) {
+            // User logged in — load their cached cart, then sync from backend
+            const key = getCartKey(currentUserId);
+            try {
+                const savedCart = localStorage.getItem(key);
+                if (savedCart) {
                     const cartData = JSON.parse(savedCart);
                     setCart(cartData);
-                } catch {
+                    setCartCount(cartData.reduce((sum, g) => sum + g.itemCount, 0));
+                } else {
                     setCart([]);
+                    setCartCount(0);
                 }
-            } else {
+            } catch {
                 setCart([]);
+                setCartCount(0);
             }
+            fetchCart();
+        } else {
+            // User logged out — clear in-memory cart (localStorage stays per-user)
+            setCart([]);
+            setCartCount(0);
         }
 
         // Cleanup on unmount
@@ -235,7 +234,7 @@ export const CartProvider = ({ children }) => {
                 clearTimeout(syncTimeoutRef.current);
             }
         };
-    }, [user, fetchCart]);
+    }, [user?.id, fetchCart]);
 
     return (
         <CartContext.Provider value={{

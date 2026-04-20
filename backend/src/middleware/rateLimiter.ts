@@ -18,22 +18,24 @@ const keyGenerator = (req: any) => {
 // General API limit — applied to all routes (disabled in dev)
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isDev ? 10000 : 5000, // Increased to 5000 requests per 15 minutes
+  max: isDev ? 10000 : 5000,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
   message: { success: false, error: 'Too many requests. Try again in 15 minutes.' },
-  skip: () => isDev, // Skip entirely in development
+  skip: () => isDev,
+  validate: false,
 });
 
 // Strict login limit — 5 attempts per IP (disabled in dev)
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isDev ? 10000 : 50, // Increased for testing
+  max: isDev ? 10000 : 50,
   skipSuccessfulRequests: true,
   keyGenerator,
   message: { success: false, error: 'Too many login attempts. Try again in 15 minutes.' },
   skip: () => isDev,
+  validate: false,
 });
 
 // Clinic registration limit — 5 per IP per hour (disabled in dev)
@@ -43,14 +45,16 @@ export const registerLimiter = rateLimit({
   keyGenerator,
   message: { success: false, error: 'Too many registration attempts. Try again in 1 hour.' },
   skip: () => isDev,
+  validate: false,
 });
 
-// Refresh token limit — very lenient for dev (disabled in dev)
+// Refresh token limit
 export const refreshLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: isDev ? 10000 : 30,
+  windowMs: 15 * 60 * 1000,
+  max: isDev ? 10000 : 100,
   keyGenerator,
   message: { success: false, error: 'Too many refresh attempts' },
-  skipSuccessfulRequests: false,
+  skipSuccessfulRequests: true,
   skip: () => isDev,
+  validate: false,
 });

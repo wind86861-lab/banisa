@@ -56,3 +56,12 @@ export const getCartCount = async (req: AuthRequest, res: Response, next: NextFu
         next(error);
     }
 };
+
+export const checkout = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const result = await cartService.checkout(req.user!.id, req.body);
+        sendSuccess(res, result, null, 'Buyurtma muvaffaqiyatli yaratildi', 201);
+    } catch (error) {
+        next(error);
+    }
+};
