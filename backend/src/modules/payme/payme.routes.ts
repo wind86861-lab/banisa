@@ -6,15 +6,18 @@ const router = Router();
 
 // ─── Payme Basic Auth middleware ──────────────────────────────────────────────
 // Payme sends:  Authorization: Basic base64("Paycom:<password>")
+// IMPORTANT: Payme spec requires ALL responses (including auth errors) to return HTTP 200
+const UNAUTHORIZED_RESPONSE = {
+    jsonrpc: '2.0',
+    id: null,
+    error: { code: -32504, message: 'Unauthorized', data: null },
+};
+
 const paymeAuth = (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.headers['authorization'] || '';
 
     if (!authHeader.startsWith('Basic ')) {
-        return res.status(401).json({
-            jsonrpc: '2.0',
-            id: null,
-            error: { code: -32504, message: 'Unauthorized', data: null },
-        });
+        return res.status(200).json(UNAUTHORIZED_RESPONSE);
     }
 
     try {
@@ -24,25 +27,16 @@ const paymeAuth = (req: Request, res: Response, next: NextFunction) => {
         const login = decoded.slice(0, colonIdx);
         const password = decoded.slice(colonIdx + 1);
 
-        const expectedPassword = env.NODE_ENV === 'production'
-            ? env.PAYME_PROD_KEY
-            : env.PAYME_TEST_KEY;
+        // Accept both test and prod keys
+        const validPasswords = [env.PAYME_PROD_KEY, env.PAYME_TEST_KEY].filter(Boolean);
 
-        if (login !== 'Paycom' || password !== expectedPassword) {
-            return res.status(401).json({
-                jsonrpc: '2.0',
-                id: null,
-                error: { code: -32504, message: 'Unauthorized', data: null },
-            });
+        if (login !== 'Paycom' || !validPasswords.includes(password)) {
+            return res.status(200).json(UNAUTHORIZED_RESPONSE);
         }
 
         next();
     } catch {
-        return res.status(401).json({
-            jsonrpc: '2.0',
-            id: null,
-            error: { code: -32504, message: 'Unauthorized', data: null },
-        });
+        return res.status(200).json(UNAUTHORIZED_RESPONSE);
     }
 };
 
