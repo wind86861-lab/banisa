@@ -11,7 +11,7 @@ export const PAYME_STATE = {
 // ─── Payme JSON-RPC error codes ──────────────────────────────────────────────
 export const PAYME_ERROR = {
     INVALID_AMOUNT: { code: -31001, message: { uz: "Noto'g'ri summa", ru: "Неверная сумма", en: "Invalid amount" }, data: 'amount' },
-    WRONG_ACCOUNT: { code: -31050, message: { uz: "Buyurtma topilmadi", ru: "Заказ не найден", en: "Order not found" }, data: 'order' },
+    WRONG_ACCOUNT: { code: -31050, message: { uz: "Buyurtma topilmadi", ru: "Заказ не найден", en: "Order not found" }, data: 'order_id' },
     TRANSACTION_NOT_FOUND: { code: -31003, message: { uz: "Tranzaksiya topilmadi", ru: "Транзакция не найдена", en: "Transaction not found" }, data: 'transaction' },
     ALREADY_DONE: { code: -31060, message: { uz: "Tranzaksiya allaqachon yakunlangan", ru: "Транзакция уже завершена", en: "Transaction already done" }, data: 'transaction' },
     UNABLE_CANCEL: { code: -31007, message: { uz: "Bekor qilib bo'lmaydi", ru: "Нельзя отменить", en: "Unable to cancel" }, data: 'reason' },

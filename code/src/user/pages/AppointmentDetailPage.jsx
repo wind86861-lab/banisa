@@ -33,13 +33,15 @@ export default function AppointmentDetailPage() {
     const [qrSrc, setQrSrc] = useState(null);
 
     const { data, isLoading, error, refetch } = useQuery({
-        queryKey: ['appointment', id],
+        queryKey: ['appointment', id, 'v2'], // Cache-busting version
         queryFn: async () => {
             const res = await api.get(`/user/appointments/${id}`);
             return res.data.data;
         },
-        retry: 1,
-        refetchInterval: false, // Disable auto-refetch to prevent infinite loops
+        retry: false, // Disable all retries to prevent loops
+        refetchInterval: false,
+        retryOnMount: false,
+        refetchOnWindowFocus: false,
     });
 
     // Fetch QR image as authenticated blob URL when appointment is PAID
@@ -88,19 +90,12 @@ export default function AppointmentDetailPage() {
 
     if (error) {
         // Check if it's an auth error
-        if (error?.response?.status === 401) {
-            return (
-                <div className="home-page">
-                    <TopBar /><Navigation />
-                    <div className="apd-error">
-                        <AlertCircle size={48} />
-                        <h3>Sessiya tugadi</h3>
-                        <p>Iltimos, qaytadan tizimga kiring</p>
-                        <Link to="/user/login">Tizimga kirish</Link>
-                    </div>
-                    <Footer />
-                </div>
-            );
+        if (error?.response?.status === 401 || error?.response?.status === 429) {
+            // Force redirect to login for auth errors
+            if (typeof window !== 'undefined') {
+                window.location.href = '/user/login';
+            }
+            return null;
         }
         return (
             <div className="home-page">
