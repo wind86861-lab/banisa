@@ -37,6 +37,18 @@ export const checkPerformTransaction = async (params: {
         return { error: PAYME_ERROR.WRONG_ACCOUNT };
     }
 
+    // Check if another transaction already occupies this order
+    const existingTx = await prisma.paymeTransaction.findFirst({
+        where: {
+            orderId: account.order_id,
+            state: { in: [PAYME_STATE.CREATED, PAYME_STATE.COMPLETED] },
+        },
+    });
+
+    if (existingTx) {
+        return { error: PAYME_ERROR.ORDER_BUSY };
+    }
+
     const appointment = await prisma.appointment.findUnique({
         where: { id: account.order_id },
         include: {
