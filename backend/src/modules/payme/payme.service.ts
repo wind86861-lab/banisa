@@ -133,6 +133,19 @@ export const createTransaction = async (params: {
     const check = await checkPerformTransaction({ amount, account }, isTestMode);
     if (check.error) return { error: check.error };
 
+    // Check if another transaction already exists for this order
+    const existingForOrder = await prisma.paymeTransaction.findFirst({
+        where: {
+            orderId: account.order_id,
+            state: { in: [PAYME_STATE.CREATED, PAYME_STATE.COMPLETED] },
+        },
+    });
+
+    if (existingForOrder) {
+        // Another transaction already occupies this order
+        return { error: PAYME_ERROR.UNABLE_PERFORM };
+    }
+
     // Create new transaction
     const transaction = await prisma.paymeTransaction.create({
         data: {
