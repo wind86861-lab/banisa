@@ -58,28 +58,6 @@ export const checkPerformTransaction = async (params: {
         },
     });
 
-    // In test mode: if order not found, treat as valid test order
-    if (!appointment && isTestMode) {
-        return {
-            result: {
-                allow: true,
-                detail: {
-                    receipt_type: 0,
-                    items: [
-                        {
-                            title: 'Test tibbiy xizmat',
-                            price: amount,
-                            count: 1,
-                            code: '10105001001000000',
-                            package_code: '1515151',
-                            vat_percent: 0,
-                        },
-                    ],
-                },
-            },
-        };
-    }
-
     if (!appointment) {
         return { error: PAYME_ERROR.WRONG_ACCOUNT };
     }
