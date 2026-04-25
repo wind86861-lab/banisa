@@ -16,6 +16,7 @@ export const PAYME_ERROR = {
     ALREADY_DONE: { code: -31060, message: { uz: "Tranzaksiya allaqachon yakunlangan", ru: "Транзакция уже завершена", en: "Transaction already done" }, data: 'transaction' },
     UNABLE_CANCEL: { code: -31007, message: { uz: "Bekor qilib bo'lmaydi", ru: "Нельзя отменить", en: "Unable to cancel" }, data: 'reason' },
     UNABLE_PERFORM: { code: -31008, message: { uz: "Bajarib bo'lmaydi", ru: "Невозможно выполнить", en: "Unable to perform" }, data: 'transaction' },
+    ORDER_BUSY: { code: -31099, message: { uz: "Buyurtma band", ru: "Заказ занят", en: "Order is busy" }, data: 'order_id' },
     INVALID_ACCOUNT: { code: -31050, message: { uz: "Hisob topilmadi", ru: "Счёт не найден", en: "Account not found" }, data: 'account' },
 } as const;
 
@@ -142,8 +143,8 @@ export const createTransaction = async (params: {
     });
 
     if (existingForOrder) {
-        // Another transaction already occupies this order
-        return { error: PAYME_ERROR.UNABLE_PERFORM };
+        // Another transaction already occupies this order (code must be -31099 to -31050)
+        return { error: PAYME_ERROR.ORDER_BUSY };
     }
 
     // Create new transaction
