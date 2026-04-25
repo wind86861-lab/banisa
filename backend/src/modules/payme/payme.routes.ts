@@ -34,6 +34,9 @@ const paymeAuth = (req: Request, res: Response, next: NextFunction) => {
             return res.status(200).json(UNAUTHORIZED_RESPONSE);
         }
 
+        // Flag test mode so service can handle sandbox test orders
+        (req as any).paymeTestMode = (password === env.PAYME_TEST_KEY);
+
         next();
     } catch {
         return res.status(200).json(UNAUTHORIZED_RESPONSE);

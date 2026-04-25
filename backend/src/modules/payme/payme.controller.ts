@@ -25,16 +25,17 @@ const reply = (res: Response, id: number | string, result?: any, error?: any) =>
 
 export const handleMerchantApi = async (req: Request, res: Response) => {
     const { id, method, params } = req.body as JsonRpcRequest;
+    const isTestMode = !!(req as any).paymeTestMode;
 
     try {
         let outcome: { result?: any; error?: any };
 
         switch (method) {
             case 'CheckPerformTransaction':
-                outcome = await paymeService.checkPerformTransaction(params as any);
+                outcome = await paymeService.checkPerformTransaction(params as any, isTestMode);
                 break;
             case 'CreateTransaction':
-                outcome = await paymeService.createTransaction(params as any);
+                outcome = await paymeService.createTransaction(params as any, isTestMode);
                 break;
             case 'PerformTransaction':
                 outcome = await paymeService.performTransaction(params as any);
