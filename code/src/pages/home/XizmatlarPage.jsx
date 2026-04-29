@@ -566,7 +566,26 @@ export default function XizmatlarPage() {
             <TopBar />
             <Navigation />
 
-            {/* ── HERO ── */}
+            {/* ── MOBILE APP HEADER (mobile only) ── */}
+            <div className="xp-mobile-header">
+                <button
+                    className="xp-mobile-back"
+                    onClick={() => navigate(-1)}
+                    aria-label="Orqaga"
+                >
+                    <ChevronLeft size={22} />
+                </button>
+                <h1 className="xp-mobile-title">Xizmatlar</h1>
+                <button
+                    className="xp-mobile-cart"
+                    onClick={() => navigate('/cart')}
+                    aria-label="Savat"
+                >
+                    <ShoppingCart size={20} />
+                </button>
+            </div>
+
+            {/* ── HERO (desktop) ── */}
             <section className="xp-hero">
                 <div className="xp-hero-inner">
                     <div className="xp-breadcrumb">
@@ -612,7 +631,54 @@ export default function XizmatlarPage() {
                 </div>
             </section>
 
-            {/* ── TABS BAR ── */}
+            {/* ── MOBILE SEARCH (mobile only) ── */}
+            <div className="xp-mobile-search-wrap">
+                <div className="xp-mobile-search">
+                    <Search size={18} className="xp-mobile-search-icon" />
+                    <input
+                        type="text"
+                        placeholder="Xizmat yoki kasallik nomi..."
+                        value={searchQuery}
+                        onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                    />
+                    {searchQuery && (
+                        <button
+                            className="xp-mobile-search-clear"
+                            onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
+                            aria-label="Tozalash"
+                        >
+                            <X size={16} />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* ── MOBILE CATEGORY CARDS (mobile only) ── */}
+            <div className="xp-mobile-cats-section">
+                <h2 className="xp-mobile-section-title">Kategoriyalar</h2>
+                <div className="xp-mobile-cats-grid">
+                    {CATEGORIES.map(cat => {
+                        const isActive = activeCategory === cat.id;
+                        return (
+                            <button
+                                key={cat.id}
+                                className={`xp-mcat-card xp-mcat-${cat.id}${isActive ? ' active' : ''}`}
+                                onClick={() => handleCategoryChange(cat.id)}
+                            >
+                                <div className="xp-mcat-icon-wrap">
+                                    <cat.icon size={26} />
+                                </div>
+                                <div className="xp-mcat-text">
+                                    <span className="xp-mcat-label">{cat.label}</span>
+                                    <span className="xp-mcat-count">{categoryCounts[cat.id] || 0} ta xizmat</span>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* ── TABS BAR (desktop sticky tabs) ── */}
             <div className="xp-tabs-bar">
                 <div className="xp-tabs-inner">
                     {CATEGORIES.map(cat => (
@@ -624,6 +690,23 @@ export default function XizmatlarPage() {
                             <cat.icon size={15} />
                             {cat.label}
                             <span className="xp-cat-tab-count">{categoryCounts[cat.id]}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* ── MOBILE STICKY CHIPS (mobile only — appears after scroll) ── */}
+            <div className="xp-mobile-chips-bar">
+                <div className="xp-mobile-chips-inner">
+                    {CATEGORIES.map(cat => (
+                        <button
+                            key={cat.id}
+                            className={`xp-mchip${activeCategory === cat.id ? ' active' : ''}`}
+                            onClick={() => handleCategoryChange(cat.id)}
+                        >
+                            <cat.icon size={13} />
+                            <span>{cat.label.split(' ')[0]}</span>
+                            <span className="xp-mchip-count">{categoryCounts[cat.id] || 0}</span>
                         </button>
                     ))}
                 </div>
