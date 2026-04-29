@@ -173,6 +173,71 @@ function FilterGroup({ title, children, defaultOpen = true }) {
 
 const ITEMS_PER_PAGE = 9;
 
+/* ── HUB CAROUSELS (mobile-only shortcuts: popular / discount / new) ── */
+function HubCarousels({ services, isLoggedIn, onAddToCart }) {
+    const popular = useMemo(
+        () => [...services].sort((a, b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, 8),
+        [services]
+    );
+    const discounted = useMemo(
+        () => services.filter(s => s.discountPercent && s.discountPercent > 0).slice(0, 8),
+        [services]
+    );
+    const topRated = useMemo(
+        () => [...services].filter(s => (s.rating || 0) >= 4).sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 8),
+        [services]
+    );
+
+    const renderCarousel = (title, emoji, list, color) => {
+        if (!list.length) return null;
+        return (
+            <div className="xp-hub-carousel">
+                <div className="xp-hub-carousel-head">
+                    <h3 className="xp-hub-carousel-title">
+                        <span className="xp-hub-carousel-emoji" style={{ background: color + '20', color }}>{emoji}</span>
+                        {title}
+                    </h3>
+                    <span className="xp-hub-carousel-count">{list.length}</span>
+                </div>
+                <div className="xp-hub-carousel-track">
+                    {list.map(s => {
+                        let img = (s.images?.[0]) || FALLBACK_IMAGES[s.category] || FALLBACK_IMAGES.diagnostika;
+                        if (img?.startsWith('/uploads')) img = `https://banisa.uz${img}`;
+                        return (
+                            <Link key={s.id} to={`/xizmatlar/${s.id}`} className="xp-hub-mini-card">
+                                <div className="xp-hub-mini-img">
+                                    <img src={img} alt={s.title} onError={e => { e.currentTarget.src = FALLBACK_IMAGES[s.category] || FALLBACK_IMAGES.diagnostika; }} />
+                                    {s.discountPercent ? (
+                                        <span className="xp-hub-mini-discount">-{s.discountPercent}%</span>
+                                    ) : null}
+                                </div>
+                                <div className="xp-hub-mini-body">
+                                    <h4 className="xp-hub-mini-title">{s.title}</h4>
+                                    {s.clinic?.name && <span className="xp-hub-mini-clinic">{s.clinic.name}</span>}
+                                    <div className="xp-hub-mini-bottom">
+                                        <span className="xp-hub-mini-price">{(s.price || 0).toLocaleString('uz-UZ')} so'm</span>
+                                        {s.rating > 0 && (
+                                            <span className="xp-hub-mini-rating">★ {s.rating.toFixed(1)}</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </Link>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <div className="xp-hub-carousels">
+            {renderCarousel('Mashhur Xizmatlar', '🔥', popular, '#e11d48')}
+            {renderCarousel('Chegirma bilan', '💰', discounted, '#16a34a')}
+            {renderCarousel('Yuqori reytingdagi', '⭐', topRated, '#f59e0b')}
+        </div>
+    );
+}
+
 export default function XizmatlarPage() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -658,12 +723,31 @@ export default function XizmatlarPage() {
                 <h2 className="xp-mobile-section-title">Kategoriyalar</h2>
                 <div className="xp-mobile-cats-grid">
                     {CATEGORIES.map(cat => {
-                        const isActive = activeCategory === cat.id;
+                        // "all" stays as filter (shows everything below); other categories navigate
+                        if (cat.id === 'all') {
+                            const isActive = activeCategory === 'all';
+                            return (
+                                <button
+                                    key={cat.id}
+                                    className={`xp-mcat-card xp-mcat-all${isActive ? ' active' : ''}`}
+                                    onClick={() => handleCategoryChange('all')}
+                                >
+                                    <div className="xp-mcat-icon-wrap">
+                                        <cat.icon size={26} />
+                                    </div>
+                                    <div className="xp-mcat-text">
+                                        <span className="xp-mcat-label">{cat.label}</span>
+                                        <span className="xp-mcat-count">{categoryCounts.all || 0} ta xizmat</span>
+                                    </div>
+                                    <ChevronRight size={18} className="xp-mcat-arrow" />
+                                </button>
+                            );
+                        }
                         return (
-                            <button
+                            <Link
                                 key={cat.id}
-                                className={`xp-mcat-card xp-mcat-${cat.id}${isActive ? ' active' : ''}`}
-                                onClick={() => handleCategoryChange(cat.id)}
+                                to={`/xizmatlar/category/${cat.id}`}
+                                className={`xp-mcat-card xp-mcat-${cat.id}`}
                             >
                                 <div className="xp-mcat-icon-wrap">
                                     <cat.icon size={26} />
@@ -672,11 +756,16 @@ export default function XizmatlarPage() {
                                     <span className="xp-mcat-label">{cat.label}</span>
                                     <span className="xp-mcat-count">{categoryCounts[cat.id] || 0} ta xizmat</span>
                                 </div>
-                            </button>
+                                <ChevronRight size={16} className="xp-mcat-arrow" />
+                            </Link>
                         );
                     })}
                 </div>
             </div>
+
+            {/* ── HOME CAROUSELS (mobile only — quick discovery shortcuts) ── */}
+            <HubCarousels services={SERVICES_DATA} isLoggedIn={!!user} onAddToCart={handleAddToCart} />
+
 
             {/* ── TABS BAR (desktop sticky tabs) ── */}
             <div className="xp-tabs-bar">

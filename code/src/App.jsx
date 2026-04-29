@@ -45,6 +45,7 @@ import ClinicNotifications from './clinic/pages/ClinicNotifications';
 
 import HomePage from './pages/home/HomePage';
 import XizmatlarPage from './pages/home/XizmatlarPage';
+import XizmatlarCategoryPage from './pages/home/XizmatlarCategoryPage';
 import XizmatDetailPage from './pages/home/XizmatDetailPage';
 import ClinicsPage from './pages/home/ClinicsPage';
 import ClinicDetailPage from './pages/home/ClinicDetailPage';
@@ -110,6 +111,7 @@ function App() {
 
                                 {/* ─── PUBLIC PAGES ────────────────────────────── */}
                                 <Route path="/xizmatlar" element={<XizmatlarPage />} />
+                                <Route path="/xizmatlar/category/:category" element={<XizmatlarCategoryPage />} />
                                 <Route path="/xizmatlar/:id" element={<XizmatDetailPage />} />
                                 <Route path="/klinikalar" element={<ClinicsPage />} />
                                 <Route path="/klinikalar/:id" element={<ClinicDetailPage />} />
