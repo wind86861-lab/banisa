@@ -13,11 +13,12 @@ import './css/AppointmentDetailPage.css';
 
 const STATUS_LABELS = {
     PENDING: { text: 'Operator kutmoqda', color: '#D97706', bg: '#FEF3C7' },
+    PENDING_ARRIVAL: { text: 'Klinikaga kelish kutilmoqda', color: '#EA580C', bg: '#FFEDD5' },
     OPERATOR_CONFIRMED: { text: 'Operator tasdiqladi', color: '#2563EB', bg: '#DBEAFE' },
     SENT_TO_CLINIC: { text: 'Klinikada ko\'rib chiqilmoqda', color: '#2563EB', bg: '#DBEAFE' },
     CLINIC_ACCEPTED: { text: 'Klinika qabul qildi', color: '#059669', bg: '#D1FAE5' },
     PAID: { text: 'To\'langan — QR tayyor', color: '#059669', bg: '#D1FAE5' },
-    CHECKED_IN: { text: 'Klinikaga kelingan', color: '#7C3AED', bg: '#EDE9FE' },
+    CHECKED_IN: { text: 'Klinikada check-in qilindi', color: '#7C3AED', bg: '#EDE9FE' },
     IN_PROGRESS: { text: 'Xizmat jarayonda', color: '#7C3AED', bg: '#EDE9FE' },
     COMPLETED: { text: 'Yakunlangan', color: '#065F46', bg: '#D1FAE5' },
     CANCELLED: { text: 'Bekor qilingan', color: '#991B1B', bg: '#FEE2E2' },
@@ -44,9 +45,13 @@ export default function AppointmentDetailPage() {
         refetchOnWindowFocus: false,
     });
 
-    // Fetch QR image as authenticated blob URL when appointment is PAID
+    // Fetch QR image as authenticated blob URL when paid OR when cash+CHECKED_IN
+    const isCash = data?.paymentMethod === 'CASH';
+    const showQrForCash = isCash && ['CHECKED_IN', 'IN_PROGRESS', 'COMPLETED'].includes(data?.status);
+    const showQr = data?.paymentStatus === 'PAID' || showQrForCash;
+
     useEffect(() => {
-        if (!data || data.paymentStatus !== 'PAID') {
+        if (!data || !showQr) {
             setQrSrc(null);
             return;
         }
@@ -66,7 +71,7 @@ export default function AppointmentDetailPage() {
             cancelled = true;
             if (blobUrl) URL.revokeObjectURL(blobUrl);
         };
-    }, [data?.paymentStatus, id]);
+    }, [showQr, id]);
 
     const cancel = async () => {
         if (!window.confirm('Bronni bekor qilmoqchimisiz?')) return;
@@ -126,8 +131,9 @@ export default function AppointmentDetailPage() {
         data.surgicalService?.nameUz ||
         'Xizmat';
     const date = new Date(data.scheduledAt);
-    const canCancel = ['PENDING', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED'].includes(data.status);
+    const canCancel = ['PENDING', 'PENDING_ARRIVAL', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED'].includes(data.status);
     const canPay = ['CLINIC_ACCEPTED', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC'].includes(data.status) && data.paymentStatus !== 'PAID';
+    const isPendingArrival = data.status === 'PENDING_ARRIVAL' && isCash;
 
     return (
         <div className="home-page">
@@ -151,18 +157,39 @@ export default function AppointmentDetailPage() {
                 <div className="apd-grid">
                     {/* Left column: QR + info */}
                     <div className="apd-col-left">
-                        {/* QR Code Card */}
-                        {data.paymentStatus === 'PAID' && qrSrc && (
+                        {/* PENDING_ARRIVAL: Check-in CTA */}
+                        {isPendingArrival && (
+                            <div className="apd-checkin-card">
+                                <div className="apd-checkin-icon">📲</div>
+                                <h3>Klinikaga boring va QR skanlang</h3>
+                                <p>Klinikaga yetib borgach, ular devoridagi QR kodni skanlab check-in qiling. Shundan so'ng xodim naqd to'lovni qabul qiladi.</p>
+                                <div className="apd-checkin-steps">
+                                    <div className="apd-checkin-step"><span>1</span> Klinikaga boring</div>
+                                    <div className="apd-checkin-step"><span>2</span> QR kodni kamerangiz bilan skanlang</div>
+                                    <div className="apd-checkin-step"><span>3</span> Check-in tugadi — xodimga to'lash</div>
+                                </div>
+                                <div className="apd-checkin-amount">
+                                    <span>To'lov summasi:</span>
+                                    <strong>{fmt(data.finalPrice || data.price)} so'm (naqd)</strong>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* QR Code Card — for paid or cash CHECKED_IN */}
+                        {showQr && qrSrc && (
                             <div className="apd-qr-card">
                                 <div className="apd-qr-header">
                                     <QrCode size={20} />
-                                    <h3>Klinikaga ko'rsating</h3>
+                                    <h3>{isCash ? 'Xodimga ko\'rsating' : 'Klinikaga ko\'rsating'}</h3>
                                 </div>
                                 <div className="apd-qr-img-wrap">
                                     <img src={qrSrc} alt="QR kod" className="apd-qr-img" />
                                 </div>
                                 <p className="apd-qr-note">
-                                    Klinika administratori ushbu QR kodni skanerlab sizga <strong>{data.discountPercent}%</strong> chegirma beradi
+                                    {isCash
+                                        ? 'Xodim ushbu QR kodni skanerlab naqd to\'lovni qabul qiladi'
+                                        : `Klinika administratori ushbu QR kodni skanerlab sizga chegirma beradi`
+                                    }
                                 </p>
                                 <div className="apd-qr-code-text">{data.bookingNumber}</div>
                             </div>

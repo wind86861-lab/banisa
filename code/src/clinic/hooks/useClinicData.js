@@ -90,8 +90,8 @@ export const useStartBooking = () => {
 export const useCompleteBooking = () => {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: async ({ id, note, paymentMethod }) => {
-            const { data } = await api.post(`/clinic/appointments/${id}/complete`, { note, paymentMethod });
+        mutationFn: async ({ id, note }) => {
+            const { data } = await api.post(`/clinic/appointments/${id}/complete`, { note });
             return data.data;
         },
         onSuccess: () => invalidateBookings(qc),

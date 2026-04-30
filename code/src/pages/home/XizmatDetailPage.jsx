@@ -18,7 +18,18 @@ import ReviewSection from '../../components/ReviewSection';
 import './css/base.css';
 import './css/XizmatDetailPage.css';
 
-const fmt = (n) => n ? Number(n).toLocaleString('uz-UZ') : '0';
+const fmt = (n) => {
+    if (!n) return '0';
+    return Number(n).toLocaleString('en-US').replace(/,/g, '\u00A0');
+};
+const fmtCompact = (n) => {
+    if (!n) return '0';
+    const num = Number(n);
+    if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + '\u00A0mlrd';
+    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + '\u00A0mln';
+    if (num >= 1_000) return (num / 1_000).toFixed(1).replace(/\.0$/, '') + '\u00A0ming';
+    return fmt(num);
+};
 
 export default function XizmatDetailPage() {
     const { id } = useParams();
@@ -714,18 +725,59 @@ export default function XizmatDetailPage() {
                         {/* Payment / Booking Card */}
                         <div className="xd-sidebar-booking">
                             <div className="xd-sb-header">
-                                <span className="xd-sb-label">Narxi</span>
                                 {activeClinic?.discountPercent > 0 ? (
                                     <>
-                                        <div className="xd-sb-discount-badge">-{activeClinic.discountPercent}% chegirma</div>
-                                        <div className="xd-sb-price">{fmt(activeClinic.price)} so'm</div>
-                                        <div className="xd-sb-original-price">{fmt(activeClinic.originalPrice)} so'm</div>
+                                        {/* 1. ANCHOR — original price FIRST, BIG */}
+                                        <div className="xd-sb-label" style={{ opacity: 0.9, marginBottom: 2 }}>Asl narxi</div>
+                                        <div className="xd-sb-original-price" style={{ fontSize: 28, fontWeight: 700, textDecoration: 'line-through', opacity: 0.95, margin: '0 0 10px' }}>
+                                            {fmt(activeClinic.originalPrice)} so'm
+                                        </div>
+
+                                        {/* 2. DISCOUNT BADGE — eye-catching */}
+                                        <div className="xd-sb-discount-badge" style={{
+                                            fontSize: 15,
+                                            padding: '5px 12px',
+                                            background: '#fff',
+                                            color: '#e63946',
+                                            borderRadius: 24,
+                                            fontWeight: 800,
+                                            marginBottom: 10,
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 4,
+                                        }}>
+                                            <span style={{ fontSize: 18 }}>🔥</span> -{activeClinic.discountPercent}% CHEGIRMA
+                                        </div>
+
+                                        {/* 3. FINAL PRICE — looks cheap after anchor */}
+                                        <div className="xd-sb-label" style={{ opacity: 0.9, marginBottom: 2 }}>Siz uchun</div>
+                                        <div className="xd-sb-price" style={{ fontSize: 34, fontWeight: 800, margin: '0 0 4px' }}>
+                                            {fmt(activeClinic.price)} so'm
+                                        </div>
+
+                                        {/* 4. SAVINGS — gold message, prominent */}
+                                        <div style={{
+                                            marginTop: 10,
+                                            padding: '8px 12px',
+                                            background: 'rgba(255,255,255,0.35)',
+                                            borderRadius: 10,
+                                            fontSize: 14,
+                                            fontWeight: 700,
+                                            color: '#fff',
+                                            textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                        }}>
+                                            <span style={{ fontSize: 16 }}>✓</span> Siz {fmt(activeClinic.originalPrice - activeClinic.price)} so'm tejaysiz
+                                        </div>
                                     </>
                                 ) : (
-                                    <div className="xd-sb-price">{clinics.length > 0 ? `${fmt(clinics[0].price)} so'm` : `${fmt(svc.priceRecommended || svc.priceMin)} so'm`}</div>
-                                )}
-                                {clinics.length > 1 && (
-                                    <span className="xd-sb-range" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Boshqa klinikalar: {fmt(Math.min(...clinics.map(c => c.price)))} — {fmt(Math.max(...clinics.map(c => c.price)))} so'm</span>
+                                    <>
+                                        <span className="xd-sb-label">Narxi</span>
+                                        <div className="xd-sb-price">{clinics.length > 0 ? `${fmt(clinics[0].price)} so'm` : `${fmt(svc.priceRecommended || svc.priceMin)} so'm`}</div>
+                                    </>
                                 )}
                             </div>
                             <div className="xd-sb-body">

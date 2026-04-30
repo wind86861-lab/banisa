@@ -152,4 +152,53 @@ export const clinicAppointmentController = {
             next(err);
         }
     },
+
+    /**
+     * POST /api/clinic/appointments/confirm-cash
+     * Staff scans patient QR → confirm cash payment → CHECKED_IN → PAID + IN_PROGRESS
+     */
+    confirmCash: async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            const { clinicId, actor } = await resolveClinicActor(req);
+            let token: string = req.body?.qrToken ?? '';
+            if (token.startsWith('{')) {
+                try { const p = JSON.parse(token); if (p?.t) token = p.t; } catch { /* noop */ }
+            }
+            if (!token) throw new AppError('QR kod noto\'g\'ri', 400, ErrorCodes.VALIDATION_ERROR);
+            const appt = await appointmentService.staffConfirmCash(actor, clinicId, token);
+            sendSuccess(res, appt, null, 'Naqd to\'lov qabul qilindi');
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    /**
+     * GET /api/clinic/checkin-qr
+     * Returns clinic's check-in QR URL and secret for printing
+     */
+    getCheckInQr: async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            const { clinicId } = await resolveClinicActor(req);
+            const clinic = await prisma.clinic.findUnique({
+                where: { id: clinicId },
+                select: { id: true, nameUz: true, checkInSecret: true },
+            });
+            if (!clinic) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
+
+            // Generate secret if not yet set
+            let secret = (clinic as any).checkInSecret;
+            if (!secret) {
+                const crypto = require('crypto');
+                secret = crypto.randomBytes(16).toString('hex');
+                await prisma.clinic.update({ where: { id: clinicId }, data: { checkInSecret: secret } as any });
+            }
+
+            const baseUrl = process.env.FRONTEND_URL || 'https://banisa.uz';
+            const qrUrl = `${baseUrl}/checkin/${secret}`;
+
+            sendSuccess(res, { clinicId, clinicName: clinic.nameUz, secret, qrUrl });
+        } catch (err) {
+            next(err);
+        }
+    },
 };

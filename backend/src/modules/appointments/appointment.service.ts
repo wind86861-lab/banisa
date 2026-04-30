@@ -485,7 +485,7 @@ export class AppointmentService {
         actor: Actor,
         clinicId: string,
         appointmentId: string,
-        payload: { note?: string; paymentMethod?: PaymentMethod } = {}
+        payload: { note?: string } = {}
     ) {
         const appt = await prisma.appointment.findFirst({
             where: { id: appointmentId, clinicId },
@@ -505,15 +505,6 @@ export class AppointmentService {
                 completedById: actor.userId,
                 clinicNotes: payload.note ?? appt.clinicNotes,
                 commissionAmount,
-                // If payment method is provided here (cash), record it
-                ...(payload.paymentMethod && appt.paymentStatus !== 'PAID'
-                    ? {
-                        paymentStatus: 'PAID' as PaymentStatus,
-                        paymentMethod: payload.paymentMethod,
-                        paidAt: new Date(),
-                        paidAmount: appt.finalPrice,
-                    }
-                    : {}),
             },
             include: INCLUDE_FULL,
         });
@@ -632,6 +623,115 @@ export class AppointmentService {
             items,
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
         };
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // PATIENT: Scan clinic QR → check in  (PENDING_ARRIVAL → CHECKED_IN)
+    // ─────────────────────────────────────────────────────────────
+    async patientCheckIn(
+        patientId: string,
+        appointmentId: string,
+        clinicSecret: string,
+        lat?: number,
+        lng?: number,
+    ) {
+        const appt = await prisma.appointment.findFirst({
+            where: { id: appointmentId, patientId },
+            include: { clinic: true },
+        });
+        if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
+        if (appt.status !== 'PENDING_ARRIVAL') {
+            if (['CHECKED_IN', 'IN_PROGRESS', 'COMPLETED'].includes(appt.status)) {
+                return appt; // idempotent
+            }
+            throw new AppError('Bu bron hozir check-in qilinishi mumkin emas', 400, ErrorCodes.VALIDATION_ERROR);
+        }
+
+        // Verify clinic QR secret matches
+        const clinic = appt.clinic as any;
+        if (!clinic.checkInSecret || clinic.checkInSecret !== clinicSecret) {
+            throw new AppError('QR kod noto\'g\'ri yoki bu klinikaga tegishli emas', 403, ErrorCodes.FORBIDDEN);
+        }
+
+        // GPS distance check (soft — skip if no location or clinic has no coords)
+        if (lat !== undefined && lng !== undefined && clinic.latitude && clinic.longitude) {
+            const dist = this.haversineKm(lat, lng, clinic.latitude, clinic.longitude);
+            if (dist > 0.5) { // 500m radius
+                throw new AppError(`Siz klinikadan uzoqda turibsiz (${Math.round(dist * 1000)}m). Klinikaga yaqinroq keling.`, 400, ErrorCodes.VALIDATION_ERROR);
+            }
+        }
+
+        const updated = await prisma.appointment.update({
+            where: { id: appt.id },
+            data: {
+                status: 'CHECKED_IN',
+                checkedInAt: new Date(),
+                checkInLat: lat ?? null,
+                checkInLng: lng ?? null,
+                checkInMethod: 'PATIENT_QR',
+            },
+            include: INCLUDE_FULL,
+        });
+        await logAppointmentEvent({
+            appointmentId: appt.id,
+            action: 'CHECKED_IN',
+            oldStatus: appt.status,
+            newStatus: 'CHECKED_IN',
+            userId: patientId,
+            userRole: 'PATIENT',
+            metadata: { method: 'PATIENT_QR', lat, lng },
+        });
+        return updated;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // CLINIC STAFF: Scan patient QR → confirm cash payment
+    // (CHECKED_IN → PAID)
+    // ─────────────────────────────────────────────────────────────
+    async staffConfirmCash(actor: Actor, clinicId: string, qrToken: string) {
+        const appt = await prisma.appointment.findUnique({
+            where: { qrToken },
+            include: INCLUDE_FULL,
+        });
+        if (!appt) throw new AppError('Bemor QR kodi topilmadi', 404, ErrorCodes.NOT_FOUND);
+        if (appt.clinicId !== clinicId) throw new AppError('Bu bron boshqa klinikaga tegishli', 403, ErrorCodes.FORBIDDEN);
+        if (appt.paymentMethod !== 'CASH') throw new AppError('Bu bron naqd to\'lov uchun emas', 400, ErrorCodes.VALIDATION_ERROR);
+        if (appt.paymentStatus === 'PAID') return appt; // idempotent
+        if (appt.status !== 'CHECKED_IN') throw new AppError('Bemor hali klinikada check-in qilmagan', 400, ErrorCodes.VALIDATION_ERROR);
+
+        const updated = await prisma.appointment.update({
+            where: { id: appt.id },
+            data: {
+                paymentStatus: 'PAID',
+                paidAt: new Date(),
+                paidAmount: appt.finalPrice,
+                status: 'IN_PROGRESS',
+                startedAt: new Date(),
+            },
+            include: INCLUDE_FULL,
+        });
+        await logAppointmentEvent({
+            appointmentId: appt.id,
+            action: 'PAID',
+            oldStatus: appt.status,
+            newStatus: 'IN_PROGRESS',
+            userId: actor.userId,
+            userRole: 'CLINIC',
+            userName: actor.name,
+            metadata: { method: 'CASH', amount: appt.finalPrice },
+        });
+        return updated;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Helper: haversine distance in km
+    // ─────────────────────────────────────────────────────────────
+    private haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 }
 

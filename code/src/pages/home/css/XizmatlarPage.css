@@ -1491,645 +1491,720 @@
    Inspired by native fitness/healthcare apps
 ═════════════════════════════════════════════════════════════ */
 
-/* defaults — hide mobile-only elements on desktop */
-.xp-mobile-header,
-.xp-mobile-search-wrap,
-.xp-mobile-cats-section,
-.xp-mobile-chips-bar {
+/* App-style UI — applies to ALL viewports (desktop overrides below) */
+/* Hide desktop hero entirely (replaced by app-style header + search) */
+.xp-hero {
   display: none;
 }
 
-@media (max-width: 900px) {
+/* Hide the desktop sticky tabs row (replaced by chips bar / category cards) */
+.xp-tabs-bar {
+  display: none;
+}
 
-  /* Hide desktop hero entirely on mobile */
-  .xp-hero {
-    display: none;
+/* Page background — soft gradient for app feel */
+.xp-page {
+  background: linear-gradient(180deg, #f6f9ff 0%, #f0f4fa 100%);
+}
+
+/* ── MOBILE APP HEADER ── */
+.xp-mobile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  background: #fff;
+  border-bottom: 1px solid #eef2fa;
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  box-shadow: 0 1px 0 rgba(3, 27, 78, 0.04);
+}
+
+.xp-mobile-back,
+.xp-mobile-cart {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: none;
+  background: #f4f7fc;
+  color: #031B4E;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.xp-mobile-back:active,
+.xp-mobile-cart:active {
+  transform: scale(0.94);
+  background: #e8edf5;
+}
+
+.xp-mobile-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #031B4E;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+/* ── MOBILE SEARCH (sticky pill) ── */
+.xp-mobile-search-wrap {
+  display: block;
+  padding: 14px 16px 8px;
+  background: transparent;
+}
+
+.xp-mobile-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 12px rgba(3, 27, 78, 0.06);
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.xp-mobile-search:focus-within {
+  border-color: #00BDE0;
+  box-shadow: 0 4px 18px rgba(0, 189, 224, 0.18);
+}
+
+.xp-mobile-search-icon {
+  color: #9ba8bf;
+  flex-shrink: 0;
+}
+
+.xp-mobile-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+  color: #031B4E;
+  min-width: 0;
+}
+
+.xp-mobile-search input::placeholder {
+  color: #b0bdd0;
+}
+
+.xp-mobile-search-clear {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: #eef2fa;
+  color: #6b7a99;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ── MOBILE CATEGORY CARDS ── */
+.xp-mobile-cats-section {
+  display: block;
+  padding: 12px 16px 8px;
+}
+
+.xp-mobile-section-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #031B4E;
+  margin: 8px 0 14px;
+  letter-spacing: -0.3px;
+}
+
+.xp-mobile-cats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* "All" card spans full width as a feature card */
+.xp-mcat-card.xp-mcat-all {
+  grid-column: 1 / -1;
+}
+
+.xp-mcat-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 16px;
+  border: none;
+  border-radius: 18px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  box-shadow: 0 2px 14px rgba(3, 27, 78, 0.06);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.xp-mcat-card:active {
+  transform: scale(0.97);
+}
+
+.xp-mcat-card.active {
+  box-shadow: 0 6px 22px rgba(0, 189, 224, 0.28);
+}
+
+/* Decorative gradient blob */
+.xp-mcat-card::after {
+  content: '';
+  position: absolute;
+  right: -30px;
+  bottom: -30px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: var(--mcat-blob, rgba(0, 189, 224, 0.08));
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.xp-mcat-icon-wrap {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--mcat-color, #00BDE0);
+  background: var(--mcat-icon-bg, rgba(0, 189, 224, 0.12));
+  z-index: 1;
+}
+
+.xp-mcat-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+  z-index: 1;
+}
+
+.xp-mcat-arrow {
+  color: var(--mcat-color, #00BDE0);
+  flex-shrink: 0;
+  z-index: 1;
+  opacity: 0.6;
+}
+
+.xp-mcat-card.active .xp-mcat-arrow {
+  color: #fff;
+  opacity: 0.9;
+}
+
+/* ── HUB CAROUSELS ── */
+.xp-hub-carousels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 8px;
+}
+
+.xp-hub-carousel {
+  padding-top: 4px;
+}
+
+.xp-hub-carousel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  margin-bottom: 12px;
+}
+
+.xp-hub-carousel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #031B4E;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.xp-hub-carousel-emoji {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.xp-hub-carousel-count {
+  font-size: 13px;
+  color: #6b7a99;
+  font-weight: 600;
+}
+
+.xp-hub-carousel-track {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 4px 16px 8px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.xp-hub-carousel-track::-webkit-scrollbar {
+  display: none;
+}
+
+.xp-hub-mini-card {
+  flex: 0 0 170px;
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: 0 2px 12px rgba(3, 27, 78, 0.06);
+  scroll-snap-align: start;
+  transition: transform 0.18s;
+}
+
+.xp-hub-mini-card:active {
+  transform: scale(0.97);
+}
+
+.xp-hub-mini-img {
+  position: relative;
+  width: 100%;
+  height: 100px;
+  background: #f0f4fa;
+}
+
+.xp-hub-mini-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.xp-hub-mini-discount {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: #e11d48;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 100px;
+  box-shadow: 0 2px 6px rgba(225, 29, 72, 0.3);
+}
+
+.xp-hub-mini-body {
+  padding: 10px;
+}
+
+.xp-hub-mini-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #031B4E;
+  margin: 0 0 4px;
+  line-height: 1.3;
+  letter-spacing: -0.2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 34px;
+}
+
+.xp-hub-mini-clinic {
+  font-size: 10px;
+  color: #6b7a99;
+  display: block;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.xp-hub-mini-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.xp-hub-mini-price {
+  font-size: 12px;
+  font-weight: 800;
+  color: #00BDE0;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+.xp-hub-mini-rating {
+  font-size: 10px;
+  color: #f5a623;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.xp-mcat-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #031B4E;
+  line-height: 1.25;
+  letter-spacing: -0.2px;
+}
+
+.xp-mcat-count {
+  font-size: 12px;
+  color: #6b7a99;
+  font-weight: 500;
+}
+
+.xp-mcat-card.active .xp-mcat-label {
+  color: #fff;
+}
+
+.xp-mcat-card.active .xp-mcat-count {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.xp-mcat-card.active .xp-mcat-icon-wrap {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+/* Per-category color theming */
+.xp-mcat-all {
+  --mcat-color: #00BDE0;
+  --mcat-icon-bg: rgba(0, 189, 224, 0.14);
+  --mcat-blob: rgba(0, 189, 224, 0.10);
+}
+
+.xp-mcat-all.active {
+  background: linear-gradient(135deg, #00BDE0 0%, #0099c2 100%);
+}
+
+.xp-mcat-diagnostika {
+  --mcat-color: #2563eb;
+  --mcat-icon-bg: rgba(37, 99, 235, 0.12);
+  --mcat-blob: rgba(37, 99, 235, 0.08);
+}
+
+.xp-mcat-diagnostika.active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.xp-mcat-operatsiya {
+  --mcat-color: #e11d48;
+  --mcat-icon-bg: rgba(225, 29, 72, 0.12);
+  --mcat-blob: rgba(225, 29, 72, 0.08);
+}
+
+.xp-mcat-operatsiya.active {
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+}
+
+.xp-mcat-sanatoriya {
+  --mcat-color: #16a34a;
+  --mcat-icon-bg: rgba(22, 163, 74, 0.12);
+  --mcat-blob: rgba(22, 163, 74, 0.08);
+}
+
+.xp-mcat-sanatoriya.active {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+}
+
+.xp-mcat-checkup {
+  --mcat-color: #9333ea;
+  --mcat-icon-bg: rgba(147, 51, 234, 0.12);
+  --mcat-blob: rgba(147, 51, 234, 0.08);
+}
+
+.xp-mcat-checkup.active {
+  background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
+}
+
+/* ── STICKY MOBILE CHIPS (for quick category switch when scrolled) ── */
+.xp-mobile-chips-bar {
+  display: block;
+  position: sticky;
+  top: 68px;
+  /* below mobile header */
+  z-index: 55;
+  background: rgba(246, 249, 255, 0.92);
+  backdrop-filter: saturate(160%) blur(10px);
+  -webkit-backdrop-filter: saturate(160%) blur(10px);
+  padding: 10px 0;
+  margin-top: 8px;
+}
+
+.xp-mobile-chips-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 16px;
+}
+
+.xp-mobile-chips-inner::-webkit-scrollbar {
+  display: none;
+}
+
+.xp-mchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 100px;
+  border: 1.5px solid #e0e7f0;
+  background: #fff;
+  color: #4a5778;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.18s;
+}
+
+.xp-mchip:active {
+  transform: scale(0.96);
+}
+
+.xp-mchip.active {
+  background: #031B4E;
+  border-color: #031B4E;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(3, 27, 78, 0.22);
+}
+
+.xp-mchip-count {
+  background: #f0f4fa;
+  color: #6b7a99;
+  border-radius: 100px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.xp-mchip.active .xp-mchip-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+/* ── 2-column SERVICE CARD GRID on mobile ── */
+.xp-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Polished service card on mobile */
+.xp-card {
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(3, 27, 78, 0.06);
+}
+
+.xp-card-img {
+  height: 130px;
+}
+
+.xp-card-body {
+  padding: 12px 12px 8px;
+}
+
+.xp-card-title {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.xp-card-desc {
+  display: none;
+  /* clean grid look on mobile */
+}
+
+.xp-clinic-name-large {
+  font-size: 11px;
+  margin-top: 6px;
+}
+
+.xp-card-meta {
+  margin-top: 8px;
+  font-size: 11px;
+  gap: 8px;
+}
+
+.xp-card-footer {
+  padding: 10px 12px 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.xp-card-price-num {
+  font-size: 15px;
+}
+
+.xp-card-actions {
+  width: 100%;
+  display: flex;
+  gap: 6px;
+}
+
+.xp-card-book-btn {
+  flex: 1;
+  text-align: center;
+  background: #00BDE0;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.xp-card-cart-btn {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 10px;
+}
+
+/* Toolbar lighter on mobile */
+.xp-main {
+  padding: 8px 16px 16px;
+  margin: 0 auto;
+  gap: 12px;
+}
+
+.xp-toolbar {
+  margin-bottom: 12px;
+}
+
+/* Better filter button */
+.xp-mobile-filter-btn {
+  background: #fff;
+  border: 1.5px solid #e0e7f0;
+  border-radius: 12px;
+  padding: 9px 14px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(3, 27, 78, 0.04);
+}
+
+/* Smooth fade-in for grid items */
+.xp-card {
+  animation: xpFadeUp 0.35s ease both;
+}
+
+@keyframes xpFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 
-  /* Hide the desktop sticky tabs row on mobile (replaced by chips bar) */
-  .xp-tabs-bar {
-    display: none;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
+}
 
-  /* Page background — soft gradient for app feel */
-  .xp-page {
-    background: linear-gradient(180deg, #f6f9ff 0%, #f0f4fa 100%);
-  }
+/* ── DESKTOP OVERRIDES (≥901px) ── */
+@media (min-width: 901px) {
 
-  /* ── MOBILE APP HEADER ── */
+  /* Center & cap app-style sections at a comfortable max width */
   .xp-mobile-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 16px;
-    padding-top: calc(14px + env(safe-area-inset-top, 0px));
-    background: #fff;
-    border-bottom: 1px solid #eef2fa;
-    position: sticky;
-    top: 0;
-    z-index: 60;
-    box-shadow: 0 1px 0 rgba(3, 27, 78, 0.04);
-  }
-
-  .xp-mobile-back,
-  .xp-mobile-cart {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    border: none;
-    background: #f4f7fc;
-    color: #031B4E;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    position: relative;
-  }
-
-  .xp-mobile-back:active,
-  .xp-mobile-cart:active {
-    transform: scale(0.94);
-    background: #e8edf5;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 16px 24px;
+    padding-top: 16px;
+    border-radius: 0;
   }
 
   .xp-mobile-title {
-    font-size: 17px;
-    font-weight: 700;
-    color: #031B4E;
-    margin: 0;
-    letter-spacing: -0.2px;
+    font-size: 22px;
   }
 
-  /* ── MOBILE SEARCH (sticky pill) ── */
   .xp-mobile-search-wrap {
-    display: block;
-    padding: 14px 16px 8px;
-    background: transparent;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 16px 24px 8px;
   }
 
-  .xp-mobile-search {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #fff;
-    border-radius: 14px;
-    padding: 12px 14px;
-    box-shadow: 0 2px 12px rgba(3, 27, 78, 0.06);
-    border: 1px solid transparent;
-    transition: all 0.2s;
-  }
-
-  .xp-mobile-search:focus-within {
-    border-color: #00BDE0;
-    box-shadow: 0 4px 18px rgba(0, 189, 224, 0.18);
-  }
-
-  .xp-mobile-search-icon {
-    color: #9ba8bf;
-    flex-shrink: 0;
-  }
-
-  .xp-mobile-search input {
-    flex: 1;
-    border: none;
-    outline: none;
-    background: transparent;
-    font-size: 15px;
-    color: #031B4E;
-    min-width: 0;
-  }
-
-  .xp-mobile-search input::placeholder {
-    color: #b0bdd0;
-  }
-
-  .xp-mobile-search-clear {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: none;
-    background: #eef2fa;
-    color: #6b7a99;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-
-  /* ── MOBILE CATEGORY CARDS ── */
   .xp-mobile-cats-section {
-    display: block;
-    padding: 12px 16px 8px;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 8px 24px 16px;
   }
 
   .xp-mobile-section-title {
-    font-size: 17px;
-    font-weight: 800;
-    color: #031B4E;
-    margin: 8px 0 14px;
-    letter-spacing: -0.3px;
+    font-size: 22px;
   }
 
+  /* 4-up category cards on desktop */
   .xp-mobile-cats-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
   }
 
-  /* "All" card spans full width as a feature card */
+  /* "All" card stays full-width as a feature card */
   .xp-mcat-card.xp-mcat-all {
     grid-column: 1 / -1;
+    padding: 22px 24px;
   }
 
   .xp-mcat-card {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 18px 16px;
-    border: none;
-    border-radius: 18px;
-    background: #fff;
-    cursor: pointer;
-    text-align: left;
-    overflow: hidden;
-    box-shadow: 0 2px 14px rgba(3, 27, 78, 0.06);
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    padding: 22px 20px;
   }
 
-  .xp-mcat-card:active {
-    transform: scale(0.97);
-  }
-
-  .xp-mcat-card.active {
-    box-shadow: 0 6px 22px rgba(0, 189, 224, 0.28);
-  }
-
-  /* Decorative gradient blob */
-  .xp-mcat-card::after {
-    content: '';
-    position: absolute;
-    right: -30px;
-    bottom: -30px;
-    width: 110px;
-    height: 110px;
-    border-radius: 50%;
-    background: var(--mcat-blob, rgba(0, 189, 224, 0.08));
-    opacity: 0.7;
-    pointer-events: none;
-  }
-
-  .xp-mcat-icon-wrap {
-    width: 50px;
-    height: 50px;
-    border-radius: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    color: var(--mcat-color, #00BDE0);
-    background: var(--mcat-icon-bg, rgba(0, 189, 224, 0.12));
-    z-index: 1;
-  }
-
-  .xp-mcat-text {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-    flex: 1;
-    z-index: 1;
-  }
-
-  .xp-mcat-arrow {
-    color: var(--mcat-color, #00BDE0);
-    flex-shrink: 0;
-    z-index: 1;
-    opacity: 0.6;
-  }
-
-  .xp-mcat-card.active .xp-mcat-arrow {
-    color: #fff;
-    opacity: 0.9;
-  }
-
-  /* ── HUB CAROUSELS ── */
+  /* Carousels — wider container, larger mini cards */
   .xp-hub-carousels {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 4px 0 8px;
-  }
-
-  .xp-hub-carousel {
-    padding-top: 4px;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 8px 0 16px;
   }
 
   .xp-hub-carousel-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 16px;
-    margin-bottom: 12px;
-  }
-
-  .xp-hub-carousel-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 16px;
-    font-weight: 800;
-    color: #031B4E;
-    margin: 0;
-    letter-spacing: -0.3px;
-  }
-
-  .xp-hub-carousel-emoji {
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-  }
-
-  .xp-hub-carousel-count {
-    font-size: 13px;
-    color: #6b7a99;
-    font-weight: 600;
+    padding: 0 24px;
   }
 
   .xp-hub-carousel-track {
-    display: flex;
-    gap: 12px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding: 4px 16px 8px;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .xp-hub-carousel-track::-webkit-scrollbar {
-    display: none;
+    padding: 4px 24px 12px;
+    gap: 16px;
   }
 
   .xp-hub-mini-card {
-    flex: 0 0 170px;
-    background: #fff;
-    border-radius: 14px;
-    overflow: hidden;
-    text-decoration: none;
-    color: inherit;
-    box-shadow: 0 2px 12px rgba(3, 27, 78, 0.06);
-    scroll-snap-align: start;
-    transition: transform 0.18s;
-  }
-
-  .xp-hub-mini-card:active {
-    transform: scale(0.97);
+    width: 240px;
+    flex: 0 0 240px;
   }
 
   .xp-hub-mini-img {
-    position: relative;
-    width: 100%;
-    height: 100px;
-    background: #f0f4fa;
+    height: 150px;
   }
 
-  .xp-hub-mini-img img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .xp-hub-mini-discount {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    background: #e11d48;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 100px;
-    box-shadow: 0 2px 6px rgba(225, 29, 72, 0.3);
-  }
-
-  .xp-hub-mini-body {
-    padding: 10px;
-  }
-
-  .xp-hub-mini-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #031B4E;
-    margin: 0 0 4px;
-    line-height: 1.3;
-    letter-spacing: -0.2px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    min-height: 34px;
-  }
-
-  .xp-hub-mini-clinic {
-    font-size: 10px;
-    color: #6b7a99;
-    display: block;
-    margin-bottom: 6px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .xp-hub-mini-bottom {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-  }
-
-  .xp-hub-mini-price {
-    font-size: 12px;
-    font-weight: 800;
-    color: #00BDE0;
-    letter-spacing: -0.2px;
-    white-space: nowrap;
-  }
-
-  .xp-hub-mini-rating {
-    font-size: 10px;
-    color: #f5a623;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-
-  .xp-mcat-label {
-    font-size: 14px;
-    font-weight: 700;
-    color: #031B4E;
-    line-height: 1.25;
-    letter-spacing: -0.2px;
-  }
-
-  .xp-mcat-count {
-    font-size: 12px;
-    color: #6b7a99;
-    font-weight: 500;
-  }
-
-  .xp-mcat-card.active .xp-mcat-label {
-    color: #fff;
-  }
-
-  .xp-mcat-card.active .xp-mcat-count {
-    color: rgba(255, 255, 255, 0.9);
-  }
-
-  .xp-mcat-card.active .xp-mcat-icon-wrap {
-    background: rgba(255, 255, 255, 0.22);
-    color: #fff;
-  }
-
-  /* Per-category color theming */
-  .xp-mcat-all {
-    --mcat-color: #00BDE0;
-    --mcat-icon-bg: rgba(0, 189, 224, 0.14);
-    --mcat-blob: rgba(0, 189, 224, 0.10);
-  }
-
-  .xp-mcat-all.active {
-    background: linear-gradient(135deg, #00BDE0 0%, #0099c2 100%);
-  }
-
-  .xp-mcat-diagnostika {
-    --mcat-color: #2563eb;
-    --mcat-icon-bg: rgba(37, 99, 235, 0.12);
-    --mcat-blob: rgba(37, 99, 235, 0.08);
-  }
-
-  .xp-mcat-diagnostika.active {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  }
-
-  .xp-mcat-operatsiya {
-    --mcat-color: #e11d48;
-    --mcat-icon-bg: rgba(225, 29, 72, 0.12);
-    --mcat-blob: rgba(225, 29, 72, 0.08);
-  }
-
-  .xp-mcat-operatsiya.active {
-    background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
-  }
-
-  .xp-mcat-sanatoriya {
-    --mcat-color: #16a34a;
-    --mcat-icon-bg: rgba(22, 163, 74, 0.12);
-    --mcat-blob: rgba(22, 163, 74, 0.08);
-  }
-
-  .xp-mcat-sanatoriya.active {
-    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-  }
-
-  .xp-mcat-checkup {
-    --mcat-color: #9333ea;
-    --mcat-icon-bg: rgba(147, 51, 234, 0.12);
-    --mcat-blob: rgba(147, 51, 234, 0.08);
-  }
-
-  .xp-mcat-checkup.active {
-    background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
-  }
-
-  /* ── STICKY MOBILE CHIPS (for quick category switch when scrolled) ── */
+  /* Hide the mobile sticky chips bar on desktop (categories already shown as cards) */
   .xp-mobile-chips-bar {
-    display: block;
-    position: sticky;
-    top: 68px;
-    /* below mobile header */
-    z-index: 55;
-    background: rgba(246, 249, 255, 0.92);
-    backdrop-filter: saturate(160%) blur(10px);
-    -webkit-backdrop-filter: saturate(160%) blur(10px);
-    padding: 10px 0;
-    margin-top: 8px;
+    display: none !important;
   }
 
-  .xp-mobile-chips-inner {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding: 0 16px;
-  }
-
-  .xp-mobile-chips-inner::-webkit-scrollbar {
-    display: none;
-  }
-
-  .xp-mchip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border-radius: 100px;
-    border: 1.5px solid #e0e7f0;
-    background: #fff;
-    color: #4a5778;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-    transition: all 0.18s;
-  }
-
-  .xp-mchip:active {
-    transform: scale(0.96);
-  }
-
-  .xp-mchip.active {
-    background: #031B4E;
-    border-color: #031B4E;
-    color: #fff;
-    box-shadow: 0 4px 14px rgba(3, 27, 78, 0.22);
-  }
-
-  .xp-mchip-count {
-    background: #f0f4fa;
-    color: #6b7a99;
-    border-radius: 100px;
-    padding: 1px 7px;
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .xp-mchip.active .xp-mchip-count {
-    background: rgba(255, 255, 255, 0.22);
-    color: #fff;
-  }
-
-  /* ── 2-column SERVICE CARD GRID on mobile ── */
-  .xp-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
-  /* Polished service card on mobile */
-  .xp-card {
-    border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(3, 27, 78, 0.06);
-  }
-
-  .xp-card-img {
-    height: 130px;
-  }
-
-  .xp-card-body {
-    padding: 12px 12px 8px;
-  }
-
-  .xp-card-title {
-    font-size: 14px;
-    line-height: 1.3;
-  }
-
-  .xp-card-desc {
-    display: none;
-    /* clean grid look on mobile */
-  }
-
-  .xp-clinic-name-large {
-    font-size: 11px;
-    margin-top: 6px;
-  }
-
-  .xp-card-meta {
-    margin-top: 8px;
-    font-size: 11px;
-    gap: 8px;
-  }
-
-  .xp-card-footer {
-    padding: 10px 12px 12px;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-
-  .xp-card-price-num {
-    font-size: 15px;
-  }
-
-  .xp-card-actions {
-    width: 100%;
-    display: flex;
-    gap: 6px;
-  }
-
-  .xp-card-book-btn {
-    flex: 1;
-    text-align: center;
-    background: #00BDE0;
-    color: #fff;
-    padding: 8px 10px;
-    border-radius: 10px;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .xp-card-cart-btn {
-    width: 38px;
-    height: 38px;
-    flex-shrink: 0;
-    border-radius: 10px;
-  }
-
-  /* Toolbar lighter on mobile */
+  /* Main grid wrapper centered */
   .xp-main {
-    padding: 8px 16px 16px;
+    max-width: 1280px;
     margin: 0 auto;
-    gap: 12px;
+    padding: 0 24px;
   }
-
-  .xp-toolbar {
-    margin-bottom: 12px;
-  }
-
-  /* Better filter button */
-  .xp-mobile-filter-btn {
-    background: #fff;
-    border: 1.5px solid #e0e7f0;
-    border-radius: 12px;
-    padding: 9px 14px;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(3, 27, 78, 0.04);
-  }
-
-  /* Smooth fade-in for grid items */
-  .xp-card {
-    animation: xpFadeUp 0.35s ease both;
-  }
-
-  @keyframes xpFadeUp {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
 }
 
 /* Tighter on small phones */

@@ -71,36 +71,112 @@ export class CartService {
 
         const itemsWithServices = await Promise.all(
             cartItems.map(async (item) => {
-                let service;
+                let service: any;
+                let customization: { customPrice: number | null; discountPercent: number | null } | null = null;
+
                 switch (item.serviceType) {
                     case 'DIAGNOSTIC':
                         service = await prisma.diagnosticService.findUnique({
                             where: { id: item.serviceId },
                             include: { category: { select: { nameUz: true, nameRu: true } } },
                         });
+                        // Look up clinic-specific customization (customPrice / discountPercent)
+                        {
+                            const link = await prisma.clinicDiagnosticService.findUnique({
+                                where: {
+                                    clinicId_diagnosticServiceId: {
+                                        clinicId: item.clinicId,
+                                        diagnosticServiceId: item.serviceId,
+                                    },
+                                },
+                                include: { customization: { select: { customPrice: true, discountPercent: true } } },
+                            });
+                            if (link?.customization) {
+                                customization = {
+                                    customPrice: link.customization.customPrice,
+                                    discountPercent: link.customization.discountPercent,
+                                };
+                            }
+                        }
                         break;
                     case 'SURGICAL':
                         service = await prisma.surgicalService.findUnique({
                             where: { id: item.serviceId },
                             include: { category: { select: { nameUz: true, nameRu: true } } },
                         });
+                        {
+                            const link = await prisma.clinicSurgicalService.findUnique({
+                                where: {
+                                    clinicId_surgicalServiceId: {
+                                        clinicId: item.clinicId,
+                                        surgicalServiceId: item.serviceId,
+                                    },
+                                },
+                            });
+                            if (link) {
+                                const cust = (link as any).customizationData || {};
+                                customization = {
+                                    customPrice: cust.customPrice ?? null,
+                                    discountPercent: cust.discountPercent ?? null,
+                                };
+                            }
+                        }
                         break;
                     case 'SANATORIUM':
                         service = await prisma.sanatoriumService.findUnique({
                             where: { id: item.serviceId },
                             include: { category: { select: { nameUz: true, nameRu: true } } },
                         });
+                        {
+                            const link = await prisma.clinicSanatoriumService.findUnique({
+                                where: {
+                                    clinicId_sanatoriumServiceId: {
+                                        clinicId: item.clinicId,
+                                        sanatoriumServiceId: item.serviceId,
+                                    },
+                                },
+                            });
+                            if (link) {
+                                customization = {
+                                    customPrice: link.clinicPrice ?? null,
+                                    discountPercent: link.discountPercent ?? null,
+                                };
+                            }
+                        }
                         break;
                     case 'CHECKUP':
                         service = await prisma.checkupPackage.findUnique({
                             where: { id: item.serviceId },
                         });
+                        {
+                            const link = await prisma.clinicCheckupPackage.findUnique({
+                                where: {
+                                    clinicId_packageId: {
+                                        clinicId: item.clinicId,
+                                        packageId: item.serviceId,
+                                    },
+                                },
+                            });
+                            if (link) {
+                                customization = {
+                                    customPrice: link.clinicPrice ?? null,
+                                    discountPercent: null,
+                                };
+                            }
+                        }
                         break;
                 }
 
-                const priceRec = (service as any)?.priceRecommended || (service as any)?.recommendedPrice || 0;
-                const priceMin = (service as any)?.priceMin || 0;
-                const priceMax = (service as any)?.priceMax || 0;
+                const basePrice = service?.priceRecommended || service?.recommendedPrice || 0;
+                const priceMin = service?.priceMin || 0;
+                const priceMax = service?.priceMax || 0;
+
+                // Apply clinic customization for diagnostic services
+                const customPrice = customization?.customPrice ?? basePrice;
+                const discount = customization?.discountPercent ?? 0;
+                const finalPrice = discount > 0
+                    ? Math.round(customPrice * (1 - discount / 100))
+                    : customPrice;
 
                 return {
                     id: item.id,
@@ -112,11 +188,15 @@ export class CartService {
                         id: service.id,
                         nameUz: service.nameUz,
                         nameRu: service.nameRu || null,
-                        priceRecommended: priceRec,
-                        priceMin: priceMin,
-                        priceMax: priceMax,
+                        // priceRecommended carries the effective price the customer pays
+                        priceRecommended: finalPrice,
+                        basePrice,
+                        originalPrice: customPrice !== finalPrice ? customPrice : null,
+                        discountPercent: discount > 0 ? discount : null,
+                        priceMin,
+                        priceMax,
                         shortDescription: service.shortDescription || null,
-                        imageUrl: (service as any)?.imageUrl || null,
+                        imageUrl: service?.imageUrl || null,
                         category: 'category' in service ? service.category : null,
                     } : null,
                 };
@@ -201,22 +281,93 @@ export class CartService {
             let totalPrice = 0;
             for (const item of items) {
                 let service: any;
+                let customization: { customPrice: number | null; discountPercent: number | null } | null = null;
                 switch (item.serviceType) {
                     case 'DIAGNOSTIC':
                         service = await prisma.diagnosticService.findUnique({ where: { id: item.serviceId } });
+                        {
+                            const link = await prisma.clinicDiagnosticService.findUnique({
+                                where: {
+                                    clinicId_diagnosticServiceId: {
+                                        clinicId: item.clinicId,
+                                        diagnosticServiceId: item.serviceId,
+                                    },
+                                },
+                                include: { customization: { select: { customPrice: true, discountPercent: true } } },
+                            });
+                            if (link?.customization) {
+                                customization = {
+                                    customPrice: link.customization.customPrice,
+                                    discountPercent: link.customization.discountPercent,
+                                };
+                            }
+                        }
                         break;
                     case 'SURGICAL':
                         service = await prisma.surgicalService.findUnique({ where: { id: item.serviceId } });
+                        {
+                            const link = await prisma.clinicSurgicalService.findUnique({
+                                where: {
+                                    clinicId_surgicalServiceId: {
+                                        clinicId: item.clinicId,
+                                        surgicalServiceId: item.serviceId,
+                                    },
+                                },
+                            });
+                            if (link) {
+                                const cust = (link as any).customizationData || {};
+                                customization = {
+                                    customPrice: cust.customPrice ?? null,
+                                    discountPercent: cust.discountPercent ?? null,
+                                };
+                            }
+                        }
                         break;
                     case 'SANATORIUM':
                         service = await prisma.sanatoriumService.findUnique({ where: { id: item.serviceId } });
+                        {
+                            const link = await prisma.clinicSanatoriumService.findUnique({
+                                where: {
+                                    clinicId_sanatoriumServiceId: {
+                                        clinicId: item.clinicId,
+                                        sanatoriumServiceId: item.serviceId,
+                                    },
+                                },
+                            });
+                            if (link) {
+                                customization = {
+                                    customPrice: link.clinicPrice ?? null,
+                                    discountPercent: link.discountPercent ?? null,
+                                };
+                            }
+                        }
                         break;
                     case 'CHECKUP':
                         service = await prisma.checkupPackage.findUnique({ where: { id: item.serviceId } });
+                        {
+                            const link = await prisma.clinicCheckupPackage.findUnique({
+                                where: {
+                                    clinicId_packageId: {
+                                        clinicId: item.clinicId,
+                                        packageId: item.serviceId,
+                                    },
+                                },
+                            });
+                            if (link) {
+                                customization = {
+                                    customPrice: link.clinicPrice ?? null,
+                                    discountPercent: null,
+                                };
+                            }
+                        }
                         break;
                 }
                 if (service) {
-                    totalPrice += (service.priceRecommended || service.recommendedPrice || 0) * item.quantity;
+                    const basePrice = service.priceRecommended || service.recommendedPrice || 0;
+                    const cp = customization?.customPrice ?? basePrice;
+                    const disc = customization?.discountPercent ?? 0;
+                    const finalPrice = disc > 0 ? Math.round(cp * (1 - disc / 100)) : cp;
+                    totalPrice += finalPrice * item.quantity;
                 }
             }
 
@@ -225,14 +376,17 @@ export class CartService {
             const bookingNumber = `BN-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
             const qrToken = `${bookingNumber}-${require('crypto').randomBytes(16).toString('hex')}`;
 
+            const isCash = (data.paymentMethod || 'naqd') === 'naqd' || data.paymentMethod === 'CASH';
             const appointmentData: any = {
                 patientId: userId,
                 clinicId,
                 serviceType: primaryItem.serviceType,
                 scheduledAt: new Date(data.scheduledAt),
                 price: totalPrice,
-                notes: data.notes || `Savat orqali buyurtma: ${items.length} ta xizmat. To'lov: ${data.paymentMethod || 'naqd'}`,
-                status: 'PENDING',
+                finalPrice: totalPrice,
+                notes: data.notes || `Savat orqali buyurtma: ${items.length} ta xizmat`,
+                status: isCash ? 'PENDING_ARRIVAL' : 'PENDING',
+                paymentMethod: isCash ? 'CASH' : undefined,
                 bookingNumber,
                 qrToken,
             };

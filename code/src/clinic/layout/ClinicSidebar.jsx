@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import {
     Home, Briefcase, Calendar, Tag, QrCode,
-    Building2, Users, BarChart2,
+    Building2, Users, BarChart2, CreditCard, Printer,
     LogOut, ChevronDown, Activity, Bell,
 } from 'lucide-react';
 import { useAuth } from '../../shared/auth/AuthContext';
@@ -20,6 +20,8 @@ const NAV_GROUPS = [
             { key: 'services', label: 'Xizmatlar', path: '/clinic/services', icon: <Briefcase size={20} /> },
             { key: 'bookings', label: 'Bronlar', path: '/clinic/bookings', icon: <Calendar size={20} /> },
             { key: 'scan', label: 'QR Skaner', path: '/clinic/scan', icon: <QrCode size={20} /> },
+            { key: 'reception', label: 'Kassa (Naqd)', path: '/clinic/reception', icon: <CreditCard size={20} /> },
+            { key: 'checkin-qr', label: 'Check-in QR', path: '/clinic/checkin-qr', icon: <Printer size={20} /> },
             { key: 'discounts', label: 'Chegirmalar', path: '/clinic/discounts', icon: <Tag size={20} /> },
         ],
     },

@@ -46,7 +46,11 @@ export default function CheckoutPage() {
                 notes: notes || undefined,
                 price: clinic.price || 0,
             });
-            navigate('/user/booking-success', { state: { appointment } });
+            if (paymentMethod === 'naqd') {
+                navigate(`/user/appointments/${appointment.id}`);
+            } else {
+                navigate('/user/booking-success', { state: { appointment } });
+            }
         } catch (err) {
             setError(err.response?.data?.message || 'Xatolik yuz berdi');
         }

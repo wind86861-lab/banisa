@@ -354,6 +354,12 @@
   gap: 12px;
 }
 
+@media (max-width: 400px) {
+  .xc-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (min-width: 600px) {
   .xc-grid {
     grid-template-columns: repeat(3, 1fr);
@@ -363,7 +369,7 @@
 @media (min-width: 900px) {
   .xc-grid {
     grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+    gap: 20px;
   }
 
   .xc-content {
@@ -380,7 +386,7 @@
 
   .xc-search-wrap {
     max-width: 1200px;
-    margin: 0 auto 12px;
+    margin: 0 auto 16px;
     padding: 0 24px;
   }
 
@@ -393,6 +399,26 @@
   .xc-hero {
     max-width: 1200px;
     margin: 24px auto;
+    padding: 28px 32px;
+  }
+
+  .xc-hero-title {
+    font-size: 22px;
+  }
+
+  .xc-header {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 14px 24px;
+    border-radius: 0 0 16px 16px;
+  }
+
+  .xc-header-title {
+    font-size: 20px;
+  }
+
+  .xc-card-img {
+    height: 170px;
   }
 }
 
@@ -564,8 +590,15 @@
 }
 
 @keyframes xcFadeUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── EMPTY STATE ── */
@@ -630,8 +663,13 @@
 }
 
 @keyframes xcSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── FILTER DRAWER (iOS-style bottom sheet) ── */
@@ -648,8 +686,13 @@
 }
 
 @keyframes xcFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .xc-drawer {
@@ -665,8 +708,13 @@
 }
 
 @keyframes xcSlideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
 }
 
 .xc-drawer-handle {

@@ -58,6 +58,9 @@ import CheckoutPage from './user/pages/CheckoutPage';
 import BookingSuccessPage from './user/pages/BookingSuccessPage';
 import AppointmentDetailPage from './user/pages/AppointmentDetailPage';
 import ClinicQRScanner from './clinic/pages/ClinicQRScanner';
+import ClinicReception from './clinic/pages/ClinicReception';
+import ClinicCheckInQR from './clinic/pages/ClinicCheckInQR';
+import PatientCheckInPage from './pages/checkin/PatientCheckInPage';
 import PaymePage from './pages/payment/PaymePage';
 import PaymentResultPage from './pages/payment/PaymentResultPage';
 import CartPage from './pages/CartPage';
@@ -130,6 +133,9 @@ function App() {
                                 <Route path="/user/cart-checkout" element={<UserGuard><CartCheckoutPage /></UserGuard>} />
                                 <Route path="/user/booking-success" element={<UserGuard><BookingSuccessPage /></UserGuard>} />
 
+                                {/* ─── PATIENT CHECK-IN (public — handles auth inside) ── */}
+                                <Route path="/checkin/:clinicSecret" element={<PatientCheckInPage />} />
+
                                 {/* ─── PAYMENT (PAYME) ─────────────────────────── */}
                                 <Route path="/payment" element={<PaymePage />} />
                                 <Route path="/payment/result" element={<PaymentResultPage />} />
@@ -161,6 +167,8 @@ function App() {
                                     <Route path="profile" element={<ClinicProfile />} />
                                     <Route path="bookings" element={<ClinicBookings />} />
                                     <Route path="scan" element={<ClinicQRScanner />} />
+                                    <Route path="reception" element={<ClinicReception />} />
+                                    <Route path="checkin-qr" element={<ClinicCheckInQR />} />
                                     <Route path="discounts" element={<ClinicDiscounts />} />
                                     <Route path="staff" element={<ClinicStaff />} />
                                     <Route path="reports" element={<ClinicReports />} />

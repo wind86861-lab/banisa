@@ -59,6 +59,13 @@ const CartPage = () => {
 
     const grandTotal = cart.reduce((sum, group) => sum + group.totalPrice, 0);
     const totalItems = cart.reduce((sum, group) => sum + group.itemCount, 0);
+    const totalSavings = cart.reduce((sum, group) => {
+        return sum + group.items.reduce((gSum, item) => {
+            const orig = item.service?.originalPrice || 0;
+            const eff = item.service?.priceRecommended || 0;
+            return gSum + (orig > eff ? (orig - eff) * item.quantity : 0);
+        }, 0);
+    }, 0);
 
     return (
         <div className="cart-page">
@@ -164,7 +171,39 @@ const CartPage = () => {
                                                 </div>
 
                                                 <div className="item-price">
+                                                    {item.service?.discountPercent > 0 && (
+                                                        <span className="discount-badge" style={{
+                                                            display: 'inline-block',
+                                                            background: '#e11d48',
+                                                            color: '#fff',
+                                                            fontSize: 11,
+                                                            fontWeight: 700,
+                                                            padding: '2px 8px',
+                                                            borderRadius: 999,
+                                                            marginBottom: 4,
+                                                        }}>
+                                                            -{item.service.discountPercent}% chegirma
+                                                        </span>
+                                                    )}
                                                     <span className="price">{((item.service?.priceRecommended || 0) * item.quantity).toLocaleString()} UZS</span>
+                                                    {item.service?.originalPrice > 0 && (
+                                                        <span className="unit-price" style={{
+                                                            textDecoration: 'line-through',
+                                                            color: '#94a3b8',
+                                                        }}>
+                                                            {(item.service.originalPrice * item.quantity).toLocaleString()} UZS
+                                                        </span>
+                                                    )}
+                                                    {item.service?.discountPercent > 0 && item.service?.originalPrice > 0 && (
+                                                        <span style={{
+                                                            fontSize: 12,
+                                                            fontWeight: 700,
+                                                            color: '#16a34a',
+                                                            marginTop: 2,
+                                                        }}>
+                                                            ✓ {((item.service.originalPrice - item.service.priceRecommended) * item.quantity).toLocaleString()} so'm tejadingiz
+                                                        </span>
+                                                    )}
                                                     {item.quantity > 1 && (
                                                         <span className="unit-price">
                                                             {item.service?.priceRecommended?.toLocaleString()} UZS × {item.quantity}
@@ -200,11 +239,31 @@ const CartPage = () => {
                                     <span>Klinikalar:</span>
                                     <span>{cart.length} ta</span>
                                 </div>
+                                {totalSavings > 0 && (
+                                    <div className="summary-row" style={{ color: '#16a34a', fontWeight: 700 }}>
+                                        <span>Tejamingiz:</span>
+                                        <span>-{totalSavings.toLocaleString()} UZS</span>
+                                    </div>
+                                )}
                                 <div className="summary-divider"></div>
                                 <div className="summary-row total">
                                     <span>Jami to'lov:</span>
                                     <span className="grand-total">{grandTotal.toLocaleString()} UZS</span>
                                 </div>
+                                {totalSavings > 0 && (
+                                    <div style={{
+                                        marginTop: 8,
+                                        padding: '8px 12px',
+                                        background: 'rgba(22,163,74,0.1)',
+                                        borderRadius: 8,
+                                        fontSize: 13,
+                                        fontWeight: 700,
+                                        color: '#16a34a',
+                                        textAlign: 'center',
+                                    }}>
+                                        ✓ Chegirma tufayli {totalSavings.toLocaleString()} so'm tejadingiz
+                                    </div>
+                                )}
                             </div>
 
                             <button onClick={handleCheckout} className="btn-checkout">

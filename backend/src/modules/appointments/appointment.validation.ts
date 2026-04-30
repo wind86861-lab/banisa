@@ -53,12 +53,25 @@ export const clinicScanSchema = z.object({
 export const clinicCompleteSchema = z.object({
     body: z.object({
         note: z.string().max(1000).optional(),
-        paymentMethod: z.enum(['CASH', 'CARD', 'PAYME', 'CLICK']).optional(),
     }),
 });
 
 export const setClinicDiscountSchema = z.object({
     body: z.object({
         defaultDiscountPercent: z.number().int().min(0).max(100),
+    }),
+});
+
+export const patientCheckInSchema = z.object({
+    body: z.object({
+        clinicSecret: z.string().min(5, 'QR kod noto\'g\'ri'),
+        lat: z.number().optional(),
+        lng: z.number().optional(),
+    }),
+});
+
+export const confirmCashSchema = z.object({
+    body: z.object({
+        qrToken: z.string().min(10, 'Bemor QR kodi noto\'g\'ri'),
     }),
 });

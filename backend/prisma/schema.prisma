@@ -21,12 +21,12 @@ model User {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   appointments       Appointment[]
+  cartItems          CartItem[]
   diagnosticServices DiagnosticService[] @relation("CreatedBy")
   reviews            Review[]
   sanatoriumServices SanatoriumService[] @relation("SanatoriumCreatedBy")
   serviceReviews     ServiceReview[]
   surgicalServices   SurgicalService[]   @relation("SurgicalCreatedBy")
-  cartItems          CartItem[]
 
   @@index([phone])
   @@index([status])
@@ -159,74 +159,75 @@ model SurgicalService {
 }
 
 model Clinic {
-  id                 String                    @id @default(uuid())
-  nameUz             String
-  nameRu             String?
-  nameEn             String?
-  type               ClinicType                @default(GENERAL)
-  status             ClinicStatus              @default(PENDING)
-  description        String?
-  logo               String?
-  coverImage         String?
-  region             String
-  district           String
-  street             String
-  apartment          String?
-  landmark           String?
-  latitude           Float?
-  longitude          Float?
-  phones             Json                      @default("[]")
-  emails             Json                      @default("[]")
-  website            String?
-  socialMedia        Json?
-  workingHours       Json                      @default("[]")
-  hasEmergency       Boolean                   @default(false)
-  hasAmbulance       Boolean                   @default(false)
-  hasOnlineBooking   Boolean                   @default(true)
-  bedsCount          Int?
-  floorsCount        Int?
-  parkingAvailable   Boolean                   @default(false)
-  amenities          Json?
-  paymentMethods     Json?
-  insuranceAccepted  Json?
-  priceRange         String?
-  averageRating      Float?                    @default(0)
-  reviewCount        Int                       @default(0)
-  registrationNumber String?
-  taxId              String?
-  licenseNumber      String?
-  licenseIssuedAt    DateTime?
-  licenseExpiresAt   DateTime?
-  licenseIssuedBy    String?
-  legalForm          String?
-  legalName          String?
-  adminFirstName     String?
-  adminLastName      String?
-  adminEmail         String?
-  adminPhone         String?
-  adminPosition      String?
-  rejectionReason    String?
-  notes              String?
-  approvedById       String?
-  isActive           Boolean                   @default(true)
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
-  createdBy          String?
-  pendingPersons     Json?
-  reviewedAt         DateTime?
-  reviewedBy         String?
-  source             ClinicSource              @default(ADMIN_CREATED)
-  submittedAt        DateTime?
-  defaultDiscountPercent Int                   @default(0)
-  commissionRate     Float                     @default(0.10)
-  appointments       Appointment[]
-  checkupPackages    ClinicCheckupPackage[]
-  diagnosticServices ClinicDiagnosticService[]
-  sanatoriumServices ClinicSanatoriumService[]
-  surgicalServices   ClinicSurgicalService[]
-  doctors            Doctor[]
-  reviews            Review[]
-  cartItems          CartItem[]
+  id                     String                    @id @default(uuid())
+  nameUz                 String
+  nameRu                 String?
+  nameEn                 String?
+  type                   ClinicType                @default(GENERAL)
+  status                 ClinicStatus              @default(PENDING)
+  description            String?
+  logo                   String?
+  coverImage             String?
+  region                 String
+  district               String
+  street                 String
+  apartment              String?
+  landmark               String?
+  latitude               Float?
+  longitude              Float?
+  phones                 Json                      @default("[]")
+  emails                 Json                      @default("[]")
+  website                String?
+  socialMedia            Json?
+  workingHours           Json                      @default("[]")
+  hasEmergency           Boolean                   @default(false)
+  hasAmbulance           Boolean                   @default(false)
+  hasOnlineBooking       Boolean                   @default(true)
+  bedsCount              Int?
+  floorsCount            Int?
+  parkingAvailable       Boolean                   @default(false)
+  amenities              Json?
+  paymentMethods         Json?
+  insuranceAccepted      Json?
+  priceRange             String?
+  averageRating          Float?                    @default(0)
+  reviewCount            Int                       @default(0)
+  registrationNumber     String?
+  taxId                  String?
+  licenseNumber          String?
+  licenseIssuedAt        DateTime?
+  licenseExpiresAt       DateTime?
+  licenseIssuedBy        String?
+  adminFirstName         String?
+  adminLastName          String?
+  adminEmail             String?
+  adminPhone             String?
+  adminPosition          String?
+  rejectionReason        String?
+  notes                  String?
+  approvedById           String?
+  isActive               Boolean                   @default(true)
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  createdBy              String?
+  pendingPersons         Json?
+  reviewedAt             DateTime?
+  reviewedBy             String?
+  source                 ClinicSource              @default(ADMIN_CREATED)
+  submittedAt            DateTime?
+  legalForm              String?
+  legalName              String?
+  commissionRate         Float                     @default(0.10)
+  defaultDiscountPercent Int                       @default(0)
+  checkInSecret          String?                   @unique
+  appointments           Appointment[]
+  cartItems              CartItem[]
+  checkupPackages        ClinicCheckupPackage[]
+  diagnosticServices     ClinicDiagnosticService[]
+  sanatoriumServices     ClinicSanatoriumService[]
+  surgicalServices       ClinicSurgicalService[]
+  doctors                Doctor[]
+  reviews                Review[]
 
   @@index([status])
   @@index([source])
@@ -256,69 +257,57 @@ model Doctor {
 }
 
 model Appointment {
-  id                  String                 @id @default(uuid())
-  bookingNumber       String                 @unique
-  clinicId            String
-  patientId           String
-  doctorId            String?
-  serviceType         AppointmentServiceType @default(OTHER)
-  diagnosticServiceId String?
-  surgicalServiceId   String?
-  scheduledAt         DateTime
-  status              AppointmentStatus      @default(PENDING)
-  price               Int                    @default(0)
-  notes               String?
-
-  // Operator confirmation
-  confirmedByOperatorId String?
-  operatorConfirmedAt   DateTime?
-  operatorCallNote      String?
-
-  // Clinic response (only accept or reschedule — no reject)
-  clinicRespondedAt     DateTime?
-  clinicRespondedById   String?
-  clinicNotes           String?
-
-  // QR + Payment
-  qrToken               String?   @unique
-  qrActivatedAt         DateTime?
-  paymentStatus         PaymentStatus @default(UNPAID)
-  paymentMethod         PaymentMethod?
-  paidAt                DateTime?
-  paidAmount            Int?
-  paymeTransactionId    String?
-
-  // Discount (set by super admin per clinic, optionally overridden by operator)
-  discountPercent       Int       @default(0)
-  discountAmount        Int       @default(0)
-  finalPrice            Int       @default(0)
-
-  // Check-in via QR scan
-  checkedInAt           DateTime?
-  checkedInById         String?
-
-  // Lifecycle
-  startedAt             DateTime?
-  completedAt           DateTime?
-  completedById         String?
-  noShowMarkedAt        DateTime?
-  noShowMarkedById      String?
+  id                    String                 @id @default(uuid())
+  clinicId              String
+  patientId             String
+  doctorId              String?
+  serviceType           AppointmentServiceType @default(OTHER)
+  diagnosticServiceId   String?
+  surgicalServiceId     String?
+  scheduledAt           DateTime
+  status                AppointmentStatus      @default(PENDING)
+  price                 Int                    @default(0)
+  notes                 String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  bookingNumber         String                 @unique
+  cancellationReason    String?
   cancelledAt           DateTime?
   cancelledBy           String?
-  cancellationReason    String?
-
-  // Commission
-  commissionRate        Float?
+  checkedInAt           DateTime?
+  checkedInById         String?
+  clinicNotes           String?
+  clinicRespondedAt     DateTime?
+  clinicRespondedById   String?
   commissionAmount      Int?
-
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
-  clinic              Clinic                 @relation(fields: [clinicId], references: [id])
-  diagnosticService   DiagnosticService?     @relation("DiagnosticServiceAppointments", fields: [diagnosticServiceId], references: [id])
-  doctor              Doctor?                @relation(fields: [doctorId], references: [id])
-  patient             User                   @relation(fields: [patientId], references: [id])
-  surgicalService     SurgicalService?       @relation("SurgicalServiceAppointments", fields: [surgicalServiceId], references: [id])
-  logs                AppointmentLog[]
+  commissionRate        Float?
+  completedAt           DateTime?
+  completedById         String?
+  confirmedByOperatorId String?
+  discountAmount        Int                    @default(0)
+  discountPercent       Int                    @default(0)
+  finalPrice            Int                    @default(0)
+  noShowMarkedAt        DateTime?
+  noShowMarkedById      String?
+  operatorCallNote      String?
+  operatorConfirmedAt   DateTime?
+  paidAmount            Int?
+  paidAt                DateTime?
+  paymeTransactionId    String?
+  paymentMethod         PaymentMethod?
+  paymentStatus         PaymentStatus          @default(UNPAID)
+  qrActivatedAt         DateTime?
+  qrToken               String?                @unique
+  startedAt             DateTime?
+  checkInLat            Float?
+  checkInLng            Float?
+  checkInMethod         String?
+  clinic                Clinic                 @relation(fields: [clinicId], references: [id])
+  diagnosticService     DiagnosticService?     @relation("DiagnosticServiceAppointments", fields: [diagnosticServiceId], references: [id])
+  doctor                Doctor?                @relation(fields: [doctorId], references: [id])
+  patient               User                   @relation(fields: [patientId], references: [id])
+  surgicalService       SurgicalService?       @relation("SurgicalServiceAppointments", fields: [surgicalServiceId], references: [id])
+  logs                  AppointmentLog[]
 
   @@index([clinicId])
   @@index([patientId])
@@ -331,18 +320,18 @@ model Appointment {
 }
 
 model AppointmentLog {
-  id              String   @id @default(uuid())
-  appointmentId   String
-  action          String
-  oldStatus       String?
-  newStatus       String?
-  userId          String?
-  userRole        String?
-  userName        String?
-  note            String?
-  metadata        Json?
-  createdAt       DateTime @default(now())
-  appointment     Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  id            String      @id @default(uuid())
+  appointmentId String
+  action        String
+  oldStatus     String?
+  newStatus     String?
+  userId        String?
+  userRole      String?
+  userName      String?
+  note          String?
+  metadata      Json?
+  createdAt     DateTime    @default(now())
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
 
   @@index([appointmentId])
   @@index([createdAt])
@@ -475,9 +464,9 @@ model ClinicSurgicalService {
   clinicId          String
   surgicalServiceId String
   isActive          Boolean         @default(true)
+  createdAt         DateTime        @default(now())
   customizationData Json?
   serviceImages     Json?
-  createdAt         DateTime        @default(now())
   clinic            Clinic          @relation(fields: [clinicId], references: [id])
   surgicalService   SurgicalService @relation("SurgicalServiceClinicLinks", fields: [surgicalServiceId], references: [id])
 
@@ -728,6 +717,24 @@ model HomepageSettings {
   updatedAt DateTime @updatedAt
 }
 
+model CartItem {
+  id          String      @id @default(uuid())
+  userId      String
+  clinicId    String
+  serviceType ServiceType
+  serviceId   String
+  quantity    Int         @default(1)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  clinic      Clinic      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clinicId, serviceType, serviceId])
+  @@index([userId])
+  @@index([clinicId])
+  @@index([serviceType])
+}
+
 enum Role {
   SUPER_ADMIN
   CLINIC_ADMIN
@@ -804,17 +811,18 @@ enum ClinicType {
 
 enum AppointmentStatus {
   PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
   OPERATOR_CONFIRMED
   SENT_TO_CLINIC
   CLINIC_ACCEPTED
   PAID
   CHECKED_IN
   IN_PROGRESS
-  COMPLETED
-  CANCELLED
   NO_SHOW
   RESCHEDULED
-  CONFIRMED
+  PENDING_ARRIVAL
 }
 
 enum PaymentStatus {
@@ -854,24 +862,6 @@ enum RegistrationStatus {
   IN_REVIEW
   APPROVED
   REJECTED
-}
-
-model CartItem {
-  id          String      @id @default(uuid())
-  userId      String
-  clinicId    String
-  serviceType ServiceType
-  serviceId   String
-  quantity    Int         @default(1)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clinic      Clinic      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, clinicId, serviceType, serviceId])
-  @@index([userId])
-  @@index([clinicId])
-  @@index([serviceType])
 }
 
 enum ServiceType {

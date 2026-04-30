@@ -64,15 +64,13 @@ export default function CartCheckoutPage() {
             await refreshCart();
 
             if (paymentMethod === 'naqd') {
-                // Cash — go straight to success
-                navigate('/user/booking-success', {
-                    state: {
-                        appointment: result.appointments?.[0],
-                        cartCheckout: true,
-                        totalAppointments: result.count,
-                        appointments: result.appointments,
-                    },
-                });
+                // Cash — redirect to appointment detail with PENDING_ARRIVAL check-in instructions
+                const firstAppt = result.appointments?.[0];
+                if (firstAppt?.id) {
+                    navigate(`/user/appointments/${firstAppt.id}`);
+                } else {
+                    navigate('/user/appointments');
+                }
             } else {
                 // Card/Payme/Click — go to payment page
                 const firstAppointment = result.appointments?.[0];

@@ -14,6 +14,8 @@ import {
     clinicScanSchema,
     clinicCompleteSchema,
     setClinicDiscountSchema,
+    patientCheckInSchema,
+    confirmCashSchema,
 } from './appointment.validation';
 
 // ─── Patient routes — mounted under /api/user/appointments ───────────────────
@@ -23,6 +25,7 @@ patientAppointmentRouter.post('/', validate(createBookingSchema), patientAppoint
 patientAppointmentRouter.get('/:id', patientAppointmentController.getById);
 patientAppointmentRouter.get('/:id/qr.png', patientAppointmentController.getQrImage);
 patientAppointmentRouter.post('/:id/cancel', validate(cancelBookingSchema), patientAppointmentController.cancel);
+patientAppointmentRouter.post('/:id/patient-checkin', validate(patientCheckInSchema), patientAppointmentController.patientCheckIn);
 
 // ─── Operator/Super Admin routes — mounted under /api/admin/appointments ─────
 export const operatorAppointmentRouter = Router();
@@ -39,6 +42,8 @@ export const clinicAppointmentRouter = Router();
 clinicAppointmentRouter.use(requireAuth, requireRole(['CLINIC_ADMIN']));
 clinicAppointmentRouter.get('/', clinicAppointmentController.list);
 clinicAppointmentRouter.post('/scan', validate(clinicScanSchema), clinicAppointmentController.scan);
+clinicAppointmentRouter.post('/confirm-cash', validate(confirmCashSchema), clinicAppointmentController.confirmCash);
+clinicAppointmentRouter.get('/checkin-qr', clinicAppointmentController.getCheckInQr);
 clinicAppointmentRouter.get('/:id', clinicAppointmentController.getById);
 clinicAppointmentRouter.post('/:id/accept', validate(clinicAcceptSchema), clinicAppointmentController.accept);
 clinicAppointmentRouter.post('/:id/reschedule', validate(clinicRescheduleSchema), clinicAppointmentController.reschedule);

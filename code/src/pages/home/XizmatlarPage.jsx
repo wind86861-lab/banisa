@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
     Search, SlidersHorizontal, X, ChevronDown, ChevronRight,
@@ -173,12 +173,62 @@ function FilterGroup({ title, children, defaultOpen = true }) {
 
 const ITEMS_PER_PAGE = 9;
 
-/* ── HUB CAROUSELS (mobile-only shortcuts: popular / discount / new) ── */
+/* ── auto-scroll hook ── */
+function useAutoScroll(ref, interval = 3000, step = 180) {
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        let dir = 1;
+        const timer = setInterval(() => {
+            const max = el.scrollWidth - el.clientWidth;
+            if (max <= 0) return;
+            let next = el.scrollLeft + dir * step;
+            if (next >= max) { next = max; dir = -1; }
+            if (next <= 0) { next = 0; dir = 1; }
+            el.scrollTo({ left: next, behavior: 'smooth' });
+        }, interval);
+        const stop = () => clearInterval(timer);
+        el.addEventListener('touchstart', stop, { once: true });
+        el.addEventListener('mousedown', stop, { once: true });
+        return () => clearInterval(timer);
+    }, [ref, interval, step]);
+}
+
+const CLINIC_PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 150'>
+      <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
+        <stop offset='0%' stop-color='#dbeafe'/><stop offset='100%' stop-color='#bfdbfe'/>
+      </linearGradient></defs>
+      <rect width='200' height='150' fill='url(#g)'/>
+      <g fill='#2563eb' transform='translate(100,75)'>
+        <rect x='-22' y='-24' width='44' height='48' rx='4' fill='#fff' stroke='#2563eb' stroke-width='2'/>
+        <rect x='-4' y='-14' width='8' height='8' fill='#2563eb'/>
+        <rect x='-4' y='6' width='8' height='14' fill='#2563eb'/>
+        <path d='M-3,-22 L3,-22 L3,-18 L7,-18 L7,-12 L3,-12 L3,-8 L-3,-8 L-3,-12 L-7,-12 L-7,-18 L-3,-18 Z' fill='#2563eb'/>
+      </g>
+    </svg>`
+);
+
+/* ── HUB CAROUSELS (mobile-only shortcuts: clinics / discount / top) ── */
 function HubCarousels({ services, isLoggedIn, onAddToCart }) {
-    const popular = useMemo(
-        () => [...services].sort((a, b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, 8),
-        [services]
-    );
+    const clinics = useMemo(() => {
+        const map = new Map();
+        services.forEach(s => {
+            const c = s.clinic;
+            if (!c?.id) return;
+            if (!map.has(c.id)) {
+                map.set(c.id, { ...c, serviceCount: 0, ratingSum: 0, ratingCount: 0, image: s.images?.[0] });
+            }
+            const entry = map.get(c.id);
+            entry.serviceCount += 1;
+            if (s.rating) { entry.ratingSum += s.rating; entry.ratingCount += 1; }
+            if (!entry.image && s.images?.[0]) entry.image = s.images[0];
+        });
+        return Array.from(map.values())
+            .map(c => ({ ...c, avgRating: c.ratingCount ? +(c.ratingSum / c.ratingCount).toFixed(1) : 0 }))
+            .sort((a, b) => b.serviceCount - a.serviceCount)
+            .slice(0, 10);
+    }, [services]);
     const discounted = useMemo(
         () => services.filter(s => s.discountPercent && s.discountPercent > 0).slice(0, 8),
         [services]
@@ -188,7 +238,14 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
         [services]
     );
 
-    const renderCarousel = (title, emoji, list, color) => {
+    const clinicRef = useRef(null);
+    const discountRef = useRef(null);
+    const topRef = useRef(null);
+    useAutoScroll(clinicRef, 3500, 180);
+    useAutoScroll(discountRef, 3200, 180);
+    useAutoScroll(topRef, 3800, 180);
+
+    const renderCarousel = (title, emoji, list, color, trackRef) => {
         if (!list.length) return null;
         return (
             <div className="xp-hub-carousel">
@@ -199,7 +256,7 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
                     </h3>
                     <span className="xp-hub-carousel-count">{list.length}</span>
                 </div>
-                <div className="xp-hub-carousel-track">
+                <div className="xp-hub-carousel-track" ref={trackRef}>
                     {list.map(s => {
                         let img = (s.images?.[0]) || FALLBACK_IMAGES[s.category] || FALLBACK_IMAGES.diagnostika;
                         if (img?.startsWith('/uploads')) img = `https://banisa.uz${img}`;
@@ -229,11 +286,47 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
         );
     };
 
+    const renderClinicCarousel = () => {
+        if (!clinics.length) return null;
+        return (
+            <div className="xp-hub-carousel">
+                <div className="xp-hub-carousel-head">
+                    <h3 className="xp-hub-carousel-title">
+                        <span className="xp-hub-carousel-emoji" style={{ background: '#2563eb20', color: '#2563eb' }}>🏥</span>
+                        Klinikalar
+                    </h3>
+                    <span className="xp-hub-carousel-count">{clinics.length}</span>
+                </div>
+                <div className="xp-hub-carousel-track" ref={clinicRef}>
+                    {clinics.map(c => {
+                        let img = c.image || c.logo || CLINIC_PLACEHOLDER;
+                        if (img?.startsWith('/uploads')) img = `https://banisa.uz${img}`;
+                        return (
+                            <Link key={c.id} to={`/klinikalar/${c.id}`} className="xp-hub-mini-card">
+                                <div className="xp-hub-mini-img">
+                                    <img src={img} alt={c.name} onError={e => { if (e.currentTarget.src !== CLINIC_PLACEHOLDER) e.currentTarget.src = CLINIC_PLACEHOLDER; }} />
+                                </div>
+                                <div className="xp-hub-mini-body">
+                                    <h4 className="xp-hub-mini-title">{c.name}</h4>
+                                    {c.region && <span className="xp-hub-mini-clinic">{c.region}</span>}
+                                    <div className="xp-hub-mini-bottom">
+                                        <span className="xp-hub-mini-price">{c.serviceCount} ta xizmat</span>
+                                        {c.avgRating > 0 && <span className="xp-hub-mini-rating">★ {c.avgRating}</span>}
+                                    </div>
+                                </div>
+                            </Link>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="xp-hub-carousels">
-            {renderCarousel('Mashhur Xizmatlar', '🔥', popular, '#e11d48')}
-            {renderCarousel('Chegirma bilan', '💰', discounted, '#16a34a')}
-            {renderCarousel('Yuqori reytingdagi', '⭐', topRated, '#f59e0b')}
+            {renderClinicCarousel()}
+            {renderCarousel('Chegirma bilan', '💰', discounted, '#16a34a', discountRef)}
+            {renderCarousel('Yuqori reytingdagi', '⭐', topRated, '#f59e0b', topRef)}
         </div>
     );
 }
