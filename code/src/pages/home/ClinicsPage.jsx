@@ -417,50 +417,17 @@ export default function ClinicsPage() {
             <TopBar />
             <Navigation />
 
-            {/* ── HERO ── */}
-            <section className="cp-hero">
+            {/* ── PAGE HEADER ── */}
+            <div className="cp-page-header">
                 <div className="home-container">
-                    <div className="cp-hero-inner">
-                        <div className="cp-breadcrumb">
-                            <Link to="/">Bosh sahifa</Link>
-                            <ChevronRight size={14} />
-                            <span>Klinikalar</span>
-                        </div>
-                        <h1 className="cp-hero-title">O'zbekistondagi Eng Yaxshi Klinikalar</h1>
-                        <p className="cp-hero-subtitle">Tasdiqlangan klinikalar, haqiqiy sharhlar, ishonchli xizmatlar</p>
-
-                        <div className="cp-hero-search">
-                            <Search size={18} />
-                            <input
-                                type="text"
-                                placeholder="Klinika nomi yoki manzilni kiriting..."
-                                value={searchInput}
-                                onChange={e => setSearchInput(e.target.value)}
-                            />
-                            <button className="cp-hero-search-btn">Qidirish</button>
-                        </div>
-
-                        <div className="cp-hero-stats">
-                            <div className="cp-hero-stat">
-                                <span className="cp-hero-stat-num">{meta.total || '...'}</span>
-                                <span className="cp-hero-stat-label">Klinika</span>
-                            </div>
-                            <div className="cp-hero-stat">
-                                <span className="cp-hero-stat-num">4.8★</span>
-                                <span className="cp-hero-stat-label">O'rtacha reyting</span>
-                            </div>
-                            <div className="cp-hero-stat">
-                                <span className="cp-hero-stat-num">50,000+</span>
-                                <span className="cp-hero-stat-label">Bemor</span>
-                            </div>
-                            <div className="cp-hero-stat">
-                                <span className="cp-hero-stat-num">24/7</span>
-                                <span className="cp-hero-stat-label">Yordam</span>
-                            </div>
-                        </div>
+                    <div className="cp-breadcrumb">
+                        <Link to="/">Bosh sahifa</Link>
+                        <ChevronRight size={14} />
+                        <span>Klinikalar</span>
                     </div>
+                    <h1 className="cp-page-title">Klinikalar</h1>
                 </div>
-            </section>
+            </div>
 
             {/* ── CATEGORY TABS ── */}
             <div className="cp-tabs-bar">
@@ -498,9 +465,15 @@ export default function ClinicsPage() {
 
                             {/* Toolbar */}
                             <div className="cp-toolbar">
-                                <span className="cp-total-label">
-                                    <strong>{isLoading ? '...' : (meta.total || 0)}</strong> ta klinika topildi
-                                </span>
+                                <div className="cp-toolbar-search">
+                                    <Search size={15} />
+                                    <input
+                                        type="text"
+                                        placeholder="Klinika qidirish..."
+                                        value={searchInput}
+                                        onChange={e => setSearchInput(e.target.value)}
+                                    />
+                                </div>
                                 <div className="cp-toolbar-right">
                                     {/* Mobile filter button */}
                                     <button
