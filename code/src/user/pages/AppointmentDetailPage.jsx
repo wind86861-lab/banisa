@@ -1,9 +1,10 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 import {
     ArrowLeft, CheckCircle2, Clock, CreditCard, Building2, Phone, MapPin,
-    Calendar, FileText, Tag, AlertCircle, QrCode
+    Calendar, FileText, Tag, AlertCircle, QrCode, Camera, X
 } from 'lucide-react';
 import api, { getAccessToken } from '../../shared/api/axios';
 import TopBar from '../../pages/home/TopBar';
@@ -32,6 +33,58 @@ export default function AppointmentDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [qrSrc, setQrSrc] = useState(null);
+    const [scannerOpen, setScannerOpen] = useState(false);
+    const [scanError, setScanError] = useState('');
+    const html5Ref = useRef(null);
+
+    const stopScanner = async () => {
+        if (html5Ref.current) {
+            try { await html5Ref.current.stop(); } catch { }
+            try { html5Ref.current.clear(); } catch { }
+            html5Ref.current = null;
+        }
+    };
+
+    const closeScanner = async () => {
+        await stopScanner();
+        setScannerOpen(false);
+        setScanError('');
+    };
+
+    const handleScanResult = async (text) => {
+        // Clinic wall QR contains URL like https://banisa.uz/checkin/{secret}
+        // Extract the secret and navigate.
+        let secret = text.trim();
+        const match = secret.match(/\/checkin\/([A-Za-z0-9_-]+)/);
+        if (match) secret = match[1];
+        if (!/^[A-Za-z0-9_-]{8,}$/.test(secret)) {
+            setScanError("Noto'g'ri QR kod. Klinika devoridagi QR ni skanlang.");
+            return;
+        }
+        await stopScanner();
+        setScannerOpen(false);
+        navigate(`/checkin/${secret}`);
+    };
+
+    useEffect(() => {
+        if (!scannerOpen) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const scanner = new Html5Qrcode('apd-qr-reader');
+                html5Ref.current = scanner;
+                await scanner.start(
+                    { facingMode: 'environment' },
+                    { fps: 10, qrbox: { width: 260, height: 260 } },
+                    (text) => { if (!cancelled) handleScanResult(text); },
+                    () => { }
+                );
+            } catch (e) {
+                setScanError('Kamerani ochib bo\'lmadi: ' + (e?.message || e));
+            }
+        })();
+        return () => { cancelled = true; stopScanner(); };
+    }, [scannerOpen]);
 
     const { data, isLoading, error, refetch } = useQuery({
         queryKey: ['appointment', id, 'v2'], // Cache-busting version
@@ -172,6 +225,16 @@ export default function AppointmentDetailPage() {
                                     <span>To'lov summasi:</span>
                                     <strong>{fmt(data.finalPrice || data.price)} so'm (naqd)</strong>
                                 </div>
+                                <button
+                                    type="button"
+                                    className="apd-scan-btn"
+                                    onClick={() => { setScanError(''); setScannerOpen(true); }}
+                                >
+                                    <Camera size={18} /> QR skanerni ochish
+                                </button>
+                                <p className="apd-scan-hint">
+                                    Yoki telefoningiz kamerasi bilan klinika devoridagi QR ni skanlang
+                                </p>
                             </div>
                         )}
 
@@ -336,6 +399,26 @@ export default function AppointmentDetailPage() {
                     </div>
                 </div>
             </main>
+
+            {/* QR Scanner Modal */}
+            {scannerOpen && (
+                <div className="apd-scan-modal" onClick={closeScanner}>
+                    <div className="apd-scan-modal-body" onClick={(e) => e.stopPropagation()}>
+                        <div className="apd-scan-modal-header">
+                            <h3><Camera size={18} /> Klinika QR ni skanlang</h3>
+                            <button type="button" className="apd-scan-close" onClick={closeScanner} aria-label="Yopish">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div id="apd-qr-reader" className="apd-qr-reader" />
+                        {scanError && <p className="apd-scan-error">{scanError}</p>}
+                        <p className="apd-scan-help">
+                            Klinika devoridagi QR kodga kamerani yo'naltiring
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <Footer />
         </div>
     );
