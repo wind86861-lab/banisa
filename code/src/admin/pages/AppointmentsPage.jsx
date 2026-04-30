@@ -12,6 +12,7 @@ import './AppointmentsPage.css';
 const STATUS_FILTERS = [
     { value: 'ALL', label: 'Barchasi' },
     { value: 'PENDING', label: 'Yangi', urgent: true },
+    { value: 'PENDING_ARRIVAL', label: 'Naqd (kelishi)' },
     { value: 'OPERATOR_CONFIRMED', label: 'Tasdiqlangan' },
     { value: 'SENT_TO_CLINIC', label: 'Klinikada' },
     { value: 'CLINIC_ACCEPTED', label: 'Qabul qilingan' },
@@ -24,6 +25,7 @@ const STATUS_FILTERS = [
 
 const STATUS_STYLES = {
     PENDING: { color: '#D97706', bg: '#FEF3C7', label: 'Yangi' },
+    PENDING_ARRIVAL: { color: '#EA580C', bg: '#FFEDD5', label: 'Naqd — kutilmoqda' },
     OPERATOR_CONFIRMED: { color: '#2563EB', bg: '#DBEAFE', label: 'Tasdiqlandi' },
     SENT_TO_CLINIC: { color: '#2563EB', bg: '#DBEAFE', label: 'Klinikada' },
     CLINIC_ACCEPTED: { color: '#059669', bg: '#D1FAE5', label: 'Qabul qilindi' },
