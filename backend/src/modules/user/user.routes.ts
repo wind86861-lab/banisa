@@ -17,10 +17,12 @@ router.use(requireAuth);
 router.get('/profile', userController.getProfile);
 router.put('/profile', validate(updateProfileSchema), userController.updateProfile);
 
-// Patient-specific routes
-router.get('/appointments', requireRole(['PATIENT']), userController.getAppointments);
+// Read-only routes — any authenticated user can view their own data (ownership enforced by controller)
+const ANY_OWNER = requireRole(['PATIENT', 'CLINIC_ADMIN', 'SUPER_ADMIN']);
+router.get('/appointments', ANY_OWNER, userController.getAppointments);
+router.get('/reviews', ANY_OWNER, userController.getReviews);
+// Mutating actions are PATIENT-only
 router.post('/appointments', requireRole(['PATIENT']), validate(createAppointmentSchema), userController.createAppointment);
-router.get('/reviews', requireRole(['PATIENT']), userController.getReviews);
 router.post('/reviews', requireRole(['PATIENT']), validate(createReviewSchema), userController.createReview);
 
 export default router;

@@ -20,12 +20,16 @@ import {
 
 // ─── Patient routes — mounted under /api/user/appointments ───────────────────
 export const patientAppointmentRouter = Router();
-patientAppointmentRouter.use(requireAuth, requireRole(['PATIENT']));
-patientAppointmentRouter.post('/', validate(createBookingSchema), patientAppointmentController.create);
-patientAppointmentRouter.get('/:id', patientAppointmentController.getById);
-patientAppointmentRouter.get('/:id/qr.png', patientAppointmentController.getQrImage);
-patientAppointmentRouter.post('/:id/cancel', validate(cancelBookingSchema), patientAppointmentController.cancel);
-patientAppointmentRouter.post('/:id/patient-checkin', validate(patientCheckInSchema), patientAppointmentController.patientCheckIn);
+patientAppointmentRouter.use(requireAuth);
+// Read-only ownership-checked routes: any authenticated role can read their own appointment
+const ANY_OWNER = requireRole(['PATIENT', 'CLINIC_ADMIN', 'SUPER_ADMIN']);
+patientAppointmentRouter.get('/:id', ANY_OWNER, patientAppointmentController.getById);
+patientAppointmentRouter.get('/:id/qr.png', ANY_OWNER, patientAppointmentController.getQrImage);
+// Patient-only mutating actions
+const PATIENT_ONLY = requireRole(['PATIENT']);
+patientAppointmentRouter.post('/', PATIENT_ONLY, validate(createBookingSchema), patientAppointmentController.create);
+patientAppointmentRouter.post('/:id/cancel', PATIENT_ONLY, validate(cancelBookingSchema), patientAppointmentController.cancel);
+patientAppointmentRouter.post('/:id/patient-checkin', PATIENT_ONLY, validate(patientCheckInSchema), patientAppointmentController.patientCheckIn);
 
 // ─── Operator/Super Admin routes — mounted under /api/admin/appointments ─────
 export const operatorAppointmentRouter = Router();

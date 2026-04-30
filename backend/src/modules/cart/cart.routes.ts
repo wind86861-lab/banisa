@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { requireAuth } from '../../middleware/auth.middleware';
+import { requireAuth, requireRole } from '../../middleware/auth.middleware';
 import * as cartController from './cart.controller';
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, requireRole(['PATIENT']));
 
 router.post('/', cartController.addToCart);
 router.get('/', cartController.getCart);
