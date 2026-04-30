@@ -257,6 +257,7 @@ export class AppointmentService {
         if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
         assertStatus(appt.status, [
             'PENDING', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED',
+            'PENDING_ARRIVAL', 'PAID',
         ]);
 
         const updated = await prisma.appointment.update({

@@ -78,6 +78,21 @@ export default function AppointmentsPage() {
         qc.invalidateQueries({ queryKey: ['admin', 'appointments'] });
     };
 
+    const cancelBooking = async (appt) => {
+        const reason = window.prompt(`Bekor qilish sababi (${appt.bookingNumber}):`, '');
+        if (reason === null) return;
+        if (!reason.trim()) {
+            alert('Iltimos sababni kiriting');
+            return;
+        }
+        try {
+            await api.post(`/admin/appointments/${appt.id}/cancel`, { reason: reason.trim() });
+            afterMutation();
+        } catch (e) {
+            alert(e.response?.data?.message || 'Xatolik yuz berdi');
+        }
+    };
+
     return (
         <div className="ap-page">
             <div className="ap-header">
@@ -212,6 +227,22 @@ export default function AppointmentsPage() {
                                             onClick={() => setCallModal(appt)}
                                         >
                                             <Phone size={16} /> Telefon qilish
+                                        </button>
+                                    )}
+                                    {appt.status === 'PENDING_ARRIVAL' && appt.patient?.phone && (
+                                        <a
+                                            className="ap-btn ap-btn-primary"
+                                            href={`tel:${appt.patient.phone}`}
+                                        >
+                                            <Phone size={16} /> {appt.patient.phone}
+                                        </a>
+                                    )}
+                                    {['PENDING', 'PENDING_ARRIVAL', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED', 'PAID'].includes(appt.status) && (
+                                        <button
+                                            className="ap-btn ap-btn-danger"
+                                            onClick={() => cancelBooking(appt)}
+                                        >
+                                            <XCircle size={16} /> Bekor qilish
                                         </button>
                                     )}
                                     <button
