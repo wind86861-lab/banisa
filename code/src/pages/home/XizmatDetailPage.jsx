@@ -44,9 +44,9 @@ export default function XizmatDetailPage() {
     const [galleryIdx, setGalleryIdx] = useState(0);
     const [lightbox, setLightbox] = useState(false);
     const [showAuthModal, setShowAuthModal] = useState(false);
+    const [bookingError, setBookingError] = useState('');
 
     const handleBooking = async (clinic = null) => {
-        // Prevent event object from being passed as clinic parameter
         const selectedClinic = (clinic && typeof clinic === 'object' && clinic.id) ? clinic : activeClinic;
 
         if (!user) {
@@ -54,20 +54,20 @@ export default function XizmatDetailPage() {
             return;
         }
 
-        // Add to cart and navigate to cart
-        await handleAddToCart();
-        navigate('/user/cart');
+        setBookingError('');
+        const ok = await handleAddToCart();
+        if (ok) navigate('/user/cart');
     };
 
     const handleAddToCart = async () => {
         if (!user) {
             navigate('/user/login', { state: { from: location.pathname } });
-            return;
+            return false;
         }
 
         if (!activeClinic) {
-            alert('Klinika ma\'lumoti topilmadi');
-            return;
+            setBookingError('Klinika ma\'lumoti topilmadi');
+            return false;
         }
 
         // Determine service type and extract raw service ID
@@ -83,13 +83,13 @@ export default function XizmatDetailPage() {
             serviceType = 'SANATORIUM';
             const parts = id.substring('sanatorium-'.length).split('-');
             if (parts.length >= 10) rawServiceId = parts.slice(5).join('-');
-        } else if (svc.category === 'checkup') {
+        } else if (svc.category === 'checkup' || svc.isCheckup) {
             serviceType = 'CHECKUP';
+            if (svc.serviceId) rawServiceId = svc.serviceId;
         }
 
         const result = await addToCart(activeClinic.id, serviceType, rawServiceId, 1);
         if (result.success) {
-            // Show success notification
             const notification = document.createElement('div');
             notification.className = 'xd-cart-notification';
             notification.innerHTML = `
@@ -106,8 +106,10 @@ export default function XizmatDetailPage() {
                 notification.classList.remove('show');
                 setTimeout(() => notification.remove(), 300);
             }, 2000);
+            return true;
         } else {
-            alert(result.message || 'Xatolik yuz berdi');
+            setBookingError(result.message || 'Xatolik yuz berdi');
+            return false;
         }
     };
 
@@ -547,6 +549,34 @@ export default function XizmatDetailPage() {
                             );
                         })()}
 
+                        {/* Checkup package items */}
+                        {svc.items?.length > 0 && (
+                            <div className="xd-content-block">
+                                <h2 className="xd-section-title"><ClipboardList size={22} /> Paketga kiruvchi tahlillar</h2>
+                                <div className="xd-checkup-items-list">
+                                    {svc.items.map((item, i) => (
+                                        <div key={item.id || i} className="xd-checkup-item-row">
+                                            <CheckCircle2 size={16} style={{ color: '#00BDE0', flexShrink: 0, marginTop: 2 }} />
+                                            <div style={{ flex: 1 }}>
+                                                <span className="xd-ci-name">{item.serviceName}</span>
+                                                {item.notes && <span className="xd-ci-note"> — {item.notes}</span>}
+                                            </div>
+                                            {item.quantity > 1 && <span className="xd-ci-qty">×{item.quantity}</span>}
+                                            {item.servicePrice > 0 && (
+                                                <span className="xd-ci-price">{fmt(item.servicePrice)} so'm</span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                                {svc.discount > 0 && (
+                                    <div className="xd-checkup-saving">
+                                        <span>Paket bo'yicha tejaysiz:</span>
+                                        <strong style={{ color: '#27ae60' }}>{fmt(svc.discount)} so'm</strong>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* Tags + Share row */}
                         <div className="xd-tags-share">
                             <div className="xd-tags-row">
@@ -781,6 +811,11 @@ export default function XizmatDetailPage() {
                                 )}
                             </div>
                             <div className="xd-sb-body">
+                                {bookingError && (
+                                    <div style={{ padding: '8px 12px', background: '#FEE2E2', color: '#991B1B', borderRadius: 8, fontSize: 13, marginBottom: 8 }}>
+                                        {bookingError}
+                                    </div>
+                                )}
                                 <div className="xd-sb-main-actions">
                                     <button className="xd-sb-cart-btn" onClick={handleAddToCart} title="Savatga qo'shish">
                                         <ShoppingCart size={20} />
@@ -804,7 +839,8 @@ export default function XizmatDetailPage() {
                         <div className="xd-sidebar-box">
                             <h3 className="xd-sb-title">Umumiy ma'lumot</h3>
                             <ul className="xd-sb-info-list">
-                                <li><Clock size={16} /><span>Davomiyligi</span><strong>{svc.durationMinutes} daqiqa</strong></li>
+                                {svc.targetAudience && <li><Users size={16} /><span>Yoshlar guruhi</span><strong>{svc.targetAudience}</strong></li>}
+                                <li><Clock size={16} /><span>Davomiyligi</span><strong>{svc.durationMinutes >= 60 ? `${Math.round(svc.durationMinutes / 60)} soat` : `${svc.durationMinutes} daqiqa`}</strong></li>
                                 <li><Timer size={16} /><span>Natija vaqti</span><strong>{svc.resultTimeHours >= 24 ? `${Math.round(svc.resultTimeHours / 24)} kun` : `${svc.resultTimeHours} soat`}</strong></li>
                                 {svc.sampleType && <li><Droplets size={16} /><span>Namuna turi</span><strong>{svc.sampleType}</strong></li>}
                                 {svc.sampleVolume && <li><Beaker size={16} /><span>Namuna miqdori</span><strong>{svc.sampleVolume}</strong></li>}

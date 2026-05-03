@@ -349,7 +349,7 @@ export default function XizmatlarPage() {
     const [selectedLocations, setSelectedLocations] = useState([]);
 
     // Fetch real services data
-    const { data: SERVICES_DATA = [], isLoading, error } = usePublicServices();
+    const { data: SERVICES_DATA = [], isLoading, error, refetch } = usePublicServices();
 
     // Handle add to cart
     const handleAddToCart = async (service) => {
@@ -986,6 +986,16 @@ export default function XizmatlarPage() {
                                 </div>
                                 <h3>Xatolik yuz berdi</h3>
                                 <p>Xizmatlarni yuklashda muammo yuz berdi. Iltimos qaytadan urinib ko'ring.</p>
+                                {error?.message && (
+                                    <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 8 }}>{error.message}</p>
+                                )}
+                                <button
+                                    className="xp-empty-reset"
+                                    onClick={() => refetch()}
+                                    style={{ marginTop: 16 }}
+                                >
+                                    Qayta yuklash
+                                </button>
                             </div>
                         ) : paginated.length > 0 ? (
                             paginated.map((service, idx) => (

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { setAccessToken, clearAccessToken } from '../api/axios';
+import { setAccessToken, clearAccessToken, setIsPatientSession } from '../api/axios';
 import axiosInstance from '../api/axios';
 
 // ─── SEPARATE PATIENT TOKEN STORAGE ────────────────────────────────────────
@@ -49,6 +49,7 @@ export const UserAuthProvider = ({ children }) => {
     const interval = setInterval(() => {
       if (isTokenExpired(userTokenStorage.getToken())) {
         clearAccessToken();
+        setIsPatientSession(false);
         userTokenStorage.clear();
         setUser(null);
       }
@@ -71,12 +72,16 @@ export const UserAuthProvider = ({ children }) => {
         const existingUser = userTokenStorage.getUser();
 
         if (existingToken && existingUser && existingUser.role === 'PATIENT') {
-          setAccessToken(existingToken);
-          setUser(existingUser);
-          setIsLoading(false);
-          return;
-        } else {
+          if (!isTokenExpired(existingToken)) {
+            setAccessToken(existingToken);
+            setIsPatientSession(true);
+            setUser(existingUser);
+            setIsLoading(false);
+            return;
+          }
+          userTokenStorage.clear();
           clearAccessToken();
+          setIsPatientSession(false);
         }
 
         // 2. Try cookie-based silent refresh ONLY if a past session existed
@@ -103,6 +108,7 @@ export const UserAuthProvider = ({ children }) => {
 
           if (token && userData && userData.role === 'PATIENT') {
             setAccessToken(token);
+            setIsPatientSession(true);
             userTokenStorage.setToken(token);
             userTokenStorage.setUser(userData);
             setUser(userData);
@@ -111,16 +117,18 @@ export const UserAuthProvider = ({ children }) => {
           }
         }
 
-        // Nothing to restore — normal unauthenticated state
+        // Nothing to restore — normal unauthenticated state.
+        // Clear patient-specific storage only. Do NOT call clearAccessToken() here:
+        // AuthContext may have set a clinic token concurrently and we must not wipe it.
         userTokenStorage.clear();
-        clearAccessToken();
+        setIsPatientSession(false);
         setUser(null);
         setIsLoading(false);
       } catch (err) {
         console.error('User auth restore error:', err);
-        // Ensure we always end in a valid state
+        // Clear patient-specific storage only — same reason as above.
         userTokenStorage.clear();
-        clearAccessToken();
+        setIsPatientSession(false);
         setUser(null);
         setIsLoading(false);
       }
@@ -139,6 +147,7 @@ export const UserAuthProvider = ({ children }) => {
     if (userData.role !== 'PATIENT') throw new Error('Bu login faqat foydalanuvchilar uchun');
 
     setAccessToken(token);
+    setIsPatientSession(true);
     userTokenStorage.setToken(token);
     userTokenStorage.setUser(userData);
     localStorage.setItem('user_had_session', '1');
@@ -158,6 +167,7 @@ export const UserAuthProvider = ({ children }) => {
   const logout = async () => {
     try { await axiosInstance.post('/user/auth/logout'); } catch { /* ignore */ }
     clearAccessToken();
+    setIsPatientSession(false);
     userTokenStorage.clear();
     localStorage.removeItem('user_had_session');
     setUser(null);

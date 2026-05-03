@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { tokenStorage } from './tokenStorage';
-import { setAccessToken, clearAccessToken } from '../api/axios';
+import { setAccessToken, clearAccessToken, setIsPatientSession } from '../api/axios';
 import axiosInstance from '../api/axios';
 
 const AuthContext = createContext(null);
@@ -34,6 +34,7 @@ export const AuthProvider = ({ children }) => {
       const token = tokenStorage.getToken();
       if (isTokenExpired(token)) {
         clearAccessToken();
+        setIsPatientSession(false);
         tokenStorage.clear();
         setUser(null);
       }
@@ -49,12 +50,14 @@ export const AuthProvider = ({ children }) => {
       if (existingToken && existingUser) {
         if (!isTokenExpired(existingToken)) {
           setAccessToken(existingToken);
+          setIsPatientSession(false);
           setUser(existingUser);
           setIsLoading(false);
           return;
         }
         tokenStorage.clear();
         clearAccessToken();
+        setIsPatientSession(false);
       }
 
       // 2. No sessionStorage data - try cookie refresh ONLY if a past session existed
@@ -87,24 +90,31 @@ export const AuthProvider = ({ children }) => {
           // SECURITY: SUPER_ADMIN must always log in explicitly each browser session.
           if (userData.role === 'SUPER_ADMIN') {
             clearAccessToken();
+            setIsPatientSession(false);
             tokenStorage.clear();
             setUser(null);
             setIsLoading(false);
             return;
           }
           setAccessToken(token);
+          setIsPatientSession(false);
           tokenStorage.setToken(token);
           tokenStorage.setUser(userData);
           setUser(userData);
         } else {
+          // Clinic restore returned data but no valid token/user.
+          // Only clear clinic-specific storage — do NOT touch _accessToken or
+          // _isPatientSession because UserAuthContext may have set a patient
+          // session concurrently. Wiping it causes the 401→wrong-refresh→redirect loop.
           tokenStorage.clear();
-          clearAccessToken();
           setUser(null);
         }
       } else {
-        // No cookie refresh available - user needs to login
+        // Clinic cookie refresh failed — clear clinic storage only.
+        // Do NOT call clearAccessToken() or setIsPatientSession(false):
+        // UserAuthContext may have already set a valid patient token concurrently.
+        // Wiping it causes: GET /cart → 401 → interceptor calls wrong endpoint → redirect loop → 429.
         tokenStorage.clear();
-        clearAccessToken();
         setUser(null);
       }
 
@@ -122,6 +132,7 @@ export const AuthProvider = ({ children }) => {
     if (!token || !userData) throw new Error('Login muvaffaqiyatsiz');
     if (userData.role !== 'SUPER_ADMIN') throw new Error('Bu login faqat adminlar uchun');
     setAccessToken(token);
+    setIsPatientSession(false);
     tokenStorage.setToken(token);
     tokenStorage.setUser(userData);
     setUser(userData);
@@ -137,6 +148,7 @@ export const AuthProvider = ({ children }) => {
     if (!token || !userData) throw new Error('Login muvaffaqiyatsiz');
     if (userData.role === 'SUPER_ADMIN') throw new Error('Admin hisobi uchun admin login sahifasidan foydalaning');
     setAccessToken(token);
+    setIsPatientSession(false);
     tokenStorage.setToken(token);
     tokenStorage.setUser(userData);
     localStorage.setItem('clinic_had_session', '1');
@@ -156,6 +168,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try { await axiosInstance.post('/auth/logout'); } catch { /* ignore */ }
     clearAccessToken();
+    setIsPatientSession(false);
     tokenStorage.clear();
     localStorage.removeItem('clinic_had_session');
     restorePromise = null;
@@ -169,6 +182,7 @@ export const AuthProvider = ({ children }) => {
       const userData = data.data?.user ?? data.user;
       if (token && userData) {
         setAccessToken(token);
+        setIsPatientSession(false);
         tokenStorage.setToken(token);
         tokenStorage.setUser(userData);
         setUser(userData);
