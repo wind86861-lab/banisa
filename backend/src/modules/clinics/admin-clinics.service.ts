@@ -218,6 +218,11 @@ export const updateClinic = async (id: string, data: any) => {
     const adminLastName = parsed.adminLastName;
     console.log('[updateClinic] Admin fields:', { adminPassword: adminPassword ? '***' : undefined, adminPhone, adminEmail, adminFirstName, adminLastName });
     delete parsed.adminPassword;
+    delete parsed.adminPhone;
+    delete parsed.adminEmail;
+    delete parsed.adminFirstName;
+    delete parsed.adminLastName;
+    delete parsed.adminPosition;
 
     return prisma.$transaction(async (tx) => {
         // 1. Update clinic
