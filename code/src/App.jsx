@@ -6,6 +6,7 @@ import { UserAuthProvider } from './shared/auth/UserAuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect, UserGuard, UserPublicOnlyGuard } from './shared/auth/guards';
 import ScrollToTop from './components/ScrollToTop';
+import { ToastProvider } from './shared/components/Toast';
 
 // Admin pages
 import NotFoundPage from './shared/pages/NotFoundPage';
@@ -57,8 +58,6 @@ import UserAppointments from './user/pages/UserAppointments';
 import CheckoutPage from './user/pages/CheckoutPage';
 import BookingSuccessPage from './user/pages/BookingSuccessPage';
 import AppointmentDetailPage from './user/pages/AppointmentDetailPage';
-import ClinicQRScanner from './clinic/pages/ClinicQRScanner';
-import ClinicReception from './clinic/pages/ClinicReception';
 import ClinicCheckInQR from './clinic/pages/ClinicCheckInQR';
 import PatientCheckInPage from './pages/checkin/PatientCheckInPage';
 import PaymePage from './pages/payment/PaymePage';
@@ -101,6 +100,7 @@ function AdminLayout() {
 function App() {
     return (
         <QueryClientProvider client={queryClient}>
+            <ToastProvider>
             <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <ScrollToTop />
                 <AuthProvider>
@@ -166,8 +166,6 @@ function App() {
                                     <Route path="services" element={<ClinicServices />} />
                                     <Route path="profile" element={<ClinicProfile />} />
                                     <Route path="bookings" element={<ClinicBookings />} />
-                                    <Route path="scan" element={<ClinicQRScanner />} />
-                                    <Route path="reception" element={<ClinicReception />} />
                                     <Route path="checkin-qr" element={<ClinicCheckInQR />} />
                                     <Route path="discounts" element={<ClinicDiscounts />} />
                                     <Route path="staff" element={<ClinicStaff />} />
@@ -219,6 +217,7 @@ function App() {
                     </UserAuthProvider>
                 </AuthProvider>
             </Router>
+            </ToastProvider>
         </QueryClientProvider>
     );
 }

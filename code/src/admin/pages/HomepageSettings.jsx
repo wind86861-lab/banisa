@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save, Loader2, CheckCircle, Layout, Phone, Image as ImageIcon, Users, Star, HelpCircle, Award, BookOpen, AlignLeft, Globe, Grid, Upload, X, Eye, EyeOff, ChevronRight, Palette, FileText, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import axiosInstance from '../../shared/api/axios';
+import { useToast } from '../../shared/components/Toast';
 import './HomepageSettings.css';
 
 const SECTIONS = [
@@ -37,6 +38,7 @@ const UploadField = ({ label, name, value, onValueChange, hint = '' }) => {
     const [uploading, setUploading] = useState(false);
     const [showUrl, setShowUrl] = useState(false);
     const fileRef = useRef();
+    const toast = useToast();
 
     const handleFile = async (e) => {
         const file = e.target.files[0];
@@ -50,7 +52,7 @@ const UploadField = ({ label, name, value, onValueChange, hint = '' }) => {
             });
             onValueChange(data.data.url);
         } catch (err) {
-            alert('Upload failed: ' + (err?.response?.data?.message || err.message));
+            toast.error('Yuklash xatoligi: ' + (err?.response?.data?.message || err?.message || "Noma'lum xatolik"));
         } finally {
             setUploading(false);
         }
@@ -108,6 +110,7 @@ const UploadField = ({ label, name, value, onValueChange, hint = '' }) => {
 const PdfUploadField = ({ label, name, value, onValueChange, hint = '' }) => {
     const [uploading, setUploading] = useState(false);
     const fileRef = useRef();
+    const toast = useToast();
 
     const handleFile = async (e) => {
         const file = e.target.files[0];
@@ -121,7 +124,7 @@ const PdfUploadField = ({ label, name, value, onValueChange, hint = '' }) => {
             });
             onValueChange(data.data.url);
         } catch (err) {
-            alert('Upload failed: ' + (err?.response?.data?.message || err.message));
+            toast.error('Yuklash xatoligi: ' + (err?.response?.data?.message || err?.message || "Noma'lum xatolik"));
         } finally {
             setUploading(false);
             if (fileRef.current) fileRef.current.value = '';

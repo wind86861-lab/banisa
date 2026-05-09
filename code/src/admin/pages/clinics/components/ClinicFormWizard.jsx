@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Loader2, ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCreateClinic, useUpdateClinic } from '../hooks/useClinics';
+import { useToast } from '../../../../shared/components/Toast';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -128,7 +129,7 @@ const EMPTY_FORM = {
     bedsCount: '', floorsCount: '', parkingAvailable: false,
     amenities: [],
     // Step 6: Admin
-    adminFirstName: '', adminLastName: '', adminEmail: '', adminPhone: '', adminPosition: '',
+    adminFirstName: '', adminLastName: '', adminEmail: '', adminPhone: '', adminPosition: '', adminPassword: '',
     // Step 7: Documents
     registrationNumber: '', taxId: '', licenseNumber: '',
     licenseIssuedAt: '', licenseExpiresAt: '', licenseIssuedBy: '',
@@ -145,6 +146,7 @@ export default function ClinicFormWizard({ open, editData, onClose, onSuccess })
     const [saving, setSaving] = useState(false);
     const createMut = useCreateClinic();
     const updateMut = useUpdateClinic();
+    const toast = useToast();
 
     useEffect(() => {
         if (!open) return;
@@ -152,7 +154,7 @@ export default function ClinicFormWizard({ open, editData, onClose, onSuccess })
         if (editData) {
             const wh = editData.workingHours;
             const sm = editData.socialMedia || {};
-            setForm({
+            const baseForm = {
                 ...EMPTY_FORM,
                 ...editData,
                 phones: Array.isArray(editData.phones) ? editData.phones.join(', ') : (editData.phones || ''),
@@ -170,7 +172,18 @@ export default function ClinicFormWizard({ open, editData, onClose, onSuccess })
                 floorsCount: editData.floorsCount ?? '',
                 latitude: editData.latitude ?? '',
                 longitude: editData.longitude ?? '',
-            });
+            };
+
+            // Pre-populate admin fields from clinic's admin user
+            const adminUser = editData.adminUser;
+            if (adminUser) {
+                baseForm.adminFirstName = adminUser.firstName || '';
+                baseForm.adminLastName = adminUser.lastName || '';
+                baseForm.adminEmail = adminUser.email || '';
+                baseForm.adminPhone = adminUser.phone || '';
+            }
+
+            setForm(baseForm);
         } else {
             setForm(EMPTY_FORM);
         }
@@ -199,29 +212,40 @@ export default function ClinicFormWizard({ open, editData, onClose, onSuccess })
     };
 
     const handleSubmit = async () => {
-        if (!form.nameUz.trim()) { alert("Klinika nomi (UZ) kiritilishi shart"); setStep(1); return; }
-        if (!form.region) { alert("Viloyat tanlanishi shart"); setStep(2); return; }
-        if (!form.district) { alert("Tuman kiritilishi shart"); setStep(2); return; }
-        if (!form.street) { alert("Ko'cha / manzil kiritilishi shart"); setStep(2); return; }
+        if (!form.nameUz.trim()) { toast.warning("Klinika nomi (UZ) kiritilishi shart"); setStep(1); return; }
+        if (!form.region) { toast.warning("Viloyat tanlanishi shart"); setStep(2); return; }
+        if (!form.district) { toast.warning("Tuman kiritilishi shart"); setStep(2); return; }
+        if (!form.street) { toast.warning("Ko'cha / manzil kiritilishi shart"); setStep(2); return; }
+        if (!editData?.id) {
+            if (!form.adminPhone?.trim()) { toast.warning("Mas'ul shaxs telefoni kiritilishi shart"); setStep(6); return; }
+            if (!form.adminPassword || form.adminPassword.length < 8) { toast.warning("Mas'ul shaxs paroli kamida 8 ta belgidan iborat bo'lishi shart"); setStep(6); return; }
+        } else {
+            // On edit: password is optional; phone only required when creating a brand-new admin (no existing user)
+            if (form.adminPassword && form.adminPassword.length > 0) {
+                if (form.adminPassword.length < 8) { toast.warning("Parol kamida 8 ta belgidan iborat bo'lishi kerak"); setStep(6); return; }
+                // Phone is only required if there is no existing admin user at all
+                if (!editData?.adminUser && !form.adminPhone?.trim()) { toast.warning("Admin yaratish uchun telefon kiritilishi shart"); setStep(6); return; }
+            }
+        }
 
         setSaving(true);
         try {
             const payload = {
                 nameUz: form.nameUz.trim(),
-                nameRu: form.nameRu.trim() || undefined,
-                nameEn: form.nameEn.trim() || undefined,
+                nameRu: form.nameRu?.trim() || undefined,
+                nameEn: form.nameEn?.trim() || undefined,
                 type: form.type,
-                description: form.description.trim() || undefined,
+                description: form.description?.trim() || undefined,
                 region: form.region,
                 district: form.district,
                 street: form.street.trim(),
-                apartment: form.apartment.trim() || undefined,
-                landmark: form.landmark.trim() || undefined,
+                apartment: form.apartment?.trim() || undefined,
+                landmark: form.landmark?.trim() || undefined,
                 latitude: form.latitude ? parseFloat(form.latitude) : undefined,
                 longitude: form.longitude ? parseFloat(form.longitude) : undefined,
                 phones: form.phones ? form.phones.split(',').map(s => s.trim()).filter(Boolean) : [],
                 emails: form.emails ? form.emails.split(',').map(s => s.trim()).filter(Boolean) : [],
-                website: form.website.trim() || undefined,
+                website: form.website?.trim() || undefined,
                 socialMedia: (form.telegram || form.instagram || form.facebook) ? {
                     telegram: form.telegram || undefined,
                     instagram: form.instagram || undefined,
@@ -235,21 +259,23 @@ export default function ClinicFormWizard({ open, editData, onClose, onSuccess })
                 floorsCount: form.floorsCount ? parseInt(form.floorsCount) : undefined,
                 parkingAvailable: form.parkingAvailable,
                 amenities: form.amenities.length > 0 ? form.amenities : undefined,
-                adminFirstName: form.adminFirstName.trim() || undefined,
-                adminLastName: form.adminLastName.trim() || undefined,
-                adminEmail: form.adminEmail.trim() || undefined,
-                adminPhone: form.adminPhone.trim() || undefined,
+                adminFirstName: form.adminFirstName?.trim() || undefined,
+                adminLastName: form.adminLastName?.trim() || undefined,
+                adminEmail: form.adminEmail?.trim() || undefined,
+                adminPhone: form.adminPhone?.trim() || undefined,
                 adminPosition: form.adminPosition || undefined,
-                registrationNumber: form.registrationNumber.trim() || undefined,
-                taxId: form.taxId.trim() || undefined,
-                licenseNumber: form.licenseNumber.trim() || undefined,
+                // Only include password if it has a value (don't send empty string)
+                ...(form.adminPassword && form.adminPassword.trim() ? { adminPassword: form.adminPassword.trim() } : {}),
+                registrationNumber: form.registrationNumber?.trim() || undefined,
+                taxId: form.taxId?.trim() || undefined,
+                licenseNumber: form.licenseNumber?.trim() || undefined,
                 licenseIssuedAt: form.licenseIssuedAt || undefined,
                 licenseExpiresAt: form.licenseExpiresAt || undefined,
-                licenseIssuedBy: form.licenseIssuedBy.trim() || undefined,
+                licenseIssuedBy: form.licenseIssuedBy?.trim() || undefined,
                 legalForm: form.legalForm || undefined,
-                legalName: form.legalName.trim() || undefined,
+                legalName: form.legalName?.trim() || undefined,
                 paymentMethods: form.paymentMethods.length > 0 ? form.paymentMethods : undefined,
-                priceRange: form.priceRange.trim() || undefined,
+                priceRange: form.priceRange?.trim() || undefined,
                 insuranceAccepted: form.insuranceAccepted.length > 0 ? form.insuranceAccepted : undefined,
             };
 
@@ -258,13 +284,20 @@ export default function ClinicFormWizard({ open, editData, onClose, onSuccess })
 
             if (editData?.id) {
                 await updateMut.mutateAsync({ id: editData.id, ...payload });
+                toast.success('Klinika muvaffaqiyatli yangilandi');
             } else {
                 await createMut.mutateAsync(payload);
+                toast.success('Klinika muvaffaqiyatli yaratildi');
             }
             onSuccess?.();
             onClose();
         } catch (err) {
-            alert('Xatolik: ' + (err?.response?.data?.error || err.message || 'Noma\'lum xatolik'));
+            const msg =
+                err?.response?.data?.error?.message ||
+                err?.response?.data?.message ||
+                err?.message ||
+                "Noma'lum xatolik";
+            toast.error('Xatolik: ' + msg);
         } finally {
             setSaving(false);
         }
@@ -568,9 +601,27 @@ export default function ClinicFormWizard({ open, editData, onClose, onSuccess })
                                         <input type="text" value={form.adminPhone} onChange={set('adminPhone')} placeholder="+998901234567" />
                                     </div>
                                 </div>
-                                <div className="form-group">
-                                    <label>Email</label>
-                                    <input type="email" value={form.adminEmail} onChange={set('adminEmail')} placeholder="admin@klinika.uz" />
+                                <div className="form-group row">
+                                    <div className="col">
+                                        <label>Email</label>
+                                        <input type="email" value={form.adminEmail} onChange={set('adminEmail')} placeholder="admin@klinika.uz" />
+                                    </div>
+                                    <div className="col">
+                                        <label>
+                                            Parol {editData?.id ? '(yangilash uchun)' : <span style={{ color: '#e63946' }}>*</span>}
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={form.adminPassword}
+                                            onChange={set('adminPassword')}
+                                            placeholder={editData?.id ? "Yangi parol (8+ belgi)" : "Kamida 8 ta belgi"}
+                                        />
+                                        <small style={{ color: '#8892B0', fontSize: 12 }}>
+                                            {editData?.id
+                                                ? "Bo'sh qoldiring agar o'zgartirmoqchi bo'lmasangiz. Yangi parol = admin foydalanuvchi yaratish/parolni yangilash"
+                                                : "Tizimga kirish uchun parol"}
+                                        </small>
+                                    </div>
                                 </div>
                             </div>
                         )}

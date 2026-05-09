@@ -1,5 +1,8 @@
 import prisma from '../../config/database';
 import { AppError, ErrorCodes } from '../../utils/errors';
+import bcrypt from 'bcrypt';
+
+const normalizePhone = (phone: string) => phone.replace(/[\s\-()]/g, '');
 
 // 1. List clinics with filters, search, sort
 export const listClinics = async (query: any) => {
@@ -11,14 +14,19 @@ export const listClinics = async (query: any) => {
         region,
         type,
         source,
+        isActive,
         minRating,
         sort = 'createdAt:desc'
     } = query;
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    // Build where clause
+    // Build where clause — no default isActive filter so admin sees all clinics
     let where: any = {};
+
+    // Filter by isActive (explicit param: 'true' | 'false' | undefined = all)
+    if (isActive === 'true') where.isActive = true;
+    else if (isActive === 'false') where.isActive = false;
 
     // Filter by source
     if (source && source !== 'all') where.source = source;
@@ -101,22 +109,43 @@ export const listClinics = async (query: any) => {
 
 // 2. Get clinic by ID
 export const getClinicById = async (id: string) => {
-    const clinic = await prisma.clinic.findUnique({
-        where: { id },
-        include: {
-            _count: {
-                select: {
-                    appointments: true,
-                    doctors: true,
-                    reviews: true,
+    const [clinic, adminUser] = await Promise.all([
+        prisma.clinic.findUnique({
+            where: { id },
+            include: {
+                _count: {
+                    select: {
+                        appointments: true,
+                        doctors: true,
+                        reviews: true,
+                    }
                 }
             }
-        }
-    });
+        }),
+        prisma.user.findFirst({
+            where: {
+                clinicId: id,
+                role: { in: ['CLINIC_ADMIN', 'PENDING_CLINIC'] },
+                isActive: true,
+            },
+            select: {
+                id: true,
+                phone: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                role: true,
+                status: true,
+            }
+        })
+    ]);
 
     if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);
 
-    return clinic;
+    return {
+        ...clinic,
+        adminUser: adminUser || null,
+    };
 };
 
 // 3. Create clinic (admin-created → immediately APPROVED)
@@ -125,17 +154,50 @@ export const createClinic = async (data: any, adminId: string) => {
     if (parsed.licenseIssuedAt) parsed.licenseIssuedAt = new Date(parsed.licenseIssuedAt);
     if (parsed.licenseExpiresAt) parsed.licenseExpiresAt = new Date(parsed.licenseExpiresAt);
 
-    return (prisma.clinic as any).create({
-        data: {
-            ...parsed,
-            source: 'ADMIN_CREATED',
-            status: 'APPROVED',
-            isActive: true,
-            approvedById: adminId,
-            createdBy: adminId,
-            reviewedAt: new Date(),
-            reviewedBy: adminId,
+    // Extract admin password before clinic creation
+    const adminPassword = parsed.adminPassword;
+    delete parsed.adminPassword;
+
+    return prisma.$transaction(async (tx) => {
+        // 1. Create clinic
+        const clinic = await (tx.clinic as any).create({
+            data: {
+                ...parsed,
+                source: 'ADMIN_CREATED',
+                status: 'APPROVED',
+                isActive: true,
+                approvedById: adminId,
+                createdBy: adminId,
+                reviewedAt: new Date(),
+                reviewedBy: adminId,
+            }
+        });
+
+        // 2. Create CLINIC_ADMIN user if admin phone and password are provided
+        if (adminPassword && parsed.adminPhone) {
+            // Check if phone already exists
+            const existingUser = await tx.user.findUnique({
+                where: { phone: parsed.adminPhone }
+            });
+
+            if (!existingUser) {
+                await tx.user.create({
+                    data: {
+                        phone: parsed.adminPhone,
+                        email: parsed.adminEmail || null,
+                        passwordHash: await bcrypt.hash(adminPassword, 12),
+                        firstName: parsed.adminFirstName || null,
+                        lastName: parsed.adminLastName || null,
+                        role: 'CLINIC_ADMIN',
+                        status: 'APPROVED',
+                        isActive: true,
+                        clinicId: clinic.id,
+                    }
+                });
+            }
         }
+
+        return clinic;
     });
 };
 
@@ -148,21 +210,115 @@ export const updateClinic = async (id: string, data: any) => {
     if (parsed.licenseIssuedAt) parsed.licenseIssuedAt = new Date(parsed.licenseIssuedAt);
     if (parsed.licenseExpiresAt) parsed.licenseExpiresAt = new Date(parsed.licenseExpiresAt);
 
-    return prisma.clinic.update({
-        where: { id },
-        data: parsed
+    // Extract admin password before clinic update
+    const adminPassword = parsed.adminPassword;
+    const adminPhone = parsed.adminPhone;
+    const adminEmail = parsed.adminEmail;
+    const adminFirstName = parsed.adminFirstName;
+    const adminLastName = parsed.adminLastName;
+    console.log('[updateClinic] Admin fields:', { adminPassword: adminPassword ? '***' : undefined, adminPhone, adminEmail, adminFirstName, adminLastName });
+    delete parsed.adminPassword;
+
+    return prisma.$transaction(async (tx) => {
+        // 1. Update clinic
+        const updated = await tx.clinic.update({
+            where: { id },
+            data: parsed
+        });
+
+        // 2. If password provided, create or update CLINIC_ADMIN user
+        if (adminPassword && adminPassword.trim().length >= 8) {
+            // Find existing CLINIC_ADMIN for this clinic
+            const existingUser = await tx.user.findFirst({
+                where: {
+                    clinicId: id,
+                    role: { in: ['CLINIC_ADMIN', 'PENDING_CLINIC'] },
+                    isActive: true,
+                }
+            });
+
+            if (existingUser) {
+                // Update existing user password
+                console.log('[updateClinic] Updating password for existing user:', existingUser.id);
+                const normalizedNewPhone = adminPhone ? normalizePhone(adminPhone.trim()) : null;
+                await tx.user.update({
+                    where: { id: existingUser.id },
+                    data: {
+                        passwordHash: await bcrypt.hash(adminPassword, 12),
+                        firstName: adminFirstName || existingUser.firstName,
+                        lastName: adminLastName || existingUser.lastName,
+                        email: adminEmail || existingUser.email,
+                        // Only update phone when explicitly provided, and always normalize it
+                        ...(normalizedNewPhone ? { phone: normalizedNewPhone } : {}),
+                        role: 'CLINIC_ADMIN',
+                        status: 'APPROVED',
+                    }
+                });
+            } else if (adminPhone) {
+                // Create new CLINIC_ADMIN user (only if phone is provided)
+                console.log('[updateClinic] Creating new CLINIC_ADMIN user');
+                await tx.user.create({
+                    data: {
+                        phone: normalizePhone(adminPhone.trim()),
+                        email: adminEmail || null,
+                        passwordHash: await bcrypt.hash(adminPassword, 12),
+                        firstName: adminFirstName || null,
+                        lastName: adminLastName || null,
+                        role: 'CLINIC_ADMIN',
+                        status: 'APPROVED',
+                        isActive: true,
+                        clinicId: id,
+                    }
+                });
+            } else {
+                console.log('[updateClinic] Password provided but no existing user and no phone - skipping');
+            }
+        }
+
+        return updated;
     });
 };
 
-// 5. Soft delete (deactivate)
+// 5. Hard delete — removes clinic and all related data from the database
 export const deleteClinic = async (id: string) => {
     const clinic = await prisma.clinic.findUnique({ where: { id } });
     if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);
 
-    return prisma.clinic.update({
-        where: { id },
-        data: { isActive: false }
+    await prisma.$transaction(async (tx) => {
+        // Delete appointment logs (cascade from appointments, but be explicit)
+        await tx.appointmentLog.deleteMany({
+            where: { appointment: { clinicId: id } },
+        });
+
+        // Delete appointments
+        await tx.appointment.deleteMany({ where: { clinicId: id } });
+
+        // Delete reviews
+        await tx.review.deleteMany({ where: { clinicId: id } });
+
+        // Delete doctors
+        await tx.doctor.deleteMany({ where: { clinicId: id } });
+
+        // Delete cart items
+        await tx.cartItem.deleteMany({ where: { clinicId: id } });
+
+        // Delete clinic service links (cascades to ServiceCustomization → ServiceImage)
+        await tx.clinicDiagnosticService.deleteMany({ where: { clinicId: id } });
+        await tx.clinicSurgicalService.deleteMany({ where: { clinicId: id } });
+        await tx.clinicSanatoriumService.deleteMany({ where: { clinicId: id } });
+        await tx.clinicCheckupPackage.deleteMany({ where: { clinicId: id } });
+
+        // Detach admin users linked to this clinic (do not delete the users)
+        await tx.user.updateMany({
+            where: { clinicId: id },
+            data: { clinicId: null },
+        });
+
+        // Finally delete the clinic
+        await tx.clinic.delete({ where: { id } });
     });
+
+    return { deleted: true, id };
 };
 
 // 6 & 7. Set active status
