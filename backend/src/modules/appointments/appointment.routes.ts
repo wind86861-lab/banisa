@@ -11,10 +11,10 @@ import {
     operatorCancelSchema,
     clinicAcceptSchema,
     clinicRescheduleSchema,
-    clinicScanSchema,
     clinicCompleteSchema,
     setClinicDiscountSchema,
     patientCheckInSchema,
+    scanCheckInSchema,
     confirmCashSchema,
 } from './appointment.validation';
 
@@ -30,6 +30,7 @@ const PATIENT_ONLY = requireRole(['PATIENT']);
 patientAppointmentRouter.post('/', PATIENT_ONLY, validate(createBookingSchema), patientAppointmentController.create);
 patientAppointmentRouter.post('/:id/cancel', PATIENT_ONLY, validate(cancelBookingSchema), patientAppointmentController.cancel);
 patientAppointmentRouter.post('/:id/patient-checkin', PATIENT_ONLY, validate(patientCheckInSchema), patientAppointmentController.patientCheckIn);
+patientAppointmentRouter.post('/scan-checkin', PATIENT_ONLY, validate(scanCheckInSchema), patientAppointmentController.scanCheckIn);
 
 // ─── Operator/Super Admin routes — mounted under /api/admin/appointments ─────
 export const operatorAppointmentRouter = Router();
@@ -45,8 +46,6 @@ operatorAppointmentRouter.put('/clinic/:clinicId/discount', validate(setClinicDi
 export const clinicAppointmentRouter = Router();
 clinicAppointmentRouter.use(requireAuth, requireRole(['CLINIC_ADMIN']));
 clinicAppointmentRouter.get('/', clinicAppointmentController.list);
-clinicAppointmentRouter.post('/scan', validate(clinicScanSchema), clinicAppointmentController.scan);
-clinicAppointmentRouter.post('/confirm-cash', validate(confirmCashSchema), clinicAppointmentController.confirmCash);
 clinicAppointmentRouter.get('/checkin-qr', clinicAppointmentController.getCheckInQr);
 clinicAppointmentRouter.get('/:id', clinicAppointmentController.getById);
 clinicAppointmentRouter.post('/:id/accept', validate(clinicAcceptSchema), clinicAppointmentController.accept);
@@ -54,3 +53,4 @@ clinicAppointmentRouter.post('/:id/reschedule', validate(clinicRescheduleSchema)
 clinicAppointmentRouter.post('/:id/start', clinicAppointmentController.start);
 clinicAppointmentRouter.post('/:id/complete', validate(clinicCompleteSchema), clinicAppointmentController.complete);
 clinicAppointmentRouter.post('/:id/no-show', clinicAppointmentController.noShow);
+clinicAppointmentRouter.post('/:id/confirm-cash', validate(confirmCashSchema), clinicAppointmentController.confirmCash);

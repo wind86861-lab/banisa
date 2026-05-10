@@ -109,4 +109,24 @@ export const patientAppointmentController = {
             next(err);
         }
     },
+
+    /**
+     * POST /api/user/appointments/scan-checkin
+     * Smart QR check-in: resolves clinic from secret, finds patient's eligible
+     * appointment(s) at THAT clinic, and checks in if exactly one.
+     *
+     * Response shape:
+     *   { kind: 'checked_in', appointment }      // single eligible booking → done
+     *   { kind: 'already',    appointment }      // already CHECKED_IN/IN_PROGRESS/COMPLETED → idempotent
+     *   { kind: 'multiple',   appointments, clinic } // user must pick
+     *   { kind: 'none',       clinic }           // no eligible booking at this clinic
+     */
+    scanCheckIn: async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            const result = await appointmentService.scanCheckIn(req.user!.id, req.body.secret);
+            sendSuccess(res, result);
+        } catch (err) {
+            next(err);
+        }
+    },
 };

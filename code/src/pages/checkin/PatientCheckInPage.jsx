@@ -1,83 +1,73 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import axiosInstance from '../../shared/api/axios';
-import { Html5Qrcode } from 'html5-qrcode';
 import './CheckIn.css';
 
 /**
  * /checkin/:clinicSecret
  *
- * Opened when patient scans the clinic's wall QR.
- * 1. Ensure patient is logged in
- * 2. Request GPS (soft — skip on deny)
- * 3. Load patient's active PENDING_ARRIVAL appointments
- * 4. Show which appointment(s) to check-in
- * 5. POST /api/user/appointments/:id/patient-checkin
- * 6. Show success screen with patient's appointment QR
+ * Patient scans the clinic's wall QR → this page does ONE round-trip
+ * to /user/appointments/scan-checkin. Backend resolves clinic from secret
+ * and decides:
+ *   - kind=checked_in → success ticket (poll for cash confirm)
+ *   - kind=already    → success ticket (idempotent)
+ *   - kind=multiple   → user picks → POST /:id/patient-checkin
+ *   - kind=none       → "no booking at this clinic"
  */
 export default function PatientCheckInPage() {
     const { clinicSecret } = useParams();
     const navigate = useNavigate();
-    const { user } = useUserAuth();
+    const { user, isLoading: authLoading } = useUserAuth();
 
-    const [step, setStep] = useState('loading'); // loading | login | gps | select | confirming | success | error
-    const [appointments, setAppointments] = useState([]);
-    const [selected, setSelected] = useState(null);
-    const [gps, setGps] = useState(null);
-    const [gpsSkipped, setGpsSkipped] = useState(false);
-    const [clinicName, setClinicName] = useState('');
+    const [step, setStep] = useState('loading'); // loading | login | select | confirming | success | paid | error
+    const [clinic, setClinic] = useState(null);
+    const [pickList, setPickList] = useState([]);
     const [result, setResult] = useState(null);
     const [errMsg, setErrMsg] = useState('');
+    const pollRef = useRef(null);
 
-    // Step 1: auth check
+    // Resolve QR + check in (or pick) once auth is ready.
     useEffect(() => {
-        if (!user) {
-            setStep('login');
-            return;
-        }
-        fetchAppointments();
-    }, [user]);
+        if (authLoading) return;
+        if (!user) { setStep('login'); return; }
+        scan();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [authLoading, user]);
 
-    const fetchAppointments = async () => {
+    const scan = async () => {
+        setStep('loading');
         try {
-            const res = await axiosInstance.get('/user/appointments?status=PENDING_ARRIVAL&limit=10');
-            const items = res.data?.data?.items || res.data?.data || [];
-            if (items.length === 0) {
-                setErrMsg('Klinikaga kelish kutilayotgan bronlaringiz topilmadi.');
-                setStep('error');
-                return;
-            }
-            setAppointments(items);
-            if (items[0]?.clinic?.nameUz) setClinicName(items[0].clinic.nameUz);
-            setStep('gps');
-        } catch {
-            setErrMsg('Bronlaringizni yuklashda xatolik.');
+            const res = await axiosInstance.post('/user/appointments/scan-checkin', { secret: clinicSecret });
+            const data = res.data?.data;
+            handleResult(data);
+        } catch (e) {
+            setErrMsg(e.response?.data?.error?.message || e.response?.data?.message || 'Check-in xatoligi');
             setStep('error');
         }
     };
 
-    const requestGps = () => {
-        if (!navigator.geolocation) { setGpsSkipped(true); setStep('select'); return; }
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                setStep('select');
-            },
-            () => { setGpsSkipped(true); setStep('select'); },
-            { timeout: 8000 }
-        );
+    const handleResult = (data) => {
+        if (!data) { setErrMsg('Javob topilmadi'); setStep('error'); return; }
+        if (data.clinic) setClinic(data.clinic);
+
+        if (data.kind === 'none') {
+            setErrMsg(`${data.clinic?.nameUz || 'Bu klinika'}da bugun siz uchun bron topilmadi.`);
+            setStep('error');
+        } else if (data.kind === 'multiple') {
+            setPickList(data.appointments || []);
+            setStep('select');
+        } else {
+            // checked_in or already → both go to success ticket
+            setResult(data.appointment);
+            setStep(data.appointment?.paymentStatus === 'PAID' ? 'paid' : 'success');
+        }
     };
 
-    const skipGps = () => { setGpsSkipped(true); setStep('select'); };
-
-    const doCheckIn = async (appt) => {
-        setSelected(appt);
+    const pickAppointment = async (appt) => {
         setStep('confirming');
         try {
-            const body = { clinicSecret };
-            if (gps) { body.lat = gps.lat; body.lng = gps.lng; }
-            const res = await axiosInstance.post(`/user/appointments/${appt.id}/patient-checkin`, body);
+            const res = await axiosInstance.post(`/user/appointments/${appt.id}/patient-checkin`, { clinicSecret });
             setResult(res.data?.data);
             setStep('success');
         } catch (e) {
@@ -86,8 +76,29 @@ export default function PatientCheckInPage() {
         }
     };
 
+    // Poll appointment status while on success — flips to "paid" when reception confirms cash.
+    useEffect(() => {
+        if (step !== 'success' || !result?.id) return;
+        const tick = async () => {
+            try {
+                const res = await axiosInstance.get(`/user/appointments/${result.id}`);
+                const a = res.data?.data;
+                if (a && (a.status === 'COMPLETED' || a.paymentStatus === 'PAID')) {
+                    setResult((prev) => ({ ...prev, ...a }));
+                    setStep('paid');
+                }
+            } catch { /* keep polling */ }
+        };
+        pollRef.current = setInterval(tick, 5000);
+        return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    }, [step, result?.id]);
+
     const fmtDate = (d) => new Date(d).toLocaleDateString('uz-UZ', { day: '2-digit', month: 'short', year: 'numeric' });
-    const fmt = (n) => n ? Number(n).toLocaleString('en-US').replace(/,/g, '\u00A0') : '0';
+    const fmt = (n) => n ? Number(n).toLocaleString('en-US').replace(/,/g, ' ') : '0';
+
+    if (step === 'loading' || authLoading) return (
+        <div className="ci-page"><div className="ci-spinner" /></div>
+    );
 
     if (step === 'login') return (
         <div className="ci-page">
@@ -102,38 +113,23 @@ export default function PatientCheckInPage() {
         </div>
     );
 
-    if (step === 'loading') return (
-        <div className="ci-page"><div className="ci-spinner" /></div>
-    );
-
-    if (step === 'gps') return (
-        <div className="ci-page">
-            <div className="ci-card">
-                <div className="ci-icon">📍</div>
-                <h2>Joylashuvingizni ulashing</h2>
-                <p>Klinikada ekanligingizni tasdiqlash uchun GPS yordam beradi. Bu ixtiyoriy.</p>
-                <button className="ci-btn-primary" onClick={requestGps}>📍 Joylashuvni ulashish</button>
-                <button className="ci-btn-ghost" onClick={skipGps}>O'tkazib yuborish</button>
-            </div>
-        </div>
-    );
-
     if (step === 'select') return (
         <div className="ci-page">
             <div className="ci-card ci-card--wide">
                 <div className="ci-icon">✅</div>
                 <h2>Bronni tanlang</h2>
-                {gpsSkipped && <p className="ci-gps-note">📍 GPS almashilmadi — xodim tasdiqlaydi.</p>}
+                {clinic && <p style={{ color: '#64748b', fontSize: 13, marginTop: -8 }}>{clinic.nameUz}</p>}
                 <div className="ci-appt-list">
-                    {appointments.map(a => (
-                        <button key={a.id} className="ci-appt-item" onClick={() => doCheckIn(a)}>
-                            <div className="ci-appt-title">{a.diagnosticService?.nameUz || a.surgicalService?.nameUz || a.clinic?.nameUz || 'Xizmat'}</div>
+                    {pickList.map(a => (
+                        <button key={a.id} className="ci-appt-item" onClick={() => pickAppointment(a)}>
+                            <div className="ci-appt-title">
+                                {a.diagnosticService?.nameUz || a.surgicalService?.nameUz || a.checkupPackage?.nameUz || 'Xizmat'}
+                            </div>
                             <div className="ci-appt-meta">
-                                <span>🏥 {a.clinic?.nameUz}</span>
                                 <span>📅 {fmtDate(a.scheduledAt)}</span>
                                 <span>💰 {fmt(a.finalPrice || a.price)} so'm</span>
                             </div>
-                            <div className="ci-appt-badge">Kelish tasdiqlash →</div>
+                            <div className="ci-appt-badge">Tasdiqlash →</div>
                         </button>
                     ))}
                 </div>
@@ -145,40 +141,83 @@ export default function PatientCheckInPage() {
         <div className="ci-page"><div className="ci-spinner" /><p className="ci-loading-text">Tasdiqlanmoqda...</p></div>
     );
 
-    if (step === 'success' && result) return (
-        <div className="ci-page">
-            <div className="ci-card ci-card--success">
-                <div className="ci-success-icon">✓</div>
-                <h2>Kelishingiz tasdiqlandi!</h2>
-                <p className="ci-success-sub">Xodimga quyidagi ekranni ko'rsating — ular QR ni skanlaydi va naqd to'lovni qabul qiladi.</p>
+    if (step === 'success' && result) {
+        const original = Number(result.price || 0);
+        const finalP = Number(result.finalPrice || result.price || 0);
+        const discount = Math.max(0, original - finalP);
+        const discountPct = result.discountPercent || (original > 0 ? Math.round((discount / original) * 100) : 0);
 
-                <div className="ci-booking-info">
-                    <div className="ci-booking-row"><span>Bron №</span><strong>{result.bookingNumber}</strong></div>
-                    <div className="ci-booking-row"><span>Klinika</span><strong>{result.clinic?.nameUz}</strong></div>
-                    <div className="ci-booking-row"><span>To'lov</span><strong>{fmt(result.finalPrice || result.price)} so'm (naqd)</strong></div>
+        return (
+            <div className="ci-page">
+                <div className="ci-card ci-card--success">
+                    <div className="ci-success-icon">✓</div>
+                    <h2>Kelishingiz tasdiqlandi!</h2>
+                    <p className="ci-success-sub">Kassada quyidagi summani naqd to'lang.</p>
+
+                    <div className="ci-price-card">
+                        {discount > 0 && (
+                            <>
+                                <div className="ci-price-row">
+                                    <span>Asl narx</span>
+                                    <span className="ci-price-original">{fmt(original)} so'm</span>
+                                </div>
+                                <div className="ci-price-row ci-price-discount">
+                                    <span>Chegirma{discountPct ? ` (${discountPct}%)` : ''}</span>
+                                    <span>−{fmt(discount)} so'm</span>
+                                </div>
+                            </>
+                        )}
+                        <div className="ci-price-final-row">
+                            <span>To'lov summasi</span>
+                            <strong>{fmt(finalP)} so'm</strong>
+                        </div>
+                        <div className="ci-price-method">💰 Naqd — kassada</div>
+                    </div>
+
+                    <div className="ci-booking-info">
+                        <div className="ci-booking-row"><span>Bron №</span><strong>{result.bookingNumber}</strong></div>
+                        <div className="ci-booking-row"><span>Klinika</span><strong>{result.clinic?.nameUz}</strong></div>
+                    </div>
+
+                    <p style={{ color: '#64748b', fontSize: 12, marginTop: 12 }}>
+                        Xodim to'lovni tasdiqlagach, bu sahifa avtomatik yangilanadi
+                    </p>
                 </div>
-
-                <div className="ci-qr-wrap">
-                    <img
-                        src={`/api/user/appointments/${result.id}/qr.png`}
-                        alt="Bemor QR"
-                        className="ci-qr-img"
-                    />
-                    <p className="ci-qr-hint">Xodimga shu QR ni ko'rsating</p>
-                </div>
-
-                <button className="ci-btn-primary" onClick={() => navigate(`/user/appointments/${result.id}`)}>
-                    Bron tafsilotlarini ko'rish
-                </button>
             </div>
-        </div>
-    );
+        );
+    }
+
+    if (step === 'paid' && result) {
+        const finalP = Number(result.finalPrice || result.price || 0);
+        return (
+            <div className="ci-page">
+                <div className="ci-card ci-card--success">
+                    <div className="ci-success-icon" style={{ background: '#10b981' }}>✓</div>
+                    <h2>To'lov qabul qilindi</h2>
+                    <p className="ci-success-sub">Xizmat xonasiga o'ting — sizni shifokor kutmoqda.</p>
+                    <div className="ci-price-card">
+                        <div className="ci-price-final-row">
+                            <span>To'langan</span>
+                            <strong style={{ color: '#10b981' }}>{fmt(finalP)} so'm</strong>
+                        </div>
+                    </div>
+                    <div className="ci-booking-info">
+                        <div className="ci-booking-row"><span>Bron №</span><strong>{result.bookingNumber}</strong></div>
+                        <div className="ci-booking-row"><span>Klinika</span><strong>{result.clinic?.nameUz}</strong></div>
+                    </div>
+                    <button className="ci-btn-primary" onClick={() => navigate(`/user/appointments/${result.id}`)}>
+                        Bron tafsilotlari
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     if (step === 'error') return (
         <div className="ci-page">
             <div className="ci-card ci-card--error">
                 <div className="ci-icon">⚠️</div>
-                <h2>Xatolik</h2>
+                <h2>Bron topilmadi</h2>
                 <p>{errMsg}</p>
                 <button className="ci-btn-primary" onClick={() => navigate('/user/appointments')}>
                     Bronlarimga qaytish

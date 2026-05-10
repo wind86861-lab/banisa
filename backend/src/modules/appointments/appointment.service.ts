@@ -7,6 +7,7 @@ import {
     computePricing,
     logAppointmentEvent,
 } from './appointment.utils';
+import { notifyClinicAdmins } from '../notifications/notifications.service';
 
 /**
  * AppointmentService
@@ -213,7 +214,7 @@ export class AppointmentService {
     ) {
         const appt = await prisma.appointment.findUnique({ where: { id: appointmentId } });
         if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
-        assertStatus(appt.status, ['PENDING'], 'Faqat yangi bronni tasdiqlash mumkin');
+        assertStatus(appt.status, ['PENDING', 'PENDING_ARRIVAL'], 'Faqat yangi bronni tasdiqlash mumkin');
 
         // Optional discount override
         const discountPct = typeof payload.discountPercent === 'number'
@@ -408,48 +409,6 @@ export class AppointmentService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // CLINIC: Scan QR → check-in
-    // ─────────────────────────────────────────────────────────────
-    async clinicScanQr(actor: Actor, clinicId: string, qrToken: string) {
-        const appt = await prisma.appointment.findUnique({
-            where: { qrToken },
-            include: INCLUDE_FULL,
-        });
-        if (!appt) throw new AppError('QR kod topilmadi', 404, ErrorCodes.NOT_FOUND);
-        if (appt.clinicId !== clinicId) {
-            throw new AppError('Bu QR kod boshqa klinikaga tegishli', 403, ErrorCodes.FORBIDDEN);
-        }
-        if (appt.paymentStatus !== 'PAID') {
-            throw new AppError('Bron hali to\'lanmagan', 400, ErrorCodes.VALIDATION_ERROR);
-        }
-        // Idempotent: if already checked-in, just return it
-        if (['CHECKED_IN', 'IN_PROGRESS', 'COMPLETED'].includes(appt.status)) {
-            return appt;
-        }
-        assertStatus(appt.status, ['PAID'], 'Bronni check-in qilib bo\'lmaydi');
-
-        const updated = await prisma.appointment.update({
-            where: { id: appt.id },
-            data: {
-                status: 'CHECKED_IN',
-                checkedInAt: new Date(),
-                checkedInById: actor.userId,
-            },
-            include: INCLUDE_FULL,
-        });
-        await logAppointmentEvent({
-            appointmentId: appt.id,
-            action: 'CHECKED_IN',
-            oldStatus: appt.status,
-            newStatus: 'CHECKED_IN',
-            userId: actor.userId,
-            userRole: 'CLINIC',
-            userName: actor.name,
-        });
-        return updated;
-    }
-
-    // ─────────────────────────────────────────────────────────────
     // CLINIC: Start service (CHECKED_IN → IN_PROGRESS)
     // ─────────────────────────────────────────────────────────────
     async clinicStart(actor: Actor, clinicId: string, appointmentId: string) {
@@ -458,6 +417,14 @@ export class AppointmentService {
         });
         if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
         assertStatus(appt.status, ['CHECKED_IN']);
+
+        if ((appt as any).paymentStatus !== 'PAID') {
+            throw new AppError(
+                'Xizmatni boshlashdan oldin to\'lov tasdiqlanishi shart',
+                400,
+                ErrorCodes.VALIDATION_ERROR
+            );
+        }
 
         const updated = await prisma.appointment.update({
             where: { id: appointmentId },
@@ -682,45 +649,153 @@ export class AppointmentService {
             userRole: 'PATIENT',
             metadata: { method: 'PATIENT_QR', lat, lng },
         });
+
+        // Notify clinic admins (best-effort — never break check-in on notify failure)
+        try {
+            const fullName = [updated.patient?.firstName, updated.patient?.lastName]
+                .filter(Boolean).join(' ') || updated.patient?.phone || 'Bemor';
+            const serviceName =
+                (updated as any).diagnosticService?.nameUz ||
+                (updated as any).surgicalService?.nameUz ||
+                'Xizmat';
+            const finalPrice = (updated as any).finalPrice || (updated as any).price || 0;
+            const isCash = (updated as any).paymentMethod === 'CASH' || (updated as any).paymentStatus === 'UNPAID';
+            const formattedPrice = Number(finalPrice).toLocaleString('en-US').replace(/,/g, ' ');
+
+            await notifyClinicAdmins({
+                clinicId: clinic.id,
+                type: 'CHECK_IN',
+                title: '🆕 Yangi bemor keldi',
+                body: isCash
+                    ? `${fullName} — ${serviceName} — Naqd ${formattedPrice} so'm`
+                    : `${fullName} — ${serviceName}`,
+                priority: 'HIGH',
+                data: {
+                    appointmentId: appt.id,
+                    bookingNumber: (updated as any).bookingNumber,
+                    finalPrice,
+                    paymentMethod: (updated as any).paymentMethod,
+                    paymentStatus: (updated as any).paymentStatus,
+                },
+                link: `/clinic/bookings?focus=${appt.id}`,
+            });
+        } catch (e) {
+            console.error('[patientCheckIn] notify failed:', e);
+        }
+
         return updated;
     }
 
     // ─────────────────────────────────────────────────────────────
-    // CLINIC STAFF: Scan patient QR → confirm cash payment
-    // (CHECKED_IN → PAID)
+    // PATIENT: One-shot QR check-in
+    //   secret → clinic → patient's eligible booking at that clinic
+    //   - 1 eligible PENDING_ARRIVAL → check in (delegates to patientCheckIn for notify+audit)
+    //   - 1 already CHECKED_IN/IN_PROGRESS/COMPLETED → idempotent return
+    //   - >1 eligible → caller picks
+    //   - 0 → tell caller no booking
     // ─────────────────────────────────────────────────────────────
-    async staffConfirmCash(actor: Actor, clinicId: string, qrToken: string) {
-        const appt = await prisma.appointment.findUnique({
-            where: { qrToken },
+    async scanCheckIn(patientId: string, secret: string) {
+        const clinic = await prisma.clinic.findFirst({
+            where: { checkInSecret: secret } as any,
+            select: { id: true, nameUz: true },
+        });
+        if (!clinic) {
+            throw new AppError('QR kod noto\'g\'ri yoki eskirgan', 404, ErrorCodes.NOT_FOUND);
+        }
+
+        const eligible = await prisma.appointment.findMany({
+            where: {
+                patientId,
+                clinicId: clinic.id,
+                status: { in: ['PENDING_ARRIVAL', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED'] },
+            },
+            orderBy: { scheduledAt: 'asc' },
             include: INCLUDE_FULL,
         });
-        if (!appt) throw new AppError('Bemor QR kodi topilmadi', 404, ErrorCodes.NOT_FOUND);
-        if (appt.clinicId !== clinicId) throw new AppError('Bu bron boshqa klinikaga tegishli', 403, ErrorCodes.FORBIDDEN);
-        if (appt.paymentMethod !== 'CASH') throw new AppError('Bu bron naqd to\'lov uchun emas', 400, ErrorCodes.VALIDATION_ERROR);
-        if (appt.paymentStatus === 'PAID') return appt; // idempotent
-        if (appt.status !== 'CHECKED_IN') throw new AppError('Bemor hali klinikada check-in qilmagan', 400, ErrorCodes.VALIDATION_ERROR);
+
+        if (eligible.length === 0) {
+            return { kind: 'none' as const, clinic };
+        }
+
+        // Already checked-in / in-progress / paid → idempotent
+        const ongoing = eligible.find((a) => a.status !== 'PENDING_ARRIVAL');
+        if (eligible.length === 1 && ongoing) {
+            return { kind: 'already' as const, appointment: ongoing };
+        }
+
+        const pending = eligible.filter((a) => a.status === 'PENDING_ARRIVAL');
+        if (pending.length === 1 && !ongoing) {
+            const checkedIn = await this.patientCheckIn(patientId, pending[0].id, secret);
+            return { kind: 'checked_in' as const, appointment: checkedIn };
+        }
+        if (pending.length === 0 && ongoing) {
+            return { kind: 'already' as const, appointment: ongoing };
+        }
+
+        // Multiple PENDING_ARRIVAL or mixed — let caller pick.
+        return { kind: 'multiple' as const, clinic, appointments: eligible };
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // CLINIC: Confirm cash payment (CHECKED_IN, paymentStatus UNPAID → PAID)
+    // ─────────────────────────────────────────────────────────────
+    async clinicConfirmCash(
+        actor: Actor,
+        clinicId: string,
+        appointmentId: string,
+        payload: { amount: number; note?: string }
+    ) {
+        const appt = await prisma.appointment.findFirst({
+            where: { id: appointmentId, clinicId },
+        });
+        if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
+
+        if (!['CHECKED_IN', 'IN_PROGRESS'].includes(appt.status as any)) {
+            throw new AppError(
+                'Naqd to\'lov faqat bemor kelganidan so\'ng tasdiqlanadi',
+                400,
+                ErrorCodes.VALIDATION_ERROR
+            );
+        }
+        if ((appt as any).paymentStatus === 'PAID') {
+            throw new AppError('Bu bron allaqachon to\'langan', 400, ErrorCodes.VALIDATION_ERROR);
+        }
+
+        const expected = (appt as any).finalPrice || (appt as any).price || 0;
+        if (payload.amount < expected && !payload.note) {
+            throw new AppError(
+                'Kam summa qabul qilish uchun sabab kiritish shart',
+                400,
+                ErrorCodes.VALIDATION_ERROR
+            );
+        }
 
         const updated = await prisma.appointment.update({
-            where: { id: appt.id },
+            where: { id: appointmentId },
             data: {
                 paymentStatus: 'PAID',
+                paymentMethod: 'CASH',
+                paidAmount: payload.amount,
                 paidAt: new Date(),
-                paidAmount: appt.finalPrice,
-                status: 'IN_PROGRESS',
-                startedAt: new Date(),
-            },
+                cashConfirmedById: actor.userId,
+                cashConfirmedAt: new Date(),
+                cashReceivedAmount: payload.amount,
+                cashAdjustmentNote: payload.note ?? null,
+            } as any,
             include: INCLUDE_FULL,
         });
+
         await logAppointmentEvent({
-            appointmentId: appt.id,
-            action: 'PAID',
+            appointmentId,
+            action: 'CASH_CONFIRMED',
             oldStatus: appt.status,
-            newStatus: 'IN_PROGRESS',
+            newStatus: appt.status,
             userId: actor.userId,
             userRole: 'CLINIC',
             userName: actor.name,
-            metadata: { method: 'CASH', amount: appt.finalPrice },
+            metadata: { amount: payload.amount, expected, note: payload.note },
         });
+
         return updated;
     }
 

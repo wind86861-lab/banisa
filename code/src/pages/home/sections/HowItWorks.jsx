@@ -14,8 +14,8 @@ const STEPS = [
     {
         num: 3,
         icon: '💰',
-        title: 'Naqd to\'lov',
-        desc: "Klinikaga kelib kassada naqd to'lang — qulay va xavfsiz",
+        title: "Barcha turdagi to'lovlar",
+        desc: "Naqd, karta, Payme, Click va boshqa usullar — sizga qulay bo'lganini tanlang",
     },
 ];
 

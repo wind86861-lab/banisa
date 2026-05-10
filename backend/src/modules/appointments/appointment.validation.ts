@@ -44,12 +44,6 @@ export const clinicRescheduleSchema = z.object({
     }),
 });
 
-export const clinicScanSchema = z.object({
-    body: z.object({
-        qrToken: z.string().min(10, 'QR kod noto\'g\'ri'),
-    }),
-});
-
 export const clinicCompleteSchema = z.object({
     body: z.object({
         note: z.string().max(1000).optional(),
@@ -70,8 +64,16 @@ export const patientCheckInSchema = z.object({
     }),
 });
 
-export const confirmCashSchema = z.object({
+export const scanCheckInSchema = z.object({
     body: z.object({
-        qrToken: z.string().min(10, 'Bemor QR kodi noto\'g\'ri'),
+        secret: z.string().min(5, 'QR kod noto\'g\'ri'),
     }),
 });
+
+export const confirmCashSchema = z.object({
+    body: z.object({
+        amount: z.number().int().nonnegative('Summa musbat son bo\'lishi kerak'),
+        note: z.string().max(500).optional(),
+    }),
+});
+

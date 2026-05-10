@@ -88,7 +88,7 @@ export default function HeroNew({ stats }) {
                 <p className="hn-hero-sub">
                     {serviceCount > 0 && clinicCount > 0
                         ? `${serviceCount.toLocaleString('uz-UZ')}+ xizmat · ${clinicCount}+ tasdiqlangan klinika · O'zbekiston bo'ylab`
-                        : 'Klinika tanlang, xizmat bron qiling, naqd to\'lang — bir necha klikda'}
+                        : 'Klinika tanlang, xizmat bron qiling, istalgan usulda to\'lang — bir necha klikda'}
                 </p>
 
                 <div className="hn-search-wrap" ref={wrapRef}>
@@ -208,7 +208,7 @@ export default function HeroNew({ stats }) {
                 </div>
 
                 <div className="hn-hero-trust">
-                    <span className="hn-hero-trust-item"><Wallet size={15} /> Naqd to'lov</span>
+                    <span className="hn-hero-trust-item"><Wallet size={15} /> Barcha turdagi to'lovlar</span>
                     <span className="hn-hero-trust-item"><Clock size={15} /> Tezkor bron</span>
                     <span className="hn-hero-trust-item"><Shield size={15} /> Tasdiqlangan klinikalar</span>
                 </div>

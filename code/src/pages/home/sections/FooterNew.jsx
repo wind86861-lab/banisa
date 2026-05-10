@@ -20,7 +20,7 @@ export default function FooterNew() {
                 <div className="hn-foot-grid">
                     <div className="hn-foot-brand">
                         <h3>🩺 BANISA</h3>
-                        <p>O'zbekistonda tibbiyot xizmatlarini bron qilish platformasi. Tasdiqlangan klinikalar, oson bron, naqd to'lov.</p>
+                        <p>O'zbekistonda tibbiyot xizmatlarini bron qilish platformasi. Tasdiqlangan klinikalar, oson bron, barcha turdagi to'lovlar.</p>
                         <div className="hn-foot-contact">
                             <div>📞 +998 71 200 00 00</div>
                             <div>✉ info@banisa.uz</div>
