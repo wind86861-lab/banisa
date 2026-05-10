@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Bell, BellOff, CheckCheck, Clock, Calendar,
     Star, Package, AlertCircle, Info, Megaphone,
     Settings, RefreshCw, Loader2, X, Filter,
     ToggleLeft, ToggleRight, ChevronRight,
+    UserCheck, Wallet,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../shared/api/axios';
@@ -22,13 +24,17 @@ const timeAgo = (dateStr) => {
 
 /* ─── notification type config ─── */
 const TYPE_CONFIG = {
-    BOOKING:       { icon: Calendar,    color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  label: 'Bron' },
-    REVIEW:        { icon: Star,        color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  label: 'Sharh' },
-    SYSTEM:        { icon: Info,        color: '#6366f1', bg: 'rgba(99,102,241,0.1)',  label: 'Tizim' },
-    PROMOTION:     { icon: Megaphone,   color: '#10b981', bg: 'rgba(16,185,129,0.1)',  label: 'Aksiya' },
-    REMINDER:      { icon: Clock,       color: '#f97316', bg: 'rgba(249,115,22,0.1)',  label: 'Eslatma' },
-    SERVICE:       { icon: Package,     color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)',  label: 'Xizmat' },
-    ALERT:         { icon: AlertCircle, color: '#ef4444', bg: 'rgba(239,68,68,0.1)',   label: 'Ogohlantirish' },
+    BOOKING:          { icon: Calendar,    color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  label: 'Bron' },
+    CHECK_IN:         { icon: UserCheck,   color: '#10b981', bg: 'rgba(16,185,129,0.12)', label: 'Bemor keldi' },
+    NEW_BOOKING:      { icon: Calendar,    color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  label: 'Yangi bron' },
+    PAYMENT_RECEIVED: { icon: Wallet,      color: '#10b981', bg: 'rgba(16,185,129,0.1)',  label: 'To\'lov' },
+    REVIEW:           { icon: Star,        color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  label: 'Sharh' },
+    SYSTEM:           { icon: Info,        color: '#6366f1', bg: 'rgba(99,102,241,0.1)',  label: 'Tizim' },
+    PROMOTION:        { icon: Megaphone,   color: '#10b981', bg: 'rgba(16,185,129,0.1)',  label: 'Aksiya' },
+    REMINDER:         { icon: Clock,       color: '#f97316', bg: 'rgba(249,115,22,0.1)',  label: 'Eslatma' },
+    SERVICE:          { icon: Package,     color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)',  label: 'Xizmat' },
+    ALERT:            { icon: AlertCircle, color: '#ef4444', bg: 'rgba(239,68,68,0.1)',   label: 'Ogohlantirish' },
+    GENERAL:          { icon: Info,        color: '#6366f1', bg: 'rgba(99,102,241,0.1)',  label: 'Xabar' },
 };
 
 const DEFAULT_SETTINGS = {
@@ -91,22 +97,24 @@ const useSaveSettings = () => {
 };
 
 /* ─── sub-components ─── */
-function NotificationItem({ n, onMarkRead }) {
+function NotificationItem({ n, onClick }) {
     const cfg = TYPE_CONFIG[n.type] || TYPE_CONFIG.SYSTEM;
     const Icon = cfg.icon;
     const isUnread = !n.isRead;
 
     return (
         <div
-            onClick={() => isUnread && onMarkRead(n.id)}
+            onClick={() => onClick(n)}
             style={{
                 display: 'flex', gap: 14, padding: '14px 20px',
                 borderBottom: '1px solid var(--border-color)',
                 background: isUnread ? 'rgba(0,189,224,0.04)' : 'transparent',
-                cursor: isUnread ? 'pointer' : 'default',
+                cursor: 'pointer',
                 transition: 'background 0.15s',
                 position: 'relative',
             }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.04)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = isUnread ? 'rgba(0,189,224,0.04)' : 'transparent'}
         >
             {/* Unread dot */}
             {isUnread && (
@@ -194,6 +202,7 @@ const TABS = [
 ];
 
 export default function ClinicNotifications() {
+    const navigate = useNavigate();
     const [tab, setTab] = useState('all');
     const [view, setView] = useState('history');  // 'history' | 'settings'
     const [settingsLocal, setSettingsLocal] = useState(null);
@@ -322,7 +331,10 @@ export default function ClinicNotifications() {
                                 <NotificationItem
                                     key={n.id}
                                     n={n}
-                                    onMarkRead={(id) => markReadMut.mutate(id)}
+                                    onClick={(item) => {
+                                        if (!item.isRead) markReadMut.mutate(item.id);
+                                        if (item.link) navigate(item.link);
+                                    }}
                                 />
                             ))}
                         </div>

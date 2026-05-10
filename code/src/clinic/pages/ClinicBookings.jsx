@@ -251,7 +251,7 @@ function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash }) {
 }
 
 export default function ClinicBookings() {
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [viewMode, setViewMode] = useState('list');
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState(searchParams.get('status') || 'ALL');
@@ -267,6 +267,24 @@ export default function ClinicBookings() {
     const meta = data?.meta ?? {};
 
     useEffect(() => { setPage(1); }, [status, search]);
+
+    // Auto-open drawer when /clinic/bookings?focus=<id> — e.g. clicked from notification.
+    const focusId = searchParams.get('focus');
+    useEffect(() => {
+        if (!focusId || drawer?.id === focusId) return;
+        const hit = bookings.find((b) => b.id === focusId);
+        if (hit) {
+            setDrawer(hit);
+            const next = new URLSearchParams(searchParams);
+            next.delete('focus');
+            setSearchParams(next, { replace: true });
+        }
+        // If not in current page, broaden filter so it can be found.
+        else if (status !== 'ALL') {
+            setStatus('ALL');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [focusId, bookings]);
 
     const handleConfirm = (booking, mode) => {
         const action = mode === 'complete' ? 'complete'

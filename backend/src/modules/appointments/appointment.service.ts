@@ -7,7 +7,7 @@ import {
     computePricing,
     logAppointmentEvent,
 } from './appointment.utils';
-import { notifyClinicAdmins } from '../notifications/notifications.service';
+import { notifyClinicAdmins, notifyUser } from '../notifications/notifications.service';
 
 /**
  * AppointmentService
@@ -795,6 +795,22 @@ export class AppointmentService {
             userName: actor.name,
             metadata: { amount: payload.amount, expected, note: payload.note },
         });
+
+        // Notify patient that payment was received (best-effort).
+        try {
+            const formatted = Number(payload.amount).toLocaleString('en-US').replace(/,/g, ' ');
+            await notifyUser({
+                userId: appt.patientId,
+                type: 'PAYMENT_RECEIVED',
+                title: '✅ To\'lovingiz qabul qilindi',
+                body: `${formatted} so'm naqd to'lov tasdiqlandi`,
+                priority: 'HIGH',
+                data: { appointmentId, amount: payload.amount },
+                link: `/user/appointments/${appointmentId}`,
+            });
+        } catch (e) {
+            console.error('[clinicConfirmCash] notify patient failed:', e);
+        }
 
         return updated;
     }
