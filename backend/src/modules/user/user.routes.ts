@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { userController } from './user.controller';
+import { getHomeSummary } from './user-home-summary.controller';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
 import { validate } from '../../middleware/validate.middleware';
 import { updateProfileSchema, createReviewSchema, createAppointmentSchema } from './user.validation';
@@ -14,6 +15,7 @@ const router = Router();
 router.use(requireAuth);
 
 // Profile routes
+router.get('/home-summary', getHomeSummary);
 router.get('/profile', userController.getProfile);
 router.put('/profile', validate(updateProfileSchema), userController.updateProfile);
 
