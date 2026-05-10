@@ -3,10 +3,11 @@ import { useSearchParams } from 'react-router-dom';
 import {
     Search, List, LayoutGrid, Eye, CheckCircle2,
     XCircle, RefreshCw, Loader2, Calendar, Clock,
-    User, Phone, Stethoscope, X, AlertTriangle,
+    User, Phone, Stethoscope, X, AlertTriangle, Wallet,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useClinicBookings, useUpdateBookingStatus } from '../hooks/useClinicData';
+import CashConfirmModal from '../components/CashConfirmModal';
 import './clinic-admin.css';
 
 const STATUS_OPTS = [
@@ -54,6 +55,11 @@ function StatusBadge({ status }) {
     return <span className={`ca-badge ${s.cls}`}>{s.label}</span>;
 }
 
+const needsCashConfirm = (b) =>
+    b?.status === 'CHECKED_IN' && b?.paymentStatus !== 'PAID';
+const canStart = (b) =>
+    b?.status === 'CHECKED_IN' && b?.paymentStatus === 'PAID';
+
 function ConfirmDialog({ booking, action, onConfirm, onClose }) {
     const isDanger = action === 'no_show';
     const titles = {
@@ -99,7 +105,7 @@ function ConfirmDialog({ booking, action, onConfirm, onClose }) {
     );
 }
 
-function BookingDrawer({ booking, onClose, onConfirm, onCancel }) {
+function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash }) {
     if (!booking) return null;
     const patient = booking.patient ?? {};
     const doctor = booking.doctor ?? null;
@@ -214,7 +220,20 @@ function BookingDrawer({ booking, onClose, onConfirm, onCancel }) {
                                 <CheckCircle2 size={15} /> Qabul qilish
                             </button>
                         )}
-                        {booking.status === 'CHECKED_IN' && (
+                        {needsCashConfirm(booking) && (
+                            <button
+                                onClick={() => onCash && onCash(booking)}
+                                style={{
+                                    background: '#10b981', color: '#fff',
+                                    border: 'none', padding: '10px 16px',
+                                    borderRadius: 10, fontSize: 14, fontWeight: 600,
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                                }}
+                            >
+                                <Wallet size={15} /> Naqdni qabul qilish
+                            </button>
+                        )}
+                        {canStart(booking) && (
                             <button className="ca-btn-primary" onClick={() => onConfirm(booking, 'start')}>
                                 <CheckCircle2 size={15} /> Xizmatni boshlash
                             </button>
@@ -239,6 +258,7 @@ export default function ClinicBookings() {
     const [page, setPage] = useState(1);
     const [drawer, setDrawer] = useState(null);
     const [dialog, setDialog] = useState(null);
+    const [cashBooking, setCashBooking] = useState(null);
 
     const { data, isLoading, refetch } = useClinicBookings({ status, search, page, limit: 20 });
     const updateStatus = useUpdateBookingStatus();
@@ -374,7 +394,17 @@ export default function ClinicBookings() {
                                                     <CheckCircle2 size={15} />
                                                 </button>
                                             )}
-                                            {b.status === 'CHECKED_IN' && (
+                                            {needsCashConfirm(b) && (
+                                                <button
+                                                    className="ca-icon-btn"
+                                                    style={{ background: '#10b981', color: '#fff' }}
+                                                    title="Naqdni qabul qilish"
+                                                    onClick={() => setCashBooking(b)}
+                                                >
+                                                    <Wallet size={15} />
+                                                </button>
+                                            )}
+                                            {canStart(b) && (
                                                 <button className="ca-icon-btn success" title="Boshlash" onClick={() => setDialog({ booking: b, action: 'start' })}>
                                                     <CheckCircle2 size={15} />
                                                 </button>
@@ -440,7 +470,12 @@ export default function ClinicBookings() {
                                         <CheckCircle2 size={15} />
                                     </button>
                                 )}
-                                {b.status === 'CHECKED_IN' && (
+                                {needsCashConfirm(b) && (
+                                    <button className="ca-icon-btn" style={{ background: '#10b981', color: '#fff' }} title="Naqdni qabul qilish" onClick={() => setCashBooking(b)}>
+                                        <Wallet size={15} />
+                                    </button>
+                                )}
+                                {canStart(b) && (
                                     <button className="ca-icon-btn success" title="Boshlash" onClick={() => setDialog({ booking: b, action: 'start' })}>
                                         <CheckCircle2 size={15} />
                                     </button>
@@ -463,6 +498,7 @@ export default function ClinicBookings() {
                         booking={drawer}
                         onClose={() => setDrawer(null)}
                         onConfirm={handleConfirm}
+                        onCash={(b) => { setCashBooking(b); setDrawer(null); }}
                     />
                 )}
             </AnimatePresence>
@@ -474,6 +510,15 @@ export default function ClinicBookings() {
                     action={dialog.action}
                     onConfirm={executeAction}
                     onClose={() => setDialog(null)}
+                />
+            )}
+
+            {/* Cash confirmation */}
+            {cashBooking && (
+                <CashConfirmModal
+                    booking={cashBooking}
+                    onClose={() => setCashBooking(null)}
+                    onSuccess={() => refetch()}
                 />
             )}
         </div>

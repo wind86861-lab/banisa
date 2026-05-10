@@ -10,18 +10,18 @@ import '../../../pages/Clinics.css';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TABS = [
-    { id: 'all', label: 'Barcha klinikalar', filters: {}, showSourceBadge: true, enableWorkflow: false },
-    { id: 'admin', label: 'Admin kiritgan', filters: { source: 'ADMIN_CREATED' }, showSourceBadge: false, enableWorkflow: false },
+    { id: 'all', label: 'Barcha klinikalar', filters: { isActive: 'true' }, showSourceBadge: true, enableWorkflow: false },
+    { id: 'admin', label: 'Admin kiritgan', filters: { source: 'ADMIN_CREATED', isActive: 'true' }, showSourceBadge: false, enableWorkflow: false },
     { id: 'registrations', label: 'Arizalar', filters: { source: 'SELF_REGISTERED' }, showSourceBadge: false, enableWorkflow: true },
 ];
 
 // ─── Badge count hook ─────────────────────────────────────────────────────────
 
 const useBadgeCounts = () => {
-    const allQ = useClinics({ limit: 1 });
+    const allQ = useClinics({ isActive: 'true', limit: 1 });
     const selfQ = useClinics({ source: 'SELF_REGISTERED', limit: 1 });
     const pendingQ = useClinics({ source: 'SELF_REGISTERED', status: 'PENDING', limit: 1 });
-    const adminQ = useClinics({ source: 'ADMIN_CREATED', status: 'APPROVED', limit: 1 });
+    const adminQ = useClinics({ source: 'ADMIN_CREATED', isActive: 'true', limit: 1 });
 
     return {
         all: allQ.data?.meta?.total ?? 0,

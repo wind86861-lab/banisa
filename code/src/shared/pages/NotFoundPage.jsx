@@ -7,8 +7,8 @@ export default function NotFoundPage() {
   const navigate = useNavigate();
 
   const handleGoHome = () => {
-    if (!user) {
-      navigate('/login');
+    if (!user || user.role === 'PATIENT') {
+      navigate('/');
     } else if (user.role === 'SUPER_ADMIN') {
       navigate('/admin/dashboard');
     } else if (user.role === 'CLINIC_ADMIN') {
@@ -18,7 +18,7 @@ export default function NotFoundPage() {
         navigate('/clinic/dashboard');
       }
     } else {
-      navigate('/login');
+      navigate('/');
     }
   };
 

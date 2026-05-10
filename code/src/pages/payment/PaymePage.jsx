@@ -8,17 +8,8 @@ import {
 import axiosInstance from '../../shared/api/axios';
 import './PaymePage.css';
 
-// IMPORTANT: You need to register at https://test.paycom.uz to get a valid test merchant ID
-// The test merchant ID must be obtained from your Payme test dashboard
-// For now, using production merchant ID (payments will fail but form will work)
-const MERCHANT_ID_PROD = '6899d73ecab302211ad27f12';
-const PAYME_URL_PROD = 'https://checkout.paycom.uz';
-const PAYME_URL_TEST = 'https://checkout.test.paycom.uz';
-
-// Use test mode in development - NOTE: You need a valid test merchant ID from Payme
-const IS_TEST_MODE = !import.meta.env.PROD;
-const MERCHANT_ID = MERCHANT_ID_PROD; // Using prod ID until valid test ID is obtained
-const PAYME_CHECKOUT = IS_TEST_MODE ? PAYME_URL_TEST : PAYME_URL_PROD;
+const MERCHANT_ID = '69e72340adc989d99c87540a';
+const PAYME_CHECKOUT = 'https://checkout.paycom.uz';
 
 const fmt = (n) => new Intl.NumberFormat('uz-UZ').format(Number(n));
 
@@ -32,6 +23,34 @@ export default function PaymePage() {
     const [orderId, setOrderId] = useState('');
     const [creatingAppointment, setCreatingAppointment] = useState(false);
     const [error, setError] = useState('');
+    const [clinicPaymentMethods, setClinicPaymentMethods] = useState([]);
+    const [checkingClinic, setCheckingClinic] = useState(true);
+
+    // Check if clinic supports Payme
+    useEffect(() => {
+        if (!bookingData?.clinicId) {
+            setCheckingClinic(false);
+            return;
+        }
+
+        axiosInstance.get(`/public/clinics/${bookingData.clinicId}`)
+            .then(res => {
+                const clinic = res.data.data;
+                const methods = Array.isArray(clinic.paymentMethods) ? clinic.paymentMethods : [];
+                setClinicPaymentMethods(methods);
+
+                if (!methods.includes('PAYME')) {
+                    setError('Bu klinika onlayn to\'lovni qo\'llab-quvvatlamaydi. Iltimos, naqd to\'lov usulini tanlang.');
+                }
+            })
+            .catch(err => {
+                console.error('Failed to fetch clinic payment methods:', err);
+                setError('Klinika ma\'lumotlarini yuklashda xatolik');
+            })
+            .finally(() => {
+                setCheckingClinic(false);
+            });
+    }, [bookingData?.clinicId]);
 
     // Create appointment first, then use its real ID for Payme
     // If skipCreate is true (cart checkout already created it), use the provided appointmentId
@@ -55,7 +74,7 @@ export default function PaymePage() {
                 .catch(err => { setError(err.response?.data?.error?.message || 'Bron yaratishda xatolik yuz berdi'); })
                 .finally(() => { setCreatingAppointment(false); });
         }
-    }, [bookingData, orderId, creatingAppointment, error]);
+    }, [bookingData, orderId, creatingAppointment, error, checkingClinic]);
 
     const amountUZS = bookingData?.price || parseInt(params.get('amount') || '0', 10);
     const amountTiyin = amountUZS * 100;
@@ -68,6 +87,19 @@ export default function PaymePage() {
         : '';
     const callbackUrl = `${window.location.origin}/payment/result?order_id=${orderId}`;
     const ready = !!orderId && amountUZS > 0;
+
+    // ── Checking clinic screen ────────────────────────────────────────────────
+    if (checkingClinic) {
+        return (
+            <div className="pay-root">
+                <div className="pay-state-screen">
+                    <Loader2 size={44} className="pay-spin" />
+                    <h2>Klinika tekshirilmoqda</h2>
+                    <p>Iltimos, kuting...</p>
+                </div>
+            </div>
+        );
+    }
 
     // ── Loading screen ────────────────────────────────────────────────────────
     if (creatingAppointment) {
@@ -124,22 +156,8 @@ export default function PaymePage() {
                     <Link to="/xizmatlar" className="pay-topbar-back">
                         <ArrowLeft size={16} /> Orqaga
                     </Link>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        {IS_TEST_MODE && (
-                            <div style={{
-                                padding: '4px 8px',
-                                background: '#FEF3C7',
-                                color: '#92400E',
-                                borderRadius: '4px',
-                                fontSize: '11px',
-                                fontWeight: 600
-                            }}>
-                                TEST MODE
-                            </div>
-                        )}
-                        <div className="pay-topbar-secure">
-                            <Lock size={13} /> Xavfsiz to'lov
-                        </div>
+                    <div className="pay-topbar-secure">
+                        <Lock size={13} /> Xavfsiz to'lov
                     </div>
                 </div>
 

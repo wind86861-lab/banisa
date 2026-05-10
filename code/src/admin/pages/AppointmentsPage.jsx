@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-    Phone, CheckCircle2, XCircle, Search, Calendar, User, Building2,
-    Tag, Eye, RefreshCw, AlertCircle, Loader2
+    Search, Calendar, User, Building2, Tag, RefreshCw, AlertCircle, Loader2,
+    ArrowRight
 } from 'lucide-react';
 import api from '../../shared/api/axios';
-import OperatorCallModal from './OperatorCallModal';
-import AppointmentDetailModal from './AppointmentDetailModal';
+import AppointmentDrawer from './AppointmentDrawer';
 import './AppointmentsPage.css';
 
 const STATUS_FILTERS = [
@@ -45,8 +44,7 @@ export default function AppointmentsPage() {
     const [search, setSearch] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const [page, setPage] = useState(1);
-    const [callModal, setCallModal] = useState(null);
-    const [detailModal, setDetailModal] = useState(null);
+    const [drawerId, setDrawerId] = useState(null);
     const qc = useQueryClient();
 
     const { data: stats } = useQuery({
@@ -76,21 +74,6 @@ export default function AppointmentsPage() {
 
     const afterMutation = () => {
         qc.invalidateQueries({ queryKey: ['admin', 'appointments'] });
-    };
-
-    const cancelBooking = async (appt) => {
-        const reason = window.prompt(`Bekor qilish sababi (${appt.bookingNumber}):`, '');
-        if (reason === null) return;
-        if (!reason.trim()) {
-            alert('Iltimos sababni kiriting');
-            return;
-        }
-        try {
-            await api.post(`/admin/appointments/${appt.id}/cancel`, { reason: reason.trim() });
-            afterMutation();
-        } catch (e) {
-            alert(e.response?.data?.message || 'Xatolik yuz berdi');
-        }
     };
 
     return (
@@ -149,8 +132,8 @@ export default function AppointmentsPage() {
                     onChange={(e) => setSearchInput(e.target.value)}
                 />
                 {searchInput && (
-                    <button type="button" onClick={() => { setSearchInput(''); setSearch(''); }}>
-                        <XCircle size={16} />
+                    <button type="button" className="ap-search-clear" onClick={() => { setSearchInput(''); setSearch(''); }}>
+                        <span className="ap-icon-x">×</span>
                     </button>
                 )}
             </form>
@@ -190,26 +173,22 @@ export default function AppointmentsPage() {
                                             <span>{appt.patient?.firstName} {appt.patient?.lastName}</span>
                                         </div>
                                         <div className="ap-info">
-                                            <Phone size={14} />
-                                            <span>{appt.patient?.phone}</span>
-                                        </div>
-                                        <div className="ap-info">
-                                            <Building2 size={14} />
-                                            <span>{appt.clinic?.nameUz}</span>
-                                        </div>
-                                        <div className="ap-info">
                                             <Calendar size={14} />
                                             <span>{date.toLocaleDateString('uz-UZ')} — {date.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}</span>
                                         </div>
                                         <div className="ap-info">
-                                            <Tag size={14} />
-                                            <span>{service}</span>
+                                            <Building2 size={14} />
+                                            <span>{appt.clinic?.nameUz}</span>
                                         </div>
                                         <div className="ap-info ap-price">
                                             <strong>{fmt(appt.finalPrice)} so'm</strong>
                                             {appt.discountPercent > 0 && (
                                                 <span className="ap-discount-badge">-{appt.discountPercent}%</span>
                                             )}
+                                        </div>
+                                        <div className="ap-info ap-service" title={service}>
+                                            <Tag size={14} />
+                                            <span>{service}</span>
                                         </div>
                                     </div>
 
@@ -221,35 +200,11 @@ export default function AppointmentsPage() {
                                 </div>
 
                                 <div className="ap-card-actions">
-                                    {appt.status === 'PENDING' && (
-                                        <button
-                                            className="ap-btn ap-btn-primary"
-                                            onClick={() => setCallModal(appt)}
-                                        >
-                                            <Phone size={16} /> Telefon qilish
-                                        </button>
-                                    )}
-                                    {appt.status === 'PENDING_ARRIVAL' && appt.patient?.phone && (
-                                        <a
-                                            className="ap-btn ap-btn-primary"
-                                            href={`tel:${appt.patient.phone}`}
-                                        >
-                                            <Phone size={16} /> {appt.patient.phone}
-                                        </a>
-                                    )}
-                                    {['PENDING', 'PENDING_ARRIVAL', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED', 'PAID'].includes(appt.status) && (
-                                        <button
-                                            className="ap-btn ap-btn-danger"
-                                            onClick={() => cancelBooking(appt)}
-                                        >
-                                            <XCircle size={16} /> Bekor qilish
-                                        </button>
-                                    )}
                                     <button
-                                        className="ap-btn ap-btn-secondary"
-                                        onClick={() => setDetailModal(appt)}
+                                        className="ap-btn ap-btn-view"
+                                        onClick={() => setDrawerId(appt.id)}
                                     >
-                                        <Eye size={16} /> Tafsilot
+                                        Ko'rish <ArrowRight size={14} />
                                     </button>
                                 </div>
                             </div>
@@ -267,17 +222,12 @@ export default function AppointmentsPage() {
                 </div>
             )}
 
-            {callModal && (
-                <OperatorCallModal
-                    appointment={callModal}
-                    onClose={() => setCallModal(null)}
-                    onDone={() => { setCallModal(null); afterMutation(); }}
-                />
-            )}
-            {detailModal && (
-                <AppointmentDetailModal
-                    appointmentId={detailModal.id}
-                    onClose={() => setDetailModal(null)}
+            {/* Right-side drawer */}
+            {drawerId && (
+                <AppointmentDrawer
+                    appointmentId={drawerId}
+                    onClose={() => setDrawerId(null)}
+                    onDone={() => { setDrawerId(null); afterMutation(); }}
                 />
             )}
         </div>

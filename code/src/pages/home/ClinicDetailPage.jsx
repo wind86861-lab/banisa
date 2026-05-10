@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     ChevronRight, MapPin, Phone, Globe, Mail, Clock, Star,
     Calendar, Award, Users, Building2, Loader2, ArrowLeft,
     CheckCircle, Bed, Car, Wifi, AlertCircle, MessageSquare,
-    PhoneCall, ExternalLink, ChevronDown
+    PhoneCall, ExternalLink, ChevronDown, Search, ShoppingCart, Check,
+    SlidersHorizontal, X,
 } from 'lucide-react';
 import { usePublicClinicDetail } from '../../hooks/usePublicClinics';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
+import { useCart } from '../../contexts/CartContext';
 import UserAuthModal from './UserAuthModal';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
@@ -158,12 +160,30 @@ export default function ClinicDetailPage() {
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [svcSearch, setSvcSearch] = useState('');
+    const [svcSort, setSvcSort] = useState('default');
+    const [svcCategory, setSvcCategory] = useState('all');
+    const [svcLimit, setSvcLimit] = useState(20);
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [cartFeedback, setCartFeedback] = useState({}); // { [serviceId]: 'added' | 'error' }
+    const { addToCart, cartItemCount } = useCart() || {};
 
     const handleBook = (service, serviceType) => {
         if (!user) { setPendingBooking({ service, serviceType }); setShowAuthModal(true); return; }
-        navigate(`/user/book/${service.id}`, {
-            state: { clinicId: clinic.id, serviceType: serviceType.toUpperCase(), serviceData: service },
-        });
+        navigate(`/xizmatlar/${service.id}`);
+    };
+
+    const handleViewService = (service) => {
+        navigate(`/xizmatlar/${service.id}`);
+    };
+
+    const handleAddToCart = async (e, svc, serviceType) => {
+        e.stopPropagation();
+        if (!user) { setPendingBooking({ service: svc, serviceType, action: 'cart' }); setShowAuthModal(true); return; }
+        const typeMap = { diagnostic: 'DIAGNOSTIC', surgical: 'SURGICAL', checkup: 'CHECKUP', sanatorium: 'SANATORIUM' };
+        const result = await addToCart?.(clinic.id, typeMap[serviceType] || 'DIAGNOSTIC', svc.id, 1);
+        setCartFeedback((p) => ({ ...p, [svc.id]: result?.success ? 'added' : 'error' }));
+        setTimeout(() => setCartFeedback((p) => { const n = { ...p }; delete n[svc.id]; return n; }), 2000);
     };
 
     const handleReviewSubmit = async (e) => {
@@ -178,6 +198,62 @@ export default function ClinicDetailPage() {
         finally { setSubmitting(false); }
     };
 
+    // ─── Hooks must run unconditionally — keep all of them ABOVE early returns ───
+    const serviceTabs = useMemo(() => {
+        if (!clinic) return [];
+        return [
+            clinic.serviceCounts?.diagnostic > 0 && { id: 'diagnostic', label: 'Diagnostika', count: clinic.serviceCounts.diagnostic, services: clinic.diagnosticServices, icon: '🔬' },
+            clinic.serviceCounts?.surgical > 0 && { id: 'surgical', label: 'Jarrohlik', count: clinic.serviceCounts.surgical, services: clinic.surgicalServices, icon: '⚕️' },
+            clinic.serviceCounts?.checkup > 0 && { id: 'checkup', label: 'Checkup', count: clinic.serviceCounts.checkup, services: clinic.checkupPackages, icon: '📋' },
+            clinic.serviceCounts?.sanatorium > 0 && { id: 'sanatorium', label: 'Sanatoriya', count: clinic.serviceCounts.sanatorium, services: clinic.sanatoriumServices, icon: '🌿' },
+        ].filter(Boolean);
+    }, [clinic]);
+
+    // Auto-select first service tab when tabs become available
+    useEffect(() => {
+        if (!activeServiceTab && serviceTabs.length > 0) {
+            setActiveServiceTab(serviceTabs[0].id);
+        }
+    }, [serviceTabs, activeServiceTab]);
+
+    const currentServiceTab = serviceTabs.find(t => t.id === activeServiceTab);
+    const allServices = currentServiceTab?.services || [];
+
+    const categories = useMemo(() => {
+        const set = new Map();
+        for (const s of allServices) {
+            if (s.category) set.set(s.category, (set.get(s.category) || 0) + 1);
+        }
+        return Array.from(set.entries()).map(([name, count]) => ({ name, count }));
+    }, [allServices]);
+
+    const filteredServices = useMemo(() => {
+        const q = svcSearch.trim().toLowerCase();
+        let list = allServices.filter((s) => {
+            if (svcCategory !== 'all' && s.category !== svcCategory) return false;
+            if (!q) return true;
+            return (
+                (s.nameUz || '').toLowerCase().includes(q) ||
+                (s.nameRu || '').toLowerCase().includes(q) ||
+                (s.category || '').toLowerCase().includes(q)
+            );
+        });
+        if (svcSort === 'price-asc') list = [...list].sort((a, b) => (a.price || 0) - (b.price || 0));
+        else if (svcSort === 'price-desc') list = [...list].sort((a, b) => (b.price || 0) - (a.price || 0));
+        else if (svcSort === 'alpha') list = [...list].sort((a, b) => (a.nameUz || '').localeCompare(b.nameUz || '', 'uz'));
+        else if (svcSort === 'discount') list = [...list].sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+        return list;
+    }, [allServices, svcSearch, svcCategory, svcSort]);
+
+    // Reset filter & sort when switching service tabs
+    useEffect(() => {
+        setSvcSearch('');
+        setSvcCategory('all');
+        setSvcSort('default');
+        setSvcLimit(20);
+    }, [activeServiceTab]);
+
+    // ─── Early returns (must come AFTER all hooks) ─────────────────
     if (isLoading) return (
         <div className="home-page">
             <TopBar /><Navigation />
@@ -206,16 +282,6 @@ export default function ClinicDetailPage() {
     const wh = clinic.workingHours || {};
     const logo = imgUrl(clinic.logo);
     const cover = imgUrl(clinic.coverImage);
-
-    const serviceTabs = [
-        clinic.serviceCounts?.diagnostic > 0 && { id: 'diagnostic', label: 'Diagnostika', count: clinic.serviceCounts.diagnostic, services: clinic.diagnosticServices, icon: '🔬' },
-        clinic.serviceCounts?.surgical > 0 && { id: 'surgical', label: 'Jarrohlik', count: clinic.serviceCounts.surgical, services: clinic.surgicalServices, icon: '⚕️' },
-        clinic.serviceCounts?.checkup > 0 && { id: 'checkup', label: 'Checkup', count: clinic.serviceCounts.checkup, services: clinic.checkupPackages, icon: '📋' },
-        clinic.serviceCounts?.sanatorium > 0 && { id: 'sanatorium', label: 'Sanatoriya', count: clinic.serviceCounts.sanatorium, services: clinic.sanatoriumServices, icon: '🌿' },
-    ].filter(Boolean);
-
-    if (!activeServiceTab && serviceTabs.length > 0) setActiveServiceTab(serviceTabs[0].id);
-    const currentServiceTab = serviceTabs.find(t => t.id === activeServiceTab);
 
     return (
         <div className="home-page">
@@ -379,6 +445,23 @@ export default function ClinicDetailPage() {
                                             </div>
                                         </div>
                                     )}
+
+                                    {Array.isArray(clinic.paymentMethods) && clinic.paymentMethods.length > 0 && (() => {
+                                        const PM_LABELS = { CLICK: 'Click', PAYME: 'Payme', UZCARD: 'Uzcard', HUMO: 'Humo', CASH: "Naqd pul", BANK: "Bank o'tkazmasi" };
+                                        return (
+                                            <div className="cdp-section">
+                                                <h3 className="cdp-sec-title">To'lov usullari</h3>
+                                                <div className="cdp-amenities">
+                                                    {clinic.paymentMethods.map(m => (
+                                                        <div key={m} className="cdp-amenity">
+                                                            <span style={{ fontSize: 16 }}>{m === 'CASH' ? '💵' : m === 'BANK' ? '🏦' : '💳'}</span>
+                                                            <span>{PM_LABELS[m] || m}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             )}
 
@@ -392,7 +475,8 @@ export default function ClinicDetailPage() {
                                         </div>
                                     ) : (
                                         <>
-                                            <div className="cdp-svc-nav">
+                                            {/* Service-type tabs (horizontal scroll on mobile) */}
+                                            <div className="cdp-svc-nav cdp-svc-nav--scroll">
                                                 {serviceTabs.map(t => (
                                                     <button
                                                         key={t.id}
@@ -404,28 +488,177 @@ export default function ClinicDetailPage() {
                                                     </button>
                                                 ))}
                                             </div>
-                                            <div className="cdp-svc-list">
-                                                {currentServiceTab?.services.map(svc => (
-                                                    <div key={svc.id} className="cdp-svc-item">
-                                                        <div className="cdp-svc-info">
-                                                            <div className="cdp-svc-name">{svc.nameUz}</div>
-                                                            <div className="cdp-svc-cat">{svc.category}</div>
+
+                                            {/* Filter bar: toggle + result count + reset */}
+                                            {(() => {
+                                                const activeFilterCount =
+                                                    (svcSearch ? 1 : 0) +
+                                                    (svcCategory !== 'all' ? 1 : 0) +
+                                                    (svcSort !== 'default' ? 1 : 0);
+                                                return (
+                                                    <div className="cdp-svc-filterbar">
+                                                        <button
+                                                            type="button"
+                                                            className={`cdp-svc-filter-toggle ${filterOpen ? 'open' : ''} ${activeFilterCount > 0 ? 'has-filters' : ''}`}
+                                                            onClick={() => setFilterOpen((v) => !v)}
+                                                        >
+                                                            <SlidersHorizontal size={15} />
+                                                            <span>Filter</span>
+                                                            {activeFilterCount > 0 && (
+                                                                <span className="cdp-svc-filter-badge">{activeFilterCount}</span>
+                                                            )}
+                                                            <ChevronDown size={14} className="cdp-svc-filter-chev" />
+                                                        </button>
+                                                        <div className="cdp-svc-result-count">
+                                                            {filteredServices.length === 0
+                                                                ? 'Mos xizmat topilmadi'
+                                                                : `${filteredServices.length} ta xizmat`}
                                                         </div>
-                                                        <div className="cdp-svc-right">
-                                                            <div className="cdp-svc-price">
-                                                                {svc.originalPrice && (
-                                                                    <span className="cdp-price-old">{svc.originalPrice.toLocaleString('uz-UZ')} so'm</span>
-                                                                )}
-                                                                <span className="cdp-price-now">{(svc.price || 0).toLocaleString('uz-UZ')} so'm</span>
-                                                                {svc.discountPercent && <span className="cdp-price-off">-{svc.discountPercent}%</span>}
-                                                            </div>
-                                                            <button className="cdp-book-btn" onClick={() => handleBook(svc, activeServiceTab)}>
-                                                                Bron qilish
+                                                        {activeFilterCount > 0 && (
+                                                            <button
+                                                                type="button"
+                                                                className="cdp-svc-filter-reset"
+                                                                onClick={() => {
+                                                                    setSvcSearch('');
+                                                                    setSvcCategory('all');
+                                                                    setSvcSort('default');
+                                                                }}
+                                                            >
+                                                                <X size={13} /> Tozalash
                                                             </button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            {/* Collapsible filter panel */}
+                                            {filterOpen && (
+                                                <div className="cdp-svc-filter-panel">
+                                                    <div className="cdp-svc-field">
+                                                        <label className="cdp-svc-field-label">Qidiruv</label>
+                                                        <div className="cdp-svc-search">
+                                                            <Search size={16} className="cdp-svc-search-icon" />
+                                                            <input
+                                                                type="text"
+                                                                value={svcSearch}
+                                                                onChange={(e) => setSvcSearch(e.target.value)}
+                                                                placeholder="Xizmat nomi yoki kategoriya..."
+                                                            />
+                                                            {svcSearch && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="cdp-svc-search-clear"
+                                                                    onClick={() => setSvcSearch('')}
+                                                                    aria-label="Tozalash"
+                                                                >
+                                                                    <X size={14} />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </div>
-                                                ))}
+
+                                                    <div className="cdp-svc-field-row">
+                                                        {categories.length > 1 && (
+                                                            <div className="cdp-svc-field">
+                                                                <label className="cdp-svc-field-label">Kategoriya</label>
+                                                                <select
+                                                                    className="cdp-svc-select"
+                                                                    value={svcCategory}
+                                                                    onChange={(e) => setSvcCategory(e.target.value)}
+                                                                >
+                                                                    <option value="all">Barchasi ({allServices.length})</option>
+                                                                    {categories.map((c) => (
+                                                                        <option key={c.name} value={c.name}>
+                                                                            {c.name} ({c.count})
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="cdp-svc-field">
+                                                            <label className="cdp-svc-field-label">Saralash</label>
+                                                            <select
+                                                                className="cdp-svc-select"
+                                                                value={svcSort}
+                                                                onChange={(e) => setSvcSort(e.target.value)}
+                                                            >
+                                                                <option value="default">Tartib bo'yicha</option>
+                                                                <option value="price-asc">Arzonidan qimmatga</option>
+                                                                <option value="price-desc">Qimmatdan arzonga</option>
+                                                                <option value="alpha">Alifbo bo'yicha</option>
+                                                                <option value="discount">Chegirma bo'yicha</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="cdp-svc-list">
+                                                {filteredServices.length === 0 ? (
+                                                    <div className="cdp-empty-state cdp-empty-state--small">
+                                                        <Search size={32} />
+                                                        <p>Qidiruvga mos xizmat yo'q</p>
+                                                    </div>
+                                                ) : (
+                                                    filteredServices.slice(0, svcLimit).map(svc => {
+                                                        const cartState = cartFeedback[svc.id];
+                                                        return (
+                                                            <div
+                                                                key={svc.id}
+                                                                className="cdp-svc-item"
+                                                                style={{ cursor: 'pointer' }}
+                                                                onClick={() => handleViewService(svc)}
+                                                            >
+                                                                <div className="cdp-svc-info">
+                                                                    <div className="cdp-svc-name">{svc.nameUz}</div>
+                                                                    {svc.category && <div className="cdp-svc-cat">{svc.category}</div>}
+                                                                    {svc.description && (
+                                                                        <div className="cdp-svc-desc">{svc.description}</div>
+                                                                    )}
+                                                                    {svc.duration > 0 && <div className="cdp-svc-dur">⏱ {svc.duration} daqiqa</div>}
+                                                                </div>
+                                                                <div className="cdp-svc-right">
+                                                                    <div className="cdp-svc-price">
+                                                                        {svc.originalPrice && (
+                                                                            <span className="cdp-price-old">{svc.originalPrice.toLocaleString('uz-UZ')} so'm</span>
+                                                                        )}
+                                                                        <span className="cdp-price-now">{(svc.price || 0).toLocaleString('uz-UZ')} so'm</span>
+                                                                        {svc.discountPercent && <span className="cdp-price-off">-{svc.discountPercent}%</span>}
+                                                                    </div>
+                                                                    <div className="cdp-svc-actions">
+                                                                        <button
+                                                                            className={`cdp-cart-btn ${cartState === 'added' ? 'success' : ''} ${cartState === 'error' ? 'error' : ''}`}
+                                                                            title="Savatga qo'shish"
+                                                                            onClick={(e) => handleAddToCart(e, svc, activeServiceTab)}
+                                                                        >
+                                                                            {cartState === 'added' ? <Check size={16} /> : <ShoppingCart size={16} />}
+                                                                        </button>
+                                                                        <button
+                                                                            className="cdp-book-btn"
+                                                                            onClick={(e) => { e.stopPropagation(); handleBook(svc, activeServiceTab); }}
+                                                                        >
+                                                                            Bron qilish
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
                                             </div>
+
+                                            {/* Show more button */}
+                                            {filteredServices.length > svcLimit && (
+                                                <div className="cdp-svc-more-wrap">
+                                                    <button
+                                                        className="cdp-svc-more-btn"
+                                                        onClick={() => setSvcLimit((n) => n + 20)}
+                                                    >
+                                                        Yana 20 ta ko'rsatish ({filteredServices.length - svcLimit} qoldi)
+                                                    </button>
+                                                </div>
+                                            )}
                                         </>
                                     )}
                                 </div>
@@ -560,6 +793,34 @@ export default function ClinicDetailPage() {
                                             </div>
                                         </div>
                                     )}
+
+                                    {clinic.socialMedia && Object.values(clinic.socialMedia).some(Boolean) && (
+                                        <div className="cdp-section">
+                                            <h3 className="cdp-sec-title"><span style={{ fontSize: 17 }}>🌐</span> Ijtimoiy tarmoqlar</h3>
+                                            <div className="cdp-contact-links">
+                                                {clinic.socialMedia.telegram && (
+                                                    <a href={clinic.socialMedia.telegram.startsWith('http') ? clinic.socialMedia.telegram : `https://t.me/${clinic.socialMedia.telegram.replace('@', '')}`} target="_blank" rel="noreferrer" className="cdp-contact-link">
+                                                        <span style={{ fontSize: 16 }}>✈️</span><span>Telegram</span><ExternalLink size={14} />
+                                                    </a>
+                                                )}
+                                                {clinic.socialMedia.instagram && (
+                                                    <a href={clinic.socialMedia.instagram.startsWith('http') ? clinic.socialMedia.instagram : `https://instagram.com/${clinic.socialMedia.instagram}`} target="_blank" rel="noreferrer" className="cdp-contact-link">
+                                                        <span style={{ fontSize: 16 }}>📸</span><span>Instagram</span><ExternalLink size={14} />
+                                                    </a>
+                                                )}
+                                                {clinic.socialMedia.facebook && (
+                                                    <a href={clinic.socialMedia.facebook} target="_blank" rel="noreferrer" className="cdp-contact-link">
+                                                        <span style={{ fontSize: 16 }}>📘</span><span>Facebook</span><ExternalLink size={14} />
+                                                    </a>
+                                                )}
+                                                {clinic.socialMedia.youtube && (
+                                                    <a href={clinic.socialMedia.youtube} target="_blank" rel="noreferrer" className="cdp-contact-link">
+                                                        <span style={{ fontSize: 16 }}>▶️</span><span>YouTube</span><ExternalLink size={14} />
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -638,12 +899,18 @@ export default function ClinicDetailPage() {
                 <UserAuthModal
                     isOpen={showAuthModal}
                     onClose={() => setShowAuthModal(false)}
-                    onSuccess={() => {
+                    onSuccess={async () => {
                         setShowAuthModal(false);
                         if (pendingBooking && clinic) {
-                            navigate(`/user/book/${pendingBooking.service.id}`, {
-                                state: { clinicId: clinic.id, serviceType: pendingBooking.serviceType.toUpperCase(), serviceData: pendingBooking.service },
-                            });
+                            if (pendingBooking.action === 'cart') {
+                                const typeMap = { diagnostic: 'DIAGNOSTIC', surgical: 'SURGICAL', checkup: 'CHECKUP', sanatorium: 'SANATORIUM' };
+                                const t = typeMap[pendingBooking.serviceType] || 'DIAGNOSTIC';
+                                const result = await addToCart?.(clinic.id, t, pendingBooking.service.id, 1);
+                                setCartFeedback((p) => ({ ...p, [pendingBooking.service.id]: result?.success ? 'added' : 'error' }));
+                                setTimeout(() => setCartFeedback((p) => { const n = { ...p }; delete n[pendingBooking.service.id]; return n; }), 2000);
+                            } else {
+                                navigate(`/xizmatlar/${pendingBooking.service.id}`);
+                            }
                         }
                     }}
                 />

@@ -102,7 +102,19 @@ export const useDeleteClinic = () => {
     const qc = useQueryClient();
     return useMutation({
         mutationFn: (id) => axiosInstance.delete(`${BASE}/${id}`),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-clinics'] }),
+        onSuccess: (_, id) => {
+            qc.setQueriesData({ queryKey: ['admin-clinics'] }, (old) => {
+                if (!old || !old.data) return old;
+                return {
+                    ...old,
+                    data: old.data.filter((c) => c.id !== id),
+                    meta: old.meta
+                        ? { ...old.meta, total: Math.max(0, old.meta.total - 1) }
+                        : old.meta,
+                };
+            });
+            qc.invalidateQueries({ queryKey: ['admin-clinics'] });
+        },
     });
 };
 

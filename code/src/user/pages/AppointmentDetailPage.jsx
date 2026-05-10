@@ -132,7 +132,7 @@ export default function AppointmentDetailPage() {
             await api.post(`/user/appointments/${id}/cancel`, { reason: 'Bemor bekor qildi' });
             refetch();
         } catch (e) {
-            alert(e.response?.data?.message || 'Xatolik yuz berdi');
+            alert(e.response?.data?.error?.message || e.response?.data?.message || 'Xatolik yuz berdi');
         }
     };
 
@@ -277,7 +277,7 @@ export default function AppointmentDetailPage() {
                                         <span>To'lov:</span><span>{fmt(data.finalPrice)} so'm</span>
                                     </div>
                                 </div>
-                                <button className="apd-pay-btn" onClick={() => navigate('/payment', { state: { appointmentId: data.id, amount: data.finalPrice } })}>
+                                <button className="apd-pay-btn" onClick={() => navigate('/payment', { state: { bookingData: { skipCreate: true, appointmentId: data.id, price: data.finalPrice || data.price, clinicName: data.clinic?.nameUz || 'Klinika', serviceName: data.diagnosticService?.nameUz || data.surgicalService?.nameUz || 'Xizmat', scheduledAt: data.scheduledAt, selectedDate: data.scheduledAt?.split('T')[0] } } })}>
                                     To'lash <CreditCard size={16} />
                                 </button>
                             </div>

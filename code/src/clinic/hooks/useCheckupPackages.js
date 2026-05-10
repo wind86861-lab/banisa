@@ -14,11 +14,12 @@ export const useCheckupPackages = () => {
 export const useActivatePackage = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ packageId, clinicPrice, customNotes }) => {
+        mutationFn: async ({ packageId, clinicPrice, customNotes, customizationData }) => {
             const { data } = await api.post('/clinic/checkup-packages/activate', {
                 packageId,
                 clinicPrice,
                 customNotes,
+                customizationData,
             });
             return data.data;
         },

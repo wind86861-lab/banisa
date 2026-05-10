@@ -135,6 +135,17 @@ export const useUpdateBookingStatus = () => {
     });
 };
 
+export const useConfirmCash = () => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ id, amount, note }) => {
+            const { data } = await api.post(`/clinic/appointments/${id}/confirm-cash`, { amount, note });
+            return data.data;
+        },
+        onSuccess: () => invalidateBookings(qc),
+    });
+};
+
 // ─── Staff ────────────────────────────────────────────────────────────────────
 export const useClinicStaff = (filters = {}) =>
     useQuery({

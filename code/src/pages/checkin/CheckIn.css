@@ -374,3 +374,48 @@
 @media print {
     .cq-print-btn, .cq-instructions { display: none; }
 }
+
+/* ─── Price breakdown card on success screen ─── */
+.ci-price-card {
+    background: linear-gradient(135deg, #f0fdfa, #ecfeff);
+    border: 1px solid #99f6e4;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin: 16px 0 14px;
+    text-align: left;
+}
+.ci-price-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #475569;
+    margin-bottom: 6px;
+}
+.ci-price-original { text-decoration: line-through; color: #94a3b8; }
+.ci-price-discount { color: #dc2626; font-weight: 600; }
+.ci-price-final-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-top: 10px;
+    margin-top: 6px;
+    border-top: 1px dashed #99f6e4;
+    font-size: 14px;
+    color: #0f172a;
+}
+.ci-price-final-row strong {
+    font-size: 22px;
+    font-weight: 800;
+    color: #059669;
+    letter-spacing: 0.3px;
+}
+.ci-price-method {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #047857;
+    font-weight: 600;
+    background: #d1fae5;
+    padding: 6px 10px;
+    border-radius: 8px;
+    text-align: center;
+}

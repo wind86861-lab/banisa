@@ -204,8 +204,10 @@ const Services = () => {
         const parentId = findParentId(categories, service.categoryId);
 
         // Detect service type — surgical has fields like anesthesiaType/complexity/riskLevel
+        // Use != null (not !== undefined) because Prisma returns null for missing fields,
+        // and null !== undefined is true which misclassifies diagnostic services.
         const isSurgicalLike = rootQuery === 'operations' || rootQuery === 'sanatorium' ||
-            service.anesthesiaType !== undefined || service.complexity !== undefined || service.riskLevel !== undefined;
+            service.anesthesiaType != null || service.complexity != null || service.riskLevel != null;
 
         // Use the correct empty template as base, then overlay the service fields
         const base = isSurgicalLike ? EMPTY_SURGICAL_FORM : EMPTY_FORM;
@@ -215,9 +217,9 @@ const Services = () => {
 
         const merged = { ...base, ...serviceData };
 
-        // Normalize numeric fields that may come back as null from the API
+        // Normalize numeric fields that may come back as null/undefined from the API
         ['priceRecommended', 'priceMin', 'priceMax', 'durationMinutes', 'recoveryDays', 'hospitalizationDays', 'icuDays', 'fastingHours', 'minSurgeonExperience', 'successRate', 'resultTimeHours'].forEach(k => {
-            if (merged[k] === null) merged[k] = base[k] ?? '';
+            if (merged[k] == null || merged[k] === '') merged[k] = base[k] ?? '';
         });
 
         // Ensure nested JSON objects are never null (prevents SurgicalForm/DiagnosticForm crashes)
@@ -310,10 +312,28 @@ const Services = () => {
         // Infer service type from form shape (which was fixed at form-open time),
         // NOT from rootQuery URL param (which can be stale/null at save time).
         // Surgical/sanatorium forms never carry `resultTimeHours`; diagnostics always do.
-        const hasSurgicalShape = formData.anesthesiaType !== undefined || formData.complexity !== undefined || formData.riskLevel !== undefined;
+        const hasSurgicalShape = formData.anesthesiaType != null || formData.complexity != null || formData.riskLevel != null;
         const isOps = rootQuery === 'operations' || (hasSurgicalShape && rootQuery !== 'sanatorium');
         const isSan = rootQuery === 'sanatorium';
         const isDiag = !isOps && !isSan && rootQuery === 'diagnostics';
+
+        // Auto-fill priceMin/priceMax from priceRecommended if empty
+        const rec = Number(formData.priceRecommended);
+        if (isDiag && !isNaN(rec) && rec > 0) {
+            if (formData.priceMin === '' || formData.priceMin == null || isNaN(Number(formData.priceMin))) {
+                formData.priceMin = Math.round(rec * 0.85);
+            }
+            if (formData.priceMax === '' || formData.priceMax == null || isNaN(Number(formData.priceMax))) {
+                formData.priceMax = Math.round(rec * 1.15);
+            }
+        }
+
+        // Auto-fill priceRecommended from priceMin/priceMax if empty or 0
+        const pMin = Number(formData.priceMin);
+        const pMax = Number(formData.priceMax);
+        if (isDiag && (!rec || isNaN(rec) || rec <= 0) && !isNaN(pMin) && pMin > 0 && !isNaN(pMax) && pMax > 0) {
+            formData.priceRecommended = Math.round((pMin + pMax) / 2);
+        }
 
         // Frontend validation
         const errors = [];
@@ -327,16 +347,16 @@ const Services = () => {
             errors.push('Tavsiya etilgan narx noto\'g\'ri');
         }
         if (isDiag) {
-            if (!formData.priceMin || isNaN(Number(formData.priceMin)) || Number(formData.priceMin) < 0) {
+            if (formData.priceMin === '' || formData.priceMin == null || isNaN(Number(formData.priceMin)) || Number(formData.priceMin) < 0) {
                 errors.push('Minimal narx noto\'g\'ri');
             }
-            if (!formData.priceMax || isNaN(Number(formData.priceMax)) || Number(formData.priceMax) < 0) {
+            if (formData.priceMax === '' || formData.priceMax == null || isNaN(Number(formData.priceMax)) || Number(formData.priceMax) < 0) {
                 errors.push('Maksimal narx noto\'g\'ri');
             }
-            if (!formData.durationMinutes || isNaN(Number(formData.durationMinutes)) || Number(formData.durationMinutes) < 1) {
+            if (formData.durationMinutes === '' || formData.durationMinutes == null || isNaN(Number(formData.durationMinutes)) || Number(formData.durationMinutes) < 1) {
                 errors.push('Davomiyligi noto\'g\'ri');
             }
-            if (!formData.resultTimeHours || isNaN(Number(formData.resultTimeHours)) || Number(formData.resultTimeHours) < 0.5) {
+            if (formData.resultTimeHours === '' || formData.resultTimeHours == null || isNaN(Number(formData.resultTimeHours)) || Number(formData.resultTimeHours) < 0.5) {
                 errors.push('Natija vaqti noto\'g\'ri');
             }
         }
@@ -425,8 +445,15 @@ const Services = () => {
             setShowForm(false);
             fetchServices(meta.page);
         } catch (err) {
+            const details = err.response?.data?.error?.details;
             const msg = err.response?.data?.error?.message || err.message || 'Saqlashda xatolik';
-            alert(msg);
+            if (Array.isArray(details) && details.length > 0) {
+                const detailMsg = details.map(d => `${d.path?.join?.('.') || ''}: ${d.message}`).join('\n');
+                alert(msg + '\n\n' + detailMsg);
+            } else {
+                alert(msg);
+            }
+            console.error('Save error:', err.response?.data || err);
         } finally {
             setSaving(false);
         }

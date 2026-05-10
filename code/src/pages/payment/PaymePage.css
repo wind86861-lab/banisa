@@ -437,3 +437,212 @@
     border: 1px solid #e2e8f0;
     color: #475569;
 }
+
+/* ─── Enhanced Result Page Styles ──────────────────────────────────────────── */
+.pay-result-title {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 16px 0 8px;
+    color: #1e293b;
+}
+
+.pay-result-text {
+    font-size: 15px;
+    color: #64748b;
+    line-height: 1.6;
+    margin: 0 0 20px;
+    max-width: 480px;
+}
+
+.pay-result-hint {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-top: 8px;
+}
+
+/* Status badge during polling */
+.pay-result-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 12px;
+}
+
+.pay-result-status-badge--pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* Order ID badge */
+.pay-result-id-badge {
+    display: inline-block;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: #00a3a7;
+    background: #e0f7f8;
+    border: 1px solid #b3e5e6;
+    border-radius: 8px;
+    padding: 8px 16px;
+    margin: 12px 0 24px;
+}
+
+.pay-result-id-badge--error {
+    color: #dc2626;
+    background: #fee2e2;
+    border-color: #fca5a5;
+}
+
+.pay-result-id-badge--pending {
+    color: #d97706;
+    background: #fef3c7;
+    border-color: #fcd34d;
+}
+
+/* Appointment details section */
+.pay-result-details {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 0 0 24px;
+    text-align: left;
+}
+
+.pay-result-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.pay-result-row:last-child {
+    border-bottom: none;
+}
+
+.pay-result-row svg {
+    color: #00a3a7;
+    flex-shrink: 0;
+}
+
+.pay-result-label {
+    font-size: 13px;
+    color: #64748b;
+    flex: 1;
+}
+
+.pay-result-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+    text-align: right;
+}
+
+.pay-result-amount {
+    color: #00a3a7;
+    font-size: 18px;
+}
+
+.pay-result-row--highlight {
+    background: linear-gradient(135deg, #e0f7f8, #f0fdf4);
+    margin: 0 -20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    border-bottom: none;
+}
+
+/* Card variants for different states */
+.pay-result-card--success {
+    border-top: 4px solid #10b981;
+    animation: pay-slide-up 0.4s ease-out;
+}
+
+.pay-result-card--error {
+    border-top: 4px solid #ef4444;
+    animation: pay-slide-up 0.4s ease-out;
+}
+
+.pay-result-card--pending {
+    border-top: 4px solid #f59e0b;
+    animation: pay-slide-up 0.4s ease-out;
+}
+
+@keyframes pay-slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Icon states */
+.pay-result-icon--success svg {
+    color: #10b981;
+}
+
+.pay-result-icon--error svg {
+    color: #ef4444;
+}
+
+.pay-result-icon--pending svg {
+    color: #f59e0b;
+}
+
+.pay-result-icon--loading svg {
+    color: #00a3a7;
+}
+
+/* Button as element (not just link) */
+.pay-result-btn {
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.pay-result-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .pay-result-title {
+        font-size: 22px;
+    }
+
+    .pay-result-text {
+        font-size: 14px;
+    }
+
+    .pay-result-details {
+        padding: 16px;
+    }
+
+    .pay-result-row {
+        gap: 8px;
+        padding: 10px 0;
+    }
+
+    .pay-result-row--highlight {
+        margin: 0 -16px;
+        padding: 10px 16px;
+    }
+
+    .pay-result-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .pay-result-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}

@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Menu, Sun, Moon, Bell, LogOut } from 'lucide-react';
+import { Menu, Sun, Moon, LogOut } from 'lucide-react';
 import { useAuth } from '../../shared/auth/AuthContext';
+import NotificationBell from '../components/NotificationBell';
 import '../../components/Header.css';
 import './ClinicTopbar.css';
 
@@ -51,11 +52,8 @@ export default function ClinicTopbar({ toggleSidebar, isSidebarOpen, isDarkMode,
                         {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
                     </button>
 
-                    {/* Notifications (mock) */}
-                    <button className="action-btn clinic-notif-btn" title="Bildirishnomalar">
-                        <Bell size={20} />
-                        <span className="badge">3</span>
-                    </button>
+                    {/* Notifications */}
+                    <NotificationBell />
                 </div>
 
                 {/* User info */}

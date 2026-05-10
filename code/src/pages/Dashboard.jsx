@@ -88,8 +88,8 @@ const ActivityChart = ({ data }) => (
                         </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12, letterSpacing: 0 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12, letterSpacing: 0 }} />
                     <Tooltip
                         contentStyle={{ backgroundColor: 'var(--bg-card)', borderRadius: '10px', border: 'none', boxShadow: '0 5px 15px rgba(0,0,0,0.1)' }}
                         itemStyle={{ color: 'var(--text-main)' }}
