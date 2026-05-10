@@ -3,10 +3,12 @@ import { tokenStorage } from '../auth/tokenStorage';
 
 // VULN-03: access token stored in module memory — not localStorage (XSS-safe)
 let _accessToken = null;
+let _isPatientSession = false;
 
 export const setAccessToken = (token) => { _accessToken = token; };
 export const getAccessToken = () => _accessToken;
 export const clearAccessToken = () => { _accessToken = null; };
+export const setIsPatientSession = (val) => { _isPatientSession = !!val; };
 
 const api = axios.create({
   baseURL: '/api',
@@ -58,7 +60,9 @@ api.interceptors.response.use(
     // If we attempt refresh, a leftover CLINIC_ADMIN cookie could return the wrong token,
     // causing the admin panel to use a CLINIC_ADMIN token → 403 on all admin endpoints.
     // Skip refresh and redirect to admin login immediately.
-    const storedUserBeforeRefresh = tokenStorage.getUser();
+    const storedUserBeforeRefresh = tokenStorage.getUser() || (() => {
+      try { return JSON.parse(localStorage.getItem('user_data')); } catch { return null; }
+    })();
     if (storedUserBeforeRefresh?.role === 'SUPER_ADMIN') {
       clearAccessToken();
       tokenStorage.clear();
@@ -72,8 +76,9 @@ api.interceptors.response.use(
     _isRefreshing = true;
 
     try {
+      const refreshUrl = _isPatientSession ? '/api/user/auth/refresh' : '/api/auth/refresh';
       const { data } = await axios.post(
-        '/api/auth/refresh',
+        refreshUrl,
         {},
         { withCredentials: true }
       );
@@ -94,6 +99,10 @@ api.interceptors.response.use(
       }
 
       setAccessToken(newToken);
+      if (_isPatientSession) {
+        localStorage.setItem('user_access_token', newToken);
+        if (refreshedUser) localStorage.setItem('user_data', JSON.stringify(refreshedUser));
+      }
       processQueue(null, newToken);
       original.headers.Authorization = `Bearer ${newToken}`;
       return api(original);
@@ -104,7 +113,9 @@ api.interceptors.response.use(
       // Don't redirect on 429 (rate limit) — that would wrongly kick logged-in users
       const refreshStatus = refreshError?.response?.status;
       if (typeof window !== 'undefined' && refreshStatus === 401) {
-        const storedUser = tokenStorage.getUser();
+        const storedUser = tokenStorage.getUser() || (() => {
+          try { return JSON.parse(localStorage.getItem('user_data')); } catch { return null; }
+        })();
         let loginUrl = '/';
         if (storedUser?.role === 'CLINIC_ADMIN' || storedUser?.role === 'PENDING_CLINIC') {
           loginUrl = '/login';
@@ -112,8 +123,9 @@ api.interceptors.response.use(
           loginUrl = '/user/login';
         }
         tokenStorage.clear();
-        sessionStorage.removeItem('user_access_token');
-        sessionStorage.removeItem('user_data');
+        localStorage.removeItem('user_access_token');
+        localStorage.removeItem('user_data');
+        localStorage.removeItem('user_had_session');
         window.location.href = loginUrl;
       }
       return Promise.reject(refreshError);
