@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Menu, X, User, LogOut, ChevronDown, Calendar, Heart, Bell, LayoutDashboard, ShoppingCart } from 'lucide-react';
+import { Menu, X, User, LogOut, ChevronDown, Calendar, Heart, LayoutDashboard, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import { useAuth } from '../../shared/auth/AuthContext';
 import { useHomepageSettings } from '../../hooks/useHomepageSettings';
 import { useCart } from '../../contexts/CartContext';
+import UserNotificationBell from '../../user/components/UserNotificationBell';
 import './css/Navigation.css';
 
 const NAV_LINKS = [
@@ -93,9 +94,7 @@ export default function Navigation() {
                         {user ? (
                             /* ─── Logged-in PATIENT ─── */
                             <div className="cm-nav-user" ref={dropdownRef}>
-                                <button className="cm-nav-bell" aria-label="Bildirishnomalar">
-                                    <Bell size={20} />
-                                </button>
+                                <UserNotificationBell />
                                 <button
                                     className="cm-nav-avatar-btn"
                                     onClick={() => setDropdownOpen(p => !p)}

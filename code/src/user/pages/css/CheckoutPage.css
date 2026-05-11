@@ -216,3 +216,71 @@
     .co-info-row { grid-template-columns: 1fr; }
     .co-payment-methods { grid-template-columns: 1fr; flex-direction: row; display: flex; }
 }
+
+/* Cash discount preview */
+.co-cash-discount-hint {
+    margin: 12px 0;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border: 1px solid #86efac;
+    border-radius: 10px;
+    color: #166534;
+    font-size: 13px;
+    line-height: 1.4;
+}
+.co-cash-discount-hint strong { font-weight: 700; }
+
+/* Success screen */
+.co-success {
+    max-width: 640px;
+    margin: 0 auto;
+    text-align: center;
+    padding: 48px 20px;
+}
+.co-success-icon {
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 12px 30px rgba(22,163,74,0.35);
+    margin-bottom: 18px;
+}
+.co-success h1 { font-size: 28px; font-weight: 800; color: #15803d; margin: 4px 0 12px; }
+.co-success-lead { font-size: 15px; line-height: 1.55; color: #334155; margin: 0 0 22px; }
+.co-success-lead strong { color: #0f172a; }
+.co-success-steps {
+    display: flex; flex-direction: column; gap: 10px;
+    margin: 0 auto 22px; max-width: 480px;
+    text-align: left;
+}
+.co-success-step {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 14px; color: #1f2937;
+}
+.co-success-step span {
+    width: 28px; height: 28px;
+    background: #00BDE0; color: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 13px;
+    flex-shrink: 0;
+}
+.co-success-actions {
+    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+}
+.co-success-secondary {
+    align-self: center;
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 12px 16px;
+}
+.co-success-secondary:hover { text-decoration: underline; }

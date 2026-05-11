@@ -1,19 +1,29 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Phone, Lock, Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Building2 } from 'lucide-react';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import './css/UserAuth.css';
 
+// Only allow internal redirects to prevent open-redirect via ?redirect=https://...
+function safeRedirect(target, fallback = '/user/dashboard') {
+    if (!target || typeof target !== 'string') return fallback;
+    if (!target.startsWith('/') || target.startsWith('//')) return fallback;
+    return target;
+}
+
 export default function UserLoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
     const { login } = useUserAuth();
     const [form, setForm] = useState({ phone: '', password: '' });
     const [showPass, setShowPass] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const from = location.state?.from || '/user/dashboard';
+    const redirectParam = searchParams.get('redirect');
+    const from = safeRedirect(redirectParam || location.state?.from, '/user/dashboard');
+    const signupHref = redirectParam ? `/user/signup?redirect=${encodeURIComponent(redirectParam)}` : '/user/signup';
     const justRegistered = location.state?.registered === true;
 
     const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setError(''); };
@@ -123,7 +133,7 @@ export default function UserLoginPage() {
                         </form>
 
                         <div className="auth-footer">
-                            Hisobingiz yo'qmi? <Link to="/user/signup" state={{ from }}>Ro'yxatdan o'tish</Link>
+                            Hisobingiz yo'qmi? <Link to={signupHref} state={{ from }}>Ro'yxatdan o'tish</Link>
                         </div>
 
                         <div className="auth-divider">yoki</div>

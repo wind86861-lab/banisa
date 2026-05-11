@@ -43,19 +43,47 @@ export const UserAuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // ── Session-expiring warning shown ~60s before auto-logout ─────────────
+  const [expiringSoon, setExpiringSoon] = useState(false);
+
   // ── Auto-logout on token expiry ─────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
-    const interval = setInterval(() => {
-      if (isTokenExpired(userTokenStorage.getToken())) {
+    const tick = () => {
+      const token = userTokenStorage.getToken();
+      if (!token) return;
+      let exp = 0;
+      try { exp = JSON.parse(atob(token.split('.')[1])).exp * 1000; } catch { return; }
+      const msLeft = exp - Date.now();
+      if (msLeft <= 0) {
         clearAccessToken();
         setIsPatientSession(false);
         userTokenStorage.clear();
         setUser(null);
+        setExpiringSoon(false);
+        return;
       }
-    }, 30_000);
+      setExpiringSoon(msLeft < 60_000);
+    };
+    tick();
+    const interval = setInterval(tick, 15_000);
     return () => clearInterval(interval);
   }, [user]);
+
+  const extendSession = async () => {
+    // Trigger silent refresh via cookie; axios interceptor or this endpoint will
+    // set a fresh access token. Refresh is best-effort; on failure we let
+    // the normal expiry path log the user out.
+    try {
+      const { data } = await axiosInstance.post('/user/auth/refresh');
+      const newToken = data?.data?.accessToken;
+      if (newToken) {
+        userTokenStorage.setToken(newToken);
+        setAccessToken(newToken);
+      }
+      setExpiringSoon(false);
+    } catch { /* ignore — user will be logged out by tick */ }
+  };
 
   // ── Session restore ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -191,8 +219,28 @@ export const UserAuthProvider = ({ children }) => {
       register,
       logout,
       updateUserState,
+      expiringSoon,
+      extendSession,
     }}>
       {children}
+      {expiringSoon && user && (
+        <div role="status" style={{
+          position: 'fixed', bottom: 20, right: 20, zIndex: 10000,
+          background: '#fff7ed', border: '1px solid #fb923c',
+          color: '#9a3412', padding: '12px 16px', borderRadius: 12,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+          maxWidth: 320, fontSize: 13, lineHeight: 1.5,
+          display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          <strong>Sessiya tugashi yaqin</strong>
+          <span>Sizning kirishingiz bir daqiqadan keyin tugaydi. Sahifani saqlash uchun davom etishni bosing.</span>
+          <button onClick={extendSession} style={{
+            alignSelf: 'flex-end', background: '#ea580c', color: '#fff',
+            border: 'none', borderRadius: 8, padding: '6px 14px',
+            fontWeight: 600, cursor: 'pointer',
+          }}>Davom etish</button>
+        </div>
+      )}
     </UserAuthContext.Provider>
   );
 };

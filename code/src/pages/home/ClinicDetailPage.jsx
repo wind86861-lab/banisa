@@ -753,13 +753,34 @@ export default function ClinicDetailPage() {
                                         <p className="cdp-addr-full">{clinic.fullAddress}</p>
                                         {clinic.landmark && <p className="cdp-landmark">🏢 {clinic.landmark}</p>}
                                         {clinic.latitude && clinic.longitude ? (
-                                            <iframe
-                                                className="cdp-map"
-                                                src={`https://maps.google.com/maps?q=${clinic.latitude},${clinic.longitude}&z=15&output=embed`}
-                                                allowFullScreen loading="lazy" title="Xarita"
-                                            />
+                                            <>
+                                                <iframe
+                                                    className="cdp-map"
+                                                    src={`https://maps.google.com/maps?q=${clinic.latitude},${clinic.longitude}&z=15&output=embed`}
+                                                    allowFullScreen loading="lazy" title="Xarita"
+                                                />
+                                                <a
+                                                    href={`https://www.google.com/maps/dir/?api=1&destination=${clinic.latitude},${clinic.longitude}`}
+                                                    target="_blank" rel="noopener noreferrer"
+                                                    className="cdp-directions-btn"
+                                                >
+                                                    <ExternalLink size={14} /> Yo'l ko'rsatish (Google Maps)
+                                                </a>
+                                            </>
                                         ) : (
-                                            <div className="cdp-map-empty">Xarita mavjud emas</div>
+                                            <div className="cdp-map-empty">
+                                                Xarita mavjud emas
+                                                {clinic.fullAddress && (
+                                                    <a
+                                                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(clinic.fullAddress)}`}
+                                                        target="_blank" rel="noopener noreferrer"
+                                                        className="cdp-directions-btn"
+                                                        style={{ marginTop: 12, display: 'inline-flex' }}
+                                                    >
+                                                        <ExternalLink size={14} /> Manzil orqali yo'l ko'rsatish
+                                                    </a>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
 

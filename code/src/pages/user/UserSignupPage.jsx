@@ -1,12 +1,19 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Phone, Lock, User, Mail, Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Building2 } from 'lucide-react';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import './css/UserAuth.css';
 
+function safeRedirect(target, fallback = '/user/dashboard') {
+    if (!target || typeof target !== 'string') return fallback;
+    if (!target.startsWith('/') || target.startsWith('//')) return fallback;
+    return target;
+}
+
 export default function UserSignupPage() {
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
     const { register, login } = useUserAuth();
     const [form, setForm] = useState({ phone: '', password: '', confirmPassword: '', firstName: '', lastName: '', email: '' });
     const [showPass, setShowPass] = useState(false);
@@ -14,7 +21,9 @@ export default function UserSignupPage() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const from = location.state?.from || '/user/dashboard';
+    const redirectParam = searchParams.get('redirect');
+    const from = safeRedirect(redirectParam || location.state?.from, '/user/dashboard');
+    const loginHref = redirectParam ? `/user/login?redirect=${encodeURIComponent(redirectParam)}` : '/user/login';
     const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setError(''); };
 
     const handleSubmit = async (e) => {
@@ -30,7 +39,7 @@ export default function UserSignupPage() {
                 navigate(from, { replace: true });
             } catch {
                 setLoading(false);
-                navigate('/user/login', { state: { from, registered: true } });
+                navigate(loginHref, { state: { from, registered: true } });
             }
         } catch (err) {
             const status = err?.response?.status;
@@ -152,7 +161,7 @@ export default function UserSignupPage() {
                         </form>
 
                         <div className="auth-footer">
-                            Hisobingiz bormi? <Link to="/user/login" state={{ from }}>Tizimga kirish</Link>
+                            Hisobingiz bormi? <Link to={loginHref} state={{ from }}>Tizimga kirish</Link>
                         </div>
 
                         <div className="auth-divider">yoki</div>

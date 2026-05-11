@@ -13,19 +13,25 @@ const STEPS = [
     },
     {
         num: 3,
+        icon: '📲',
+        title: 'Klinikada QR scan qiling',
+        desc: 'Klinikaga kelganingizda devordagi QR kodni telefon kamerangiz bilan oching — check-in avtomatik bo\'ladi',
+    },
+    {
+        num: 4,
         icon: '💰',
-        title: "Barcha turdagi to'lovlar",
-        desc: "Naqd, karta, Payme, Click va boshqa usullar — sizga qulay bo'lganini tanlang",
+        title: "Naqd yoki onlayn to'lov",
+        desc: "Naqd to'lasangiz chegirma; karta, Payme, Click — sizga qulay usulda to'lang",
     },
 ];
 
 export default function HowItWorksNew() {
     return (
-        <section className="hn-section">
+        <section className="hn-section" id="how">
             <div className="hn-container">
                 <div className="hn-section-head" style={{ justifyContent: 'center', textAlign: 'center', flexDirection: 'column', alignItems: 'center' }}>
                     <h2 className="hn-section-title">Qanday ishlaydi?</h2>
-                    <p className="hn-section-sub">Sog'liqni boshqarish endi 3 oson qadam</p>
+                    <p className="hn-section-sub">Sog'liqni boshqarish endi {STEPS.length} oson qadam</p>
                 </div>
 
                 <div className="hn-hiw-grid">

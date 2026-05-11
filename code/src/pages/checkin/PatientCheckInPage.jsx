@@ -2,7 +2,29 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import axiosInstance from '../../shared/api/axios';
+import { shortBookingNo } from '../../shared/utils/format';
 import './CheckIn.css';
+
+// Short success cue — single tone, no external assets.
+function playSuccessChime() {
+    try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        const ctx = new AC();
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.18);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.4);
+    } catch { /* sound is non-essential */ }
+}
 
 /**
  * /checkin/:clinicSecret
@@ -60,7 +82,11 @@ export default function PatientCheckInPage() {
         } else {
             // checked_in or already → both go to success ticket
             setResult(data.appointment);
-            setStep(data.appointment?.paymentStatus === 'PAID' ? 'paid' : 'success');
+            const isPaid = data.appointment?.paymentStatus === 'PAID';
+            setStep(isPaid ? 'paid' : 'success');
+            // Audible + haptic confirmation of successful scan.
+            playSuccessChime();
+            if (navigator.vibrate) { try { navigator.vibrate([60, 40, 60]); } catch { /* ignore */ } }
         }
     };
 
@@ -100,18 +126,25 @@ export default function PatientCheckInPage() {
         <div className="ci-page"><div className="ci-spinner" /></div>
     );
 
-    if (step === 'login') return (
-        <div className="ci-page">
-            <div className="ci-card">
-                <div className="ci-icon">🔒</div>
-                <h2>Kirish talab qilinadi</h2>
-                <p>Check-in qilish uchun avval Banisa hisobingizga kiring.</p>
-                <button className="ci-btn-primary" onClick={() => navigate(`/user/login?redirect=/checkin/${clinicSecret}`)}>
-                    Kirish
-                </button>
+    if (step === 'login') {
+        const redirect = encodeURIComponent(`/checkin/${clinicSecret}`);
+        return (
+            <div className="ci-page">
+                <div className="ci-card">
+                    <div className="ci-icon">🔒</div>
+                    <h2>Kirish talab qilinadi</h2>
+                    <p>Check-in qilish uchun avval Banisa hisobingizga kiring yoki ro'yxatdan o'ting.</p>
+                    <button className="ci-btn-primary" onClick={() => navigate(`/user/login?redirect=${redirect}`)}>
+                        Kirish
+                    </button>
+                    <button className="ci-btn-secondary" onClick={() => navigate(`/user/signup?redirect=${redirect}`)}>
+                        Ro'yxatdan o'tish
+                    </button>
+                    <p className="ci-login-hint">Tizimga kirgach, sahifa avtomatik check-in qiladi.</p>
+                </div>
             </div>
-        </div>
-    );
+        );
+    }
 
     if (step === 'select') return (
         <div className="ci-page">
@@ -175,13 +208,19 @@ export default function PatientCheckInPage() {
                     </div>
 
                     <div className="ci-booking-info">
+                        <div className="ci-booking-row"><span>Kassirga ko'rsating</span><strong style={{ fontSize: 22 }}>{shortBookingNo(result.bookingNumber)}</strong></div>
                         <div className="ci-booking-row"><span>Bron №</span><strong>{result.bookingNumber}</strong></div>
                         <div className="ci-booking-row"><span>Klinika</span><strong>{result.clinic?.nameUz}</strong></div>
                     </div>
 
-                    <p style={{ color: '#64748b', fontSize: 12, marginTop: 12 }}>
-                        Xodim to'lovni tasdiqlagach, bu sahifa avtomatik yangilanadi
-                    </p>
+                    <div className="ci-polling">
+                        <span className="ci-polling-dot" />
+                        <span>Kassirning tasdiqlashi kutilmoqda...</span>
+                    </div>
+
+                    <button className="ci-btn-secondary" onClick={() => navigate(`/user/appointments/${result.id}`)} style={{ marginTop: 8 }}>
+                        Bron tafsilotlariga o'tish
+                    </button>
                 </div>
             </div>
         );

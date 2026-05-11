@@ -1252,3 +1252,19 @@
     .cdp-svc-actions { width: 100%; justify-content: flex-end; }
     .cdp-cart-btn { width: 38px; height: 38px; }
 }
+
+.cdp-directions-btn {
+    margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    background: #2563eb;
+    color: #fff;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.15s;
+}
+.cdp-directions-btn:hover { background: #1d4ed8; }

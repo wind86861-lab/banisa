@@ -1,19 +1,11 @@
 import { useNavigate } from 'react-router-dom';
-import { Calendar, ShoppingBag, Sparkles, ArrowRight, Clock, MapPin } from 'lucide-react';
+import { Calendar, ShoppingBag, Sparkles, ArrowRight, Clock, MapPin, QrCode } from 'lucide-react';
 import { useUserAuth } from '../../../shared/auth/UserAuthContext';
 import { useUserHomeSummary } from '../../../hooks/useHomeData';
+import { statusLabel, needsCheckIn } from '../../../shared/utils/appointmentStatus';
+import { fmtSum } from '../../../shared/utils/format';
 
-const fmt = (n) => Number(n || 0).toLocaleString('en-US').replace(/,/g, ' ');
-
-const STATUS_LABEL = {
-    PENDING: 'Operatorda',
-    OPERATOR_CONFIRMED: 'Tasdiqlangan',
-    SENT_TO_CLINIC: 'Klinikaga yuborildi',
-    CLINIC_ACCEPTED: 'Klinika qabul qildi',
-    PENDING_ARRIVAL: 'Kelishingiz kutilmoqda',
-    PAID: "To'langan",
-    CHECKED_IN: 'Keldingiz',
-};
+const fmt = fmtSum;
 
 function fmtDate(d) {
     if (!d) return '';
@@ -65,6 +57,18 @@ export default function PersonalizedBanner() {
                                 <div className="hn-pers-sub">
                                     <MapPin size={12} style={{ verticalAlign: '-2px' }} /> {next.clinic?.nameUz}
                                 </div>
+                                {next.status && (
+                                    <div className="hn-pers-sub" style={{ marginTop: 4 }}>
+                                        <span style={{ background: statusLabel(next.status).bg, color: statusLabel(next.status).color, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600 }}>
+                                            {statusLabel(next.status).text}
+                                        </span>
+                                    </div>
+                                )}
+                                {needsCheckIn(next) && (
+                                    <div className="hn-pers-sub" style={{ color: '#9a3412', fontWeight: 600, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        <QrCode size={12} /> Klinikada QR scan kerak
+                                    </div>
+                                )}
                                 <div className="hn-pers-cta">Tafsilotlar <ArrowRight size={13} /></div>
                             </>
                         ) : (

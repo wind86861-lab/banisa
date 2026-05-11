@@ -30,6 +30,7 @@ import {
     operatorAppointmentRouter,
     clinicAppointmentRouter,
 } from './modules/appointments/appointment.routes';
+import notificationsRoutes, { patientNotificationsRouter } from './modules/notifications/notifications.routes';
 
 const app = express();
 
@@ -88,6 +89,8 @@ app.use('/api/cart', cartRoutes);
 // ─── Appointment workflow (new) ──────────────────────────────────────────────
 app.use('/api/admin/appointments', operatorAppointmentRouter);
 app.use('/api/clinic/appointments', clinicAppointmentRouter);
+app.use('/api/clinic/notifications', notificationsRoutes);
+app.use('/api/user/notifications', patientNotificationsRouter);
 
 // ─── Serve frontend in production ────────────────────────────────────────────
 if (env.NODE_ENV === 'production') {

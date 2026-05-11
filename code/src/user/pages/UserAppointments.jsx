@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Calendar, Clock, User, ChevronRight, ArrowRight } from 'lucide-react';
+import { Calendar, Clock, User, ChevronRight, ArrowRight, QrCode } from 'lucide-react';
 import api from '../../shared/api/axios';
+import { statusLabel, needsCheckIn, awaitingCashier } from '../../shared/utils/appointmentStatus';
+import { fmtSum, shortBookingNo } from '../../shared/utils/format';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
@@ -28,23 +30,7 @@ export default function UserAppointments() {
     const appointments = data?.data || [];
     const meta = data?.meta || {};
 
-    const getStatusBadge = (status) => {
-        const badges = {
-            PENDING: { bg: '#FEF3C7', color: '#D97706', text: 'Operator kutmoqda' },
-            OPERATOR_CONFIRMED: { bg: '#DBEAFE', color: '#1D4ED8', text: 'Tasdiqlangan' },
-            SENT_TO_CLINIC: { bg: '#DBEAFE', color: '#1D4ED8', text: 'Klinikada' },
-            CLINIC_ACCEPTED: { bg: '#D1FAE5', color: '#059669', text: 'Qabul qilindi' },
-            PAID: { bg: '#D1FAE5', color: '#059669', text: 'To\'langan' },
-            CHECKED_IN: { bg: '#EDE9FE', color: '#7C3AED', text: 'Keldi' },
-            IN_PROGRESS: { bg: '#EDE9FE', color: '#7C3AED', text: 'Jarayonda' },
-            CONFIRMED: { bg: '#DBEAFE', color: '#1D4ED8', text: 'Tasdiqlangan' },
-            COMPLETED: { bg: '#D1FAE5', color: '#065F46', text: 'Yakunlangan' },
-            CANCELLED: { bg: '#FEE2E2', color: '#991B1B', text: 'Bekor qilingan' },
-            NO_SHOW: { bg: '#FEE2E2', color: '#991B1B', text: 'Kelmadi' },
-            RESCHEDULED: { bg: '#FEF3C7', color: '#D97706', text: 'O\'zgartirildi' },
-        };
-        return badges[status] || badges.PENDING;
-    };
+    const getStatusBadge = (status) => statusLabel(status);
 
     const filters = [
         { value: 'all', label: 'Barchasi' },
@@ -134,13 +120,28 @@ export default function UserAppointments() {
                                             {appointment.serviceType && (
                                                 <span className="ua-service-tag">{appointment.serviceType}</span>
                                             )}
+                                            {appointment.bookingNumber && (
+                                                <span className="ua-service-tag" style={{ background: '#eef2ff', color: '#3730a3' }}>
+                                                    {shortBookingNo(appointment.bookingNumber)}
+                                                </span>
+                                            )}
                                         </div>
+                                        {needsCheckIn(appointment) && (
+                                            <div className="ua-action-hint ua-action-hint--warn">
+                                                <QrCode size={14} /> Klinikaga kelganingizda devordagi QR'ni scan qiling
+                                            </div>
+                                        )}
+                                        {awaitingCashier(appointment) && (
+                                            <div className="ua-action-hint ua-action-hint--info">
+                                                Kassada to'lov kutilmoqda — Bron №ni ko'rsating
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Price & Action */}
                                     <div className="ua-price">
                                         <div className="ua-price-amount">
-                                            {(appointment.finalPrice || appointment.price)?.toLocaleString('uz-UZ')} so'm
+                                            {fmtSum(appointment.finalPrice || appointment.price)} so'm
                                         </div>
                                         <Link to={`/user/appointments/${appointment.id}`} className="ua-details-btn">
                                             Batafsil

@@ -1,46 +1,89 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Building2, Calendar, CreditCard, ArrowRight, ArrowLeft, ShoppingCart, Package, Banknote, AlertCircle } from 'lucide-react';
+import { Building2, Calendar, CreditCard, ArrowRight, ArrowLeft, ShoppingCart, Package, AlertCircle, CheckCircle2, QrCode } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import axiosInstance from '../../shared/api/axios';
+import { fmtSum } from '../../shared/utils/format';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
 import './css/CheckoutPage.css';
 
-const fmt = (n) => n ? Number(n).toLocaleString('uz-UZ') : '0';
+const fmt = fmtSum;
 
 export default function CartCheckoutPage() {
     const navigate = useNavigate();
-    const { cart, clearCart, refreshCart } = useCart();
+    const { cart, refreshCart } = useCart();
     const [paymentMethod, setPaymentMethod] = useState('naqd');
     const [selectedDate, setSelectedDate] = useState('');
     const [notes, setNotes] = useState('');
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [clinicPaymentMethods, setClinicPaymentMethods] = useState({});
+    const [clinicDiscounts, setClinicDiscounts] = useState({});
+    const [success, setSuccess] = useState(null); // { appointmentId, isCash } after submit
 
-    // Fetch payment methods for all clinics in cart
+    // Fetch payment methods + cash discount for all clinics in cart
     useEffect(() => {
         if (!cart || cart.length === 0) return;
 
         const fetchPaymentMethods = async () => {
             const methods = {};
+            const discounts = {};
             for (const group of cart) {
                 try {
                     const res = await axiosInstance.get(`/public/clinics/${group.clinic.id}`);
                     const clinic = res.data.data;
                     methods[group.clinic.id] = Array.isArray(clinic.paymentMethods) ? clinic.paymentMethods : [];
+                    discounts[group.clinic.id] = Number(clinic.defaultDiscountPercent) || 0;
                 } catch (err) {
                     console.error(`Failed to fetch payment methods for clinic ${group.clinic.id}:`, err);
-                    methods[group.clinic.id] = ['CASH']; // Default to cash only
+                    methods[group.clinic.id] = ['CASH'];
+                    discounts[group.clinic.id] = 0;
                 }
             }
             setClinicPaymentMethods(methods);
+            setClinicDiscounts(discounts);
         };
 
         fetchPaymentMethods();
     }, [cart]);
+
+    if (success) {
+        return (
+            <div className="home-page">
+                <TopBar /><Navigation />
+                <main className="home-container co-main">
+                    <div className="co-success">
+                        <div className="co-success-icon"><CheckCircle2 size={56} /></div>
+                        <h1>Bron yaratildi</h1>
+                        {success.isCash ? (
+                            <>
+                                <p className="co-success-lead">Klinikaga kelganingizda devordagi <strong>QR kodni telefoningiz kamerasi bilan skanlang</strong> — keyin kassada naqd to'lashingiz mumkin.</p>
+                                <div className="co-success-steps">
+                                    <div className="co-success-step"><span>1</span> Belgilangan kuni klinikaga keling</div>
+                                    <div className="co-success-step"><span>2</span> Qabulxonadagi yoki devordagi QR kodni skanlang</div>
+                                    <div className="co-success-step"><span>3</span> Kassaga boring va naqd to'lang</div>
+                                    <div className="co-success-step"><span>4</span> Xizmat xonasiga o'ting</div>
+                                </div>
+                            </>
+                        ) : (
+                            <p className="co-success-lead">To'lov sahifasiga yo'naltirilmoqdasiz...</p>
+                        )}
+                        <div className="co-success-actions">
+                            {success.appointmentId && (
+                                <button className="co-confirm-btn" onClick={() => navigate(`/user/appointments/${success.appointmentId}`)}>
+                                    <QrCode size={18} /> Bron tafsilotlari
+                                </button>
+                            )}
+                            <Link to="/user/appointments" className="co-success-secondary">Barcha bronlarim</Link>
+                        </div>
+                    </div>
+                </main>
+                <Footer />
+            </div>
+        );
+    }
 
     if (!cart || cart.length === 0) {
         return (
@@ -58,6 +101,14 @@ export default function CartCheckoutPage() {
 
     const grandTotal = cart.reduce((sum, g) => sum + g.totalPrice, 0);
     const totalItems = cart.reduce((sum, g) => sum + g.itemCount, 0);
+
+    // Cash discount preview — if every clinic in cart offers the same %, show as a single hint.
+    const cashDiscountPcts = cart.map(g => clinicDiscounts[g.clinic.id] || 0);
+    const minCashPct = cashDiscountPcts.length ? Math.min(...cashDiscountPcts) : 0;
+    const allClinicsHaveCashDiscount = cashDiscountPcts.length > 0 && cashDiscountPcts.every(p => p > 0);
+    const showCashDiscount = allClinicsHaveCashDiscount && minCashPct > 0;
+    const cashTotal = showCashDiscount ? Math.round(grandTotal * (1 - minCashPct / 100)) : grandTotal;
+    const cashSavings = grandTotal - cashTotal;
 
     // Check if ALL clinics support online payment
     const allClinicsSupport = (method) => {
@@ -100,13 +151,10 @@ export default function CartCheckoutPage() {
             await refreshCart();
 
             if (paymentMethod === 'naqd') {
-                // Cash — redirect to appointment detail with PENDING_ARRIVAL check-in instructions
+                // Cash — show success screen with explicit "scan clinic wall QR" guidance.
                 const firstAppt = result.appointments?.[0];
-                if (firstAppt?.id) {
-                    navigate(`/user/appointments/${firstAppt.id}`);
-                } else {
-                    navigate('/user/appointments');
-                }
+                setSuccess({ appointmentId: firstAppt?.id, isCash: true });
+                return;
             } else {
                 // Card/Payme/Click — go to payment page
                 const firstAppointment = result.appointments?.[0];
@@ -229,6 +277,11 @@ export default function CartCheckoutPage() {
                             </div>
 
                             <h4 className="co-payment-title"><CreditCard size={16} /> To'lov usuli</h4>
+                            {showCashDiscount && (
+                                <div className="co-cash-discount-hint">
+                                    💡 Naqd to'lov tanlasangiz <strong>{minCashPct}% chegirma</strong> — {fmt(cashSavings)} so'm tejaysiz
+                                </div>
+                            )}
                             <div className="co-payment-methods">
                                 {/* Cash - always available */}
                                 <div
@@ -236,7 +289,7 @@ export default function CartCheckoutPage() {
                                     onClick={() => setPaymentMethod('naqd')}
                                 >
                                     <span>💵</span>
-                                    <span>Naqd</span>
+                                    <span>Naqd{showCashDiscount ? ` −${minCashPct}%` : ''}</span>
                                 </div>
 
                                 {/* Payme - only if all clinics support it */}
