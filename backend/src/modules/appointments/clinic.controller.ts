@@ -102,25 +102,6 @@ export const clinicAppointmentController = {
         }
     },
 
-    scan: async (req: AuthRequest, res: Response, next: NextFunction) => {
-        try {
-            const { clinicId, actor } = await resolveClinicActor(req);
-            let token: string = req.body?.qrToken ?? '';
-            // Accept JSON-encoded payload from QR (produced by patient QR): { t, b }
-            if (token.startsWith('{')) {
-                try {
-                    const parsed = JSON.parse(token);
-                    if (typeof parsed?.t === 'string') token = parsed.t;
-                } catch { /* noop */ }
-            }
-            if (!token) throw new AppError('QR kod noto\'g\'ri', 400, ErrorCodes.VALIDATION_ERROR);
-            const appt = await appointmentService.clinicScanQr(actor, clinicId, token);
-            sendSuccess(res, appt, null, 'Bemor ro\'yxatga olindi');
-        } catch (err) {
-            next(err);
-        }
-    },
-
     start: async (req: AuthRequest, res: Response, next: NextFunction) => {
         try {
             const { clinicId, actor } = await resolveClinicActor(req);
@@ -153,20 +134,13 @@ export const clinicAppointmentController = {
         }
     },
 
-    /**
-     * POST /api/clinic/appointments/confirm-cash
-     * Staff scans patient QR → confirm cash payment → CHECKED_IN → PAID + IN_PROGRESS
-     */
     confirmCash: async (req: AuthRequest, res: Response, next: NextFunction) => {
         try {
             const { clinicId, actor } = await resolveClinicActor(req);
-            let token: string = req.body?.qrToken ?? '';
-            if (token.startsWith('{')) {
-                try { const p = JSON.parse(token); if (p?.t) token = p.t; } catch { /* noop */ }
-            }
-            if (!token) throw new AppError('QR kod noto\'g\'ri', 400, ErrorCodes.VALIDATION_ERROR);
-            const appt = await appointmentService.staffConfirmCash(actor, clinicId, token);
-            sendSuccess(res, appt, null, 'Naqd to\'lov qabul qilindi');
+            const appt = await appointmentService.clinicConfirmCash(
+                actor, clinicId, String(req.params.id), req.body
+            );
+            sendSuccess(res, appt, null, 'Naqd to\'lov tasdiqlandi');
         } catch (err) {
             next(err);
         }

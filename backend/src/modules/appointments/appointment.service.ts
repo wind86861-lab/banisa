@@ -703,10 +703,15 @@ export class AppointmentService {
             throw new AppError('QR kod noto\'g\'ri yoki eskirgan', 404, ErrorCodes.NOT_FOUND);
         }
 
+        // Only fetch today's appointments to avoid showing old completed bookings
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+
         const eligible = await prisma.appointment.findMany({
             where: {
                 patientId,
                 clinicId: clinic.id,
+                scheduledAt: { gte: todayStart },
                 status: { in: ['PENDING_ARRIVAL', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED'] },
             },
             orderBy: { scheduledAt: 'asc' },

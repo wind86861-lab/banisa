@@ -19,8 +19,7 @@ export const env = {
     CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
     CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:3000',
     // Payme (Paycom) integration
-    PAYME_MERCHANT_ID: process.env.PAYME_MERCHANT_ID || '6899d73ecab302211ad27f12',
-    PAYME_TEST_MERCHANT_ID: process.env.PAYME_TEST_MERCHANT_ID || '69e72340adc989d99c87540a',
-    PAYME_TEST_KEY: process.env.PAYME_TEST_KEY || 'PYgTxR1DkBpjYWWnqj0XbwBXhD1FK&modToN',
-    PAYME_PROD_KEY: process.env.PAYME_PROD_KEY || 'kET5yf@Hu3QO2FtW&U5ANVO7ybS#@idTAZn9',
+    PAYME_MERCHANT_ID: process.env.PAYME_MERCHANT_ID || '69e72340adc989d99c87540a',
+    PAYME_PROD_KEY: process.env.PAYME_PROD_KEY || 'FRGo7DCSPDc0T5a7yZ?0X1O?1HxgOnrAAeUM',
+    PAYME_TEST_KEY: process.env.PAYME_TEST_KEY || '',
 };

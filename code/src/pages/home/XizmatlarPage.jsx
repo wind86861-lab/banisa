@@ -299,11 +299,13 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
                 </div>
                 <div className="xp-hub-carousel-track" ref={clinicRef}>
                     {clinics.map(c => {
-                        let img = c.image || c.logo || CLINIC_PLACEHOLDER;
+                        // Prioritize clinic logo, then cover image, then service image, then placeholder
+                        let img = c.logo || c.coverImage || c.image || CLINIC_PLACEHOLDER;
                         if (img?.startsWith('/uploads')) img = `https://banisa.uz${img}`;
+                        const hasLogo = !!c.logo;
                         return (
                             <Link key={c.id} to={`/klinikalar/${c.id}`} className="xp-hub-mini-card">
-                                <div className="xp-hub-mini-img">
+                                <div className={`xp-hub-mini-img${hasLogo ? ' xp-hub-mini-img-logo' : ''}`}>
                                     <img src={img} alt={c.name} onError={e => { if (e.currentTarget.src !== CLINIC_PLACEHOLDER) e.currentTarget.src = CLINIC_PLACEHOLDER; }} />
                                 </div>
                                 <div className="xp-hub-mini-body">

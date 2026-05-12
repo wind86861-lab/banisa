@@ -366,3 +366,123 @@
     color: #1e40af;
     border: 1px solid #bfdbfe;
 }
+
+/* ─── Check-in Section ─── */
+.ua-checkin-section {
+    background: linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%);
+    border: 1.5px solid #fed7aa;
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+}
+.ua-checkin-section--info {
+    background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+    border-color: #bfdbfe;
+}
+.ua-checkin-section-header { margin-bottom: 16px; }
+.ua-checkin-section-header h2 { font-size: 18px; font-weight: 700; color: #1a103d; margin: 0; }
+.ua-checkin-section-header p  { font-size: 13px; color: #6b7280; margin: 2px 0 0; }
+.ua-checkin-cards { display: flex; flex-direction: column; gap: 12px; }
+.ua-checkin-card {
+    background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px;
+    padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.ua-checkin-card--waiting { border-color: #bfdbfe; }
+.ua-checkin-card-info { flex: 1; min-width: 0; }
+.ua-checkin-card-clinic { font-size: 13px; font-weight: 600; color: #1a103d; display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.ua-checkin-card-service { font-size: 14px; font-weight: 500; color: #374151; display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.ua-checkin-card-meta { display: flex; gap: 12px; font-size: 12px; color: #6b7280; }
+.ua-checkin-card-meta span { display: flex; align-items: center; gap: 4px; }
+.ua-checkin-btn {
+    flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+    padding: 12px 24px; background: linear-gradient(135deg, #00BDE0, #0891b2);
+    color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.ua-checkin-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,189,224,0.3); }
+.ua-checkin-waiting { flex-shrink: 0; display: flex; align-items: center; gap: 8px; color: #2563eb; font-size: 13px; font-weight: 600; }
+
+/* ─── QR Scanner Modal ─── */
+.ua-scan-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.ua-scan-modal { background: #fff; border-radius: 20px; max-width: 420px; width: 100%; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.ua-scan-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #f1f5f9; }
+.ua-scan-header h3 { font-size: 16px; font-weight: 700; color: #1a103d; margin: 0; display: flex; align-items: center; gap: 8px; }
+.ua-scan-header button { background: none; border: none; color: #6b7280; cursor: pointer; padding: 4px; }
+.ua-qr-reader { width: 100% !important; }
+.ua-qr-reader img { display: none !important; }
+.ua-scan-error { background: #fef2f2; color: #dc2626; padding: 10px 16px; font-size: 13px; font-weight: 600; margin: 0; }
+.ua-scan-hint { text-align: center; padding: 12px 16px; font-size: 13px; color: #6b7280; margin: 0; }
+
+/* ─── Check-in Result Inline Cards ─── */
+.ua-checkin-result {
+    border-radius: 16px; padding: 24px; margin-bottom: 24px; text-align: center;
+    position: relative; animation: ua-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes ua-pop { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.ua-checkin-result--loading { background: #f0f9ff; border: 1.5px solid #bae6fd; display: flex; align-items: center; justify-content: center; gap: 12px; color: #0284c7; font-weight: 600; }
+.ua-checkin-result--error { background: #fef2f2; border: 1.5px solid #fecaca; display: flex; align-items: flex-start; gap: 12px; text-align: left; color: #991b1b; }
+.ua-checkin-result--error div { flex: 1; }
+.ua-checkin-result--error strong { font-size: 15px; }
+.ua-checkin-result--error p { font-size: 13px; margin: 4px 0 0; color: #b91c1c; }
+.ua-checkin-result--error button { background: none; border: none; color: #991b1b; cursor: pointer; padding: 2px; flex-shrink: 0; }
+.ua-checkin-result--select { background: #f0fdf4; border: 1.5px solid #86efac; text-align: left; }
+.ua-checkin-select-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.ua-checkin-select-header > div { flex: 1; }
+.ua-checkin-select-header strong { font-size: 16px; display: block; color: #1a103d; }
+.ua-checkin-select-header span { font-size: 13px; color: #6b7280; }
+.ua-checkin-select-header button { background: none; border: none; color: #6b7280; cursor: pointer; }
+.ua-checkin-pick-list { display: flex; flex-direction: column; gap: 8px; }
+.ua-checkin-pick-item {
+    width: 100%; background: #fff; border: 1.5px solid #d1fae5; border-radius: 10px;
+    padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; transition: all 0.15s;
+}
+.ua-checkin-pick-item:hover { border-color: #00BDE0; background: #f0fdfa; }
+.ua-checkin-pick-item strong { font-size: 14px; color: #1a103d; display: block; }
+.ua-checkin-pick-item span { font-size: 12px; color: #059669; }
+.ua-checkin-result--success, .ua-checkin-result--paid {
+    background: #fff; border: 1.5px solid #16a34a; box-shadow: 0 8px 32px rgba(22,163,106,0.12);
+}
+.ua-checkin-result--paid { border-color: #10b981; }
+.ua-checkin-dismiss { position: absolute; top: 12px; right: 12px; background: none; border: none; color: #94a3b8; cursor: pointer; }
+.ua-checkin-success-icon {
+    width: 60px; height: 60px; background: #dcfce7; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 900; color: #16a34a; margin: 0 auto 12px;
+}
+.ua-checkin-result h3 { font-size: 20px; font-weight: 800; color: #031B4E; margin: 0 0 6px; }
+.ua-checkin-sub { font-size: 14px; color: #475569; margin: 0 0 16px; }
+.ua-checkin-price {
+    display: flex; justify-content: space-between; align-items: baseline;
+    background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 12px;
+}
+.ua-checkin-price span { font-size: 13px; color: #64748b; }
+.ua-checkin-price strong { font-size: 20px; font-weight: 800; color: #059669; }
+.ua-checkin-info { background: #f8fafc; border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+.ua-checkin-info div { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
+.ua-checkin-info span { color: #94a3b8; }
+.ua-checkin-info strong { color: #1a103d; font-weight: 600; }
+.ua-checkin-polling {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(22,163,106,0.08); border-radius: 999px; padding: 8px 16px;
+    font-size: 13px; color: #059669; font-weight: 500;
+}
+.ua-checkin-polling-dot {
+    width: 8px; height: 8px; background: #16a34a; border-radius: 50%;
+    animation: ua-pulse 1.2s ease-in-out infinite;
+}
+@keyframes ua-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.7); } }
+.ua-checkin-detail-btn {
+    margin-top: 12px; display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; background: linear-gradient(135deg, #00BDE0, #0891b2);
+    color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600;
+    cursor: pointer;
+}
+.ua-spin { animation: ua-spin-kf 1s linear infinite; }
+@keyframes ua-spin-kf { to { transform: rotate(360deg); } }
+
+@media (max-width: 640px) {
+    .ua-checkin-card { flex-direction: column; align-items: stretch; }
+    .ua-checkin-btn { justify-content: center; }
+}

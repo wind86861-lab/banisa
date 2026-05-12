@@ -31,9 +31,11 @@ export interface ActivateClinicCheckupPackageDto {
     packageId: string;
     clinicPrice: number;
     customNotes?: string;
+    customizationData?: any;
 }
 
 export interface UpdateClinicCheckupPackageDto {
     clinicPrice?: number;
     customNotes?: string;
+    customizationData?: any;
 }

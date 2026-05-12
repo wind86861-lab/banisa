@@ -99,22 +99,29 @@ function computeIsOpen(workingHours) {
 function ClinicCard({ clinic, onClick, isPatient, onBook }) {
     const logo = imgUrl(clinic.logo);
     const cover = imgUrl(clinic.coverImage);
+    // If coverImage is the same URL as logo, it's not a real cover photo
+    const hasRealCover = cover && cover !== logo;
 
     return (
         <div className="cp-card" onClick={onClick}>
             <div className="cp-card-cover">
-                {cover ? (
+                {hasRealCover ? (
                     <img src={cover} alt={clinic.nameUz} />
+                ) : logo ? (
+                    <div className="cp-card-cover-logo-center">
+                        <img src={logo} alt={clinic.nameUz} />
+                    </div>
                 ) : (
                     <div className="cp-card-cover-gradient">
                         {clinic.nameUz?.slice(0, 2).toUpperCase()}
                     </div>
                 )}
-                {logo ? (
+                {/* Only show small logo overlay when we have a real cover image */}
+                {hasRealCover && (logo ? (
                     <img src={logo} alt="" className="cp-card-logo" />
                 ) : (
                     <div className="cp-card-logo-placeholder">{clinic.nameUz?.[0]}</div>
-                )}
+                ))}
                 <span className="cp-card-type-badge" style={{ color: '#1a103d' }}>
                     {CLINIC_TYPE_LABELS[clinic.type] || clinic.type}
                 </span>

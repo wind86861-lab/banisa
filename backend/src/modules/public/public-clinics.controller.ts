@@ -195,10 +195,12 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
                             select: {
                                 customNameUz: true, customPrice: true,
                                 discountPercent: true, estimatedDurationMinutes: true,
+                                customDescriptionUz: true, customDescriptionRu: true,
+                                images: { select: { url: true, isPrimary: true }, take: 1 },
                             },
                         },
                     },
-                    take: 50,
+                    take: 200,
                 },
                 surgicalServices: {
                     where: { isActive: true },
@@ -211,7 +213,7 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
                             },
                         },
                     },
-                    take: 50,
+                    take: 200,
                 },
                 checkupPackages: {
                     where: { isActive: true },
@@ -220,10 +222,11 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
                             select: {
                                 id: true, nameUz: true, nameRu: true,
                                 recommendedPrice: true, shortDescription: true, imageUrl: true,
+                                discount: true,
                             },
                         },
                     },
-                    take: 20,
+                    take: 100,
                 },
                 sanatoriumServices: {
                     where: { isActive: true },
@@ -231,12 +234,13 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
                         sanatoriumService: {
                             select: {
                                 id: true, nameUz: true, nameRu: true,
-                                priceMin: true, priceRecommended: true,
+                                priceMin: true, priceRecommended: true, durationMinutes: true,
+                                shortDescription: true, imageUrl: true,
                                 category: { select: { id: true, nameUz: true } },
                             },
                         },
                     },
-                    take: 20,
+                    take: 100,
                 },
                 reviews: {
                     where: { isActive: true },
@@ -262,6 +266,10 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
             return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
         }
 
+        // Unified shape for all 4 service types
+        // { id, type, nameUz, nameRu, category, price, originalPrice, discountPercent, duration, image, description }
+        // id is ALWAYS the real DB id of the underlying service (DiagnosticService, SurgicalService,
+        // CheckupPackage, SanatoriumService). This is what cart and detail pages expect.
         const diagnosticServices = (clinic as any).diagnosticServices.map((link: any) => {
             const s = link.diagnosticService;
             const cust = link.customization;
@@ -269,6 +277,7 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
             const price = cust?.customPrice ?? basePrice;
             const discount = cust?.discountPercent ?? 0;
             const finalPrice = discount > 0 ? Math.round(price * (1 - discount / 100)) : price;
+            const image = cust?.images?.[0]?.url ?? null;
             return {
                 id: s.id,
                 type: 'DIAGNOSTIC',
@@ -278,41 +287,80 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
                 price: finalPrice,
                 originalPrice: discount > 0 ? price : null,
                 discountPercent: discount > 0 ? discount : null,
-                duration: cust?.estimatedDurationMinutes ?? s.durationMinutes,
+                discountAmount: discount > 0 ? price - finalPrice : null,
+                duration: cust?.estimatedDurationMinutes ?? s.durationMinutes ?? null,
+                image,
+                description: cust?.customDescriptionUz ?? null,
             };
         });
 
         const surgicalServices = (clinic as any).surgicalServices.map((link: any) => {
             const s = link.surgicalService;
+            // ClinicSurgicalService.customizationData (Json) may carry custom price/discount
+            const cust = link.customizationData || {};
+            const basePrice = s.priceRecommended ?? s.priceMin ?? 0;
+            const price = Number(cust.customPrice ?? basePrice) || 0;
+            const discount = Number(cust.discountPercent ?? 0) || 0;
+            const finalPrice = discount > 0 ? Math.round(price * (1 - discount / 100)) : price;
             return {
                 id: s.id,
                 type: 'SURGICAL',
-                nameUz: s.nameUz,
+                nameUz: cust.customNameUz ?? s.nameUz,
                 nameRu: s.nameRu,
                 category: s.category?.nameUz ?? '',
-                price: s.priceRecommended ?? s.priceMin ?? 0,
-                duration: s.durationMinutes,
+                price: finalPrice,
+                originalPrice: discount > 0 ? price : null,
+                discountPercent: discount > 0 ? discount : null,
+                discountAmount: discount > 0 ? price - finalPrice : null,
+                duration: s.durationMinutes ?? null,
+                image: null,
+                description: cust.customDescriptionUz ?? null,
             };
         });
 
-        const checkupPackages = (clinic as any).checkupPackages.map((link: any) => ({
-            id: link.id,
-            type: 'CHECKUP',
-            nameUz: link.package.nameUz,
-            nameRu: link.package.nameRu,
-            category: 'Checkup',
-            price: link.clinicPrice ?? link.package.recommendedPrice ?? 0,
-            description: link.package.shortDescription,
-        }));
+        const checkupPackages = (clinic as any).checkupPackages.map((link: any) => {
+            const p = link.package;
+            const basePrice = link.clinicPrice ?? p.recommendedPrice ?? 0;
+            const discount = p.discount ?? 0;
+            const finalPrice = discount > 0 ? Math.round(basePrice * (1 - discount / 100)) : basePrice;
+            return {
+                id: p.id,
+                type: 'CHECKUP',
+                nameUz: p.nameUz,
+                nameRu: p.nameRu,
+                category: 'Checkup',
+                price: finalPrice,
+                originalPrice: discount > 0 ? basePrice : null,
+                discountPercent: discount > 0 ? discount : null,
+                discountAmount: discount > 0 ? basePrice - finalPrice : null,
+                duration: null,
+                image: p.imageUrl ?? null,
+                description: p.shortDescription ?? null,
+            };
+        });
 
-        const sanatoriumServices = (clinic as any).sanatoriumServices.map((link: any) => ({
-            id: link.sanatoriumServiceId,
-            type: 'SANATORIUM',
-            nameUz: link.customNameUz ?? link.sanatoriumService.nameUz,
-            nameRu: link.sanatoriumService.nameRu,
-            category: link.sanatoriumService.category?.nameUz ?? '',
-            price: link.clinicPrice ?? link.sanatoriumService.priceRecommended ?? 0,
-        }));
+        const sanatoriumServices = (clinic as any).sanatoriumServices.map((link: any) => {
+            const s = link.sanatoriumService;
+            const basePrice = link.clinicPrice ?? s.priceRecommended ?? s.priceMin ?? 0;
+            const discount = link.discountPercent ?? 0;
+            const validUntil = link.discountValidUntil ? new Date(link.discountValidUntil) : null;
+            const discountActive = discount > 0 && (!validUntil || validUntil > new Date());
+            const finalPrice = discountActive ? Math.round(basePrice * (1 - discount / 100)) : basePrice;
+            return {
+                id: s.id,
+                type: 'SANATORIUM',
+                nameUz: link.customNameUz ?? s.nameUz,
+                nameRu: link.customNameRu ?? s.nameRu,
+                category: s.category?.nameUz ?? '',
+                price: finalPrice,
+                originalPrice: discountActive ? basePrice : null,
+                discountPercent: discountActive ? discount : null,
+                discountAmount: discountActive ? basePrice - finalPrice : null,
+                duration: s.durationMinutes ?? null,
+                image: s.imageUrl ?? null,
+                description: link.customDescription ?? s.shortDescription ?? null,
+            };
+        });
 
         const reviews = (clinic as any).reviews;
         const ratingDist: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };

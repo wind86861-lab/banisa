@@ -74,6 +74,11 @@ export const checkPerformTransaction = async (params: {
         || appointment.surgicalService?.nameUz
         || 'Tibbiy xizmat';
 
+    // MXIK verified from tasnif.soliq.uz + confirmed by real clinic receipt:
+    // 10902004002000999 = "Услуги прочих оздоровительных и медицинских учреждений"
+    //                      (Other wellness & medical institution services)
+    // package_code 1322039 = "xizmat (marta)" / "услуга (раз)"
+    // vat_percent 12 = QQS 12% (as shown on real medical clinic receipt)
     return {
         result: {
             allow: true,
@@ -84,9 +89,9 @@ export const checkPerformTransaction = async (params: {
                         title: serviceName,
                         price: expectedAmount,
                         count: 1,
-                        code: '10105001001000000',   // MXIK: Tibbiy xizmatlar
-                        package_code: '1515151',     // O'lchov birligi: dona (xizmat)
-                        vat_percent: 0,              // QQS 0% (tibbiy xizmatlar soliqdan ozod)
+                        code: '10902004002000999',  // MXIK: Tibbiy va sog'lomlashtirish muassasalari xizmatlari
+                        package_code: '1322039',    // xizmat (marta) — услуга (раз)
+                        vat_percent: 12,            // QQS 12% (tibbiy muassasa xizmatlari)
                     },
                 ],
             },

@@ -19,7 +19,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
     try {
         const [diagnosticLinks, surgicalLinks, sanatoriumLinks, checkupLinks] = await Promise.all([
             prisma.clinicDiagnosticService.findMany({
-                where: { isActive: true, clinic: { status: ClinicStatus.APPROVED }, diagnosticService: { isActive: true } },
+                where: { isActive: true, clinic: { status: ClinicStatus.APPROVED, isActive: true }, diagnosticService: { isActive: true } },
                 include: {
                     clinic: { select: CLINIC_SELECT },
                     diagnosticService: {
@@ -32,7 +32,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
             }),
 
             prisma.clinicSurgicalService.findMany({
-                where: { isActive: true, clinic: { status: ClinicStatus.APPROVED } },
+                where: { isActive: true, clinic: { status: ClinicStatus.APPROVED, isActive: true } },
                 include: {
                     clinic: { select: CLINIC_SELECT },
                     surgicalService: {
@@ -43,7 +43,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
             }),
 
             prisma.clinicSanatoriumService.findMany({
-                where: { isActive: true, clinic: { status: ClinicStatus.APPROVED } },
+                where: { isActive: true, clinic: { status: ClinicStatus.APPROVED, isActive: true } },
                 include: {
                     clinic: { select: CLINIC_SELECT },
                     sanatoriumService: {
@@ -53,7 +53,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
             }),
 
             prisma.clinicCheckupPackage.findMany({
-                where: { isActive: true, clinic: { status: ClinicStatus.APPROVED } },
+                where: { isActive: true, clinic: { status: ClinicStatus.APPROVED, isActive: true } },
                 include: {
                     clinic: { select: CLINIC_SELECT },
                     package: true,
@@ -207,6 +207,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
 export const getPublicServiceDetail = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const id = String(req.params.id);
+        const clinicIdFilter = req.query.clinicId as string | undefined;
 
         // Handle surgical services (ID format: surgical-{clinicId}-{surgicalServiceId})
         if (id.startsWith('surgical-')) {
@@ -225,7 +226,7 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
                     },
                 });
 
-                if (!link || !link.isActive) {
+                if (!link || !link.isActive || !link.clinic.isActive || link.clinic.status !== ClinicStatus.APPROVED) {
                     return res.status(404).json({ success: false, message: 'Xizmat topilmadi' });
                 }
 
@@ -310,6 +311,169 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
 
                 return res.json({ success: true, data: result });
             }
+        }
+
+        // Handle sanatorium services (ID format: sanatorium-{clinicId}-{sanatoriumServiceId})
+        if (id.startsWith('sanatorium-')) {
+            const withoutPrefix = id.substring('sanatorium-'.length);
+            const parts = withoutPrefix.split('-');
+            if (parts.length >= 10) {
+                const clinicId = parts.slice(0, 5).join('-');
+                const sanatoriumServiceId = parts.slice(5).join('-');
+
+                const link = await prisma.clinicSanatoriumService.findUnique({
+                    where: { clinicId_sanatoriumServiceId: { clinicId, sanatoriumServiceId } },
+                    include: {
+                        clinic: {
+                            select: {
+                                id: true, nameUz: true, nameRu: true,
+                                region: true, district: true, street: true,
+                                phones: true, logo: true, averageRating: true, reviewCount: true,
+                                workingHours: true, hasOnlineBooking: true, type: true,
+                                status: true, isActive: true,
+                            },
+                        },
+                        sanatoriumService: {
+                            include: { category: true },
+                        },
+                    },
+                });
+
+                if (!link || !link.isActive || !link.clinic.isActive || link.clinic.status !== ClinicStatus.APPROVED) {
+                    return res.status(404).json({ success: false, message: 'Xizmat topilmadi' });
+                }
+
+                const s = link.sanatoriumService;
+                const c = link.clinic;
+                const mainImg = s.imageUrl ?? null;
+                const roomImgs = ((link.roomImages as string[] | null) ?? []);
+                const images = mainImg ? [mainImg, ...roomImgs] : roomImgs;
+                const duration = s.durationDays
+                    ? `${s.durationDays} kun`
+                    : s.durationMinutes
+                        ? `${s.durationMinutes} daqiqa`
+                        : '';
+
+                return res.json({
+                    success: true,
+                    data: {
+                        id,
+                        isSanatorium: true,
+                        serviceId: sanatoriumServiceId,
+                        nameUz: link.customNameUz ?? s.nameUz,
+                        nameRu: link.customNameRu ?? s.nameRu,
+                        category: 'sanatoriya',
+                        shortDescription: link.customDescription ?? s.shortDescription,
+                        fullDescription: s.shortDescription,
+                        targetAudience: null,
+                        price: link.clinicPrice ?? s.priceRecommended ?? s.priceMin ?? 0,
+                        priceMin: s.priceMin,
+                        priceMax: s.priceMax,
+                        priceRecommended: link.clinicPrice ?? s.priceRecommended ?? 0,
+                        imageUrl: mainImg,
+                        images,
+                        durationMinutes: s.durationMinutes ?? 480,
+                        resultTimeHours: (s.durationDays ?? 1) * 24,
+                        activeClinicsCount: 1,
+                        includes: link.includes,
+                        excludes: link.excludes,
+                        features: link.features,
+                        mealPlan: link.mealPlan,
+                        maxGuests: link.maxGuests,
+                        clinics: [{
+                            id: c.id,
+                            name: c.nameUz,
+                            nameRu: c.nameRu,
+                            region: c.region,
+                            district: c.district,
+                            address: `${c.region}, ${c.district}, ${c.street}`,
+                            phones: c.phones as string[],
+                            logo: c.logo,
+                            rating: c.averageRating ?? 0,
+                            reviewCount: c.reviewCount ?? 0,
+                            workingHours: c.workingHours,
+                            hasOnlineBooking: c.hasOnlineBooking,
+                            price: link.clinicPrice ?? s.priceRecommended ?? 0,
+                            originalPrice: null,
+                            discountPercent: link.discountPercent ?? null,
+                        }],
+                    },
+                });
+            }
+        }
+
+        // Handle checkup packages (ClinicCheckupPackage ID — cuid)
+        const checkupLink = await prisma.clinicCheckupPackage.findUnique({
+            where: { id },
+            include: {
+                package: {
+                    include: { items: { orderBy: { sortOrder: 'asc' } } },
+                },
+                clinic: {
+                    select: {
+                        id: true, nameUz: true, nameRu: true,
+                        region: true, district: true, street: true,
+                        phones: true, logo: true, averageRating: true, reviewCount: true,
+                        workingHours: true, hasOnlineBooking: true, type: true,
+                        status: true, isActive: true,
+                    },
+                },
+            },
+        });
+
+        if (
+            checkupLink &&
+            checkupLink.isActive &&
+            checkupLink.package.isActive &&
+            checkupLink.clinic.isActive &&
+            checkupLink.clinic.status === ClinicStatus.APPROVED
+        ) {
+            const p = checkupLink.package;
+            const c = checkupLink.clinic;
+            const cust = (checkupLink.customizationData as any) || {};
+
+            return res.json({
+                success: true,
+                data: {
+                    id: checkupLink.id,
+                    isCheckup: true,
+                    serviceId: p.id,
+                    nameUz: cust.customNameUz || p.nameUz,
+                    nameRu: cust.customNameRu || p.nameRu,
+                    category: 'checkup',
+                    targetAudience: p.targetAudience,
+                    shortDescription: cust.customNotes || p.shortDescription,
+                    fullDescription: p.fullDescription || p.shortDescription,
+                    price: checkupLink.clinicPrice,
+                    priceMin: p.priceMin,
+                    priceMax: p.priceMax,
+                    priceRecommended: checkupLink.clinicPrice,
+                    discount: p.discount,
+                    imageUrl: p.imageUrl,
+                    images: p.imageUrl ? [p.imageUrl] : [],
+                    items: p.items,
+                    durationMinutes: 480,
+                    resultTimeHours: 24,
+                    activeClinicsCount: 1,
+                    clinics: [{
+                        id: c.id,
+                        name: c.nameUz,
+                        nameRu: c.nameRu,
+                        region: c.region,
+                        district: c.district,
+                        address: `${c.region}, ${c.district}, ${c.street}`,
+                        phones: c.phones as string[],
+                        logo: c.logo,
+                        rating: c.averageRating ?? 0,
+                        reviewCount: c.reviewCount ?? 0,
+                        workingHours: c.workingHours,
+                        hasOnlineBooking: c.hasOnlineBooking,
+                        price: checkupLink.clinicPrice,
+                        originalPrice: null,
+                        discountPercent: null,
+                    }],
+                },
+            });
         }
 
         // Handle diagnostic services
@@ -400,6 +564,11 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
             };
         });
 
+        // Filter clinics if clinicId query parameter is provided
+        const filteredClinics = clinicIdFilter
+            ? clinics.filter(c => c.id === clinicIdFilter)
+            : clinics;
+
         // Build public response (strip internal fields)
         const result = {
             id: service.id,
@@ -429,7 +598,7 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
             imageUrl: service.imageUrl,
             images: allImages,
             activeClinicsCount: service.activeClinicsCount,
-            clinics,
+            clinics: filteredClinics,
             relatedServices: service.relatedServices,
         };
 

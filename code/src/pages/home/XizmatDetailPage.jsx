@@ -117,10 +117,19 @@ export default function XizmatDetailPage() {
         setLoading(true);
         setError(null);
         axios.get(`/api/public/services/${id}`)
-            .then(res => setSvc(res.data.data))
+            .then(res => {
+                const data = res.data.data;
+                // Filter clinics if clinicId query param is present
+                const params = new URLSearchParams(location.search);
+                const clinicId = params.get('clinicId');
+                if (clinicId && data.clinics) {
+                    data.clinics = data.clinics.filter(c => c.id === clinicId);
+                }
+                setSvc(data);
+            })
             .catch(() => setError('Xizmat topilmadi'))
             .finally(() => setLoading(false));
-    }, [id]);
+    }, [id, location.search]);
 
     if (loading) {
         return (

@@ -45,13 +45,15 @@ export const activateClinicPackageSchema = z.object({
     body: z.object({
         packageId: z.string().cuid(),
         clinicPrice: z.number().int().min(0),
-        customNotes: z.string().optional()
+        customNotes: z.string().optional(),
+        customizationData: z.any().optional()
     })
 });
 
 export const updateClinicPackageSchema = z.object({
     body: z.object({
         clinicPrice: z.number().int().min(0).optional(),
-        customNotes: z.string().optional()
+        customNotes: z.string().optional(),
+        customizationData: z.any().optional()
     })
 });

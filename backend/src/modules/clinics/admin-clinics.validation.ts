@@ -86,6 +86,7 @@ export const clinicCreateSchema = z.object({
         adminEmail: z.string().email().optional().nullable(),
         adminPhone: z.string().optional().nullable(),
         adminPosition: z.string().optional().nullable(),
+        adminPassword: z.string().min(8).optional(),
 
         notes: z.string().optional().nullable(),
     }),
@@ -135,6 +136,7 @@ export const clinicUpdateSchema = z.object({
         adminEmail: z.string().email().optional().nullable(),
         adminPhone: z.string().optional().nullable(),
         adminPosition: z.string().optional().nullable(),
+        adminPassword: z.string().min(8).optional(),
         notes: z.string().optional().nullable(),
     }),
 });

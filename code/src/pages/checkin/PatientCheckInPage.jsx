@@ -185,7 +185,7 @@ export default function PatientCheckInPage() {
                 <div className="ci-card ci-card--success">
                     <div className="ci-success-icon">✓</div>
                     <h2>Kelishingiz tasdiqlandi!</h2>
-                    <p className="ci-success-sub">Kassada quyidagi summani naqd to'lang.</p>
+                    <p className="ci-success-sub">Klinika to'lovingizni tasdiqlashi kutilmoqda.</p>
 
                     <div className="ci-price-card">
                         {discount > 0 && (
@@ -208,8 +208,7 @@ export default function PatientCheckInPage() {
                     </div>
 
                     <div className="ci-booking-info">
-                        <div className="ci-booking-row"><span>Kassirga ko'rsating</span><strong style={{ fontSize: 22 }}>{shortBookingNo(result.bookingNumber)}</strong></div>
-                        <div className="ci-booking-row"><span>Bron №</span><strong>{result.bookingNumber}</strong></div>
+                        <div className="ci-booking-row"><span>Bron raqami</span><strong style={{ fontSize: 18 }}>{shortBookingNo(result.bookingNumber)}</strong></div>
                         <div className="ci-booking-row"><span>Klinika</span><strong>{result.clinic?.nameUz}</strong></div>
                     </div>
 

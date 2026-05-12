@@ -3,18 +3,18 @@
 // dialect (e.g. "Naqd — kelishi kutilmoqda"). This file is patient-side only.
 
 export const STATUS_LABELS = {
-    PENDING:            { text: 'Operator kutmoqda',         color: '#D97706', bg: '#FEF3C7' },
-    PENDING_ARRIVAL:    { text: 'Klinikaga keling',          color: '#EA580C', bg: '#FFEDD5' },
-    OPERATOR_CONFIRMED: { text: 'Tasdiqlandi',               color: '#2563EB', bg: '#DBEAFE' },
-    SENT_TO_CLINIC:     { text: 'Klinikada ko\'rilmoqda',    color: '#2563EB', bg: '#DBEAFE' },
-    CLINIC_ACCEPTED:    { text: 'Klinika qabul qildi',       color: '#059669', bg: '#D1FAE5' },
-    PAID:               { text: 'To\'langan',                color: '#059669', bg: '#D1FAE5' },
-    CHECKED_IN:         { text: 'Klinikada — kassada to\'lov kuting', color: '#7C3AED', bg: '#EDE9FE' },
-    IN_PROGRESS:        { text: 'Xizmat jarayonda',          color: '#7C3AED', bg: '#EDE9FE' },
-    COMPLETED:          { text: 'Yakunlandi',                color: '#065F46', bg: '#D1FAE5' },
-    CANCELLED:          { text: 'Bekor qilindi',             color: '#991B1B', bg: '#FEE2E2' },
-    NO_SHOW:            { text: 'Kelmadi',                   color: '#991B1B', bg: '#FEE2E2' },
-    RESCHEDULED:        { text: 'Vaqt o\'zgartirildi',       color: '#D97706', bg: '#FEF3C7' },
+    PENDING: { text: 'Operator kutmoqda', color: '#D97706', bg: '#FEF3C7' },
+    PENDING_ARRIVAL: { text: 'Klinikaga keling', color: '#EA580C', bg: '#FFEDD5' },
+    OPERATOR_CONFIRMED: { text: 'Tasdiqlandi', color: '#2563EB', bg: '#DBEAFE' },
+    SENT_TO_CLINIC: { text: 'Klinikada ko\'rilmoqda', color: '#2563EB', bg: '#DBEAFE' },
+    CLINIC_ACCEPTED: { text: 'Klinika qabul qildi', color: '#059669', bg: '#D1FAE5' },
+    PAID: { text: 'To\'langan', color: '#059669', bg: '#D1FAE5' },
+    CHECKED_IN: { text: 'Check-in qilindi', color: '#7C3AED', bg: '#EDE9FE' },
+    IN_PROGRESS: { text: 'Xizmat jarayonda', color: '#7C3AED', bg: '#EDE9FE' },
+    COMPLETED: { text: 'Yakunlandi', color: '#065F46', bg: '#D1FAE5' },
+    CANCELLED: { text: 'Bekor qilindi', color: '#991B1B', bg: '#FEE2E2' },
+    NO_SHOW: { text: 'Kelmadi', color: '#991B1B', bg: '#FEE2E2' },
+    RESCHEDULED: { text: 'Vaqt o\'zgartirildi', color: '#D97706', bg: '#FEF3C7' },
 };
 
 export const statusLabel = (status) => STATUS_LABELS[status] || STATUS_LABELS.PENDING;
@@ -42,27 +42,26 @@ export const isReadyForService = (a) =>
 export function nextActionFor(a) {
     if (!a) return null;
     if (a.status === 'CANCELLED') return { title: 'Bron bekor qilingan', body: 'Yangi bron yaratish uchun xizmatlarga qayting.', tone: 'error' };
-    if (a.status === 'NO_SHOW')   return { title: 'Tashrif qayd etilmadi', body: 'Bu bronni vaqtida foydalanmagansiz.', tone: 'error' };
+    if (a.status === 'NO_SHOW') return { title: 'Tashrif qayd etilmadi', body: 'Bu bronni vaqtida foydalanmagansiz.', tone: 'error' };
     if (a.status === 'COMPLETED') return { title: 'Xizmat yakunlandi', body: 'Tashrifingizdan minnatdormiz!', tone: 'ok' };
     if (a.status === 'IN_PROGRESS') return { title: 'Xizmat jarayonda', body: 'Xizmat xonasida bo\'lganingiz uchun rahmat.', tone: 'ok' };
 
     if (needsCheckIn(a)) return {
-        title: 'Klinikaga keling va devordagi QR\'ni scan qiling',
-        body:  'Klinikaga yetib borgach, qabulxonadagi yoki devordagi QR kodni telefoningiz kamerasi bilan oching. Shundan so\'ng kassada naqd to\'lashingiz mumkin.',
-        tone:  'warning',
-        cta:   'scan',
+        title: 'Klinikaga keling va check-in qiling',
+        body: 'Klinikaga yetib borgach, "Check-in" tugmasini bosing.',
+        tone: 'warning',
+        cta: 'checkin',
     };
     if (awaitingCashier(a)) return {
-        title: 'Kassaga boring va naqd to\'lang',
-        body:  'Kassirga bron raqamingizni ko\'rsating. To\'lov qabul qilingach bu sahifa avtomatik yangilanadi.',
-        tone:  'info',
-        cta:   'await-cashier',
+        title: 'Naqd to\'lov tasdiqlanmoqda',
+        body: 'Klinika to\'lovingizni tasdiqlashi kutilmoqda. Sahifa avtomatik yangilanadi.',
+        tone: 'info',
+        cta: 'await-cashier',
     };
     if (isReadyForService(a)) return {
         title: 'To\'lov qabul qilindi — xizmat xonasiga o\'ting',
-        body:  'Sizni shifokor kutmoqda. QR kodingizni administratorga ko\'rsating.',
-        tone:  'ok',
-        cta:   'show-qr',
+        body: 'Sizni shifokor kutmoqda. Bron raqamingizni administratorga ayting.',
+        tone: 'ok',
     };
     // PENDING / OPERATOR_CONFIRMED / SENT_TO_CLINIC / CLINIC_ACCEPTED (non-cash) — waiting for clinic
     if (a.paymentMethod !== 'CASH' && a.paymentStatus !== 'PAID' &&

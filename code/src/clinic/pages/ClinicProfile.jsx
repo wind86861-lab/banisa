@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Building2, Phone, Mail, Globe, MapPin,
     FileText, Save, Loader2, CheckCircle2, Edit3,
     Clock, Settings, CalendarDays, CheckCircle, XCircle,
+    Upload, ImageIcon, X, Loader2 as SpinLoader,
 } from 'lucide-react';
+import api from '../../shared/api/axios';
 import { useClinicProfile, useUpdateProfile } from '../hooks/useClinicData';
 import { useWorkingHours, useUpdateWorkingHours } from '../hooks/useServiceSettings';
 import './clinic-admin.css';
@@ -252,6 +254,65 @@ const CLINIC_TYPES = [
     { value: 'PHARMACY', label: 'Dorixona' },
 ];
 
+function LogoUploadField({ label, value, onChange }) {
+    const [uploading, setUploading] = useState(false);
+    const fileRef = useRef();
+
+    const handleFile = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const fd = new FormData();
+        fd.append('image', file);
+        setUploading(true);
+        try {
+            const { data } = await api.post('/upload/clinic-logo', fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            onChange(data.data.url);
+        } catch (err) {
+            alert('Yuklash xatoligi: ' + (err?.response?.data?.message || err?.message || "Noma'lum xatolik"));
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    return (
+        <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, display: 'block' }}>{label}</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                {value ? (
+                    <div style={{ position: 'relative', width: 96, height: 96, borderRadius: 12, overflow: 'hidden', border: '2px solid var(--border-color)', background: '#f8fafc' }}>
+                        <img src={value.startsWith('/') ? `https://banisa.uz${value}` : value} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button
+                            type="button"
+                            onClick={() => onChange('')}
+                            style={{ position: 'absolute', top: 4, right: 4, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        >
+                            <X size={13} />
+                        </button>
+                    </div>
+                ) : (
+                    <div style={{ width: 96, height: 96, borderRadius: 12, border: '2px dashed var(--border-color)', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <ImageIcon size={28} color="#cbd5e1" />
+                    </div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button
+                        type="button"
+                        onClick={() => fileRef.current.click()}
+                        disabled={uploading}
+                        style={{ padding: '8px 16px', borderRadius: 8, border: '1.5px solid var(--border-color)', background: '#fff', fontSize: 13, fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                        {uploading ? <SpinLoader size={14} className="ca-spin" /> : <Upload size={14} />}
+                        {uploading ? 'Yuklanmoqda...' : 'Rasm yuklash'}
+                    </button>
+                    <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function SaveBanner({ visible }) {
     if (!visible) return null;
     return (
@@ -285,6 +346,8 @@ export default function ClinicProfile() {
             nameEn: profile.nameEn ?? '',
             type: profile.type ?? 'GENERAL',
             description: profile.description ?? '',
+            logo: profile.logo ?? '',
+            coverImage: profile.coverImage ?? '',
             region: profile.region ?? '',
             district: profile.district ?? '',
             street: profile.street ?? '',
@@ -351,39 +414,57 @@ export default function ClinicProfile() {
 
             {/* ── BASIC ── */}
             {tab === 'basic' && (
-                <div className="ca-section-card">
-                    <div className="ca-section-head">
-                        <span className="ca-section-title"><Building2 size={16} /> Asosiy ma&#39;lumotlar</span>
+                <>
+                    <div className="ca-section-card">
+                        <div className="ca-section-head">
+                            <span className="ca-section-title"><Building2 size={16} /> Asosiy ma&#39;lumotlar</span>
+                        </div>
+                        <div className="ca-section-body">
+                            <div className="ca-form-row">
+                                <div className="ca-form-group">
+                                    <label className="ca-label">Klinika nomi (O&#39;zbek) *</label>
+                                    <input value={form.nameUz ?? ''} onChange={e => set('nameUz', e.target.value)} placeholder="Sog'liqni Saqlash Markazi" />
+                                </div>
+                                <div className="ca-form-group">
+                                    <label className="ca-label">Klinika nomi (Rus)</label>
+                                    <input value={form.nameRu ?? ''} onChange={e => set('nameRu', e.target.value)} placeholder="Центр Здоровья" />
+                                </div>
+                            </div>
+                            <div className="ca-form-row">
+                                <div className="ca-form-group">
+                                    <label className="ca-label">Klinika nomi (Ingliz)</label>
+                                    <input value={form.nameEn ?? ''} onChange={e => set('nameEn', e.target.value)} placeholder="Health Center" />
+                                </div>
+                                <div className="ca-form-group">
+                                    <label className="ca-label">Klinika turi</label>
+                                    <select value={form.type ?? 'GENERAL'} onChange={e => set('type', e.target.value)}>
+                                        {CLINIC_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="ca-form-group ca-form-row single">
+                                <label className="ca-label">Tavsif</label>
+                                <textarea rows={4} value={form.description ?? ''} onChange={e => set('description', e.target.value)} placeholder="Klinika haqida qisqacha ma'lumot..." />
+                            </div>
+                        </div>
                     </div>
-                    <div className="ca-section-body">
-                        <div className="ca-form-row">
-                            <div className="ca-form-group">
-                                <label className="ca-label">Klinika nomi (O&#39;zbek) *</label>
-                                <input value={form.nameUz ?? ''} onChange={e => set('nameUz', e.target.value)} placeholder="Sog'liqni Saqlash Markazi" />
-                            </div>
-                            <div className="ca-form-group">
-                                <label className="ca-label">Klinika nomi (Rus)</label>
-                                <input value={form.nameRu ?? ''} onChange={e => set('nameRu', e.target.value)} placeholder="Центр Здоровья" />
-                            </div>
+                    <div className="ca-section-card">
+                        <div className="ca-section-head">
+                            <span className="ca-section-title"><ImageIcon size={16} /> Rasmlar</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Foydalanuvchilarga ko'rinadigan klinika rasmlari</span>
                         </div>
-                        <div className="ca-form-row">
-                            <div className="ca-form-group">
-                                <label className="ca-label">Klinika nomi (Ingliz)</label>
-                                <input value={form.nameEn ?? ''} onChange={e => set('nameEn', e.target.value)} placeholder="Health Center" />
+                        <div className="ca-section-body">
+                            <div className="ca-form-row">
+                                <div className="ca-form-group">
+                                    <LogoUploadField label="Klinika logotipi (logo)" value={form.logo} onChange={v => set('logo', v)} />
+                                </div>
+                                <div className="ca-form-group">
+                                    <LogoUploadField label="Asosiy rasm (cover)" value={form.coverImage} onChange={v => set('coverImage', v)} />
+                                </div>
                             </div>
-                            <div className="ca-form-group">
-                                <label className="ca-label">Klinika turi</label>
-                                <select value={form.type ?? 'GENERAL'} onChange={e => set('type', e.target.value)}>
-                                    {CLINIC_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        <div className="ca-form-group ca-form-row single">
-                            <label className="ca-label">Tavsif</label>
-                            <textarea rows={4} value={form.description ?? ''} onChange={e => set('description', e.target.value)} placeholder="Klinika haqida qisqacha ma'lumot..." />
                         </div>
                     </div>
-                </div>
+                </>
             )}
 
             {/* ── CONTACT ── */}

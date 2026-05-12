@@ -174,7 +174,7 @@ export default function ClinicDetailPage() {
     };
 
     const handleViewService = (service) => {
-        navigate(`/xizmatlar/${service.id}`);
+        navigate(`/xizmatlar/${service.id}?clinicId=${clinic.id}`);
     };
 
     const handleAddToCart = async (e, svc, serviceType) => {

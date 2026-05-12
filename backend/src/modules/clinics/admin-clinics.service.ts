@@ -313,10 +313,12 @@ export const deleteClinic = async (id: string) => {
         await tx.clinicSanatoriumService.deleteMany({ where: { clinicId: id } });
         await tx.clinicCheckupPackage.deleteMany({ where: { clinicId: id } });
 
-        // Detach admin users linked to this clinic (do not delete the users)
+        // Deactivate admin users linked to this clinic and unlink them.
+        // We don't hard-delete users (FK refs from AppointmentLog/etc), but we
+        // must disable login — otherwise they remain as orphan logins.
         await tx.user.updateMany({
             where: { clinicId: id },
-            data: { clinicId: null },
+            data: { clinicId: null, isActive: false },
         });
 
         // Finally delete the clinic

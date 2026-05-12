@@ -89,7 +89,7 @@ export const getServiceById = async (id: string) => {
                 },
             },
             clinicLinks: {
-                where: { isActive: true, clinic: { status: 'APPROVED' } },
+                where: { isActive: true, clinic: { status: 'APPROVED', isActive: true } },
                 include: {
                     clinic: {
                         select: {

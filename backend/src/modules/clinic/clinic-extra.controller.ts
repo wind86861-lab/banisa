@@ -243,7 +243,7 @@ export const getClinicProfile = async (req: AuthRequest, res: Response) => {
         where: { id: clinicId },
         select: {
             id: true, nameUz: true, nameRu: true, nameEn: true,
-            type: true, description: true, logo: true,
+            type: true, description: true, logo: true, coverImage: true,
             region: true, district: true, street: true, landmark: true,
             latitude: true, longitude: true,
             phones: true, emails: true, website: true, workingHours: true,
@@ -262,7 +262,7 @@ export const updateClinicProfile = async (req: AuthRequest, res: Response) => {
     if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
 
     const {
-        nameUz, nameRu, nameEn, description, logo,
+        nameUz, nameRu, nameEn, description, logo, coverImage,
         region, district, street, landmark, latitude, longitude,
         phones, emails, website,
         taxId, licenseNumber,
@@ -277,6 +277,7 @@ export const updateClinicProfile = async (req: AuthRequest, res: Response) => {
             ...(nameEn !== undefined && { nameEn }),
             ...(description !== undefined && { description }),
             ...(logo !== undefined && { logo }),
+            ...(coverImage !== undefined && { coverImage }),
             ...(region !== undefined && { region }),
             ...(district !== undefined && { district }),
             ...(street !== undefined && { street }),

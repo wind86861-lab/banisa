@@ -1,10 +1,9 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { useMemo } from 'react';
 import {
     ArrowLeft, CheckCircle2, Clock, CreditCard, Building2, Phone, MapPin,
-    Calendar, FileText, AlertCircle, QrCode, Camera, X, Loader2, Navigation as NavIcon
+    Calendar, FileText, AlertCircle, Loader2, Navigation as NavIcon
 } from 'lucide-react';
 import api from '../../shared/api/axios';
 import { statusLabel, nextActionFor, canCancel as canCancelFn, cancelPolicy } from '../../shared/utils/appointmentStatus';
@@ -19,57 +18,6 @@ const POLL_MS = 5000;
 export default function AppointmentDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [qrSrc, setQrSrc] = useState(null);
-    const [scannerOpen, setScannerOpen] = useState(false);
-    const [scanError, setScanError] = useState('');
-    const html5Ref = useRef(null);
-
-    const stopScanner = async () => {
-        if (html5Ref.current) {
-            try { await html5Ref.current.stop(); } catch { }
-            try { html5Ref.current.clear(); } catch { }
-            html5Ref.current = null;
-        }
-    };
-
-    const closeScanner = async () => {
-        await stopScanner();
-        setScannerOpen(false);
-        setScanError('');
-    };
-
-    const handleScanResult = async (text) => {
-        let secret = text.trim();
-        const match = secret.match(/\/checkin\/([A-Za-z0-9_-]+)/);
-        if (match) secret = match[1];
-        if (!/^[A-Za-z0-9_-]{8,}$/.test(secret)) {
-            setScanError("Noto'g'ri QR kod. Klinika devoridagi QR ni skanlang.");
-            return;
-        }
-        await stopScanner();
-        setScannerOpen(false);
-        navigate(`/checkin/${secret}`);
-    };
-
-    useEffect(() => {
-        if (!scannerOpen) return;
-        let cancelled = false;
-        (async () => {
-            try {
-                const scanner = new Html5Qrcode('apd-qr-reader');
-                html5Ref.current = scanner;
-                await scanner.start(
-                    { facingMode: 'environment' },
-                    { fps: 10, qrbox: { width: 260, height: 260 } },
-                    (text) => { if (!cancelled) handleScanResult(text); },
-                    () => { }
-                );
-            } catch (e) {
-                setScanError('Kamerani ochib bo\'lmadi: ' + (e?.message || e));
-            }
-        })();
-        return () => { cancelled = true; stopScanner(); };
-    }, [scannerOpen]);
 
     const { data, isLoading, error, refetch } = useQuery({
         queryKey: ['appointment', id, 'v3'],
@@ -90,25 +38,7 @@ export default function AppointmentDetailPage() {
     });
 
     const isCash = data?.paymentMethod === 'CASH';
-    const showQrForCash = isCash && ['CHECKED_IN', 'IN_PROGRESS', 'COMPLETED'].includes(data?.status);
-    const showQr = data?.paymentStatus === 'PAID' || showQrForCash;
     const action = useMemo(() => nextActionFor(data), [data]);
-
-    // Authenticated QR image fetch.
-    useEffect(() => {
-        if (!data || !showQr) { setQrSrc(null); return; }
-        let cancelled = false;
-        let blobUrl = null;
-        (async () => {
-            try {
-                const res = await api.get(`/user/appointments/${id}/qr.png`, { responseType: 'blob' });
-                if (cancelled) return;
-                blobUrl = URL.createObjectURL(res.data);
-                setQrSrc(blobUrl);
-            } catch (e) { console.error('QR load failed', e); }
-        })();
-        return () => { cancelled = true; if (blobUrl) URL.revokeObjectURL(blobUrl); };
-    }, [showQr, id]);
 
     const cancel = async () => {
         if (!window.confirm('Bronni bekor qilmoqchimisiz?')) return;
@@ -201,30 +131,23 @@ export default function AppointmentDetailPage() {
                                 <h3>{action.title}</h3>
                                 <p>{action.body}</p>
 
-                                {action.cta === 'scan' && (
+                                {action.cta === 'checkin' && (
                                     <>
                                         <div className="apd-checkin-amount">
                                             <span>Naqd to'lov summasi:</span>
                                             <strong>{fmtSum(finalP)} so'm</strong>
                                         </div>
-                                        <button type="button" className="apd-scan-btn" onClick={() => { setScanError(''); setScannerOpen(true); }}>
-                                            <Camera size={18} /> QR skanerni ochish
+                                        <button type="button" className="apd-scan-btn" onClick={() => navigate(`/user/appointments`)}>
+                                            Check-in qilish
                                         </button>
-                                        <p className="apd-scan-hint">Yoki telefon kamerangiz bilan klinika devoridagi QR ni skanlang</p>
                                     </>
                                 )}
 
                                 {action.cta === 'await-cashier' && (
-                                    <>
-                                        <div className="apd-action-bron">
-                                            <span>Kassirga ushbu raqamni ko'rsating:</span>
-                                            <strong>{shortBookingNo(data.bookingNumber)}</strong>
-                                        </div>
-                                        <div className="apd-action-spinner">
-                                            <Loader2 size={16} className="apd-spin" />
-                                            <span>Kassirning tasdiqlashi kutilmoqda...</span>
-                                        </div>
-                                    </>
+                                    <div className="apd-action-spinner">
+                                        <Loader2 size={16} className="apd-spin" />
+                                        <span>Klinika to'lovingizni tasdiqlashi kutilmoqda...</span>
+                                    </div>
                                 )}
 
                                 {action.cta === 'pay' && (
@@ -232,16 +155,6 @@ export default function AppointmentDetailPage() {
                                         To'lash <CreditCard size={16} />
                                     </button>
                                 )}
-                            </div>
-                        )}
-
-                        {/* QR card — once paid or CHECKED_IN with QR */}
-                        {showQr && qrSrc && (
-                            <div className="apd-qr-card">
-                                <div className="apd-qr-header"><QrCode size={20} /><h3>{isCash ? 'Xodimga ko\'rsating' : 'Klinikaga ko\'rsating'}</h3></div>
-                                <div className="apd-qr-img-wrap"><img src={qrSrc} alt="QR kod" className="apd-qr-img" /></div>
-                                <p className="apd-qr-note">{isCash ? 'Xodim ushbu QR ni skanerlab naqd to\'lovni qabul qiladi' : 'Administrator ushbu QR ni skanerlab sizga xizmatni boshlaydi'}</p>
-                                <div className="apd-qr-code-text">{data.bookingNumber}</div>
                             </div>
                         )}
 
@@ -363,20 +276,6 @@ export default function AppointmentDetailPage() {
                     </div>
                 </div>
             </main>
-
-            {scannerOpen && (
-                <div className="apd-scan-modal" onClick={closeScanner}>
-                    <div className="apd-scan-modal-body" onClick={(e) => e.stopPropagation()}>
-                        <div className="apd-scan-modal-header">
-                            <h3><Camera size={18} /> Klinika QR ni skanlang</h3>
-                            <button type="button" className="apd-scan-close" onClick={closeScanner} aria-label="Yopish"><X size={20} /></button>
-                        </div>
-                        <div id="apd-qr-reader" className="apd-qr-reader" />
-                        {scanError && <p className="apd-scan-error">{scanError}</p>}
-                        <p className="apd-scan-help">Klinika devoridagi QR kodga kamerani yo'naltiring</p>
-                    </div>
-                </div>
-            )}
 
             <Footer />
         </div>

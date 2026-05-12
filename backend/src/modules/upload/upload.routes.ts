@@ -80,6 +80,22 @@ router.post(
     }
 );
 
+// ─── Clinic Logo Upload (Single) ──────────────────────────────────────────────
+router.post(
+    '/clinic-logo',
+    requireAuth,
+    requireRole(['CLINIC_ADMIN', 'SUPER_ADMIN']),
+    upload.single('image'),
+    (req: Request, res: Response, next: NextFunction) => {
+        if (!req.file) {
+            res.status(400).json({ success: false, message: 'No file uploaded' });
+            return;
+        }
+        const url = `/uploads/images/${req.file.filename}`;
+        res.json({ success: true, data: { url } });
+    }
+);
+
 // ─── Service Images Upload (Multiple) ──────────────────────────────────────────
 router.post(
     '/service-images',

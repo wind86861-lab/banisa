@@ -28,7 +28,8 @@ export class CartService {
         }
         if (!service) throw new AppError('Xizmat topilmadi', 404, ErrorCodes.NOT_FOUND);
 
-        const existing = await prisma.cartItem.findUnique({
+        // Atomic upsert — prevents race conditions on rapid double-click
+        return prisma.cartItem.upsert({
             where: {
                 userId_clinicId_serviceType_serviceId: {
                     userId,
@@ -37,22 +38,15 @@ export class CartService {
                     serviceId: data.serviceId,
                 },
             },
-        });
-
-        if (existing) {
-            return prisma.cartItem.update({
-                where: { id: existing.id },
-                data: { quantity: data.quantity || existing.quantity + 1 },
-            });
-        }
-
-        return prisma.cartItem.create({
-            data: {
+            update: {
+                quantity: { increment: data.quantity ?? 1 },
+            },
+            create: {
                 userId,
                 clinicId: data.clinicId,
                 serviceType: data.serviceType,
                 serviceId: data.serviceId,
-                quantity: data.quantity || 1,
+                quantity: data.quantity ?? 1,
             },
         });
     }

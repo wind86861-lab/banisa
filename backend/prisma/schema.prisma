@@ -27,6 +27,7 @@ model User {
   sanatoriumServices SanatoriumService[] @relation("SanatoriumCreatedBy")
   serviceReviews     ServiceReview[]
   surgicalServices   SurgicalService[]   @relation("SurgicalCreatedBy")
+  notifications      Notification[]      @relation("UserNotifications")
 
   @@index([phone])
   @@index([status])
@@ -228,6 +229,7 @@ model Clinic {
   surgicalServices       ClinicSurgicalService[]
   doctors                Doctor[]
   reviews                Review[]
+  notifications          Notification[]            @relation("ClinicNotifications")
 
   @@index([status])
   @@index([source])
@@ -302,6 +304,10 @@ model Appointment {
   checkInLat            Float?
   checkInLng            Float?
   checkInMethod         String?
+  cashConfirmedById     String?
+  cashConfirmedAt       DateTime?
+  cashReceivedAmount    Int?
+  cashAdjustmentNote    String?
   clinic                Clinic                 @relation(fields: [clinicId], references: [id])
   diagnosticService     DiagnosticService?     @relation("DiagnosticServiceAppointments", fields: [diagnosticServiceId], references: [id])
   doctor                Doctor?                @relation(fields: [doctorId], references: [id])
@@ -520,17 +526,18 @@ model CheckupPackageItem {
 }
 
 model ClinicCheckupPackage {
-  id           String         @id @default(cuid())
-  clinicId     String
-  packageId    String
-  clinicPrice  Int
-  customNotes  String?
-  isActive     Boolean        @default(true)
-  bookingCount Int            @default(0)
-  activatedAt  DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  clinic       Clinic         @relation(fields: [clinicId], references: [id])
-  package      CheckupPackage @relation(fields: [packageId], references: [id])
+  id                String         @id @default(cuid())
+  clinicId          String
+  packageId         String
+  clinicPrice       Int
+  customNotes       String?
+  customizationData Json?
+  isActive          Boolean        @default(true)
+  bookingCount      Int            @default(0)
+  activatedAt       DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  clinic            Clinic         @relation(fields: [clinicId], references: [id])
+  package           CheckupPackage @relation(fields: [packageId], references: [id])
 
   @@unique([clinicId, packageId])
   @@index([clinicId])
@@ -786,6 +793,28 @@ enum RiskLevel {
 enum ClinicSource {
   ADMIN_CREATED
   SELF_REGISTERED
+}
+
+model Notification {
+  id                String    @id @default(uuid())
+  recipientUserId   String?
+  recipientClinicId String?
+  type              String
+  title             String
+  body              String
+  data              Json?
+  link              String?
+  priority          String    @default("NORMAL")
+  isRead            Boolean   @default(false)
+  readAt            DateTime?
+  createdAt         DateTime  @default(now())
+
+  recipient User?   @relation("UserNotifications", fields: [recipientUserId], references: [id])
+  clinic    Clinic? @relation("ClinicNotifications", fields: [recipientClinicId], references: [id])
+
+  @@index([recipientUserId, isRead, createdAt])
+  @@index([recipientClinicId, createdAt])
+  @@index([type])
 }
 
 enum ClinicStatus {

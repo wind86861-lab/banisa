@@ -5,10 +5,11 @@ import {
     Star, Package, AlertCircle, Info, Megaphone,
     Settings, RefreshCw, Loader2, X, Filter,
     ToggleLeft, ToggleRight, ChevronRight,
-    UserCheck, Wallet,
+    UserCheck, Wallet, Banknote,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../shared/api/axios';
+import CashConfirmModal from '../components/CashConfirmModal';
 import './clinic-admin.css';
 
 /* ─── helpers ─── */
@@ -24,28 +25,28 @@ const timeAgo = (dateStr) => {
 
 /* ─── notification type config ─── */
 const TYPE_CONFIG = {
-    BOOKING:          { icon: Calendar,    color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  label: 'Bron' },
-    CHECK_IN:         { icon: UserCheck,   color: '#10b981', bg: 'rgba(16,185,129,0.12)', label: 'Bemor keldi' },
-    NEW_BOOKING:      { icon: Calendar,    color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  label: 'Yangi bron' },
-    PAYMENT_RECEIVED: { icon: Wallet,      color: '#10b981', bg: 'rgba(16,185,129,0.1)',  label: 'To\'lov' },
-    REVIEW:           { icon: Star,        color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  label: 'Sharh' },
-    SYSTEM:           { icon: Info,        color: '#6366f1', bg: 'rgba(99,102,241,0.1)',  label: 'Tizim' },
-    PROMOTION:        { icon: Megaphone,   color: '#10b981', bg: 'rgba(16,185,129,0.1)',  label: 'Aksiya' },
-    REMINDER:         { icon: Clock,       color: '#f97316', bg: 'rgba(249,115,22,0.1)',  label: 'Eslatma' },
-    SERVICE:          { icon: Package,     color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)',  label: 'Xizmat' },
-    ALERT:            { icon: AlertCircle, color: '#ef4444', bg: 'rgba(239,68,68,0.1)',   label: 'Ogohlantirish' },
-    GENERAL:          { icon: Info,        color: '#6366f1', bg: 'rgba(99,102,241,0.1)',  label: 'Xabar' },
+    BOOKING: { icon: Calendar, color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', label: 'Bron' },
+    CHECK_IN: { icon: UserCheck, color: '#10b981', bg: 'rgba(16,185,129,0.12)', label: 'Bemor keldi' },
+    NEW_BOOKING: { icon: Calendar, color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', label: 'Yangi bron' },
+    PAYMENT_RECEIVED: { icon: Wallet, color: '#10b981', bg: 'rgba(16,185,129,0.1)', label: 'To\'lov' },
+    REVIEW: { icon: Star, color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', label: 'Sharh' },
+    SYSTEM: { icon: Info, color: '#6366f1', bg: 'rgba(99,102,241,0.1)', label: 'Tizim' },
+    PROMOTION: { icon: Megaphone, color: '#10b981', bg: 'rgba(16,185,129,0.1)', label: 'Aksiya' },
+    REMINDER: { icon: Clock, color: '#f97316', bg: 'rgba(249,115,22,0.1)', label: 'Eslatma' },
+    SERVICE: { icon: Package, color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)', label: 'Xizmat' },
+    ALERT: { icon: AlertCircle, color: '#ef4444', bg: 'rgba(239,68,68,0.1)', label: 'Ogohlantirish' },
+    GENERAL: { icon: Info, color: '#6366f1', bg: 'rgba(99,102,241,0.1)', label: 'Xabar' },
 };
 
 const DEFAULT_SETTINGS = {
-    bookingCreated:     true,
-    bookingCancelled:   true,
-    bookingReminder:    true,
-    newReview:          true,
-    systemAlerts:       true,
-    promotions:         false,
-    weeklyReport:       true,
-    pushEnabled:        true,
+    bookingCreated: true,
+    bookingCancelled: true,
+    bookingReminder: true,
+    newReview: true,
+    systemAlerts: true,
+    promotions: false,
+    weeklyReport: true,
+    pushEnabled: true,
 };
 
 /* ─── hooks ─── */
@@ -97,10 +98,13 @@ const useSaveSettings = () => {
 };
 
 /* ─── sub-components ─── */
-function NotificationItem({ n, onClick }) {
+function NotificationItem({ n, onClick, onCashConfirm }) {
     const cfg = TYPE_CONFIG[n.type] || TYPE_CONFIG.SYSTEM;
     const Icon = cfg.icon;
     const isUnread = !n.isRead;
+
+    const isCashCheckIn = n.type === 'CHECK_IN' && n.data?.paymentMethod === 'CASH' && n.data?.paymentStatus !== 'PAID';
+    const isOnlineCheckIn = n.type === 'CHECK_IN' && n.data?.paymentStatus === 'PAID';
 
     return (
         <div
@@ -157,6 +161,30 @@ function NotificationItem({ n, onClick }) {
                         {timeAgo(n.createdAt)}
                     </span>
                 </div>
+
+                {/* Inline action buttons for CHECK_IN */}
+                {isCashCheckIn && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onCashConfirm(n); }}
+                        style={{
+                            marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6,
+                            padding: '7px 14px', background: '#10b981', color: '#fff',
+                            border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <Banknote size={14} /> Naqdni tasdiqlash
+                    </button>
+                )}
+                {isOnlineCheckIn && (
+                    <div style={{
+                        marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '5px 12px', background: 'rgba(16,185,129,0.1)', color: '#059669',
+                        borderRadius: 8, fontSize: 11, fontWeight: 600,
+                    }}>
+                        <CheckCheck size={13} /> Online to'langan — bemorni qabul qiling
+                    </div>
+                )}
             </div>
 
             {n.link && (
@@ -194,11 +222,11 @@ function SettingsToggle({ label, description, checked, onChange }) {
 
 /* ─── main page ─── */
 const TABS = [
-    { key: 'all',      label: 'Barchasi' },
-    { key: 'unread',   label: 'O\'qilmagan' },
-    { key: 'BOOKING',  label: 'Bronlar' },
-    { key: 'REVIEW',   label: 'Sharhlar' },
-    { key: 'SYSTEM',   label: 'Tizim' },
+    { key: 'all', label: 'Barchasi' },
+    { key: 'unread', label: 'O\'qilmagan' },
+    { key: 'BOOKING', label: 'Bronlar' },
+    { key: 'REVIEW', label: 'Sharhlar' },
+    { key: 'SYSTEM', label: 'Tizim' },
 ];
 
 export default function ClinicNotifications() {
@@ -207,6 +235,22 @@ export default function ClinicNotifications() {
     const [view, setView] = useState('history');  // 'history' | 'settings'
     const [settingsLocal, setSettingsLocal] = useState(null);
     const [settingsSaved, setSettingsSaved] = useState(false);
+    const [cashConfirmBooking, setCashConfirmBooking] = useState(null);
+    const [cashLoading, setCashLoading] = useState(false);
+
+    const handleCashConfirm = async (notif) => {
+        const apptId = notif.data?.appointmentId;
+        if (!apptId) return;
+        setCashLoading(true);
+        try {
+            const { data: res } = await api.get(`/clinic/appointments/${apptId}`);
+            setCashConfirmBooking(res.data);
+        } catch {
+            alert('Bron ma\'lumotlarini yuklab bo\'lmadi');
+        } finally {
+            setCashLoading(false);
+        }
+    };
 
     const filters = {
         ...(tab === 'unread' ? { isRead: false } : {}),
@@ -335,6 +379,7 @@ export default function ClinicNotifications() {
                                         if (!item.isRead) markReadMut.mutate(item.id);
                                         if (item.link) navigate(item.link);
                                     }}
+                                    onCashConfirm={handleCashConfirm}
                                 />
                             ))}
                         </div>
@@ -449,6 +494,33 @@ export default function ClinicNotifications() {
                     </div>
                 )}
             </div>
+
+            {/* Cash Confirm Modal */}
+            {cashConfirmBooking && (
+                <CashConfirmModal
+                    booking={cashConfirmBooking}
+                    onClose={() => setCashConfirmBooking(null)}
+                    onSuccess={() => {
+                        setCashConfirmBooking(null);
+                        refetch();
+                    }}
+                />
+            )}
+            {cashLoading && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)',
+                    zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                    <div style={{
+                        background: '#fff', borderRadius: 16, padding: '24px 32px',
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+                    }}>
+                        <Loader2 size={20} className="ca-spin" />
+                        <span style={{ fontSize: 14, fontWeight: 600 }}>Bron yuklanmoqda...</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

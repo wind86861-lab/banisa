@@ -235,7 +235,12 @@ export class CheckupPackagesService {
             // Re-activate
             return await prisma.clinicCheckupPackage.update({
                 where: { id: existing.id },
-                data: { isActive: true, clinicPrice: data.clinicPrice, customNotes: data.customNotes }
+                data: {
+                    isActive: true,
+                    clinicPrice: data.clinicPrice,
+                    customNotes: data.customNotes,
+                    customizationData: data.customizationData ?? existing.customizationData,
+                }
             });
         }
 
@@ -244,7 +249,8 @@ export class CheckupPackagesService {
                 clinicId,
                 packageId: data.packageId,
                 clinicPrice: data.clinicPrice,
-                customNotes: data.customNotes
+                customNotes: data.customNotes,
+                customizationData: data.customizationData,
             }
         });
     }
@@ -255,6 +261,7 @@ export class CheckupPackagesService {
             include: {
                 package: {
                     include: {
+                        items: { orderBy: { sortOrder: 'asc' } },
                         _count: { select: { items: true } }
                     }
                 }
@@ -280,7 +287,10 @@ export class CheckupPackagesService {
             where: { id },
             data: {
                 clinicPrice: data.clinicPrice,
-                customNotes: data.customNotes
+                customNotes: data.customNotes,
+                customizationData: data.customizationData
+                    ? { ...(cp.customizationData as any || {}), ...data.customizationData }
+                    : cp.customizationData,
             }
         });
     }
