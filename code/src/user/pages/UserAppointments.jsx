@@ -48,6 +48,7 @@ export default function UserAppointments() {
     const [checkinResult, setCheckinResult] = useState(null); // { step, appointment, clinic, pickList }
     const html5Ref = useRef(null);
     const pollRef = useRef(null);
+    const secretRef = useRef(null); // persist secret across setCheckinResult calls
 
     const stopScanner = useCallback(async () => {
         if (html5Ref.current) {
@@ -81,8 +82,10 @@ export default function UserAppointments() {
             if (data.kind === 'none') {
                 setCheckinResult({ step: 'error', msg: `${data.clinic?.nameUz || 'Bu klinika'}da bugun siz uchun bron topilmadi.` });
             } else if (data.kind === 'multiple') {
+                secretRef.current = secret;
                 setCheckinResult({ step: 'select', clinic: data.clinic, pickList: data.appointments || [], secret });
             } else if (data.kind === 'checked_in' || data.kind === 'already') {
+                secretRef.current = null;
                 const isPaid = data.appointment?.paymentStatus === 'PAID';
                 setCheckinResult({ step: isPaid ? 'paid' : 'success', appointment: data.appointment });
                 playSuccessChime();
@@ -99,16 +102,16 @@ export default function UserAppointments() {
     const pickAppointment = useCallback(async (appt) => {
         setCheckinResult({ step: 'loading' });
         try {
-            const secret = checkinResult?.secret;
+            const secret = secretRef.current;
             const res = await api.post(`/user/appointments/${appt.id}/patient-checkin`, { clinicSecret: secret });
             const isPaid = res.data?.data?.paymentStatus === 'PAID';
             setCheckinResult({ step: isPaid ? 'paid' : 'success', appointment: res.data?.data });
             playSuccessChime();
             qc.invalidateQueries({ queryKey: ['user', 'appointments'] });
         } catch (e) {
-            setCheckinResult({ step: 'error', msg: e.response?.data?.error?.message || 'Check-in xatoligi' });
+            setCheckinResult({ step: 'error', msg: e.response?.data?.error?.message || e.response?.data?.message || 'Check-in xatoligi' });
         }
-    }, [qc, checkinResult]);
+    }, [qc]);
 
     // QR scanner lifecycle
     useEffect(() => {
@@ -317,7 +320,7 @@ export default function UserAppointments() {
                         </div>
                         <div className="ua-checkin-cards">
                             {appointments.filter(needsCheckIn).map(a => (
-                                <div key={a.id} className="ua-checkin-card">
+                                <Link key={a.id} to={`/user/appointments/${a.id}`} className="ua-checkin-card">
                                     <div className="ua-checkin-card-info">
                                         <div className="ua-checkin-card-clinic">
                                             <Building2 size={14} />
@@ -336,6 +339,7 @@ export default function UserAppointments() {
                                         className="ua-checkin-btn"
                                         onClick={(e) => {
                                             e.preventDefault();
+                                            e.stopPropagation();
                                             setScanError('');
                                             setScannerOpen(true);
                                         }}
@@ -343,7 +347,7 @@ export default function UserAppointments() {
                                         <Camera size={16} />
                                         Check-in
                                     </button>
-                                </div>
+                                </Link>
                             ))}
                         </div>
                     </div>
@@ -360,7 +364,7 @@ export default function UserAppointments() {
                         </div>
                         <div className="ua-checkin-cards">
                             {appointments.filter(awaitingCashier).map(a => (
-                                <div key={a.id} className="ua-checkin-card ua-checkin-card--waiting">
+                                <Link key={a.id} to={`/user/appointments/${a.id}`} className="ua-checkin-card ua-checkin-card--waiting">
                                     <div className="ua-checkin-card-info">
                                         <div className="ua-checkin-card-clinic">
                                             <Building2 size={14} />
@@ -378,7 +382,7 @@ export default function UserAppointments() {
                                         <Loader2 size={16} className="ua-spin" />
                                         <span>Tasdiqlanmoqda</span>
                                     </div>
-                                </div>
+                                </Link>
                             ))}
                         </div>
                     </div>
