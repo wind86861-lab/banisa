@@ -21,6 +21,10 @@ const PAST_STATUSES = ['COMPLETED', 'CANCELLED', 'NO_SHOW'];
 const UZ_WEEKDAYS_SHORT = ['Yak', 'Du', 'Se', 'Cho', 'Pay', 'Ju', 'Sha'];
 
 function serviceNameOf(a) {
+    if (a.services && Array.isArray(a.services) && a.services.length > 0) {
+        if (a.services.length === 1) return a.services[0].serviceName;
+        return a.services.map(s => s.serviceName).join(', ');
+    }
     return a.diagnosticService?.nameUz ||
         a.surgicalService?.nameUz ||
         a.checkupPackage?.nameUz ||

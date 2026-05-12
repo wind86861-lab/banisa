@@ -85,10 +85,12 @@ export default function AppointmentDetailPage() {
 
     const badge = statusLabel(data.status);
     const serviceName =
-        data.diagnosticService?.nameUz ||
-        data.surgicalService?.nameUz ||
-        data.checkupPackage?.nameUz ||
-        'Xizmat';
+        (data.services && Array.isArray(data.services) && data.services.length > 0)
+            ? (data.services.length === 1 ? data.services[0].serviceName : data.services.map(s => s.serviceName).join(', '))
+            : data.diagnosticService?.nameUz ||
+            data.surgicalService?.nameUz ||
+            data.checkupPackage?.nameUz ||
+            'Xizmat';
     const showCancel = canCancelFn(data);
     const canPay = ['CLINIC_ACCEPTED', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC'].includes(data.status)
         && data.paymentStatus !== 'PAID'

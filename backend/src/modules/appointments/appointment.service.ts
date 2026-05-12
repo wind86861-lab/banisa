@@ -44,6 +44,7 @@ const INCLUDE_FULL = {
     },
     diagnosticService: { select: { id: true, nameUz: true, nameRu: true } },
     surgicalService: { select: { id: true, nameUz: true, nameRu: true } },
+    services: true,
 } as const;
 
 type Actor = {
