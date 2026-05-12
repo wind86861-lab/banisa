@@ -703,42 +703,43 @@ export class AppointmentService {
             throw new AppError('QR kod noto\'g\'ri yoki eskirgan', 404, ErrorCodes.NOT_FOUND);
         }
 
-        // Only fetch today's appointments to avoid showing old completed bookings
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
 
-        const eligible = await prisma.appointment.findMany({
+        // Only consider PENDING_ARRIVAL for check-in; ignore old completed/cancelled
+        const pending = await prisma.appointment.findMany({
             where: {
                 patientId,
                 clinicId: clinic.id,
                 scheduledAt: { gte: todayStart },
-                status: { in: ['PENDING_ARRIVAL', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED'] },
+                status: 'PENDING_ARRIVAL',
             },
             orderBy: { scheduledAt: 'asc' },
             include: INCLUDE_FULL,
         });
 
-        if (eligible.length === 0) {
+        if (pending.length === 0) {
+            // Check if already checked-in today for idempotent message
+            const already = await prisma.appointment.findFirst({
+                where: {
+                    patientId,
+                    clinicId: clinic.id,
+                    scheduledAt: { gte: todayStart },
+                    status: { in: ['CHECKED_IN', 'IN_PROGRESS', 'COMPLETED'] },
+                },
+                orderBy: { scheduledAt: 'desc' },
+                include: INCLUDE_FULL,
+            });
+            if (already) {
+                return { kind: 'already' as const, appointment: already };
+            }
             return { kind: 'none' as const, clinic };
         }
 
-        // Already checked-in / in-progress / paid → idempotent
-        const ongoing = eligible.find((a) => a.status !== 'PENDING_ARRIVAL');
-        if (eligible.length === 1 && ongoing) {
-            return { kind: 'already' as const, appointment: ongoing };
-        }
-
-        const pending = eligible.filter((a) => a.status === 'PENDING_ARRIVAL');
-        if (pending.length === 1 && !ongoing) {
-            const checkedIn = await this.patientCheckIn(patientId, pending[0].id, secret);
-            return { kind: 'checked_in' as const, appointment: checkedIn };
-        }
-        if (pending.length === 0 && ongoing) {
-            return { kind: 'already' as const, appointment: ongoing };
-        }
-
-        // Multiple PENDING_ARRIVAL or mixed — let caller pick.
-        return { kind: 'multiple' as const, clinic, appointments: eligible };
+        // Pick the earliest PENDING_ARRIVAL and check in (never ask patient to pick)
+        const target = pending[0];
+        const checkedIn = await this.patientCheckIn(patientId, target.id, secret);
+        return { kind: 'checked_in' as const, appointment: checkedIn };
     }
 
     // ─────────────────────────────────────────────────────────────

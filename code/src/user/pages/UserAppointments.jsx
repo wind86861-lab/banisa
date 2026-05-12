@@ -81,9 +81,6 @@ export default function UserAppointments() {
             if (!data) { setCheckinResult({ step: 'error', msg: 'Javob topilmadi' }); return; }
             if (data.kind === 'none') {
                 setCheckinResult({ step: 'error', msg: `${data.clinic?.nameUz || 'Bu klinika'}da bugun siz uchun bron topilmadi.` });
-            } else if (data.kind === 'multiple') {
-                secretRef.current = secret;
-                setCheckinResult({ step: 'select', clinic: data.clinic, pickList: data.appointments || [], secret });
             } else if (data.kind === 'checked_in' || data.kind === 'already') {
                 secretRef.current = null;
                 const isPaid = data.appointment?.paymentStatus === 'PAID';
@@ -246,35 +243,16 @@ export default function UserAppointments() {
                         <button onClick={dismissCheckin}><X size={16} /></button>
                     </div>
                 )}
-                {checkinResult && checkinResult.step === 'select' && (
-                    <div className="ua-checkin-result ua-checkin-result--select">
-                        <div className="ua-checkin-select-header">
-                            <CheckCircle2 size={20} />
-                            <div>
-                                <strong>Bronni tanlang</strong>
-                                {checkinResult.clinic && <span>{checkinResult.clinic.nameUz}</span>}
-                            </div>
-                            <button onClick={dismissCheckin}><X size={16} /></button>
-                        </div>
-                        <div className="ua-checkin-pick-list">
-                            {checkinResult.pickList.map(a => (
-                                <button key={a.id} className="ua-checkin-pick-item" onClick={() => pickAppointment(a)}>
-                                    <div>
-                                        <strong>{serviceNameOf(a)}</strong>
-                                        <span>{fmtSum(a.finalPrice || a.price)} so'm</span>
-                                    </div>
-                                    <ChevronRight size={16} />
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
                 {checkinResult && checkinResult.step === 'success' && checkinResult.appointment && (
                     <div className="ua-checkin-result ua-checkin-result--success">
                         <button className="ua-checkin-dismiss" onClick={dismissCheckin}><X size={16} /></button>
                         <div className="ua-checkin-success-icon">✓</div>
                         <h3>Kelishingiz tasdiqlandi!</h3>
                         <p className="ua-checkin-sub">Klinika to'lovingizni tasdiqlashi kutilmoqda.</p>
+                        <div className="ua-checkin-service-name">
+                            <Stethoscope size={16} />
+                            <span>{serviceNameOf(checkinResult.appointment)}</span>
+                        </div>
                         <div className="ua-checkin-price">
                             <span>To'lov summasi</span>
                             <strong>{fmtSum(checkinResult.appointment.finalPrice || checkinResult.appointment.price)} so'm</strong>
@@ -282,6 +260,7 @@ export default function UserAppointments() {
                         <div className="ua-checkin-info">
                             <div><span>Bron</span><strong>{shortBookingNo(checkinResult.appointment.bookingNumber)}</strong></div>
                             <div><span>Klinika</span><strong>{checkinResult.appointment.clinic?.nameUz}</strong></div>
+                            <div><span>To'lov</span><strong style={{ color: '#f59e0b' }}>Kutilmoqda</strong></div>
                         </div>
                         <div className="ua-checkin-polling">
                             <span className="ua-checkin-polling-dot" />
@@ -295,6 +274,10 @@ export default function UserAppointments() {
                         <div className="ua-checkin-success-icon" style={{ background: '#10b981' }}>✓</div>
                         <h3>To'lovingiz muvaffaqiyatli qabul qilindi!</h3>
                         <p className="ua-checkin-sub">Xizmat xonasiga o'ting — sizni shifokor kutmoqda.</p>
+                        <div className="ua-checkin-service-name">
+                            <Stethoscope size={16} />
+                            <span>{serviceNameOf(checkinResult.appointment)}</span>
+                        </div>
                         <div className="ua-checkin-price" style={{ borderColor: '#10b981' }}>
                             <span>To'langan</span>
                             <strong style={{ color: '#10b981' }}>{fmtSum(checkinResult.appointment.finalPrice || checkinResult.appointment.price)} so'm</strong>
@@ -302,6 +285,7 @@ export default function UserAppointments() {
                         <div className="ua-checkin-info">
                             <div><span>Bron</span><strong>{shortBookingNo(checkinResult.appointment.bookingNumber)}</strong></div>
                             <div><span>Klinika</span><strong>{checkinResult.appointment.clinic?.nameUz}</strong></div>
+                            <div><span>To'lov</span><strong style={{ color: '#10b981' }}>Tasdiqlandi</strong></div>
                         </div>
                         <button className="ua-checkin-detail-btn" onClick={() => navigate(`/user/appointments/${checkinResult.appointment.id}`)}>
                             Bron tafsilotlari <ChevronRight size={14} />
