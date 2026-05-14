@@ -198,16 +198,15 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
                 ) : (
                   <div style={{ maxHeight: '450px', overflowY: 'auto', border: '1px solid #d1d5db', borderRadius: '8px' }}>
                     {searchQuery.trim() ? (
-                      // Search mode - flat list
                       filteredServices && filteredServices.length > 0 ? (
                         filteredServices.map((service) => {
                           const isSelected = selectedService === service.id;
                           return (
-                            <div key={service.id} onClick={() => setSelectedService(service.id)} style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#eff6ff' : 'white' }}>
-                              <input type="radio" name="service" value={service.id} checked={isSelected} onChange={(e) => setSelectedService(e.target.value)} style={{ marginRight: '10px', flexShrink: 0 }} />
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: '14px', fontWeight: isSelected ? '600' : '400', color: '#1a1a2e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{service.nameUz}</div>
-                                {service.priceRecommended && <div style={{ fontSize: '11px', color: '#6b7280' }}>{service.priceRecommended.toLocaleString()} so'm</div>}
+                            <div key={service.id} onClick={() => setSelectedService(service.id)} style={{ display: 'grid', gridTemplateColumns: '24px 1fr', alignItems: 'center', gap: '10px', padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#eff6ff' : 'white' }}>
+                              <input type="radio" name="service" value={service.id} checked={isSelected} onChange={(e) => setSelectedService(e.target.value)} />
+                              <div>
+                                <div style={{ fontSize: '14px', fontWeight: isSelected ? '600' : '400', color: '#1a1a2e', lineHeight: 1.4 }}>{service.nameUz}</div>
+                                {service.priceRecommended ? <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{service.priceRecommended.toLocaleString()} so'm</div> : <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>Narx ko'rsatilmagan</div>}
                               </div>
                             </div>
                           );
@@ -219,7 +218,6 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
                         </div>
                       )
                     ) : (
-                      // Category mode - hierarchical
                       categories && categories.length > 0 ? (
                         categories.map((cat) => {
                           const catServices = servicesByCategory[cat.id] || [];
@@ -228,58 +226,41 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
 
                           return (
                             <div key={cat.id}>
-                              {/* Category Header */}
-                              <div
-                                onClick={() => toggleCategory(cat.id)}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  padding: '10px 14px',
-                                  cursor: 'pointer',
-                                  background: '#f3f4f6',
-                                  borderBottom: '1px solid #e5e7eb',
-                                  fontWeight: 600,
-                                  fontSize: '13px',
-                                  color: '#374151',
-                                  userSelect: 'none',
-                                }}
-                              >
+                              <div onClick={() => toggleCategory(cat.id)} style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', cursor: 'pointer', background: '#f3f4f6', borderBottom: '1px solid #e5e7eb', fontWeight: 600, fontSize: '13px', color: '#374151' }}>
                                 {isExpanded ? <ChevronDown size={16} style={{ marginRight: '6px', flexShrink: 0 }} /> : <ChevronRight size={16} style={{ marginRight: '6px', flexShrink: 0 }} />}
                                 <span style={{ flex: 1 }}>{cat.nameUz}</span>
                                 <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '400' }}>{catServices.length} ta</span>
                               </div>
 
-                              {/* Services under this category */}
                               {isExpanded && catServices.map((service) => {
                                 const isSelected = selectedService === service.id;
                                 return (
-                                  <div key={service.id} onClick={() => setSelectedService(service.id)} style={{ display: 'flex', alignItems: 'center', padding: '9px 14px 9px 36px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#eff6ff' : 'white' }}>
-                                    <input type="radio" name="service" value={service.id} checked={isSelected} onChange={(e) => setSelectedService(e.target.value)} style={{ marginRight: '10px', flexShrink: 0 }} />
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{ fontSize: '14px', fontWeight: isSelected ? '600' : '400', color: '#1a1a2e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{service.nameUz}</div>
-                                      {service.priceRecommended && <div style={{ fontSize: '11px', color: '#6b7280' }}>{service.priceRecommended.toLocaleString()} so'm</div>}
+                                  <div key={service.id} onClick={() => setSelectedService(service.id)} style={{ display: 'grid', gridTemplateColumns: '24px 1fr', alignItems: 'center', gap: '10px', padding: '9px 14px 9px 36px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#eff6ff' : 'white' }}>
+                                    <input type="radio" name="service" value={service.id} checked={isSelected} onChange={(e) => setSelectedService(e.target.value)} />
+                                    <div>
+                                      <div style={{ fontSize: '14px', fontWeight: isSelected ? '600' : '400', color: '#1a1a2e', lineHeight: 1.4 }}>{service.nameUz}</div>
+                                      {service.priceRecommended ? <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{service.priceRecommended.toLocaleString()} so'm</div> : <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>Narx ko'rsatilmagan</div>}
                                     </div>
                                   </div>
                                 );
                               })}
 
-                              {/* Subcategories */}
                               {isExpanded && cat.children && cat.children.map((sub) => {
                                 const subServices = servicesByCategory[sub.id] || [];
                                 if (subServices.length === 0) return null;
                                 return (
                                   <div key={sub.id}>
                                     <div style={{ padding: '7px 14px 7px 40px', fontSize: '12px', fontWeight: 600, color: '#4b5563', background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
-                                      {sub.icon} {sub.nameUz}
+                                      {sub.nameUz}
                                     </div>
                                     {subServices.map((service) => {
                                       const isSelected = selectedService === service.id;
                                       return (
-                                        <div key={service.id} onClick={() => setSelectedService(service.id)} style={{ display: 'flex', alignItems: 'center', padding: '9px 14px 9px 56px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#eff6ff' : 'white' }}>
-                                          <input type="radio" name="service" value={service.id} checked={isSelected} onChange={(e) => setSelectedService(e.target.value)} style={{ marginRight: '10px', flexShrink: 0 }} />
-                                          <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontSize: '14px', fontWeight: isSelected ? '600' : '400', color: '#1a1a2e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{service.nameUz}</div>
-                                            {service.priceRecommended && <div style={{ fontSize: '11px', color: '#6b7280' }}>{service.priceRecommended.toLocaleString()} so'm</div>}
+                                        <div key={service.id} onClick={() => setSelectedService(service.id)} style={{ display: 'grid', gridTemplateColumns: '24px 1fr', alignItems: 'center', gap: '10px', padding: '9px 14px 9px 56px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#eff6ff' : 'white' }}>
+                                          <input type="radio" name="service" value={service.id} checked={isSelected} onChange={(e) => setSelectedService(e.target.value)} />
+                                          <div>
+                                            <div style={{ fontSize: '14px', fontWeight: isSelected ? '600' : '400', color: '#1a1a2e', lineHeight: 1.4 }}>{service.nameUz}</div>
+                                            {service.priceRecommended ? <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{service.priceRecommended.toLocaleString()} so'm</div> : <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>Narx ko'rsatilmagan</div>}
                                           </div>
                                         </div>
                                       );
@@ -291,16 +272,15 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
                           );
                         })
                       ) : (
-                        // Flat fallback when no categories
                         filteredServices && filteredServices.length > 0 ? (
                           filteredServices.map((service) => {
                             const isSelected = selectedService === service.id;
                             return (
-                              <div key={service.id} onClick={() => setSelectedService(service.id)} style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#eff6ff' : 'white' }}>
-                                <input type="radio" name="service" value={service.id} checked={isSelected} onChange={(e) => setSelectedService(e.target.value)} style={{ marginRight: '10px', flexShrink: 0 }} />
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontSize: '14px', fontWeight: isSelected ? '600' : '400', color: '#1a1a2e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{service.nameUz}</div>
-                                  {service.priceRecommended && <div style={{ fontSize: '11px', color: '#6b7280' }}>{service.priceRecommended.toLocaleString()} so'm</div>}
+                              <div key={service.id} onClick={() => setSelectedService(service.id)} style={{ display: 'grid', gridTemplateColumns: '24px 1fr', alignItems: 'center', gap: '10px', padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#eff6ff' : 'white' }}>
+                                <input type="radio" name="service" value={service.id} checked={isSelected} onChange={(e) => setSelectedService(e.target.value)} />
+                                <div>
+                                  <div style={{ fontSize: '14px', fontWeight: isSelected ? '600' : '400', color: '#1a1a2e', lineHeight: 1.4 }}>{service.nameUz}</div>
+                                  {service.priceRecommended ? <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{service.priceRecommended.toLocaleString()} so'm</div> : <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>Narx ko'rsatilmagan</div>}
                                 </div>
                               </div>
                             );
