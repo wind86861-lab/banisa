@@ -217,6 +217,12 @@
     text-decoration: none;
     color: inherit;
     overflow: hidden;
+    cursor: pointer;
+}
+
+.ua-card:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
 }
 
 .ua-card:hover {
@@ -418,6 +424,19 @@
     color: #c2410c;
 }
 
+.ua-card-action-body {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.ua-card-action-body span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .ua-card-action--warn button {
     margin-left: auto;
     padding: 5px 14px;
@@ -429,6 +448,7 @@
     font-weight: 700;
     cursor: pointer;
     transition: all 0.15s;
+    flex-shrink: 0;
 }
 
 .ua-card-action--warn button:hover {
@@ -708,7 +728,8 @@
     .ua-card-right { padding: 12px; min-width: 70px; }
     .ua-card-price { font-size: 14px; }
     .ua-chip { font-size: 11px; padding: 2px 8px; }
-    .ua-card-action { font-size: 11px; padding: 6px 10px; }
+    .ua-card-action { font-size: 11px; padding: 6px 10px; flex-wrap: wrap; }
     .ua-card-action--warn button { padding: 4px 10px; font-size: 10px; }
+    .ua-card-action-body span { white-space: normal; }
     .ua-group-header { margin: 18px 0 8px; }
 }

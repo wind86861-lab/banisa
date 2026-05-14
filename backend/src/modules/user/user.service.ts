@@ -104,22 +104,7 @@ export class UserService {
                             lastName: true,
                         },
                     },
-                    diagnosticService: {
-                        select: {
-                            id: true,
-                            nameUz: true,
-                            nameRu: true,
-                        },
-                    },
-                    surgicalService: {
-                        select: {
-                            id: true,
-                            nameUz: true,
-                            nameRu: true,
-                        },
-                    },
-                    services: true,
-                } as any,
+                },
             }),
             prisma.appointment.count({ where }),
         ]);

@@ -235,7 +235,7 @@ export default function UserAppointments() {
     const totalFiltered = filtered.length;
 
     const openScanner = useCallback((e) => {
-        if (e && e.preventDefault) {
+        if (e) {
             e.preventDefault();
             e.stopPropagation();
         }
@@ -334,7 +334,7 @@ export default function UserAppointments() {
                             type="text"
                             placeholder="Klinika, xizmat yoki bron raqami..."
                             value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                         />
                         {search && <button className="ua-search-clear" onClick={() => setSearch('')}><X size={16} /></button>}
                     </div>
@@ -372,7 +372,7 @@ export default function UserAppointments() {
                     </div>
                 ) : (
                     <div className="ua-list">
-                        {totalFiltered > 0 && (
+                        {search.trim() && totalFiltered > 0 && (
                             <div className="ua-found-count">{totalFiltered} ta bron topildi</div>
                         )}
                         {groups.today.length > 0 && (
@@ -445,24 +445,41 @@ export default function UserAppointments() {
 }
 
 function AppointmentCard({ a, onCheckIn }) {
+    const navigate = useNavigate();
     const badge = statusLabel(a.status);
-    const date = new Date(a.scheduledAt);
+    const dateRaw = a.scheduledAt ? new Date(a.scheduledAt) : null;
     const pay = paymentBadge(a);
     const needs = needsCheckIn(a);
     const awaits = awaitingCashier(a);
     const ready = isReadyForService(a);
 
+    const handleCardClick = (e) => {
+        // Agar action banner yoki uning ichidagi tugma bosilsa, navigatsiya bo'lmasin
+        if (e.target.closest('.ua-card-action') || e.target.closest('.ua-card-action button')) {
+            return;
+        }
+        navigate(`/user/appointments/${a.id}`);
+    };
+
     return (
-        <Link to={`/user/appointments/${a.id}`} className={`ua-card ${needs || awaits ? 'ua-card--urgent' : ''}`}>
+        <div
+            onClick={handleCardClick}
+            className={`ua-card ${needs || awaits ? 'ua-card--urgent' : ''}`}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCardClick(e); }}
+        >
             <div className="ua-card-left">
                 <div className="ua-card-date">
-                    <div className="ua-card-date-num">{date.getDate()}</div>
-                    <div className="ua-card-date-mon">{UZ_MONTHS_SHORT[date.getMonth()]}</div>
-                    <div className="ua-card-date-wd">{UZ_WEEKDAYS_SHORT[date.getDay()]}</div>
+                    <div className="ua-card-date-num">{dateRaw ? dateRaw.getDate() : '--'}</div>
+                    <div className="ua-card-date-mon">{dateRaw ? UZ_MONTHS_SHORT[dateRaw.getMonth()] : '--'}</div>
+                    <div className="ua-card-date-wd">{dateRaw ? UZ_WEEKDAYS_SHORT[dateRaw.getDay()] : '--'}</div>
                 </div>
                 <div className="ua-card-time">
                     <Clock size={12} />
-                    {date.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                    {dateRaw
+                        ? dateRaw.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })
+                        : '--:--'}
                 </div>
             </div>
             <div className="ua-card-main">
@@ -482,9 +499,11 @@ function AppointmentCard({ a, onCheckIn }) {
                 </div>
                 {needs && (
                     <div className="ua-card-action ua-card-action--warn">
-                        <Camera size={13} />
-                        <span>Klinikaga boring va check-in qiling</span>
-                        <button onClick={onCheckIn}>Check-in</button>
+                        <div className="ua-card-action-body">
+                            <Camera size={13} />
+                            <span>Klinikaga boring va check-in qiling</span>
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); onCheckIn(e); }}>Check-in</button>
                     </div>
                 )}
                 {awaits && (
@@ -504,7 +523,7 @@ function AppointmentCard({ a, onCheckIn }) {
                 <div className="ua-card-price">{fmtSum(a.finalPrice || a.price)} <span>so'm</span></div>
                 <ChevronRight size={18} className="ua-card-chevron" />
             </div>
-        </Link>
+        </div>
     );
 }
 
