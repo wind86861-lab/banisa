@@ -7,11 +7,7 @@ export class MetadataTemplateController {
     try {
       const templates = await prisma.metadataTemplate.findMany({
         include: {
-          serviceLinks: {
-            include: {
-              template: true,
-            },
-          },
+          serviceLinks: true,
           _count: {
             select: {
               serviceLinks: true,
