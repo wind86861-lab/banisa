@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useClinicBookings, useUpdateBookingStatus } from '../hooks/useClinicData';
 import CashConfirmModal from '../components/CashConfirmModal';
+import AppointmentMetadataInput from '../components/AppointmentMetadataInput';
 import './clinic-admin.css';
 
 const STATUS_OPTS = [
@@ -210,6 +211,9 @@ function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash }) {
                             <p style={{ fontSize: 14, color: 'var(--color-danger)' }}>{booking.cancellationReason}</p>
                         </div>
                     )}
+
+                    {/* Metadata Input */}
+                    <AppointmentMetadataInput appointmentId={booking.id} />
                 </div>
 
                 {/* Footer actions */}
