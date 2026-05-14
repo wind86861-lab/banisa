@@ -3,7 +3,7 @@ import {
     Home, Users, Activity, Settings, UserPlus,
     FileText, Briefcase, Layout, Shield, Lock,
     MoreHorizontal, ChevronRight, Building2,
-    PieChart, Phone, Grid, Calendar, Globe
+    PieChart, Phone, Grid, Calendar, Globe, Database
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -68,6 +68,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                 { key: 'packages', icon: <Grid size={20} />, label: 'Checkup Paketlar', path: '/admin/packages' },
                 { key: 'clinic-packages', icon: <Briefcase size={20} />, label: 'Klinika Paketlari', path: '/admin/clinic-packages' },
                 { key: 'homepage', icon: <Globe size={20} />, label: 'Homepage CMS', path: '/admin/homepage' },
+                { key: 'metadata', icon: <Database size={20} />, label: 'Metadata Templates', path: '/admin/metadata-templates' },
             ]
         },
         {
