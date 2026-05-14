@@ -56,7 +56,7 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content modal-lg" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
             <h2>Xizmatga bog'lash</h2>
@@ -112,14 +112,46 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Xizmat nomini kiriting..."
-                    style={{ paddingLeft: '40px' }}
+                    style={{ paddingLeft: '40px', paddingRight: searchQuery ? '32px' : '12px' }}
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#9ca3af',
+                        fontSize: '18px',
+                        lineHeight: 1,
+                        padding: '0',
+                        width: '24px',
+                        height: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      title="Tozalash"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
               </div>
 
               <div className="form-group full-width">
                 <label>
                   Xizmat <span className="required">*</span>
+                  {filteredServices && filteredServices.length > 0 && (
+                    <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '400', marginLeft: '8px' }}>
+                      ({filteredServices.length} ta)
+                    </span>
+                  )}
                 </label>
                 {isLoading ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
@@ -128,43 +160,79 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
                 ) : (
                   <div
                     style={{
-                      maxHeight: '300px',
+                      maxHeight: '400px',
                       overflowY: 'auto',
                       border: '1px solid #d1d5db',
                       borderRadius: '8px',
                     }}
                   >
                     {filteredServices && filteredServices.length > 0 ? (
-                      filteredServices.map((service) => (
-                        <label
-                          key={service.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '12px 16px',
-                            cursor: 'pointer',
-                            borderBottom: '1px solid #f3f4f6',
-                            transition: 'background 0.2s',
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = '#f9fafb')}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
-                        >
-                          <input
-                            type="radio"
-                            name="service"
-                            value={service.id}
-                            checked={selectedService === service.id}
-                            onChange={(e) => setSelectedService(e.target.value)}
-                            style={{ marginRight: '12px' }}
-                          />
-                          <span style={{ fontSize: '14px', color: '#1a1a2e' }}>
-                            {service.nameUz}
-                          </span>
-                        </label>
-                      ))
+                      filteredServices.map((service) => {
+                        const isSelected = selectedService === service.id;
+                        return (
+                          <div
+                            key={service.id}
+                            onClick={() => setSelectedService(service.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '12px 16px',
+                              cursor: 'pointer',
+                              borderBottom: '1px solid #f3f4f6',
+                              background: isSelected ? '#eff6ff' : 'white',
+                              transition: 'background 0.15s',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isSelected) e.currentTarget.style.background = '#f9fafb';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = isSelected ? '#eff6ff' : 'white';
+                            }}
+                          >
+                            <input
+                              type="radio"
+                              name="service"
+                              value={service.id}
+                              checked={isSelected}
+                              onChange={(e) => setSelectedService(e.target.value)}
+                              style={{ marginRight: '12px', flexShrink: 0 }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '14px', fontWeight: isSelected ? '600' : '400', color: '#1a1a2e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {service.nameUz}
+                              </div>
+                              {service.priceRecommended && (
+                                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                                  {service.priceRecommended.toLocaleString()} so'm
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
                     ) : (
-                      <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
-                        Xizmat topilmadi
+                      <div style={{ padding: '40px 20px', textAlign: 'center', color: '#6b7280' }}>
+                        <div style={{ fontSize: '14px', marginBottom: '8px' }}>
+                          {searchQuery
+                            ? `"${searchQuery}" bo'yicha xizmat topilmadi`
+                            : 'Bu turdagi xizmatlar mavjud emas'}
+                        </div>
+                        {searchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setSearchQuery('')}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#3b82f6',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              textDecoration: 'underline',
+                            }}
+                          >
+                            Qidiruvni tozalash
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
