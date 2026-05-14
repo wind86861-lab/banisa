@@ -1,0 +1,158 @@
+.progress-timeline {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.progress-timeline-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.progress-timeline-header h3 {
+    font-size: 18px;
+    font-weight: 800;
+    color: #1a1a2e;
+    margin: 0;
+}
+
+.progress-cancelled-badge {
+    padding: 4px 12px;
+    background: #fef2f2;
+    color: #dc2626;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.progress-timeline-track {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    position: relative;
+}
+
+.progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+}
+
+.progress-step-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f3f4f6;
+    color: #9ca3af;
+    transition: all 0.3s;
+}
+
+.progress-step.completed .progress-step-icon {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.progress-step.active .progress-step-icon {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    animation: progress-pulse 2s ease-in-out infinite;
+}
+
+@keyframes progress-pulse {
+    0%, 100% {
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+    50% {
+        box-shadow: 0 4px 20px rgba(59, 130, 246, 0.6);
+    }
+}
+
+.progress-pulse {
+    animation: progress-icon-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes progress-icon-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.progress-step.cancelled .progress-step-icon {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.progress-step-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #9ca3af;
+    text-align: center;
+}
+
+.progress-step.completed .progress-step-label {
+    color: #059669;
+}
+
+.progress-step.active .progress-step-label {
+    color: #2563eb;
+    font-weight: 700;
+}
+
+.progress-step.cancelled .progress-step-label {
+    color: #dc2626;
+}
+
+.progress-connector {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    right: -50%;
+    height: 2px;
+    background: #e5e7eb;
+    z-index: 0;
+    transition: all 0.3s;
+}
+
+.progress-connector.completed {
+    background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+}
+
+@media (max-width: 640px) {
+    .progress-timeline {
+        padding: 16px;
+    }
+    
+    .progress-step-icon {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .progress-step-icon svg {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .progress-step-label {
+        font-size: 10px;
+    }
+    
+    .progress-connector {
+        top: 20px;
+    }
+}

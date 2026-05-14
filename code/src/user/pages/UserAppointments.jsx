@@ -13,6 +13,7 @@ import { fmtSum, shortBookingNo } from '../../shared/utils/format';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
+import Confetti from '../components/Confetti';
 import './css/UserAppointments.css';
 
 const ACTIVE_STATUSES = ['PENDING', 'PENDING_ARRIVAL', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED', 'CHECKED_IN', 'IN_PROGRESS', 'PAID'];
@@ -50,6 +51,8 @@ export default function UserAppointments() {
     const [scannerOpen, setScannerOpen] = useState(false);
     const [scanError, setScanError] = useState('');
     const [checkinResult, setCheckinResult] = useState(null);
+    const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+    const [showConfetti, setShowConfetti] = useState(false);
     const html5Ref = useRef(null);
     const pollRef = useRef(null);
     const secretRef = useRef(null);
@@ -142,6 +145,7 @@ export default function UserAppointments() {
                 const a = res.data?.data;
                 if (a && (a.status === 'COMPLETED' || a.paymentStatus === 'PAID')) {
                     setCheckinResult(prev => ({ ...prev, step: 'paid', appointment: { ...prev.appointment, ...a } }));
+                    setShowConfetti(true);
                     qc.invalidateQueries({ queryKey: ['user', 'appointments'] });
                 }
             } catch { }
@@ -318,8 +322,27 @@ export default function UserAppointments() {
                 {/* ─── Page Header ─── */}
                 <div className="ua-page-header">
                     <div className="ua-page-header-left">
+                        <div className="ua-greeting">
+                            <span className="ua-greeting-emoji">👋</span>
+                            <span className="ua-greeting-text">Salom!</span>
+                        </div>
                         <h1>Bronlarim</h1>
-                        <p className="ua-count">{isLoading ? 'Yuklanmoqda...' : `Jami ${meta.total || 0} ta bron`}</p>
+                        <div className="ua-stats">
+                            <div className="ua-stat">
+                                <span className="ua-stat-value">{meta.total || 0}</span>
+                                <span className="ua-stat-label">Jami</span>
+                            </div>
+                            <div className="ua-stat-divider" />
+                            <div className="ua-stat">
+                                <span className="ua-stat-value">{groups.today.length + groups.tomorrow.length}</span>
+                                <span className="ua-stat-label">Yaqinda</span>
+                            </div>
+                            <div className="ua-stat-divider" />
+                            <div className="ua-stat">
+                                <span className="ua-stat-value">{groups.past.length}</span>
+                                <span className="ua-stat-label">Yakunlangan</span>
+                            </div>
+                        </div>
                     </div>
                     <Link to="/xizmatlar" className="ua-new-btn">
                         Yangi bron <ArrowRight size={16} />
@@ -338,7 +361,7 @@ export default function UserAppointments() {
                         />
                         {search && <button className="ua-search-clear" onClick={() => setSearch('')}><X size={16} /></button>}
                     </div>
-                    <div className="ua-filters">
+                    <div className="ua-filters ua-filters--desktop">
                         {filters.map(filter => (
                             <button
                                 key={filter.value}
@@ -350,6 +373,9 @@ export default function UserAppointments() {
                             </button>
                         ))}
                     </div>
+                    <button className="ua-filter-mobile-btn" onClick={() => setFilterSheetOpen(true)}>
+                        Filter ({filters.find(f => f.value === statusFilter)?.label})
+                    </button>
                 </div>
 
                 {/* ─── List ─── */}
@@ -377,33 +403,49 @@ export default function UserAppointments() {
                         )}
                         {groups.today.length > 0 && (
                             <>
-                                <div className="ua-group-header">Bugun</div>
+                                <div className="ua-group-header ua-group-header--today">
+                                    <span className="ua-group-icon">🔥</span>
+                                    Bugun
+                                    <span className="ua-group-count">{groups.today.length}</span>
+                                </div>
                                 {groups.today.map(a => (
-                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} />
+                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} groupType="today" />
                                 ))}
                             </>
                         )}
                         {groups.tomorrow.length > 0 && (
                             <>
-                                <div className="ua-group-header">Ertaga</div>
+                                <div className="ua-group-header ua-group-header--tomorrow">
+                                    <span className="ua-group-icon">⏰</span>
+                                    Ertaga
+                                    <span className="ua-group-count">{groups.tomorrow.length}</span>
+                                </div>
                                 {groups.tomorrow.map(a => (
-                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} />
+                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} groupType="tomorrow" />
                                 ))}
                             </>
                         )}
                         {groups.upcoming.length > 0 && (
                             <>
-                                <div className="ua-group-header">Kelajak</div>
+                                <div className="ua-group-header ua-group-header--upcoming">
+                                    <span className="ua-group-icon">📅</span>
+                                    Kelajak
+                                    <span className="ua-group-count">{groups.upcoming.length}</span>
+                                </div>
                                 {groups.upcoming.map(a => (
-                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} />
+                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} groupType="upcoming" />
                                 ))}
                             </>
                         )}
                         {groups.past.length > 0 && (
                             <>
-                                <div className="ua-group-header">Yakunlangan</div>
+                                <div className="ua-group-header ua-group-header--past">
+                                    <span className="ua-group-icon">✓</span>
+                                    Yakunlangan
+                                    <span className="ua-group-count">{groups.past.length}</span>
+                                </div>
                                 {groups.past.map(a => (
-                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} />
+                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} groupType="past" />
                                 ))}
                             </>
                         )}
@@ -439,13 +481,51 @@ export default function UserAppointments() {
                 </div>
             )}
 
+            {/* ─── Confetti Celebration ─── */}
+            {showConfetti && <Confetti duration={3000} onComplete={() => setShowConfetti(false)} />}
+
+            {/* ─── Bottom Sheet Filter (Mobile) ─── */}
+            {filterSheetOpen && (
+                <div className="ua-bottom-sheet-overlay" onClick={() => setFilterSheetOpen(false)}>
+                    <div className="ua-bottom-sheet" onClick={e => e.stopPropagation()}>
+                        <div className="ua-bottom-sheet-handle" />
+                        <div className="ua-bottom-sheet-header">
+                            <h3>Filter</h3>
+                            <button onClick={() => setFilterSheetOpen(false)}><X size={20} /></button>
+                        </div>
+                        <div className="ua-bottom-sheet-content">
+                            {filters.map(filter => (
+                                <button
+                                    key={filter.value}
+                                    onClick={() => {
+                                        setStatusFilter(filter.value);
+                                        setPage(1);
+                                        setFilterSheetOpen(false);
+                                    }}
+                                    className={`ua-bottom-sheet-option ${statusFilter === filter.value ? 'active' : ''} ${filter.highlight ? 'highlight' : ''}`}
+                                >
+                                    <span>{filter.label}</span>
+                                    {filter.count > 0 && <span className="ua-bottom-sheet-count">{filter.count}</span>}
+                                    {statusFilter === filter.value && <CheckCircle2 size={18} />}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <Footer />
         </div>
     );
 }
 
-function AppointmentCard({ a, onCheckIn }) {
+function AppointmentCard({ a, onCheckIn, groupType = 'upcoming' }) {
     const navigate = useNavigate();
+    const [swipeOffset, setSwipeOffset] = useState(0);
+    const [isSwiping, setIsSwiping] = useState(false);
+    const touchStartX = useRef(0);
+    const touchStartY = useRef(0);
+
     const badge = statusLabel(a.status);
     const dateRaw = a.scheduledAt ? new Date(a.scheduledAt) : null;
     const pay = paymentBadge(a);
@@ -453,22 +533,84 @@ function AppointmentCard({ a, onCheckIn }) {
     const awaits = awaitingCashier(a);
     const ready = isReadyForService(a);
 
+    const getTimeContext = () => {
+        if (!dateRaw || !needs) return null;
+        const now = new Date();
+        const diff = dateRaw - now;
+        const hours = diff / (1000 * 60 * 60);
+
+        if (hours < 0) {
+            return { type: 'late', msg: 'Kechikdingiz — klinikaga qo\'ng\'iroq qiling', showPhone: true };
+        } else if (hours < 1) {
+            return { type: 'urgent', msg: 'Check-in vaqti!', pulse: true };
+        } else if (hours < 2) {
+            return { type: 'soon', msg: `${Math.floor(hours * 60)} daqiqadan keyin check-in qiling` };
+        }
+        return null;
+    };
+
+    const timeContext = getTimeContext();
+
     const handleCardClick = (e) => {
-        // Agar action banner yoki uning ichidagi tugma bosilsa, navigatsiya bo'lmasin
+        if (isSwiping) return;
         if (e.target.closest('.ua-card-action') || e.target.closest('.ua-card-action button')) {
             return;
         }
         navigate(`/user/appointments/${a.id}`);
     };
 
+    const handleTouchStart = (e) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e) => {
+        if (!touchStartX.current) return;
+        const deltaX = e.touches[0].clientX - touchStartX.current;
+        const deltaY = e.touches[0].clientY - touchStartY.current;
+
+        if (Math.abs(deltaY) > Math.abs(deltaX)) {
+            return;
+        }
+
+        e.preventDefault();
+        setIsSwiping(true);
+
+        if (needs && deltaX > 0 && deltaX < 120) {
+            setSwipeOffset(deltaX);
+        } else if (deltaX < 0 && deltaX > -120) {
+            setSwipeOffset(deltaX);
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (swipeOffset > 80 && needs) {
+            onCheckIn();
+        }
+        setSwipeOffset(0);
+        touchStartX.current = 0;
+        touchStartY.current = 0;
+        setTimeout(() => setIsSwiping(false), 100);
+    };
+
     return (
         <div
             onClick={handleCardClick}
-            className={`ua-card ${needs || awaits ? 'ua-card--urgent' : ''}`}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className={`ua-card ua-card--${groupType} ${needs || awaits ? 'ua-card--urgent' : ''} ${timeContext?.pulse ? 'ua-card--pulse' : ''} ${isSwiping ? 'ua-card--swiping' : ''}`}
+            style={{ transform: `translateX(${swipeOffset}px)` }}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCardClick(e); }}
         >
+            {swipeOffset > 40 && needs && (
+                <div className="ua-swipe-action ua-swipe-action--checkin" style={{ opacity: Math.min(swipeOffset / 80, 1) }}>
+                    <Camera size={20} />
+                    <span>Check-in</span>
+                </div>
+            )}
             <div className="ua-card-left">
                 <div className="ua-card-date">
                     <div className="ua-card-date-num">{dateRaw ? dateRaw.getDate() : '--'}</div>
@@ -497,7 +639,27 @@ function AppointmentCard({ a, onCheckIn }) {
                     <span className={`ua-chip ua-chip--${pay.cls}`}>{pay.icon} {pay.text}</span>
                     {a.bookingNumber && <span className="ua-chip ua-chip--bron">{shortBookingNo(a.bookingNumber)}</span>}
                 </div>
-                {needs && (
+                {timeContext && (
+                    <div className={`ua-card-action ua-card-action--${timeContext.type}`}>
+                        <div className="ua-card-action-body">
+                            {timeContext.type === 'urgent' && <Camera size={13} className="ua-pulse-icon" />}
+                            {timeContext.type === 'late' && <AlertCircle size={13} />}
+                            {timeContext.type === 'soon' && <Clock size={13} />}
+                            <span>{timeContext.msg}</span>
+                        </div>
+                        {timeContext.showPhone && a.clinic?.phone && (
+                            <a href={`tel:${a.clinic.phone}`} className="ua-action-phone-btn" onClick={(e) => e.stopPropagation()}>
+                                Qo'ng'iroq
+                            </a>
+                        )}
+                        {timeContext.type === 'urgent' && (
+                            <button onClick={(e) => { e.stopPropagation(); onCheckIn(e); }} className="ua-action-checkin-pulse">
+                                Check-in
+                            </button>
+                        )}
+                    </div>
+                )}
+                {!timeContext && needs && (
                     <div className="ua-card-action ua-card-action--warn">
                         <div className="ua-card-action-body">
                             <Camera size={13} />

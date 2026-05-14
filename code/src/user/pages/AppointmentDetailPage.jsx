@@ -11,6 +11,7 @@ import { fmtSum, fmtPhone, fmtDateTimeUz, shortBookingNo, mapsDirectionsUrl } fr
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
+import ProgressTimeline from '../components/ProgressTimeline';
 import './css/AppointmentDetailPage.css';
 
 const POLL_MS = 5000;
@@ -120,6 +121,9 @@ export default function AppointmentDetailPage() {
                         {badge.text}
                     </span>
                 </div>
+
+                {/* Progress Timeline */}
+                <ProgressTimeline appointment={data} />
 
                 <div className="apd-grid">
                     <div className="apd-col-left">
