@@ -16,7 +16,7 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
     queryFn: async () => {
       const endpoint =
         serviceType === 'DIAGNOSTIC'
-          ? '/diagnostic'
+          ? '/diagnostics'
           : serviceType === 'SURGICAL'
             ? '/surgical'
             : '/checkup-packages';
