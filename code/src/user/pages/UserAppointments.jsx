@@ -19,6 +19,7 @@ const ACTIVE_STATUSES = ['PENDING', 'PENDING_ARRIVAL', 'OPERATOR_CONFIRMED', 'SE
 const PAST_STATUSES = ['COMPLETED', 'CANCELLED', 'NO_SHOW'];
 
 const UZ_WEEKDAYS_SHORT = ['Yak', 'Du', 'Se', 'Cho', 'Pay', 'Ju', 'Sha'];
+const UZ_MONTHS_SHORT = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
 
 function serviceNameOf(a) {
     if (a.services && Array.isArray(a.services) && a.services.length > 0) {
@@ -33,10 +34,10 @@ function serviceNameOf(a) {
 }
 
 function paymentBadge(a) {
-    if (a.paymentStatus === 'PAID') return { icon: <CheckCircle2 size={12} />, text: 'To\'langan', cls: 'paid' };
-    if (a.paymentMethod === 'CASH') return { icon: <Banknote size={12} />, text: 'Naqd', cls: 'cash' };
-    if (a.paymentMethod) return { icon: <CreditCard size={12} />, text: a.paymentMethod, cls: 'online' };
-    return { icon: <Hourglass size={12} />, text: 'To\'lov kutilmoqda', cls: 'pending' };
+    if (a.paymentStatus === 'PAID') return { icon: <CheckCircle2 size={11} />, text: 'To\'langan', cls: 'paid' };
+    if (a.paymentMethod === 'CASH') return { icon: <Banknote size={11} />, text: 'Naqd', cls: 'cash' };
+    if (a.paymentMethod) return { icon: <CreditCard size={11} />, text: a.paymentMethod, cls: 'online' };
+    return { icon: <Hourglass size={11} />, text: 'To\'lov kutilmoqda', cls: 'pending' };
 }
 
 export default function UserAppointments() {
@@ -231,6 +232,7 @@ export default function UserAppointments() {
     }, [filtered]);
 
     const hasAny = groups.today.length + groups.tomorrow.length + groups.upcoming.length + groups.past.length > 0;
+    const totalFiltered = filtered.length;
 
     const openScanner = useCallback((e) => {
         if (e && e.preventDefault) {
@@ -246,22 +248,7 @@ export default function UserAppointments() {
             <TopBar />
             <Navigation />
             <main className="home-container ua-main">
-                <div className="ua-breadcrumb">
-                    <Link to="/user/dashboard">Dashboard</Link>
-                    <ChevronRight size={14} />
-                    <span>Bronlarim</span>
-                </div>
-
-                <div className="ua-page-header">
-                    <div>
-                        <h1>Bronlarim</h1>
-                        <p>Barcha bronlaringizni bir joydan boshqaring</p>
-                    </div>
-                    <Link to="/xizmatlar" className="ua-header-cta">
-                        Yangi bron <ArrowRight size={16} />
-                    </Link>
-                </div>
-
+                {/* ─── Inline Check-in Result ─── */}
                 {checkinResult && checkinResult.step === 'loading' && (
                     <div className="ua-checkin-result ua-checkin-result--loading">
                         <Loader2 size={28} className="ua-spin" />
@@ -328,30 +315,44 @@ export default function UserAppointments() {
                     </div>
                 )}
 
-                <div className="ua-search-bar">
-                    <Search size={18} />
-                    <input
-                        type="text"
-                        placeholder="Klinika, xizmat yoki bron raqami..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
-                    {search && <button className="ua-search-clear" onClick={() => setSearch('')}><X size={16} /></button>}
+                {/* ─── Page Header ─── */}
+                <div className="ua-page-header">
+                    <div className="ua-page-header-left">
+                        <h1>Bronlarim</h1>
+                        <p className="ua-count">{isLoading ? 'Yuklanmoqda...' : `Jami ${meta.total || 0} ta bron`}</p>
+                    </div>
+                    <Link to="/xizmatlar" className="ua-new-btn">
+                        Yangi bron <ArrowRight size={16} />
+                    </Link>
                 </div>
 
-                <div className="ua-filters">
-                    {filters.map(filter => (
-                        <button
-                            key={filter.value}
-                            onClick={() => { setStatusFilter(filter.value); setPage(1); }}
-                            className={`ua-filter-btn ${statusFilter === filter.value ? 'active' : ''} ${filter.highlight ? 'highlight' : ''}`}
-                        >
-                            {filter.label}
-                            {filter.count > 0 && <span className="ua-filter-count">{filter.count}</span>}
-                        </button>
-                    ))}
+                {/* ─── Search + Filters ─── */}
+                <div className="ua-toolbar">
+                    <div className="ua-search-wrap">
+                        <Search size={18} className="ua-search-icon" />
+                        <input
+                            type="text"
+                            placeholder="Klinika, xizmat yoki bron raqami..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                        {search && <button className="ua-search-clear" onClick={() => setSearch('')}><X size={16} /></button>}
+                    </div>
+                    <div className="ua-filters">
+                        {filters.map(filter => (
+                            <button
+                                key={filter.value}
+                                onClick={() => { setStatusFilter(filter.value); setPage(1); }}
+                                className={`ua-filter-btn ${statusFilter === filter.value ? 'active' : ''} ${filter.highlight ? 'highlight' : ''}`}
+                            >
+                                {filter.label}
+                                {filter.count > 0 && <span className="ua-filter-count">{filter.count}</span>}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
+                {/* ─── List ─── */}
                 {isLoading ? (
                     <div className="ua-loading">
                         <div className="ua-skeleton" />
@@ -371,6 +372,9 @@ export default function UserAppointments() {
                     </div>
                 ) : (
                     <div className="ua-list">
+                        {totalFiltered > 0 && (
+                            <div className="ua-found-count">{totalFiltered} ta bron topildi</div>
+                        )}
                         {groups.today.length > 0 && (
                             <>
                                 <div className="ua-group-header">Bugun</div>
@@ -406,6 +410,7 @@ export default function UserAppointments() {
                     </div>
                 )}
 
+                {/* ─── Pagination ─── */}
                 {meta.totalPages > 1 && (
                     <div className="ua-pagination">
                         <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="ua-page-btn">
@@ -419,6 +424,7 @@ export default function UserAppointments() {
                 )}
             </main>
 
+            {/* ─── QR Scanner Modal ─── */}
             {scannerOpen && (
                 <div className="ua-scan-overlay" onClick={closeScanner}>
                     <div className="ua-scan-modal" onClick={e => e.stopPropagation()}>
@@ -447,43 +453,49 @@ function AppointmentCard({ a, onCheckIn }) {
     const ready = isReadyForService(a);
 
     return (
-        <Link to={`/user/appointments/${a.id}`} className={`ua-card ${needs || awaits ? 'ua-card--actionable' : ''}`}>
-            <div className="ua-card-date">
-                <div className="ua-card-date-day">{date.getDate()}</div>
-                <div className="ua-card-date-wd">{UZ_WEEKDAYS_SHORT[date.getDay()]}</div>
+        <Link to={`/user/appointments/${a.id}`} className={`ua-card ${needs || awaits ? 'ua-card--urgent' : ''}`}>
+            <div className="ua-card-left">
+                <div className="ua-card-date">
+                    <div className="ua-card-date-num">{date.getDate()}</div>
+                    <div className="ua-card-date-mon">{UZ_MONTHS_SHORT[date.getMonth()]}</div>
+                    <div className="ua-card-date-wd">{UZ_WEEKDAYS_SHORT[date.getDay()]}</div>
+                </div>
+                <div className="ua-card-time">
+                    <Clock size={12} />
+                    {date.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                </div>
             </div>
-            <div className="ua-card-body">
-                <div className="ua-card-header">
-                    <span className="ua-card-clinic">
+            <div className="ua-card-main">
+                <div className="ua-card-top">
+                    <div className="ua-card-clinic-wrap">
                         <Building2 size={13} />
-                        {a.clinic?.nameUz || 'Klinika'}
-                    </span>
+                        <span className="ua-card-clinic">{a.clinic?.nameUz || 'Klinika'}</span>
+                    </div>
                     <span className="ua-card-status" style={{ backgroundColor: badge.bg, color: badge.color }}>
                         {badge.text}
                     </span>
                 </div>
                 <div className="ua-card-service">{serviceNameOf(a)}</div>
-                <div className="ua-card-meta">
-                    <span className="ua-chip"><Clock size={11} /> {date.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}</span>
+                <div className="ua-card-meta-row">
                     <span className={`ua-chip ua-chip--${pay.cls}`}>{pay.icon} {pay.text}</span>
                     {a.bookingNumber && <span className="ua-chip ua-chip--bron">{shortBookingNo(a.bookingNumber)}</span>}
                 </div>
                 {needs && (
                     <div className="ua-card-action ua-card-action--warn">
-                        <Camera size={14} />
+                        <Camera size={13} />
                         <span>Klinikaga boring va check-in qiling</span>
                         <button onClick={onCheckIn}>Check-in</button>
                     </div>
                 )}
                 {awaits && (
                     <div className="ua-card-action ua-card-action--info">
-                        <Loader2 size={14} className="ua-spin" />
+                        <Loader2 size={13} className="ua-spin" />
                         <span>Kassir tasdiqlashini kuting</span>
                     </div>
                 )}
                 {ready && a.status !== 'COMPLETED' && (
                     <div className="ua-card-action ua-card-action--ok">
-                        <CheckCircle2 size={14} />
+                        <CheckCircle2 size={13} />
                         <span>To'langan — xizmat xonasiga o'ting</span>
                     </div>
                 )}
