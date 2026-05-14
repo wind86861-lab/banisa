@@ -17,8 +17,12 @@ export default function MetadataTemplates() {
     queryKey: ['admin', 'metadata-templates'],
     queryFn: async () => {
       const res = await api.get('/admin/metadata-templates');
-      return res.data.data;
+      if (!res.data || !res.data.success) {
+        throw new Error(res.data?.error?.message || 'Failed to fetch templates');
+      }
+      return res.data.data || [];
     },
+    retry: 1,
   });
 
   const deleteMutation = useMutation({
