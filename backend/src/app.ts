@@ -31,6 +31,8 @@ import {
     clinicAppointmentRouter,
 } from './modules/appointments/appointment.routes';
 import notificationsRoutes, { patientNotificationsRouter } from './modules/notifications/notifications.routes';
+import metadataTemplateRoutes from './modules/metadata/metadata-template.routes';
+import appointmentMetadataRoutes from './modules/metadata/appointment-metadata.routes';
 
 const app = express();
 
@@ -91,6 +93,10 @@ app.use('/api/admin/appointments', operatorAppointmentRouter);
 app.use('/api/clinic/appointments', clinicAppointmentRouter);
 app.use('/api/clinic/notifications', notificationsRoutes);
 app.use('/api/user/notifications', patientNotificationsRouter);
+
+// ─── Metadata System ──────────────────────────────────────────────────────────
+app.use('/api/admin/metadata-templates', metadataTemplateRoutes);
+app.use('/api/clinic/appointments', appointmentMetadataRoutes);
 
 // ─── Serve frontend in production ────────────────────────────────────────────
 if (env.NODE_ENV === 'production') {

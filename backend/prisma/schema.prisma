@@ -315,6 +315,7 @@ model Appointment {
   surgicalService       SurgicalService?       @relation("SurgicalServiceAppointments", fields: [surgicalServiceId], references: [id])
   services              AppointmentService[]
   logs                  AppointmentLog[]
+  metadata              AppointmentMetadata[]
 
   @@index([clinicId])
   @@index([patientId])
@@ -915,4 +916,85 @@ enum ServiceType {
   SURGICAL
   SANATORIUM
   CHECKUP
+}
+
+// ═══════════════════════════════════════════════════════
+// METADATA SYSTEM (Admin-Controlled)
+// ═══════════════════════════════════════════════════════
+
+model MetadataTemplate {
+  id               String                 @id @default(uuid())
+  key              String                 @unique
+  labelUz          String
+  labelRu          String?
+  labelEn          String?
+  inputType        MetadataInputType
+  unit             String?
+  category         MetadataCategory       @default(MEDICAL_INFO)
+  validation       Json?
+  visibleToPatient Boolean                @default(true)
+  editableBy       EditableBy             @default(CLINIC)
+  isActive         Boolean                @default(true)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  createdBy        String?
+  serviceLinks     ServiceMetadataLink[]
+  appointmentMetadata AppointmentMetadata[]
+
+  @@index([isActive])
+  @@index([key])
+}
+
+model ServiceMetadataLink {
+  id           String            @id @default(uuid())
+  serviceType  ServiceType
+  serviceId    String
+  templateId   String
+  template     MetadataTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  isRequired   Boolean           @default(false)
+  displayOrder Int               @default(0)
+  createdAt    DateTime          @default(now())
+  createdBy    String?
+
+  @@unique([serviceType, serviceId, templateId])
+  @@index([serviceType, serviceId])
+  @@index([templateId])
+}
+
+model AppointmentMetadata {
+  id            String            @id @default(uuid())
+  appointmentId String
+  appointment   Appointment       @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  templateId    String
+  template      MetadataTemplate  @relation(fields: [templateId], references: [id])
+  value         String
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  createdBy     String?
+
+  @@unique([appointmentId, templateId])
+  @@index([appointmentId])
+  @@index([templateId])
+}
+
+enum MetadataInputType {
+  NUMBER
+  TEXT
+  SELECT
+  CHECKBOX
+  DATE
+  TEXTAREA
+}
+
+enum MetadataCategory {
+  MEDICAL_INFO
+  PREPARATION
+  RESTRICTION
+  ADDITIONAL_INFO
+}
+
+enum EditableBy {
+  CLINIC
+  OPERATOR
+  BOTH
 }
