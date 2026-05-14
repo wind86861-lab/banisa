@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import prisma from '../../shared/db/prisma';
+import prisma from '../../config/database';
 
 export class MetadataTemplateController {
   // GET /admin/metadata-templates
@@ -69,7 +69,7 @@ export class MetadataTemplateController {
   // PUT /admin/metadata-templates/:id
   async updateTemplate(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const {
         labelUz,
         labelRu,
@@ -109,7 +109,7 @@ export class MetadataTemplateController {
   // DELETE /admin/metadata-templates/:id (soft delete)
   async deleteTemplate(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const template = await prisma.metadataTemplate.update({
         where: { id },
@@ -125,7 +125,7 @@ export class MetadataTemplateController {
   // POST /admin/metadata-templates/:id/link-service
   async linkToService(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { serviceType, serviceId, isRequired, displayOrder } = req.body;
 
       const link = await prisma.serviceMetadataLink.create({
@@ -148,7 +148,7 @@ export class MetadataTemplateController {
   // DELETE /admin/metadata-templates/links/:linkId
   async unlinkFromService(req: Request, res: Response) {
     try {
-      const { linkId } = req.params;
+      const linkId = req.params.linkId as string;
 
       await prisma.serviceMetadataLink.delete({
         where: { id: linkId },
