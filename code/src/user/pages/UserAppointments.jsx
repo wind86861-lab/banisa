@@ -5,11 +5,11 @@ import { Html5Qrcode } from 'html5-qrcode';
 import {
     Calendar, Clock, ChevronRight, ArrowRight, Search,
     Building2, CreditCard, Banknote, CheckCircle2, AlertCircle, Hourglass,
-    Stethoscope, ChevronLeft, Camera, X, Loader2, MapPin, Phone
+    Stethoscope, ChevronLeft, Camera, X, Loader2
 } from 'lucide-react';
 import api from '../../shared/api/axios';
 import { statusLabel, needsCheckIn, awaitingCashier, isReadyForService } from '../../shared/utils/appointmentStatus';
-import { fmtSum, shortBookingNo, fmtDateTimeUz, mapsDirectionsUrl, fmtPhone } from '../../shared/utils/format';
+import { fmtSum, shortBookingNo } from '../../shared/utils/format';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
@@ -46,13 +46,12 @@ export default function UserAppointments() {
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
 
-    // ─── Inline QR Check-in state ───
     const [scannerOpen, setScannerOpen] = useState(false);
     const [scanError, setScanError] = useState('');
-    const [checkinResult, setCheckinResult] = useState(null); // { step, appointment, clinic, pickList }
+    const [checkinResult, setCheckinResult] = useState(null);
     const html5Ref = useRef(null);
     const pollRef = useRef(null);
-    const secretRef = useRef(null); // persist secret across setCheckinResult calls
+    const secretRef = useRef(null);
 
     const stopScanner = useCallback(async () => {
         if (html5Ref.current) {
@@ -114,7 +113,6 @@ export default function UserAppointments() {
         }
     }, [qc]);
 
-    // QR scanner lifecycle
     useEffect(() => {
         if (!scannerOpen) return;
         let cancelled = false;
@@ -135,7 +133,6 @@ export default function UserAppointments() {
         return () => { cancelled = true; stopScanner(); };
     }, [scannerOpen, handleScanSuccess, stopScanner]);
 
-    // Poll for cash payment confirmation
     useEffect(() => {
         if (checkinResult?.step !== 'success' || !checkinResult?.appointment?.id) return;
         const tick = async () => {
@@ -158,7 +155,6 @@ export default function UserAppointments() {
         queryKey: ['user', 'appointments', statusFilter, page],
         queryFn: async () => {
             const params = new URLSearchParams();
-            // Backend filter takes single status; for "active"/"past" we filter client-side.
             if (statusFilter !== 'all' && !['active', 'past', 'action'].includes(statusFilter)) {
                 params.set('status', statusFilter);
             }
@@ -176,7 +172,6 @@ export default function UserAppointments() {
     const appointments = data?.data || [];
     const meta = data?.meta || {};
 
-    // Client-side filter + search
     const filtered = useMemo(() => {
         let list = appointments;
         if (statusFilter === 'active') list = list.filter(a => ACTIVE_STATUSES.includes(a.status));
@@ -203,10 +198,48 @@ export default function UserAppointments() {
 
     const filters = [
         { value: 'all', label: 'Barchasi', count: appointments.length },
-        { value: 'action', label: '⚡ Harakat kerak', count: stats.needAction, highlight: stats.needAction > 0 },
+        { value: 'action', label: 'Harakat kerak', count: stats.needAction, highlight: stats.needAction > 0 },
         { value: 'active', label: 'Faol', count: stats.active },
         { value: 'past', label: 'Yakunlangan', count: appointments.filter(a => PAST_STATUSES.includes(a.status)).length },
     ];
+
+    const groups = useMemo(() => {
+        const g = { today: [], tomorrow: [], upcoming: [], past: [] };
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const tmr = new Date(now);
+        tmr.setDate(tmr.getDate() + 1);
+        for (const a of filtered) {
+            const d = new Date(a.scheduledAt);
+            d.setHours(0, 0, 0, 0);
+            if (PAST_STATUSES.includes(a.status) || d < now) {
+                g.past.push(a);
+            } else if (d.getTime() === now.getTime()) {
+                g.today.push(a);
+            } else if (d.getTime() === tmr.getTime()) {
+                g.tomorrow.push(a);
+            } else {
+                g.upcoming.push(a);
+            }
+        }
+        const byTime = (a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt);
+        g.today.sort(byTime);
+        g.tomorrow.sort(byTime);
+        g.upcoming.sort(byTime);
+        g.past.sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));
+        return g;
+    }, [filtered]);
+
+    const hasAny = groups.today.length + groups.tomorrow.length + groups.upcoming.length + groups.past.length > 0;
+
+    const openScanner = useCallback((e) => {
+        if (e && e.preventDefault) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        setScanError('');
+        setScannerOpen(true);
+    }, []);
 
     return (
         <div className="home-page">
@@ -219,18 +252,16 @@ export default function UserAppointments() {
                     <span>Bronlarim</span>
                 </div>
 
-                {/* Hero */}
-                <div className="ua-hero">
-                    <div className="ua-hero-text">
+                <div className="ua-page-header">
+                    <div>
                         <h1>Bronlarim</h1>
                         <p>Barcha bronlaringizni bir joydan boshqaring</p>
                     </div>
-                    <Link to="/xizmatlar" className="ua-hero-cta">
-                        Yangi bron qilish <ArrowRight size={16} />
+                    <Link to="/xizmatlar" className="ua-header-cta">
+                        Yangi bron <ArrowRight size={16} />
                     </Link>
                 </div>
 
-                {/* ─── Check-in Result (inline) ─── */}
                 {checkinResult && checkinResult.step === 'loading' && (
                     <div className="ua-checkin-result ua-checkin-result--loading">
                         <Loader2 size={28} className="ua-spin" />
@@ -250,7 +281,7 @@ export default function UserAppointments() {
                 {checkinResult && checkinResult.step === 'success' && checkinResult.appointment && (
                     <div className="ua-checkin-result ua-checkin-result--success">
                         <button className="ua-checkin-dismiss" onClick={dismissCheckin}><X size={16} /></button>
-                        <div className="ua-checkin-success-icon">✓</div>
+                        <div className="ua-checkin-success-icon">&#10003;</div>
                         <h3>Kelishingiz tasdiqlandi!</h3>
                         <p className="ua-checkin-sub">Klinika to'lovingizni tasdiqlashi kutilmoqda.</p>
                         <div className="ua-checkin-service-name">
@@ -275,7 +306,7 @@ export default function UserAppointments() {
                 {checkinResult && checkinResult.step === 'paid' && checkinResult.appointment && (
                     <div className="ua-checkin-result ua-checkin-result--paid">
                         <button className="ua-checkin-dismiss" onClick={dismissCheckin}><X size={16} /></button>
-                        <div className="ua-checkin-success-icon" style={{ background: '#10b981' }}>✓</div>
+                        <div className="ua-checkin-success-icon" style={{ background: '#10b981' }}>&#10003;</div>
                         <h3>To'lovingiz muvaffaqiyatli qabul qilindi!</h3>
                         <p className="ua-checkin-sub">Xizmat xonasiga o'ting — sizni shifokor kutmoqda.</p>
                         <div className="ua-checkin-service-name">
@@ -297,160 +328,41 @@ export default function UserAppointments() {
                     </div>
                 )}
 
-                {/* ─── Check-in Section (for PENDING_ARRIVAL bookings) ─── */}
-                {!checkinResult && appointments.filter(needsCheckIn).length > 0 && (
-                    <div className="ua-checkin-section">
-                        <div className="ua-checkin-section-header">
-                            <div>
-                                <h2>Check-in</h2>
-                                <p>Klinikaga yetib borgach, check-in tugmasini bosing</p>
-                            </div>
-                        </div>
-                        <div className="ua-checkin-cards">
-                            {appointments.filter(needsCheckIn).map(a => (
-                                <Link key={a.id} to={`/user/appointments/${a.id}`} className="ua-checkin-card">
-                                    <div className="ua-checkin-card-info">
-                                        <div className="ua-checkin-card-clinic">
-                                            <Building2 size={14} />
-                                            {a.clinic?.nameUz || 'Klinika'}
-                                        </div>
-                                        <div className="ua-checkin-card-service">
-                                            <Stethoscope size={14} />
-                                            {serviceNameOf(a)}
-                                        </div>
-                                        <div className="ua-checkin-card-meta">
-                                            <span><Banknote size={12} /> {fmtSum(a.finalPrice || a.price)} so'm</span>
-                                            <span>{shortBookingNo(a.bookingNumber)}</span>
-                                        </div>
-                                    </div>
-                                    <button
-                                        className="ua-checkin-btn"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setScanError('');
-                                            setScannerOpen(true);
-                                        }}
-                                    >
-                                        <Camera size={16} />
-                                        Check-in
-                                    </button>
-                                </Link>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* ─── Awaiting Cashier Section ─── */}
-                {!checkinResult && appointments.filter(awaitingCashier).length > 0 && (
-                    <div className="ua-checkin-section ua-checkin-section--info">
-                        <div className="ua-checkin-section-header">
-                            <div>
-                                <h2>To'lov kutilmoqda</h2>
-                                <p>Klinika to'lovingizni tasdiqlashi kutilmoqda</p>
-                            </div>
-                        </div>
-                        <div className="ua-checkin-cards">
-                            {appointments.filter(awaitingCashier).map(a => (
-                                <Link key={a.id} to={`/user/appointments/${a.id}`} className="ua-checkin-card ua-checkin-card--waiting">
-                                    <div className="ua-checkin-card-info">
-                                        <div className="ua-checkin-card-clinic">
-                                            <Building2 size={14} />
-                                            {a.clinic?.nameUz || 'Klinika'}
-                                        </div>
-                                        <div className="ua-checkin-card-service">
-                                            <Stethoscope size={14} />
-                                            {serviceNameOf(a)}
-                                        </div>
-                                        <div className="ua-checkin-card-meta">
-                                            <span><Banknote size={12} /> {fmtSum(a.finalPrice || a.price)} so'm</span>
-                                        </div>
-                                    </div>
-                                    <div className="ua-checkin-waiting">
-                                        <Loader2 size={16} className="ua-spin" />
-                                        <span>Tasdiqlanmoqda</span>
-                                    </div>
-                                </Link>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Stats */}
-                <div className="ua-stats">
-                    <div className="ua-stat ua-stat--total">
-                        <div className="ua-stat-ico"><Calendar size={20} /></div>
-                        <div>
-                            <div className="ua-stat-val">{stats.total}</div>
-                            <div className="ua-stat-lbl">Jami</div>
-                        </div>
-                    </div>
-                    <div className="ua-stat ua-stat--action" data-hot={stats.needAction > 0}>
-                        <div className="ua-stat-ico"><AlertCircle size={20} /></div>
-                        <div>
-                            <div className="ua-stat-val">{stats.needAction}</div>
-                            <div className="ua-stat-lbl">Harakat kerak</div>
-                        </div>
-                    </div>
-                    <div className="ua-stat ua-stat--active">
-                        <div className="ua-stat-ico"><Hourglass size={20} /></div>
-                        <div>
-                            <div className="ua-stat-val">{stats.active}</div>
-                            <div className="ua-stat-lbl">Faol</div>
-                        </div>
-                    </div>
-                    <div className="ua-stat ua-stat--done">
-                        <div className="ua-stat-ico"><CheckCircle2 size={20} /></div>
-                        <div>
-                            <div className="ua-stat-val">{stats.completed}</div>
-                            <div className="ua-stat-lbl">Yakunlangan</div>
-                        </div>
-                    </div>
+                <div className="ua-search-bar">
+                    <Search size={18} />
+                    <input
+                        type="text"
+                        placeholder="Klinika, xizmat yoki bron raqami..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                    {search && <button className="ua-search-clear" onClick={() => setSearch('')}><X size={16} /></button>}
                 </div>
 
-                {/* Search + Filters */}
-                <div className="ua-toolbar">
-                    <div className="ua-search">
-                        <Search size={16} />
-                        <input
-                            type="text"
-                            placeholder="Klinika, xizmat yoki bron raqami bo'yicha qidirish..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </div>
-                    <div className="ua-filters">
-                        {filters.map(filter => (
-                            <button
-                                key={filter.value}
-                                onClick={() => { setStatusFilter(filter.value); setPage(1); }}
-                                className={`ua-filter-btn ${statusFilter === filter.value ? 'active' : ''} ${filter.highlight ? 'highlight' : ''}`}
-                            >
-                                {filter.label}
-                                {filter.count > 0 && <span className="ua-filter-count">{filter.count}</span>}
-                            </button>
-                        ))}
-                    </div>
+                <div className="ua-filters">
+                    {filters.map(filter => (
+                        <button
+                            key={filter.value}
+                            onClick={() => { setStatusFilter(filter.value); setPage(1); }}
+                            className={`ua-filter-btn ${statusFilter === filter.value ? 'active' : ''} ${filter.highlight ? 'highlight' : ''}`}
+                        >
+                            {filter.label}
+                            {filter.count > 0 && <span className="ua-filter-count">{filter.count}</span>}
+                        </button>
+                    ))}
                 </div>
 
-                {/* List */}
                 {isLoading ? (
                     <div className="ua-loading">
                         <div className="ua-skeleton" />
                         <div className="ua-skeleton" />
                         <div className="ua-skeleton" />
                     </div>
-                ) : filtered.length === 0 ? (
+                ) : !hasAny ? (
                     <div className="ua-empty">
-                        <div className="ua-empty-illust">
-                            <Calendar size={56} />
-                        </div>
+                        <Calendar size={48} className="ua-empty-icon" />
                         <h3>{search ? 'Hech narsa topilmadi' : 'Hali bronlar yo\'q'}</h3>
-                        <p>
-                            {search
-                                ? 'Boshqa kalit so\'z bilan qidirib ko\'ring'
-                                : 'Birinchi bronni yaratish uchun xizmatlarni ko\'ring'}
-                        </p>
+                        <p>{search ? 'Boshqa kalit so\'z bilan qidirib ko\'ring' : 'Birinchi bronni yaratish uchun xizmatlarni ko\'ring'}</p>
                         {!search && (
                             <Link to="/xizmatlar" className="ua-empty-btn">
                                 Xizmatlarni ko'rish <ArrowRight size={16} />
@@ -459,85 +371,41 @@ export default function UserAppointments() {
                     </div>
                 ) : (
                     <div className="ua-list">
-                        {filtered.map(a => {
-                            const badge = statusLabel(a.status);
-                            const date = new Date(a.scheduledAt);
-                            const pay = paymentBadge(a);
-                            const needs = needsCheckIn(a);
-                            const awaits = awaitingCashier(a);
-                            const ready = isReadyForService(a);
-                            const actionable = needs || awaits || ready;
-
-                            return (
-                                <Link key={a.id} to={`/user/appointments/${a.id}`} className={`ua-card ${actionable ? 'ua-card--actionable' : ''}`}>
-                                    {/* Date block */}
-                                    <div className="ua-date">
-                                        <div className="ua-date-wd">{UZ_WEEKDAYS_SHORT[date.getDay()]}</div>
-                                        <div className="ua-date-day">{date.getDate()}</div>
-                                        <div className="ua-date-month">{date.toLocaleDateString('uz-UZ', { month: 'short' })}</div>
-                                    </div>
-
-                                    {/* Main */}
-                                    <div className="ua-main-info">
-                                        <div className="ua-row-top">
-                                            <h3 className="ua-clinic">
-                                                <Building2 size={14} />
-                                                {a.clinic?.nameUz || 'Klinika'}
-                                            </h3>
-                                            <span className="ua-badge" style={{ backgroundColor: badge.bg, color: badge.color }}>
-                                                {badge.text}
-                                            </span>
-                                        </div>
-
-                                        <div className="ua-service">
-                                            <Stethoscope size={14} />
-                                            {serviceNameOf(a)}
-                                        </div>
-
-                                        <div className="ua-meta-row">
-                                            <span className="ua-meta-chip"><Clock size={12} /> {date.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}</span>
-                                            <span className={`ua-meta-chip ua-pay--${pay.cls}`}>{pay.icon} {pay.text}</span>
-                                            {a.bookingNumber && (
-                                                <span className="ua-meta-chip ua-meta-bron">{shortBookingNo(a.bookingNumber)}</span>
-                                            )}
-                                        </div>
-
-                                        {/* Inline action banner */}
-                                        {needs && (
-                                            <div className="ua-action-banner ua-action-banner--warn">
-                                                <Camera size={14} />
-                                                <span>Check-in qiling</span>
-                                                <ChevronRight size={14} />
-                                            </div>
-                                        )}
-                                        {awaits && (
-                                            <div className="ua-action-banner ua-action-banner--info">
-                                                <Loader2 size={14} className="ua-spin" />
-                                                <span>To'lov tasdiqlanmoqda</span>
-                                                <ChevronRight size={14} />
-                                            </div>
-                                        )}
-                                        {ready && a.status !== 'COMPLETED' && (
-                                            <div className="ua-action-banner ua-action-banner--ok">
-                                                <CheckCircle2 size={14} />
-                                                <span>To'langan — xizmat xonasiga o'ting</span>
-                                                <ChevronRight size={14} />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Price */}
-                                    <div className="ua-right">
-                                        <div className="ua-price-amount">{fmtSum(a.finalPrice || a.price)} <span>so'm</span></div>
-                                        <ChevronRight size={20} className="ua-chevron" />
-                                    </div>
-                                </Link>
-                            );
-                        })}
+                        {groups.today.length > 0 && (
+                            <>
+                                <div className="ua-group-header">Bugun</div>
+                                {groups.today.map(a => (
+                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} />
+                                ))}
+                            </>
+                        )}
+                        {groups.tomorrow.length > 0 && (
+                            <>
+                                <div className="ua-group-header">Ertaga</div>
+                                {groups.tomorrow.map(a => (
+                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} />
+                                ))}
+                            </>
+                        )}
+                        {groups.upcoming.length > 0 && (
+                            <>
+                                <div className="ua-group-header">Kelajak</div>
+                                {groups.upcoming.map(a => (
+                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} />
+                                ))}
+                            </>
+                        )}
+                        {groups.past.length > 0 && (
+                            <>
+                                <div className="ua-group-header">Yakunlangan</div>
+                                {groups.past.map(a => (
+                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} />
+                                ))}
+                            </>
+                        )}
                     </div>
                 )}
 
-                {/* Pagination */}
                 {meta.totalPages > 1 && (
                     <div className="ua-pagination">
                         <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="ua-page-btn">
@@ -551,7 +419,6 @@ export default function UserAppointments() {
                 )}
             </main>
 
-            {/* ─── QR Scanner Modal ─── */}
             {scannerOpen && (
                 <div className="ua-scan-overlay" onClick={closeScanner}>
                     <div className="ua-scan-modal" onClick={e => e.stopPropagation()}>
@@ -568,6 +435,64 @@ export default function UserAppointments() {
 
             <Footer />
         </div>
+    );
+}
+
+function AppointmentCard({ a, onCheckIn }) {
+    const badge = statusLabel(a.status);
+    const date = new Date(a.scheduledAt);
+    const pay = paymentBadge(a);
+    const needs = needsCheckIn(a);
+    const awaits = awaitingCashier(a);
+    const ready = isReadyForService(a);
+
+    return (
+        <Link to={`/user/appointments/${a.id}`} className={`ua-card ${needs || awaits ? 'ua-card--actionable' : ''}`}>
+            <div className="ua-card-date">
+                <div className="ua-card-date-day">{date.getDate()}</div>
+                <div className="ua-card-date-wd">{UZ_WEEKDAYS_SHORT[date.getDay()]}</div>
+            </div>
+            <div className="ua-card-body">
+                <div className="ua-card-header">
+                    <span className="ua-card-clinic">
+                        <Building2 size={13} />
+                        {a.clinic?.nameUz || 'Klinika'}
+                    </span>
+                    <span className="ua-card-status" style={{ backgroundColor: badge.bg, color: badge.color }}>
+                        {badge.text}
+                    </span>
+                </div>
+                <div className="ua-card-service">{serviceNameOf(a)}</div>
+                <div className="ua-card-meta">
+                    <span className="ua-chip"><Clock size={11} /> {date.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className={`ua-chip ua-chip--${pay.cls}`}>{pay.icon} {pay.text}</span>
+                    {a.bookingNumber && <span className="ua-chip ua-chip--bron">{shortBookingNo(a.bookingNumber)}</span>}
+                </div>
+                {needs && (
+                    <div className="ua-card-action ua-card-action--warn">
+                        <Camera size={14} />
+                        <span>Klinikaga boring va check-in qiling</span>
+                        <button onClick={onCheckIn}>Check-in</button>
+                    </div>
+                )}
+                {awaits && (
+                    <div className="ua-card-action ua-card-action--info">
+                        <Loader2 size={14} className="ua-spin" />
+                        <span>Kassir tasdiqlashini kuting</span>
+                    </div>
+                )}
+                {ready && a.status !== 'COMPLETED' && (
+                    <div className="ua-card-action ua-card-action--ok">
+                        <CheckCircle2 size={14} />
+                        <span>To'langan — xizmat xonasiga o'ting</span>
+                    </div>
+                )}
+            </div>
+            <div className="ua-card-right">
+                <div className="ua-card-price">{fmtSum(a.finalPrice || a.price)} <span>so'm</span></div>
+                <ChevronRight size={18} className="ua-card-chevron" />
+            </div>
+        </Link>
     );
 }
 
