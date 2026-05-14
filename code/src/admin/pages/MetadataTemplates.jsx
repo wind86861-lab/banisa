@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit2, Trash2, Link as LinkIcon, AlertCircle } from 'lucide-react';
-import api from '../../utils/api';
+import api from '../../shared/api/axios';
 import CreateTemplateModal from '../components/CreateTemplateModal';
 import EditTemplateModal from '../components/EditTemplateModal';
 import LinkServiceModal from '../components/LinkServiceModal';
@@ -241,7 +241,7 @@ function TemplateCard({ template, onEdit, onDelete, onLink, onUnlink }) {
 function ServiceLinkBadge({ link, onUnlink }) {
   // This will be populated by the backend with service details
   const serviceName = link.serviceName || `Service ${link.serviceId.slice(0, 8)}`;
-  
+
   return (
     <div className="service-link-badge">
       <span className="service-name">{serviceName}</span>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { X, AlertCircle } from 'lucide-react';
-import api from '../../utils/api';
+import api from '../../shared/api/axios';
 import './css/MetadataModals.css';
 
 export default function CreateTemplateModal({ onClose, onSuccess }) {
@@ -67,10 +67,10 @@ export default function CreateTemplateModal({ onClose, onSuccess }) {
 
   const validate = () => {
     const newErrors = {};
-    
+
     if (!formData.key.trim()) newErrors.key = 'Key majburiy';
     if (!formData.labelUz.trim()) newErrors.labelUz = 'Uzbek label majburiy';
-    
+
     if (formData.inputType === 'NUMBER') {
       if (formData.validation.min && formData.validation.max) {
         if (parseFloat(formData.validation.min) >= parseFloat(formData.validation.max)) {
@@ -78,7 +78,7 @@ export default function CreateTemplateModal({ onClose, onSuccess }) {
         }
       }
     }
-    
+
     if (formData.inputType === 'SELECT' && formData.validation.options.length === 0) {
       newErrors.options = 'Kamida 1 ta variant kerak';
     }

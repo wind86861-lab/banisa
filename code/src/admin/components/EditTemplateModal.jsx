@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useMutation } from '@tantml:query';
+import { useMutation } from '@tanstack/react-query';
 import { X, AlertCircle } from 'lucide-react';
-import api from '../../utils/api';
+import api from '../../shared/api/axios';
 import './css/MetadataModals.css';
 
 export default function EditTemplateModal({ template, onClose, onSuccess }) {

@@ -125,6 +125,23 @@ export default function AppointmentDetailPage() {
                 {/* Progress Timeline */}
                 <ProgressTimeline appointment={data} />
 
+                {/* Metadata Display */}
+                {data.metadata && data.metadata.length > 0 && (
+                    <div className="apd-metadata-card">
+                        <h3>Tibbiy ma'lumotlar</h3>
+                        <div className="apd-metadata-grid">
+                            {data.metadata.map((meta) => (
+                                <div key={meta.id} className="apd-metadata-item">
+                                    <span className="apd-metadata-label">{meta.template?.labelUz || 'Ma\'lumot'}</span>
+                                    <span className="apd-metadata-value">
+                                        {meta.value} {meta.template?.unit || ''}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 <div className="apd-grid">
                     <div className="apd-col-left">
                         {/* Status-driven action card — the single most important block on the page */}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { X, AlertCircle, Search } from 'lucide-react';
-import api from '../../utils/api';
+import api from '../../shared/api/axios';
 import './css/MetadataModals.css';
 
 export default function LinkServiceModal({ template, onClose, onSuccess }) {
@@ -18,8 +18,8 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
         serviceType === 'DIAGNOSTIC'
           ? '/diagnostic'
           : serviceType === 'SURGICAL'
-          ? '/surgical'
-          : '/checkup-packages';
+            ? '/surgical'
+            : '/checkup-packages';
       const res = await api.get(endpoint);
       return res.data.data;
     },

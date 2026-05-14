@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Save, AlertCircle, CheckCircle2, Loader } from 'lucide-react';
-import api from '../../utils/api';
+import api from '../../shared/api/axios';
 import './css/AppointmentMetadataInput.css';
 
 export default function AppointmentMetadataInput({ appointmentId }) {
@@ -60,7 +60,7 @@ export default function AppointmentMetadataInput({ appointmentId }) {
 
   const handleSave = (template) => {
     const value = values[template.id];
-    
+
     // Client-side validation
     if (template.validation?.required && !value) {
       setSaveStatus((prev) => ({ ...prev, [template.id]: 'Majburiy maydon' }));
