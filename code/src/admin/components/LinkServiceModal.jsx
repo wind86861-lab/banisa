@@ -6,21 +6,24 @@ import './css/MetadataModals.css';
 
 export default function LinkServiceModal({ template, onClose, onSuccess }) {
   const [serviceType, setServiceType] = useState('DIAGNOSTIC');
-  const [selectedService, setSelectedService] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedSubcategory, setSelectedSubcategory] = useState('');
+  const [selectedServices, setSelectedServices] = useState(new Set());
   const [isRequired, setIsRequired] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [errors, setErrors] = useState({});
   const [expandedCategories, setExpandedCategories] = useState(new Set());
 
-  // Fetch categories for the selected service type
+  // Already linked service IDs from template
+  const alreadyLinkedIds = useMemo(() => {
+    const links = template?.serviceLinks || [];
+    return new Set(links.map(l => l.serviceId));
+  }, [template]);
+
+  // Fetch categories
   const { data: categories, isLoading: catsLoading } = useQuery({
     queryKey: ['admin', 'categories', serviceType],
     queryFn: async () => {
       const res = await api.get('/categories');
       const allCats = res.data.data || [];
-      // Filter categories relevant to service type
       if (serviceType === 'DIAGNOSTIC') {
         return allCats.filter(c => c.nameUz?.toLowerCase().includes('diagnos') || c.slug?.includes('diagnostic'));
       }
@@ -70,13 +73,26 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
     );
   }, [services, searchQuery]);
 
+  const toggleService = (serviceId) => {
+    if (alreadyLinkedIds.has(serviceId)) return;
+    setSelectedServices(prev => {
+      const next = new Set(prev);
+      if (next.has(serviceId)) next.delete(serviceId);
+      else next.add(serviceId);
+      return next;
+    });
+  };
+
   const linkMutation = useMutation({
     mutationFn: async () => {
-      await api.post(`/admin/metadata-templates/${template.id}/link-service`, {
-        serviceType,
-        serviceId: selectedService,
-        isRequired,
-      });
+      const promises = Array.from(selectedServices).map(serviceId =>
+        api.post(`/admin/metadata-templates/${template.id}/link-service`, {
+          serviceType,
+          serviceId,
+          isRequired,
+        })
+      );
+      await Promise.all(promises);
     },
     onSuccess: () => {
       onSuccess();
@@ -88,8 +104,8 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!selectedService) {
-      setErrors({ service: 'Xizmatni tanlang' });
+    if (selectedServices.size === 0) {
+      setErrors({ service: 'Kamida bitta xizmatni tanlang' });
       return;
     }
     linkMutation.mutate();
@@ -104,7 +120,71 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
     });
   };
 
-  const selectedServiceName = services?.find(s => s.id === selectedService)?.nameUz || '';
+  const selectedCount = selectedServices.size;
+
+  // Render one service row
+  const ServiceRow = ({ service, indent = 0 }) => {
+    const isLinked = alreadyLinkedIds.has(service.id);
+    const isSelected = selectedServices.has(service.id) || isLinked;
+    const paddingLeft = 14 + indent;
+    return (
+      <div
+        key={service.id}
+        onClick={() => toggleService(service.id)}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '24px 1fr',
+          alignItems: 'center',
+          gap: '10px',
+          padding: `9px 14px 9px ${paddingLeft}px`,
+          cursor: isLinked ? 'default' : 'pointer',
+          borderBottom: '1px solid #f3f4f6',
+          background: isLinked ? '#f0fdf4' : isSelected ? '#eff6ff' : 'white',
+          opacity: isLinked ? 0.85 : 1,
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={isSelected}
+          disabled={isLinked}
+          onChange={() => toggleService(service.id)}
+        />
+        <div>
+          <div style={{
+            fontSize: '14px',
+            fontWeight: isSelected ? '600' : '400',
+            color: isLinked ? '#166534' : '#1a1a2e',
+            lineHeight: 1.4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}>
+            {service.nameUz}
+            {isLinked && (
+              <span style={{
+                fontSize: '10px',
+                background: '#22c55e',
+                color: 'white',
+                padding: '1px 6px',
+                borderRadius: '10px',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+              }}>
+                Bog'langan
+              </span>
+            )}
+          </div>
+          {service.priceRecommended ? (
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+              {service.priceRecommended.toLocaleString()} so'm
+            </div>
+          ) : (
+            <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>Narx ko'rsatilmagan</div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -113,7 +193,7 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
           <div>
             <h2>Xizmatga bog'lash</h2>
             <p style={{ fontSize: '14px', color: '#6b7280', margin: '4px 0 0 0' }}>
-              {template.labelUz}
+              {template.labelUz} — {selectedCount > 0 ? `${selectedCount} ta yangi tanlandi` : 'Xizmatlarni tanlang'}
             </p>
           </div>
           <button onClick={onClose} className="close-btn">
@@ -138,9 +218,7 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
                   value={serviceType}
                   onChange={(e) => {
                     setServiceType(e.target.value);
-                    setSelectedService('');
-                    setSelectedCategory('');
-                    setSelectedSubcategory('');
+                    setSelectedServices(new Set());
                     setSearchQuery('');
                     setExpandedCategories(new Set());
                   }}
@@ -169,26 +247,13 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
                 </div>
               </div>
 
-              {/* Selected Service Badge */}
-              {selectedService && (
-                <div className="form-group full-width">
-                  <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontSize: '11px', color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>Tanlangan xizmat</div>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#1e40af' }}>{selectedServiceName}</div>
-                    </div>
-                    <button type="button" onClick={() => setSelectedService('')} style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>O'chirish</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Service List with Categories */}
+              {/* Service List */}
               <div className="form-group full-width">
                 <label>
-                  Xizmat <span className="required">*</span>
+                  Xizmatlar
                   {filteredServices && (
                     <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '400', marginLeft: '8px' }}>
-                      ({filteredServices.length} ta)
+                      ({filteredServices.length} ta, {alreadyLinkedIds.size} ta bog'langan)
                     </span>
                   )}
                 </label>
@@ -198,19 +263,9 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
                 ) : (
                   <div style={{ maxHeight: '450px', overflowY: 'auto', border: '1px solid #d1d5db', borderRadius: '8px' }}>
                     {searchQuery.trim() ? (
+                      // Search mode
                       filteredServices && filteredServices.length > 0 ? (
-                        filteredServices.map((service) => {
-                          const isSelected = selectedService === service.id;
-                          return (
-                            <div key={service.id} onClick={() => setSelectedService(service.id)} style={{ display: 'grid', gridTemplateColumns: '24px 1fr', alignItems: 'center', gap: '10px', padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#eff6ff' : 'white' }}>
-                              <input type="radio" name="service" value={service.id} checked={isSelected} onChange={(e) => setSelectedService(e.target.value)} />
-                              <div>
-                                <div style={{ fontSize: '14px', fontWeight: isSelected ? '600' : '400', color: '#1a1a2e', lineHeight: 1.4 }}>{service.nameUz}</div>
-                                {service.priceRecommended ? <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{service.priceRecommended.toLocaleString()} so'm</div> : <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>Narx ko'rsatilmagan</div>}
-                              </div>
-                            </div>
-                          );
-                        })
+                        filteredServices.map((service) => <ServiceRow key={service.id} service={service} />)
                       ) : (
                         <div style={{ padding: '30px', textAlign: 'center', color: '#6b7280' }}>
                           <div>"{searchQuery}" bo'yicha xizmat topilmadi</div>
@@ -218,6 +273,7 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
                         </div>
                       )
                     ) : (
+                      // Category mode
                       categories && categories.length > 0 ? (
                         categories.map((cat) => {
                           const catServices = servicesByCategory[cat.id] || [];
@@ -226,25 +282,32 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
 
                           return (
                             <div key={cat.id}>
-                              <div onClick={() => toggleCategory(cat.id)} style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', cursor: 'pointer', background: '#f3f4f6', borderBottom: '1px solid #e5e7eb', fontWeight: 600, fontSize: '13px', color: '#374151' }}>
+                              {/* Category Header */}
+                              <div
+                                onClick={() => toggleCategory(cat.id)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  padding: '10px 14px',
+                                  cursor: 'pointer',
+                                  background: '#f3f4f6',
+                                  borderBottom: '1px solid #e5e7eb',
+                                  fontWeight: 600,
+                                  fontSize: '13px',
+                                  color: '#374151',
+                                }}
+                              >
                                 {isExpanded ? <ChevronDown size={16} style={{ marginRight: '6px', flexShrink: 0 }} /> : <ChevronRight size={16} style={{ marginRight: '6px', flexShrink: 0 }} />}
                                 <span style={{ flex: 1 }}>{cat.nameUz}</span>
                                 <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '400' }}>{catServices.length} ta</span>
                               </div>
 
-                              {isExpanded && catServices.map((service) => {
-                                const isSelected = selectedService === service.id;
-                                return (
-                                  <div key={service.id} onClick={() => setSelectedService(service.id)} style={{ display: 'grid', gridTemplateColumns: '24px 1fr', alignItems: 'center', gap: '10px', padding: '9px 14px 9px 36px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#eff6ff' : 'white' }}>
-                                    <input type="radio" name="service" value={service.id} checked={isSelected} onChange={(e) => setSelectedService(e.target.value)} />
-                                    <div>
-                                      <div style={{ fontSize: '14px', fontWeight: isSelected ? '600' : '400', color: '#1a1a2e', lineHeight: 1.4 }}>{service.nameUz}</div>
-                                      {service.priceRecommended ? <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{service.priceRecommended.toLocaleString()} so'm</div> : <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>Narx ko'rsatilmagan</div>}
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                              {/* Direct services */}
+                              {isExpanded && catServices.map((service) => (
+                                <ServiceRow key={service.id} service={service} indent={22} />
+                              ))}
 
+                              {/* Subcategories */}
                               {isExpanded && cat.children && cat.children.map((sub) => {
                                 const subServices = servicesByCategory[sub.id] || [];
                                 if (subServices.length === 0) return null;
@@ -253,18 +316,9 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
                                     <div style={{ padding: '7px 14px 7px 40px', fontSize: '12px', fontWeight: 600, color: '#4b5563', background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
                                       {sub.nameUz}
                                     </div>
-                                    {subServices.map((service) => {
-                                      const isSelected = selectedService === service.id;
-                                      return (
-                                        <div key={service.id} onClick={() => setSelectedService(service.id)} style={{ display: 'grid', gridTemplateColumns: '24px 1fr', alignItems: 'center', gap: '10px', padding: '9px 14px 9px 56px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#eff6ff' : 'white' }}>
-                                          <input type="radio" name="service" value={service.id} checked={isSelected} onChange={(e) => setSelectedService(e.target.value)} />
-                                          <div>
-                                            <div style={{ fontSize: '14px', fontWeight: isSelected ? '600' : '400', color: '#1a1a2e', lineHeight: 1.4 }}>{service.nameUz}</div>
-                                            {service.priceRecommended ? <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{service.priceRecommended.toLocaleString()} so'm</div> : <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>Narx ko'rsatilmagan</div>}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
+                                    {subServices.map((service) => (
+                                      <ServiceRow key={service.id} service={service} indent={40} />
+                                    ))}
                                   </div>
                                 );
                               })}
@@ -272,19 +326,9 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
                           );
                         })
                       ) : (
+                        // Flat fallback
                         filteredServices && filteredServices.length > 0 ? (
-                          filteredServices.map((service) => {
-                            const isSelected = selectedService === service.id;
-                            return (
-                              <div key={service.id} onClick={() => setSelectedService(service.id)} style={{ display: 'grid', gridTemplateColumns: '24px 1fr', alignItems: 'center', gap: '10px', padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#eff6ff' : 'white' }}>
-                                <input type="radio" name="service" value={service.id} checked={isSelected} onChange={(e) => setSelectedService(e.target.value)} />
-                                <div>
-                                  <div style={{ fontSize: '14px', fontWeight: isSelected ? '600' : '400', color: '#1a1a2e', lineHeight: 1.4 }}>{service.nameUz}</div>
-                                  {service.priceRecommended ? <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{service.priceRecommended.toLocaleString()} so'm</div> : <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>Narx ko'rsatilmagan</div>}
-                                </div>
-                              </div>
-                            );
-                          })
+                          filteredServices.map((service) => <ServiceRow key={service.id} service={service} />)
                         ) : (
                           <div style={{ padding: '30px', textAlign: 'center', color: '#6b7280' }}>Xizmatlar mavjud emas</div>
                         )
@@ -307,8 +351,8 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
 
           <div className="modal-footer">
             <button type="button" onClick={onClose} className="btn-secondary">Bekor qilish</button>
-            <button type="submit" className="btn-primary" disabled={linkMutation.isPending || !selectedService}>
-              {linkMutation.isPending ? 'Bog\'lanmoqda...' : 'Bog\'lash'}
+            <button type="submit" className="btn-primary" disabled={linkMutation.isPending || selectedServices.size === 0}>
+              {linkMutation.isPending ? 'Bog\'lanmoqda...' : `Bog'lash (${selectedServices.size})`}
             </button>
           </div>
         </form>
