@@ -189,6 +189,21 @@
   border-color: #9ca3af;
 }
 
+.btn-primary {
+  padding: 10px 20px;
+  background: #3b82f6;
+  color: white;
+  border: 1px solid #3b82f6;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+}
+
 .btn-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;

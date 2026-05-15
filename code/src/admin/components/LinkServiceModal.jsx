@@ -201,7 +201,7 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <div className="modal-body">
             {errors.submit && (
               <div className="error-banner">
@@ -261,7 +261,7 @@ export default function LinkServiceModal({ template, onClose, onSuccess }) {
                 {isLoading ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>Yuklanmoqda...</div>
                 ) : (
-                  <div style={{ maxHeight: '450px', overflowY: 'auto', border: '1px solid #d1d5db', borderRadius: '8px' }}>
+                  <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', maxHeight: 'none', overflowY: 'visible' }}>
                     {searchQuery.trim() ? (
                       // Search mode
                       filteredServices && filteredServices.length > 0 ? (
