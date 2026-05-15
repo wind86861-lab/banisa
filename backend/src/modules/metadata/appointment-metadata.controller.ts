@@ -12,6 +12,7 @@ export class AppointmentMetadataController {
         include: {
           diagnosticService: true,
           surgicalService: true,
+          services: true,
         },
       });
 
@@ -29,6 +30,16 @@ export class AppointmentMetadataController {
       } else if (appointment.surgicalServiceId) {
         serviceType = 'SURGICAL';
         serviceId = appointment.surgicalServiceId;
+      } else {
+        // For checkup or other types, check AppointmentService table
+        const services = (appointment as any).services || [];
+        const checkupService = services.find(
+          (s: any) => s.originalServiceId && (s.serviceName?.toLowerCase().includes('checkup') || s.serviceName?.toLowerCase().includes('tekshiruv'))
+        );
+        if (checkupService && checkupService.originalServiceId) {
+          serviceType = 'CHECKUP';
+          serviceId = checkupService.originalServiceId;
+        }
       }
 
       if (!serviceType || !serviceId) {
