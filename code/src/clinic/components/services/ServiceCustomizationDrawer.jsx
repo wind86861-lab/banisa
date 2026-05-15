@@ -164,7 +164,7 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
                 base.availableTimeSlots = slots;
             }
             setFormData(base);
-        } else if (!isLoading) {
+        } else if (!custLoading) {
             // No existing customization — pre-fill schedule from clinic working hours
             if (clinicWorkingHours) {
                 const { days, slots } = clinicHoursToSchedule(clinicWorkingHours);
@@ -173,7 +173,7 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
                 setFormData({ ...EMPTY_FORM });
             }
         }
-    }, [customization, open, isLoading, clinicWorkingHours]);
+    }, [customization, open, custLoading, clinicWorkingHours]);
 
     // Reset on close
     useEffect(() => {
@@ -417,7 +417,7 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
 
                         {/* Body */}
                         <div className="ca-drawer-body">
-                            {isLoading ? (
+                            {custLoading ? (
                                 <div className="ca-loading">
                                     <Loader2 size={28} className="ca-spin" />
                                     <span>Yuklanmoqda...</span>
