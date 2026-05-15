@@ -18,7 +18,42 @@ export class MetadataTemplateController {
         orderBy: { createdAt: 'desc' },
       });
 
-      res.json({ success: true, data: templates });
+      // Fetch service names for all links
+      const templatesWithNames = await Promise.all(
+        templates.map(async (template: any) => {
+          const linksWithNames = await Promise.all(
+            template.serviceLinks.map(async (link: any) => {
+              let serviceName = 'Unknown';
+
+              if (link.serviceType === 'DIAGNOSTIC') {
+                const service = await prisma.diagnosticService.findUnique({
+                  where: { id: link.serviceId },
+                  select: { nameUz: true },
+                });
+                serviceName = service?.nameUz || 'Unknown';
+              } else if (link.serviceType === 'SURGICAL') {
+                const service = await prisma.surgicalService.findUnique({
+                  where: { id: link.serviceId },
+                  select: { nameUz: true },
+                });
+                serviceName = service?.nameUz || 'Unknown';
+              } else if (link.serviceType === 'CHECKUP') {
+                const service = await prisma.checkupPackage.findUnique({
+                  where: { id: link.serviceId },
+                  select: { nameUz: true },
+                });
+                serviceName = service?.nameUz || 'Unknown';
+              }
+
+              return { ...link, serviceName };
+            })
+          );
+
+          return { ...template, serviceLinks: linksWithNames };
+        })
+      );
+
+      res.json({ success: true, data: templatesWithNames });
     } catch (error: any) {
       res.status(500).json({ success: false, error: { message: error.message } });
     }
