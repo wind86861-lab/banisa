@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, Save, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../../shared/api/axios';
 import CustomizationBasicTab from './CustomizationBasicTab';
 import CustomizationDescriptionTab from './CustomizationDescriptionTab';
 import CustomizationTechnicalTab from './CustomizationTechnicalTab';
@@ -126,10 +128,26 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
     // In regular edit mode, use service.clinicService.id
     const clinicServiceId = activatedClinicServiceId || service?.clinicService?.id;
 
-    const { data: customization, isLoading } = useServiceCustomization(
-        clinicServiceId,
-        { enabled: open && !!clinicServiceId },
-    );
+    const { data: customization, isLoading: custLoading } = useServiceCustomization(clinicServiceId, {
+        enabled: !activateMode && !!clinicServiceId,
+    });
+
+    // Fetch metadata templates linked to this service
+    const { data: linkedMetadata } = useQuery({
+        queryKey: ['service-metadata', service?.id],
+        queryFn: async () => {
+            if (!service?.id) return [];
+            const res = await api.get(`/admin/metadata-templates`);
+            const templates = res.data.data || [];
+            // Filter templates linked to this service
+            return templates.filter(t =>
+                t.serviceLinks?.some(link =>
+                    link.serviceId === service.id && link.serviceType === 'DIAGNOSTIC'
+                )
+            );
+        },
+        enabled: !!service?.id,
+    });
 
     const upsertMut = useUpsertCustomization();
     const deleteMut = useDeleteCustomization();
@@ -411,6 +429,7 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
                                             service={service}
                                             formData={formData}
                                             setFormData={setFormData}
+                                            linkedMetadata={linkedMetadata || []}
                                         />
                                     )}
                                     {activeTab === 1 && (
