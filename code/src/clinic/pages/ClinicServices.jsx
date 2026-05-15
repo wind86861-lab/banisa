@@ -6,6 +6,7 @@ import {
     BriefcaseMedical, Package, Scissors,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import { useClinicServices, useActivateService, useDeactivateService } from '../hooks/useClinicServices';
 import { useWorkingHours } from '../hooks/useServiceSettings';
 import ServiceCustomizationDrawer from '../components/services/ServiceCustomizationDrawer';
@@ -54,6 +55,7 @@ const FILTER_OPTIONS = [
 ];
 
 export default function ClinicServices() {
+    const queryClient = useQueryClient();
     const [mainTab, setMainTab] = useState('services');
     const [viewMode, setViewMode] = useState('list');
     const [search, setSearch] = useState('');
@@ -150,9 +152,11 @@ export default function ClinicServices() {
             console.log('📤 Customization payload:', JSON.stringify(customizationData, null, 2));
             await api.put(`/clinic/services/${clinicServiceId}/customization`, customizationData);
 
+            // Step 3: Invalidate all clinic services queries to force refresh
+            await queryClient.invalidateQueries({ queryKey: ['clinic', 'services'] });
+
             setActivateDrawerService(null);
             setActivatedClinicServiceId(null);
-            refetch();
         } catch (err) {
             console.error('Activate + customization error:', err);
             console.error('📛 Error response:', JSON.stringify(err?.response?.data, null, 2));
