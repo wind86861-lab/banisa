@@ -495,26 +495,26 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
                             <button className="ca-btn-secondary" onClick={onClose}>Bekor qilish</button>
 
                             {/* Next button (not on last tab) */}
-                            {activeTab < TABS.length - 1 ? (
+                            {activeTab < TABS.length - 1 && (
                                 <button
-                                    className="ca-btn-primary"
+                                    className="ca-btn-secondary"
                                     onClick={() => setActiveTab(activeTab + 1)}
                                 >
                                     Keyingisi →
                                 </button>
-                            ) : (
-                                /* Save button (only on last tab) */
-                                <button
-                                    className="ca-btn-primary"
-                                    onClick={handleSave}
-                                    disabled={upsertMut.isPending || activating}
-                                >
-                                    {(upsertMut.isPending || activating)
-                                        ? <Loader2 size={15} className="ca-spin" />
-                                        : <Save size={15} />}
-                                    {activateMode ? 'Saqlash va Aktivlashtirish' : 'Saqlash'}
-                                </button>
                             )}
+
+                            {/* Save button (always visible) */}
+                            <button
+                                className="ca-btn-primary"
+                                onClick={handleSave}
+                                disabled={upsertMut.isPending || activating}
+                            >
+                                {(upsertMut.isPending || activating)
+                                    ? <Loader2 size={15} className="ca-spin" />
+                                    : <Save size={15} />}
+                                {activateMode ? 'Saqlash va Aktivlashtirish' : 'Saqlash'}
+                            </button>
                         </div>
                     </motion.div>
 
