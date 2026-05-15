@@ -52,55 +52,6 @@ export default function CustomizationBasicTab({ service, formData, setFormData, 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-            {/* ═══ METADATA INFO ═══ */}
-            {linkedMetadata.length > 0 && (
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(147,51,234,0.06), rgba(236,72,153,0.06))',
-                    border: '1px solid rgba(147,51,234,0.25)',
-                    borderRadius: 12,
-                    padding: 16,
-                }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 16 }}>📋</span>
-                        Qo'shimcha ma'lumotlar (Metadata)
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-                        Bu xizmatga quyidagi ma'lumotlar bog'langan. Appointment yaratilganda klinika bu ma'lumotlarni to'ldirishi kerak:
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        {linkedMetadata.map(template => {
-                            const link = template.serviceLinks?.find(l => l.serviceId === service.id);
-                            const isRequired = link?.isRequired || false;
-                            return (
-                                <div
-                                    key={template.id}
-                                    style={{
-                                        padding: '6px 12px',
-                                        background: isRequired ? 'rgba(239,68,68,0.1)' : 'rgba(147,51,234,0.1)',
-                                        border: `1px solid ${isRequired ? 'rgba(239,68,68,0.3)' : 'rgba(147,51,234,0.3)'}`,
-                                        borderRadius: 6,
-                                        fontSize: 12,
-                                        fontWeight: 500,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 4,
-                                    }}
-                                >
-                                    {isRequired && <span style={{ color: '#ef4444' }}>*</span>}
-                                    <span>{template.labelUz}</span>
-                                    <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                                        ({template.inputType === 'NUMBER' ? 'Raqam' :
-                                            template.inputType === 'TEXT' ? 'Matn' :
-                                                template.inputType === 'SELECT' ? 'Tanlash' :
-                                                    template.inputType})
-                                    </span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-
             {/* ═══ PRICE & DISCOUNT ═══ */}
             <div style={{
                 background: 'linear-gradient(135deg, rgba(0,201,167,0.06), rgba(59,130,246,0.06))',
@@ -314,6 +265,55 @@ export default function CustomizationBasicTab({ service, formData, setFormData, 
                     </button>
                 )}
             </div>
+
+            {/* ═══ METADATA INFO ═══ */}
+            {linkedMetadata.length > 0 && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(147,51,234,0.06), rgba(236,72,153,0.06))',
+                    border: '1px solid rgba(147,51,234,0.25)',
+                    borderRadius: 12,
+                    padding: 16,
+                }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 16 }}>📋</span>
+                        Qo'shimcha ma'lumotlar (Metadata)
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+                        Bu xizmatga quyidagi ma'lumotlar bog'langan. Appointment yaratilganda klinika bu ma'lumotlarni to'ldirishi kerak:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {linkedMetadata.map(template => {
+                            const link = template.serviceLinks?.find(l => l.serviceId === service.id);
+                            const isRequired = link?.isRequired || false;
+                            return (
+                                <div
+                                    key={template.id}
+                                    style={{
+                                        padding: '6px 12px',
+                                        background: isRequired ? 'rgba(239,68,68,0.1)' : 'rgba(147,51,234,0.1)',
+                                        border: `1px solid ${isRequired ? 'rgba(239,68,68,0.3)' : 'rgba(147,51,234,0.3)'}`,
+                                        borderRadius: 6,
+                                        fontSize: 12,
+                                        fontWeight: 500,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                    }}
+                                >
+                                    {isRequired && <span style={{ color: '#ef4444' }}>*</span>}
+                                    <span>{template.labelUz}</span>
+                                    <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                                        ({template.inputType === 'NUMBER' ? 'Raqam' :
+                                            template.inputType === 'TEXT' ? 'Matn' :
+                                                template.inputType === 'SELECT' ? 'Tanlash' :
+                                                    template.inputType})
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
