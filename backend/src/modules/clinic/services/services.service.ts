@@ -174,6 +174,27 @@ export class ClinicServicesService {
             data: { isActive: false },
         });
     }
+
+    async getServiceMetadata(serviceId: string) {
+        // Get all metadata templates linked to this service
+        const links = await prisma.serviceMetadataLink.findMany({
+            where: {
+                serviceType: 'DIAGNOSTIC',
+                serviceId,
+                template: { isActive: true },
+            },
+            include: {
+                template: true,
+            },
+            orderBy: { displayOrder: 'asc' },
+        });
+
+        // Map to include isRequired flag
+        return links.map((link: any) => ({
+            ...link.template,
+            isRequired: link.isRequired,
+        }));
+    }
 }
 
 export const clinicServicesService = new ClinicServicesService();

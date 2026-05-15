@@ -36,6 +36,15 @@ export class ClinicServicesController {
             next(error);
         }
     };
+
+    getServiceMetadata = async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            const data = await clinicServicesService.getServiceMetadata(req.params.serviceId as string);
+            sendSuccess(res, data);
+        } catch (error) {
+            next(error);
+        }
+    };
 }
 
 export const clinicServicesController = new ClinicServicesController();

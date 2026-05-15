@@ -137,14 +137,14 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
         queryKey: ['service-metadata', service?.id],
         queryFn: async () => {
             if (!service?.id) return [];
-            const res = await api.get(`/admin/metadata-templates`);
-            const templates = res.data.data || [];
-            // Filter templates linked to this service
-            return templates.filter(t =>
-                t.serviceLinks?.some(link =>
-                    link.serviceId === service.id && link.serviceType === 'DIAGNOSTIC'
-                )
-            );
+            try {
+                // Use clinic endpoint to get metadata for this specific service
+                const res = await api.get(`/clinic/services/${service.id}/metadata-templates`);
+                return res.data.data || [];
+            } catch (error) {
+                console.error('Failed to fetch metadata templates:', error);
+                return [];
+            }
         },
         enabled: !!service?.id,
     });

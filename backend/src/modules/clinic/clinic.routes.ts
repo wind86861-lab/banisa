@@ -41,6 +41,7 @@ router.get('/me', getClinicMe);
 
 // ─── Diagnostic Services ──────────────────────────────────────────────────────
 router.get('/services/available', clinicServicesController.getAvailableServices);
+router.get('/services/:serviceId/metadata-templates', clinicServicesController.getServiceMetadata);
 router.post('/services/activate', validate(activateServiceSchema), clinicServicesController.activateService);
 router.delete('/services/:serviceId', clinicServicesController.deactivateService);
 
