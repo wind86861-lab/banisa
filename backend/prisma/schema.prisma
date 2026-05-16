@@ -230,6 +230,7 @@ model Clinic {
   doctors                Doctor[]
   reviews                Review[]
   notifications          Notification[]            @relation("ClinicNotifications")
+  serviceMetadata        ClinicServiceMetadata[]
 
   @@index([status])
   @@index([source])
@@ -940,6 +941,7 @@ model MetadataTemplate {
   createdBy        String?
   serviceLinks     ServiceMetadataLink[]
   appointmentMetadata AppointmentMetadata[]
+  clinicServiceMetadata ClinicServiceMetadata[]
 
   @@index([isActive])
   @@index([key])
@@ -974,6 +976,27 @@ model AppointmentMetadata {
 
   @@unique([appointmentId, templateId])
   @@index([appointmentId])
+  @@index([templateId])
+}
+
+// Per-clinic-service metadata values (set by clinic on activation,
+// used as filterable attributes in the public catalog). Distinct from
+// AppointmentMetadata, which holds per-visit medical data.
+model ClinicServiceMetadata {
+  id          String           @id @default(uuid())
+  clinicId    String
+  serviceType ServiceType
+  serviceId   String
+  templateId  String
+  value       String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  clinic      Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  template    MetadataTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, serviceType, serviceId, templateId])
+  @@index([serviceType, serviceId, templateId, value])
+  @@index([clinicId])
   @@index([templateId])
 }
 

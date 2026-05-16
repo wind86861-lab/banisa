@@ -48,13 +48,19 @@ export function nextActionFor(a) {
 
     if (needsCheckIn(a)) return {
         title: 'Klinikaga keling va check-in qiling',
-        body: 'Klinikaga yetib borgach, "Check-in" tugmasini bosing.',
+        body: 'Naqd to\'lov tanlandi. Klinikaga yetib borgach quyidagi qadamlarni bajaring.',
         tone: 'warning',
         cta: 'checkin',
+        steps: [
+            'Klinika qabulxonasiga boring',
+            'Devordagi Banisa QR kodini telefoningiz kamerasi bilan skanerlang',
+            'Ochilgan sahifada kelishingiz tasdiqlanadi',
+            'Bron QR kodingizni kassirga ko\'rsating va naqd to\'lovni amalga oshiring',
+        ],
     };
     if (awaitingCashier(a)) return {
-        title: 'Naqd to\'lov tasdiqlanmoqda',
-        body: 'Klinika to\'lovingizni tasdiqlashi kutilmoqda. Sahifa avtomatik yangilanadi.',
+        title: 'Bron QR kodingizni kassirga ko\'rsating',
+        body: 'Kassir QR kodni skanerlab naqd to\'lovni tasdiqlaydi. Sahifa avtomatik yangilanadi.',
         tone: 'info',
         cta: 'await-cashier',
     };

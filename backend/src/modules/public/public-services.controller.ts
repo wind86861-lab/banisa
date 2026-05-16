@@ -3,6 +3,42 @@ import { ClinicStatus } from '@prisma/client';
 import prisma from '../../config/database';
 import { getServiceById as getDiagnosticById } from '../diagnostics/diagnostics.service';
 
+/** Parse the `meta` query param: a JSON object of templateKey -> constraint.
+ *  Constraint is either a string[] (allowed values) or { min?, max? } for numbers. */
+function parseMetaFilter(raw: unknown): Record<string, string[] | { min?: number; max?: number }> {
+    if (!raw) return {};
+    try {
+        const parsed = JSON.parse(String(raw));
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+type MetaRow = { template: { key: string }; value: string };
+
+/** True when this clinic-service's metadata satisfies every active filter (AND). */
+function passesMetaFilter(
+    rows: MetaRow[],
+    metaFilter: Record<string, any>,
+    filterKeys: string[],
+): boolean {
+    for (const key of filterKeys) {
+        const row = rows.find(r => r.template.key === key);
+        if (!row) return false;
+        const constraint = metaFilter[key];
+        if (Array.isArray(constraint)) {
+            if (!constraint.map(String).includes(row.value)) return false;
+        } else {
+            const num = Number(row.value);
+            if (Number.isNaN(num)) return false;
+            if (constraint.min != null && num < Number(constraint.min)) return false;
+            if (constraint.max != null && num > Number(constraint.max)) return false;
+        }
+    }
+    return true;
+}
+
 const CLINIC_SELECT = {
     id: true,
     nameUz: true,
@@ -71,8 +107,55 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
             logo: c.logo,
         });
 
+        // ── Patient-visible metadata for diagnostic clinic-services ──
+        const metaFilter = parseMetaFilter(req.query.meta);
+        const filterKeys = Object.keys(metaFilter).filter(k => {
+            const v = metaFilter[k];
+            return Array.isArray(v) ? v.length > 0 : v && (v.min != null || v.max != null);
+        });
+        const hasMetaFilter = filterKeys.length > 0;
+
+        const diagClinicIds = [...new Set(diagnosticLinks.map(l => l.clinicId))];
+        const diagServiceIds = [...new Set(diagnosticLinks.map(l => l.diagnosticServiceId))];
+        const metaRows = diagClinicIds.length
+            ? await prisma.clinicServiceMetadata.findMany({
+                where: {
+                    serviceType: 'DIAGNOSTIC',
+                    clinicId: { in: diagClinicIds },
+                    serviceId: { in: diagServiceIds },
+                    template: { isActive: true, visibleToPatient: true },
+                },
+                include: {
+                    template: {
+                        select: { key: true, labelUz: true, labelRu: true, unit: true, inputType: true, category: true },
+                    },
+                },
+            })
+            : [];
+
+        const metaByPair = new Map<string, typeof metaRows>();
+        for (const row of metaRows) {
+            const k = `${row.clinicId}:${row.serviceId}`;
+            const list = metaByPair.get(k) ?? [];
+            list.push(row);
+            metaByPair.set(k, list);
+        }
+        const metaForLink = (clinicId: string, serviceId: string) =>
+            metaByPair.get(`${clinicId}:${serviceId}`) ?? [];
+
+        const visibleDiagnosticLinks = hasMetaFilter
+            ? diagnosticLinks.filter(l =>
+                passesMetaFilter(metaForLink(l.clinicId, l.diagnosticServiceId), metaFilter, filterKeys))
+            : diagnosticLinks;
+
+        // A meta filter targets diagnostic-only attributes, so other
+        // service types are excluded entirely while one is active.
+        const surgicalVisible = hasMetaFilter ? [] : surgicalLinks;
+        const sanatoriumVisible = hasMetaFilter ? [] : sanatoriumLinks;
+        const checkupVisible = hasMetaFilter ? [] : checkupLinks;
+
         const services = [
-            ...diagnosticLinks.map(link => {
+            ...visibleDiagnosticLinks.map(link => {
                 const s = link.diagnosticService;
                 const cust = link.customization;
                 const images = cust?.images?.map((img: any) => img.url) ?? [];
@@ -106,11 +189,19 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                     customCategory: cust?.customCategory,
                     isHighlighted: cust?.isHighlighted ?? false,
                     requiresAppointment: cust?.requiresAppointment ?? true,
+                    metadata: metaForLink(link.clinicId, link.diagnosticServiceId).map(r => ({
+                        key: r.template.key,
+                        label: r.template.labelUz,
+                        value: r.value,
+                        unit: r.template.unit,
+                        inputType: r.template.inputType,
+                        category: r.template.category,
+                    })),
                     clinic: formatClinic(link.clinic),
                 };
             }),
 
-            ...surgicalLinks.map(link => {
+            ...surgicalVisible.map(link => {
                 const s = link.surgicalService;
                 const mins = s.durationMinutes;
                 const duration = mins >= 60 ? `${Math.round(mins / 60)} soat` : `${mins} daqiqa`;
@@ -143,7 +234,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                 };
             }),
 
-            ...sanatoriumLinks.map(link => {
+            ...sanatoriumVisible.map(link => {
                 const s = link.sanatoriumService;
                 const roomImgs = ((link.roomImages as string[] | null) ?? []).map(url =>
                     url
@@ -175,7 +266,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                 };
             }),
 
-            ...checkupLinks.map(link => {
+            ...checkupVisible.map(link => {
                 const p = link.package;
                 return {
                     id: link.id,
@@ -199,6 +290,61 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
         ];
 
         res.json({ success: true, data: services, meta: { total: services.length } });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/** GET /public/services/filters — facets for the patient catalog filter UI.
+ *  Returns each patient-visible metadata template that has at least one
+ *  value set by an approved clinic, with its distinct values / numeric range. */
+export const getPublicServiceFilters = async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const rows = await prisma.clinicServiceMetadata.findMany({
+            where: {
+                serviceType: 'DIAGNOSTIC',
+                template: { isActive: true, visibleToPatient: true },
+                clinic: { status: ClinicStatus.APPROVED, isActive: true },
+            },
+            include: { template: true },
+        });
+
+        const byTemplate = new Map<string, {
+            key: string; labelUz: string; labelRu: string | null;
+            unit: string | null; inputType: string; category: string;
+            values: Set<string>; nums: number[];
+        }>();
+
+        for (const row of rows) {
+            const t = row.template;
+            let facet = byTemplate.get(t.id);
+            if (!facet) {
+                facet = {
+                    key: t.key, labelUz: t.labelUz, labelRu: t.labelRu,
+                    unit: t.unit, inputType: t.inputType, category: t.category,
+                    values: new Set(), nums: [],
+                };
+                byTemplate.set(t.id, facet);
+            }
+            facet.values.add(row.value);
+            const n = Number(row.value);
+            if (!Number.isNaN(n)) facet.nums.push(n);
+        }
+
+        const data = [...byTemplate.values()].map(f => ({
+            key: f.key,
+            labelUz: f.labelUz,
+            labelRu: f.labelRu,
+            unit: f.unit,
+            inputType: f.inputType,
+            category: f.category,
+            options: f.inputType === 'NUMBER' ? [] : [...f.values].sort(),
+            range: f.inputType === 'NUMBER' && f.nums.length
+                ? { min: Math.min(...f.nums), max: Math.max(...f.nums) }
+                : null,
+        }));
+
+        res.json({ success: true, data });
     } catch (error) {
         next(error);
     }

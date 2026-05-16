@@ -12,7 +12,62 @@ const CATEGORY_OPTIONS = [
 
 const fmt = (n) => n != null ? n.toLocaleString('uz-UZ') : '—';
 
-export default function CustomizationBasicTab({ service, formData, setFormData, linkedMetadata = [] }) {
+function MetadataField({ template, value, onChange }) {
+    const v = (template.validation && typeof template.validation === 'object') ? template.validation : {};
+    const common = {
+        value: value ?? '',
+        onChange: (e) => onChange(template.id, e.target.value),
+    };
+
+    if (template.inputType === 'SELECT') {
+        return (
+            <select {...common}>
+                <option value="">— tanlang —</option>
+                {(v.options || []).map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                ))}
+            </select>
+        );
+    }
+    if (template.inputType === 'CHECKBOX') {
+        return (
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                <input
+                    type="checkbox"
+                    checked={value === 'true'}
+                    onChange={(e) => onChange(template.id, e.target.checked ? 'true' : 'false')}
+                />
+                Ha
+            </label>
+        );
+    }
+    if (template.inputType === 'TEXTAREA') {
+        return <textarea rows={3} maxLength={v.maxLength || undefined} {...common} />;
+    }
+    if (template.inputType === 'DATE') {
+        return <input type="date" {...common} />;
+    }
+    if (template.inputType === 'NUMBER') {
+        return (
+            <input
+                type="number"
+                min={v.min ?? undefined}
+                max={v.max ?? undefined}
+                {...common}
+            />
+        );
+    }
+    return <input type="text" maxLength={v.maxLength || undefined} {...common} />;
+}
+
+export default function CustomizationBasicTab({
+    service,
+    formData,
+    setFormData,
+    linkedMetadata = [],
+    metadataValues = {},
+    onMetadataChange = () => {},
+}) {
     const set = (key, value) => setFormData(prev => ({ ...prev, [key]: value }));
 
     const baseMin = service?.priceMin ?? 0;
@@ -266,7 +321,7 @@ export default function CustomizationBasicTab({ service, formData, setFormData, 
                 )}
             </div>
 
-            {/* ═══ METADATA INFO ═══ */}
+            {/* ═══ METADATA — clinic-entered, patient-filterable ═══ */}
             {linkedMetadata.length > 0 && (
                 <div style={{
                     background: 'linear-gradient(135deg, rgba(147,51,234,0.06), rgba(236,72,153,0.06))',
@@ -276,38 +331,39 @@ export default function CustomizationBasicTab({ service, formData, setFormData, 
                 }}>
                     <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ fontSize: 16 }}>📋</span>
-                        Qo'shimcha ma'lumotlar (Metadata)
+                        Xizmat xususiyatlari (Metadata)
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-                        Bu xizmatga quyidagi ma'lumotlar bog'langan. Appointment yaratilganda klinika bu ma'lumotlarni to'ldirishi kerak:
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
+                        Bu qiymatlarni to&#39;ldiring — bemorlar xizmatlar bo&#39;limida shular bo&#39;yicha filtrlaydi.
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                         {linkedMetadata.map(template => {
-                            const link = template.serviceLinks?.find(l => l.serviceId === service.id);
-                            const isRequired = link?.isRequired || false;
+                            const isRequired = template.isRequired || false;
                             return (
-                                <div
-                                    key={template.id}
-                                    style={{
-                                        padding: '6px 12px',
-                                        background: isRequired ? 'rgba(239,68,68,0.1)' : 'rgba(147,51,234,0.1)',
-                                        border: `1px solid ${isRequired ? 'rgba(239,68,68,0.3)' : 'rgba(147,51,234,0.3)'}`,
-                                        borderRadius: 6,
-                                        fontSize: 12,
-                                        fontWeight: 500,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 4,
-                                    }}
-                                >
-                                    {isRequired && <span style={{ color: '#ef4444' }}>*</span>}
-                                    <span>{template.labelUz}</span>
-                                    <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                                        ({template.inputType === 'NUMBER' ? 'Raqam' :
-                                            template.inputType === 'TEXT' ? 'Matn' :
-                                                template.inputType === 'SELECT' ? 'Tanlash' :
-                                                    template.inputType})
-                                    </span>
+                                <div className="ca-form-group" key={template.id}>
+                                    <label className="ca-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        {isRequired && <span style={{ color: '#ef4444' }}>*</span>}
+                                        {template.labelUz}
+                                        {template.unit && (
+                                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                                ({template.unit})
+                                            </span>
+                                        )}
+                                        {template.visibleToPatient && (
+                                            <span style={{
+                                                marginLeft: 'auto', fontSize: 10, fontWeight: 600,
+                                                color: '#9333ea', background: 'rgba(147,51,234,0.1)',
+                                                padding: '2px 7px', borderRadius: 5,
+                                            }}>
+                                                Filtrlanadi
+                                            </span>
+                                        )}
+                                    </label>
+                                    <MetadataField
+                                        template={template}
+                                        value={metadataValues[template.id]}
+                                        onChange={onMetadataChange}
+                                    />
                                 </div>
                             );
                         })}

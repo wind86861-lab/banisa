@@ -123,6 +123,8 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
     const [priceError, setPriceError] = useState(false);
     const [activating, setActivating] = useState(false);
     const [saveError, setSaveError] = useState(null);
+    // Per-template metadata values: { [templateId]: stringValue }
+    const [metadataValues, setMetadataValues] = useState({});
 
     // In activate mode, clinicServiceId won't exist until after activation
     // In regular edit mode, use service.clinicService.id
@@ -151,6 +153,39 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
 
     const upsertMut = useUpsertCustomization();
     const deleteMut = useDeleteCustomization();
+
+    // Seed metadata inputs from saved values once templates load
+    useEffect(() => {
+        if (!open || !Array.isArray(linkedMetadata)) return;
+        const init = {};
+        linkedMetadata.forEach(m => { init[m.id] = m.currentValue ?? ''; });
+        setMetadataValues(init);
+    }, [linkedMetadata, open]);
+
+    const handleMetadataChange = (templateId, value) =>
+        setMetadataValues(prev => ({ ...prev, [templateId]: value }));
+
+    // Persist metadata values for this service (keyed clinic-side by auth).
+    // Throws on validation error so the caller can surface it.
+    const saveMetadata = async () => {
+        if (!service?.id || !Array.isArray(linkedMetadata) || linkedMetadata.length === 0) return;
+        const values = linkedMetadata.map(m => ({
+            templateId: m.id,
+            value: metadataValues[m.id] ?? '',
+        }));
+        await api.put(`/clinic/services/${service.id}/metadata-values`, { values });
+    };
+
+    // Client-side guard for required metadata before saving
+    const missingRequiredMetadata = () => {
+        if (!Array.isArray(linkedMetadata)) return null;
+        const missing = linkedMetadata.find(m => {
+            if (!m.isRequired) return false;
+            const val = metadataValues[m.id];
+            return val === undefined || val === null || String(val).trim() === '';
+        });
+        return missing ? missing.labelUz : null;
+    };
 
     // Init form data
     useEffect(() => {
@@ -184,6 +219,7 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
             setPriceError(false);
             setActivating(false);
             setSaveError(null);
+            setMetadataValues({});
         }
     }, [open]);
 
@@ -294,6 +330,13 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
     const handleSave = async () => {
         if (!formData) return;
 
+        const missingMeta = missingRequiredMetadata();
+        if (missingMeta) {
+            setSaveError(`"${missingMeta}" majburiy metadata maydoni to'ldirilishi shart`);
+            setActiveTab(0);
+            return;
+        }
+
         // In activate mode customPrice is required
         if (activateMode) {
             if (!formData.customPrice || formData.customPrice <= 0) {
@@ -302,9 +345,14 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
                 return;
             }
             setPriceError(false);
+            setSaveError(null);
             setActivating(true);
             try {
                 await onSaveAndActivate(service.id, buildCleanedData());
+                await saveMetadata();
+            } catch (err) {
+                const msg = err?.response?.data?.message || err?.response?.data?.errors?.[0]?.message || 'Saqlashda xatolik yuz berdi';
+                setSaveError(msg);
             } finally {
                 setActivating(false);
             }
@@ -314,9 +362,9 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
         if (!clinicServiceId) return;
         setSaveError(null);
         const cleanedData = buildCleanedData();
-        console.log('📤 Sending customization data:', JSON.stringify(cleanedData, null, 2));
         try {
             await upsertMut.mutateAsync({ clinicServiceId, data: cleanedData });
+            await saveMetadata();
             onClose();
         } catch (err) {
             console.error('❌ Customization save error:', err?.response?.data);
@@ -430,6 +478,8 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
                                             formData={formData}
                                             setFormData={setFormData}
                                             linkedMetadata={linkedMetadata || []}
+                                            metadataValues={metadataValues}
+                                            onMetadataChange={handleMetadataChange}
                                         />
                                     )}
                                     {activeTab === 1 && (

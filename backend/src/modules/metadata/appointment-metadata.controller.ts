@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/database';
+import { validateMetadataValue } from './metadata-validation';
 
 export class AppointmentMetadataController {
   // GET /clinic/appointments/:id/required-metadata
@@ -98,7 +99,7 @@ export class AppointmentMetadataController {
       }
 
       // Validate value
-      const validationError = this.validateMetadataValue(value, template);
+      const validationError = validateMetadataValue(value, template);
       if (validationError) {
         return res.status(400).json({ success: false, error: { message: validationError } });
       }
@@ -126,37 +127,5 @@ export class AppointmentMetadataController {
     } catch (error: any) {
       res.status(500).json({ success: false, error: { message: error.message } });
     }
-  }
-
-  private validateMetadataValue(value: string, template: any): string | null {
-    const validation = template.validation as any;
-
-    switch (template.inputType) {
-      case 'NUMBER':
-        const num = parseFloat(value);
-        if (isNaN(num)) return 'Invalid number';
-        if (validation?.min && num < validation.min) return `Min: ${validation.min}`;
-        if (validation?.max && num > validation.max) return `Max: ${validation.max}`;
-        break;
-
-      case 'SELECT':
-        if (validation?.options && !validation.options.includes(value)) {
-          return 'Invalid option';
-        }
-        break;
-
-      case 'TEXT':
-      case 'TEXTAREA':
-        if (validation?.maxLength && value.length > validation.maxLength) {
-          return `Max length: ${validation.maxLength}`;
-        }
-        break;
-    }
-
-    if (validation?.required && !value) {
-      return 'Required field';
-    }
-
-    return null;
   }
 }

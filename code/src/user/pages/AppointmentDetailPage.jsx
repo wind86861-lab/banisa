@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
     ArrowLeft, CheckCircle2, Clock, CreditCard, Building2, Phone, MapPin,
     Calendar, FileText, AlertCircle, Loader2, Navigation as NavIcon
@@ -12,9 +12,12 @@ import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
 import ProgressTimeline from '../components/ProgressTimeline';
+import BookingQr from '../components/BookingQr';
 import './css/AppointmentDetailPage.css';
 
 const POLL_MS = 5000;
+// How long to wait for cashier confirmation before showing the "call clinic" fallback.
+const CASHIER_WAIT_MS = 3 * 60 * 1000;
 
 export default function AppointmentDetailPage() {
     const { id } = useParams();
@@ -40,6 +43,15 @@ export default function AppointmentDetailPage() {
 
     const isCash = data?.paymentMethod === 'CASH';
     const action = useMemo(() => nextActionFor(data), [data]);
+
+    // After a few minutes of waiting on the cashier, surface a fallback
+    // (call the clinic) instead of an endless silent spinner.
+    const [waitedLong, setWaitedLong] = useState(false);
+    useEffect(() => {
+        if (action?.cta !== 'await-cashier') { setWaitedLong(false); return; }
+        const t = setTimeout(() => setWaitedLong(true), CASHIER_WAIT_MS);
+        return () => clearTimeout(t);
+    }, [action?.cta]);
 
     const cancel = async () => {
         if (!window.confirm('Bronni bekor qilmoqchimisiz?')) return;
@@ -160,17 +172,41 @@ export default function AppointmentDetailPage() {
                                             <span>Naqd to'lov summasi:</span>
                                             <strong>{fmtSum(finalP)} so'm</strong>
                                         </div>
-                                        <button type="button" className="apd-scan-btn" onClick={() => navigate(`/user/appointments`)}>
-                                            Check-in qilish
-                                        </button>
+                                        {Array.isArray(action.steps) && (
+                                            <ol className="apd-checkin-steps">
+                                                {action.steps.map((s, i) => (
+                                                    <li key={i}>{s}</li>
+                                                ))}
+                                            </ol>
+                                        )}
                                     </>
                                 )}
 
                                 {action.cta === 'await-cashier' && (
-                                    <div className="apd-action-spinner">
-                                        <Loader2 size={16} className="apd-spin" />
-                                        <span>Klinika to'lovingizni tasdiqlashi kutilmoqda...</span>
-                                    </div>
+                                    <>
+                                        <div className="apd-qr-block">
+                                            <BookingQr appointmentId={data.id} size={200} />
+                                            <span className="apd-qr-caption">Kassir bu QR kodni skanerlaydi</span>
+                                        </div>
+                                        {!waitedLong ? (
+                                            <div className="apd-action-spinner">
+                                                <Loader2 size={16} className="apd-spin" />
+                                                <span>Klinika to'lovingizni tasdiqlashi kutilmoqda...</span>
+                                            </div>
+                                        ) : (
+                                            <div className="apd-wait-fallback">
+                                                <p>Tasdiqlash kutilganidan uzoq davom etmoqda.</p>
+                                                {Array.isArray(data.clinic?.phones) && data.clinic.phones[0] && (
+                                                    <a className="apd-pay-btn" href={`tel:${data.clinic.phones[0]}`}>
+                                                        <Phone size={16} /> Klinikaga qo'ng'iroq qilish
+                                                    </a>
+                                                )}
+                                                <button type="button" className="apd-cancel-btn" onClick={() => refetch()}>
+                                                    Holatni yangilash
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
 
                                 {action.cta === 'pay' && (

@@ -3,7 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import axiosInstance from '../../shared/api/axios';
 import { shortBookingNo } from '../../shared/utils/format';
+import BookingQr from '../../user/components/BookingQr';
 import './CheckIn.css';
+
+// Stop the silent spinner and offer "call clinic" after this long.
+const CASHIER_TIMEOUT_TICKS = 36; // 36 × 5s ≈ 3 min
 
 // Short success cue — single tone, no external assets.
 function playSuccessChime() {
@@ -47,7 +51,10 @@ export default function PatientCheckInPage() {
     const [pickList, setPickList] = useState([]);
     const [result, setResult] = useState(null);
     const [errMsg, setErrMsg] = useState('');
+    const [alreadyChecked, setAlreadyChecked] = useState(false);
+    const [waitedLong, setWaitedLong] = useState(false);
     const pollRef = useRef(null);
+    const tickCountRef = useRef(0);
 
     // Resolve QR + check in (or pick) once auth is ready.
     useEffect(() => {
@@ -81,6 +88,7 @@ export default function PatientCheckInPage() {
             setStep('select');
         } else {
             // checked_in or already → both go to success ticket
+            setAlreadyChecked(data.kind === 'already');
             setResult(data.appointment);
             const isPaid = data.appointment?.paymentStatus === 'PAID';
             setStep(isPaid ? 'paid' : 'success');
@@ -102,22 +110,40 @@ export default function PatientCheckInPage() {
         }
     };
 
-    // Poll appointment status while on success — flips to "paid" when reception confirms cash.
+    const checkStatusOnce = async () => {
+        if (!result?.id) return;
+        try {
+            const res = await axiosInstance.get(`/user/appointments/${result.id}`);
+            const a = res.data?.data;
+            if (a && (a.status === 'COMPLETED' || a.paymentStatus === 'PAID')) {
+                setResult((prev) => ({ ...prev, ...a }));
+                setStep('paid');
+            }
+        } catch { /* keep polling */ }
+    };
+
+    // Poll appointment status while on success — flips to "paid" when reception
+    // confirms cash. After ~3 min of waiting, surface a "call clinic" fallback
+    // instead of an endless silent spinner.
     useEffect(() => {
         if (step !== 'success' || !result?.id) return;
+        tickCountRef.current = 0;
+        setWaitedLong(false);
         const tick = async () => {
-            try {
-                const res = await axiosInstance.get(`/user/appointments/${result.id}`);
-                const a = res.data?.data;
-                if (a && (a.status === 'COMPLETED' || a.paymentStatus === 'PAID')) {
-                    setResult((prev) => ({ ...prev, ...a }));
-                    setStep('paid');
-                }
-            } catch { /* keep polling */ }
+            tickCountRef.current += 1;
+            if (tickCountRef.current >= CASHIER_TIMEOUT_TICKS) setWaitedLong(true);
+            await checkStatusOnce();
         };
         pollRef.current = setInterval(tick, 5000);
         return () => { if (pollRef.current) clearInterval(pollRef.current); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, result?.id]);
+
+    const manualRefresh = async () => {
+        tickCountRef.current = 0;
+        setWaitedLong(false);
+        await checkStatusOnce();
+    };
 
     const fmtDate = (d) => new Date(d).toLocaleDateString('uz-UZ', { day: '2-digit', month: 'short', year: 'numeric' });
     const fmt = (n) => n ? Number(n).toLocaleString('en-US').replace(/,/g, ' ') : '0';
@@ -180,12 +206,24 @@ export default function PatientCheckInPage() {
         const discount = Math.max(0, original - finalP);
         const discountPct = result.discountPercent || (original > 0 ? Math.round((discount / original) * 100) : 0);
 
+        const clinicPhone = (Array.isArray(result?.clinic?.phones) && result.clinic.phones[0])
+            || (Array.isArray(clinic?.phones) && clinic.phones[0]) || null;
+
         return (
             <div className="ci-page">
-                <div className="ci-card ci-card--success">
-                    <div className="ci-success-icon">✓</div>
+                <div className="ci-card ci-card--awaiting">
+                    <div className="ci-success-icon ci-icon--awaiting">✓</div>
                     <h2>Kelishingiz tasdiqlandi!</h2>
-                    <p className="ci-success-sub">Klinika to'lovingizni tasdiqlashi kutilmoqda.</p>
+                    {alreadyChecked && (
+                        <p className="ci-already-note">Siz allaqachon check-in qilgansiz.</p>
+                    )}
+
+                    <div className="ci-qr-block">
+                        <BookingQr appointmentId={result.id} size={210} />
+                        <span className="ci-qr-caption">
+                            Kassirga shu QR kodni ko'rsating — u skanerlab naqd to'lovni tasdiqlaydi
+                        </span>
+                    </div>
 
                     <div className="ci-price-card">
                         {discount > 0 && (
@@ -212,10 +250,24 @@ export default function PatientCheckInPage() {
                         <div className="ci-booking-row"><span>Klinika</span><strong>{result.clinic?.nameUz}</strong></div>
                     </div>
 
-                    <div className="ci-polling">
-                        <span className="ci-polling-dot" />
-                        <span>Kassirning tasdiqlashi kutilmoqda...</span>
-                    </div>
+                    {!waitedLong ? (
+                        <div className="ci-polling">
+                            <span className="ci-polling-dot" />
+                            <span>Kassirning tasdiqlashi kutilmoqda...</span>
+                        </div>
+                    ) : (
+                        <div className="ci-wait-fallback">
+                            <p>Tasdiqlash kutilganidan uzoq davom etmoqda.</p>
+                            {clinicPhone && (
+                                <a className="ci-btn-primary" href={`tel:${clinicPhone}`}>
+                                    📞 Klinikaga qo'ng'iroq qilish
+                                </a>
+                            )}
+                            <button className="ci-btn-secondary" onClick={manualRefresh}>
+                                Holatni yangilash
+                            </button>
+                        </div>
+                    )}
 
                     <button className="ci-btn-secondary" onClick={() => navigate(`/user/appointments/${result.id}`)} style={{ marginTop: 8 }}>
                         Bron tafsilotlariga o'tish

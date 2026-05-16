@@ -39,8 +39,24 @@ export class ClinicServicesController {
 
     getServiceMetadata = async (req: AuthRequest, res: Response, next: NextFunction) => {
         try {
-            const data = await clinicServicesService.getServiceMetadata(req.params.serviceId as string);
+            const data = await clinicServicesService.getServiceMetadata(
+                req.user!.id,
+                req.params.serviceId as string,
+            );
             sendSuccess(res, data);
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    saveServiceMetadata = async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            const data = await clinicServicesService.saveServiceMetadata(
+                req.user!.id,
+                req.params.serviceId as string,
+                req.body.values,
+            );
+            sendSuccess(res, data, null, 'Metadata saqlandi');
         } catch (error) {
             next(error);
         }

@@ -18,40 +18,45 @@ export class MetadataTemplateController {
         orderBy: { createdAt: 'desc' },
       });
 
-      // Fetch service names for all links
-      const templatesWithNames = await Promise.all(
-        templates.map(async (template: any) => {
-          const linksWithNames = await Promise.all(
-            template.serviceLinks.map(async (link: any) => {
-              let serviceName = 'Unknown';
+      // Collect all linked service ids per type, then batch-fetch names
+      // (avoids an N+1 query per service link).
+      const allLinks = templates.flatMap((t: any) => t.serviceLinks);
+      const idsByType: Record<string, Set<string>> = {
+        DIAGNOSTIC: new Set(),
+        SURGICAL: new Set(),
+        CHECKUP: new Set(),
+      };
+      for (const link of allLinks) {
+        idsByType[link.serviceType]?.add(link.serviceId);
+      }
 
-              if (link.serviceType === 'DIAGNOSTIC') {
-                const service = await prisma.diagnosticService.findUnique({
-                  where: { id: link.serviceId },
-                  select: { nameUz: true },
-                });
-                serviceName = service?.nameUz || 'Unknown';
-              } else if (link.serviceType === 'SURGICAL') {
-                const service = await prisma.surgicalService.findUnique({
-                  where: { id: link.serviceId },
-                  select: { nameUz: true },
-                });
-                serviceName = service?.nameUz || 'Unknown';
-              } else if (link.serviceType === 'CHECKUP') {
-                const service = await prisma.checkupPackage.findUnique({
-                  where: { id: link.serviceId },
-                  select: { nameUz: true },
-                });
-                serviceName = service?.nameUz || 'Unknown';
-              }
+      const [diagnostics, surgicals, checkups] = await Promise.all([
+        prisma.diagnosticService.findMany({
+          where: { id: { in: [...idsByType.DIAGNOSTIC] } },
+          select: { id: true, nameUz: true },
+        }),
+        prisma.surgicalService.findMany({
+          where: { id: { in: [...idsByType.SURGICAL] } },
+          select: { id: true, nameUz: true },
+        }),
+        prisma.checkupPackage.findMany({
+          where: { id: { in: [...idsByType.CHECKUP] } },
+          select: { id: true, nameUz: true },
+        }),
+      ]);
 
-              return { ...link, serviceName };
-            })
-          );
+      const nameMap = new Map<string, string>();
+      for (const s of [...diagnostics, ...surgicals, ...checkups]) {
+        nameMap.set(s.id, s.nameUz);
+      }
 
-          return { ...template, serviceLinks: linksWithNames };
-        })
-      );
+      const templatesWithNames = templates.map((template: any) => ({
+        ...template,
+        serviceLinks: template.serviceLinks.map((link: any) => ({
+          ...link,
+          serviceName: nameMap.get(link.serviceId) || 'Unknown',
+        })),
+      }));
 
       res.json({ success: true, data: templatesWithNames });
     } catch (error: any) {

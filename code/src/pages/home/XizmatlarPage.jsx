@@ -344,6 +344,7 @@ export default function XizmatlarPage() {
     const [selectedAvailability, setSelectedAvailability] = useState([]);
     const [minRating, setMinRating] = useState(0);
     const [priceMax, setPriceMax] = useState(null); // null = use pool max
+    const [metaFilters, setMetaFilters] = useState({}); // { [templateKey]: string[] }
     const [sortBy, setSortBy] = useState('popular');
     const [viewMode, setViewMode] = useState('grid');
     const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
@@ -460,6 +461,42 @@ export default function XizmatlarPage() {
             .sort((a, b) => b.count - a.count);
     }, [categoryPool]);
 
+    /* ── Dynamic metadata filter facets from pool (clinic-entered attributes) ── */
+    const dynamicMetadata = useMemo(() => {
+        const map = new Map(); // key -> { key, label, unit, inputType, values: Map(value->count) }
+        categoryPool.forEach(s => {
+            (s.metadata || []).forEach(m => {
+                if (!m?.key || m.value == null || m.value === '') return;
+                if (!map.has(m.key)) {
+                    map.set(m.key, { key: m.key, label: m.label, unit: m.unit, inputType: m.inputType, values: new Map() });
+                }
+                const entry = map.get(m.key);
+                entry.values.set(m.value, (entry.values.get(m.value) || 0) + 1);
+            });
+        });
+        return [...map.values()]
+            .map(e => ({
+                ...e,
+                options: [...e.values.entries()]
+                    .map(([value, count]) => ({ value, count }))
+                    .sort((a, b) => e.inputType === 'NUMBER'
+                        ? Number(a.value) - Number(b.value)
+                        : String(a.value).localeCompare(String(b.value))),
+            }))
+            .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }, [categoryPool]);
+
+    const toggleMeta = (key, value) => {
+        setMetaFilters(prev => {
+            const cur = prev[key] || [];
+            const next = cur.includes(value) ? cur.filter(v => v !== value) : [...cur, value];
+            const updated = { ...prev, [key]: next };
+            if (next.length === 0) delete updated[key];
+            return updated;
+        });
+        setCurrentPage(1);
+    };
+
     /* ── Dynamic location options from pool ── */
     const dynamicLocations = useMemo(() => {
         const map = {};
@@ -481,6 +518,7 @@ export default function XizmatlarPage() {
         setSelectedSpecialties(prev => prev.filter(x => validSpecialties.has(x)));
         setSelectedAvailability(prev => prev.filter(x => validAvailability.has(x)));
         setSelectedLocations(prev => prev.filter(x => validLocations.has(x)));
+        setMetaFilters({});
         setPriceMax(null);
         setMinRating(0);
         setActiveCategory(id);
@@ -513,6 +551,16 @@ export default function XizmatlarPage() {
         if (minRating > 0) {
             list = list.filter(s => s.rating >= minRating);
         }
+        const metaKeys = Object.keys(metaFilters).filter(k => metaFilters[k]?.length);
+        if (metaKeys.length) {
+            list = list.filter(s => {
+                const mv = s.metadata || [];
+                return metaKeys.every(k => {
+                    const entry = mv.find(m => m.key === k);
+                    return entry && metaFilters[k].includes(entry.value);
+                });
+            });
+        }
         list = list.filter(s => s.price <= effectivePriceMax);
 
         switch (sortBy) {
@@ -523,7 +571,7 @@ export default function XizmatlarPage() {
             default: list.sort((a, b) => b.reviews - a.reviews);
         }
         return list;
-    }, [categoryPool, searchQuery, selectedSpecialties, selectedAvailability, selectedLocations, minRating, effectivePriceMax, sortBy]);
+    }, [categoryPool, searchQuery, selectedSpecialties, selectedAvailability, selectedLocations, minRating, effectivePriceMax, metaFilters, sortBy]);
 
     /* ── pagination ── */
     const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
@@ -541,6 +589,16 @@ export default function XizmatlarPage() {
     selectedLocations.forEach(loc => {
         activeFilters.push({ id: `loc-${loc}`, label: loc, onRemove: () => { setSelectedLocations(prev => prev.filter(x => x !== loc)); setCurrentPage(1); } });
     });
+    Object.entries(metaFilters).forEach(([key, vals]) => {
+        const meta = dynamicMetadata.find(m => m.key === key);
+        (vals || []).forEach(val => {
+            activeFilters.push({
+                id: `meta-${key}-${val}`,
+                label: `${meta?.label || key}: ${val}${meta?.unit ? ' ' + meta.unit : ''}`,
+                onRemove: () => toggleMeta(key, val),
+            });
+        });
+    });
     if (minRating > 0) activeFilters.push({ id: 'rating', label: `${minRating}+ yulduz`, onRemove: () => { setMinRating(0); setCurrentPage(1); } });
     if (priceMax !== null && priceMax < poolPriceRange.max) activeFilters.push({ id: 'price', label: `≤ ${formatPrice(priceMax)} so'm`, onRemove: () => { setPriceMax(null); setCurrentPage(1); } });
 
@@ -549,6 +607,7 @@ export default function XizmatlarPage() {
         setSelectedSpecialties([]);
         setSelectedAvailability([]);
         setSelectedLocations([]);
+        setMetaFilters({});
         setMinRating(0);
         setPriceMax(null);
         setCurrentPage(1);
@@ -666,6 +725,28 @@ export default function XizmatlarPage() {
                     </div>
                 </FilterGroup>
             )}
+
+            {/* ── Xizmat xususiyatlari — clinic-entered, filterable metadata ── */}
+            {dynamicMetadata.map(meta => (
+                <FilterGroup
+                    key={meta.key}
+                    title={`${meta.label}${meta.unit ? ` (${meta.unit})` : ''}`}
+                >
+                    <div className="xp-filter-options">
+                        {meta.options.map(opt => (
+                            <label key={opt.value} className="xp-filter-option">
+                                <input
+                                    type="checkbox"
+                                    checked={(metaFilters[meta.key] || []).includes(opt.value)}
+                                    onChange={() => toggleMeta(meta.key, opt.value)}
+                                />
+                                <span className="xp-filter-option-label">{opt.value}</span>
+                                <span className="xp-filter-option-count">{opt.count}</span>
+                            </label>
+                        ))}
+                    </div>
+                </FilterGroup>
+            ))}
 
             {/* ── Narx Diapazoni — bounds adapt to current pool ── */}
             <FilterGroup title="Narx Diapazoni">

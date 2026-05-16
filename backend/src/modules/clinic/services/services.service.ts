@@ -1,5 +1,6 @@
 import prisma from '../../../config/database';
 import { AppError, ErrorCodes } from '../../../utils/errors';
+import { validateMetadataValue } from '../../metadata/metadata-validation';
 
 export class ClinicServicesService {
 
@@ -77,8 +78,22 @@ export class ClinicServicesService {
             ],
         });
 
+        // Batch-fetch metadata link counts for all services
+        const serviceIds = services.map(s => s.id);
+        const metadataCounts = await prisma.serviceMetadataLink.groupBy({
+            by: ['serviceId'],
+            where: {
+                serviceType: 'DIAGNOSTIC',
+                serviceId: { in: serviceIds },
+                template: { isActive: true },
+            },
+            _count: { id: true },
+        });
+        const metaMap = new Map(metadataCounts.map(m => [m.serviceId, m._count.id]));
+
         const result = services.map(s => {
             const link = s.clinicLinks[0];
+            const metadataCount = metaMap.get(s.id) || 0;
             if (!link) {
                 return {
                     id: s.id,
@@ -92,6 +107,7 @@ export class ClinicServicesService {
                     shortDescription: s.shortDescription,
                     category: s.category,
                     clinicService: null,
+                    metadataCount,
                 };
             }
 
@@ -128,6 +144,7 @@ export class ClinicServicesService {
                     images: cust?.images || [],
                     hasCustomization: !!cust,
                 },
+                metadataCount,
             };
         });
 
@@ -175,25 +192,94 @@ export class ClinicServicesService {
         });
     }
 
-    async getServiceMetadata(serviceId: string) {
-        // Get all metadata templates linked to this service
+    async getServiceMetadata(userId: string, serviceId: string) {
+        const clinicId = await this.getClinicId(userId);
+
+        // Templates linked to this base service (active only)
         const links = await prisma.serviceMetadataLink.findMany({
             where: {
                 serviceType: 'DIAGNOSTIC',
                 serviceId,
                 template: { isActive: true },
             },
-            include: {
-                template: true,
-            },
+            include: { template: true },
             orderBy: { displayOrder: 'asc' },
         });
 
-        // Map to include isRequired flag
-        return links.map((link: any) => ({
+        // This clinic's already-saved values for those templates
+        const saved = await prisma.clinicServiceMetadata.findMany({
+            where: { clinicId, serviceType: 'DIAGNOSTIC', serviceId },
+            select: { templateId: true, value: true },
+        });
+        const valueMap = new Map(saved.map(v => [v.templateId, v.value]));
+
+        return links.map(link => ({
             ...link.template,
             isRequired: link.isRequired,
+            displayOrder: link.displayOrder,
+            currentValue: valueMap.get(link.templateId) ?? null,
         }));
+    }
+
+    /**
+     * Upsert this clinic's metadata values for a diagnostic service.
+     * Empty values delete the row, so a cleared field stops filtering.
+     */
+    async saveServiceMetadata(
+        userId: string,
+        serviceId: string,
+        values: Array<{ templateId: string; value: string | null }>,
+    ) {
+        const clinicId = await this.getClinicId(userId);
+
+        if (!Array.isArray(values)) {
+            throw new AppError('values massiv bo\'lishi kerak', 400, ErrorCodes.VALIDATION_ERROR);
+        }
+
+        // Only templates actually linked to this service may be set
+        const links = await prisma.serviceMetadataLink.findMany({
+            where: {
+                serviceType: 'DIAGNOSTIC',
+                serviceId,
+                template: { isActive: true },
+            },
+            include: { template: true },
+        });
+        const templateById = new Map(links.map(l => [l.templateId, l.template]));
+
+        for (const { templateId, value } of values) {
+            const template = templateById.get(templateId);
+            if (!template) {
+                throw new AppError('Bu xizmatga bog\'lanmagan metadata', 400, ErrorCodes.VALIDATION_ERROR);
+            }
+            const error = validateMetadataValue(value, template);
+            if (error) throw new AppError(error, 400, ErrorCodes.VALIDATION_ERROR);
+        }
+
+        await prisma.$transaction(
+            values.map(({ templateId, value }) => {
+                const isEmpty = value === null || value === undefined || String(value).trim() === '';
+                if (isEmpty) {
+                    return prisma.clinicServiceMetadata.deleteMany({
+                        where: { clinicId, serviceType: 'DIAGNOSTIC', serviceId, templateId },
+                    });
+                }
+                return prisma.clinicServiceMetadata.upsert({
+                    where: {
+                        clinicId_serviceType_serviceId_templateId: {
+                            clinicId,
+                            serviceType: 'DIAGNOSTIC',
+                            serviceId,
+                            templateId,
+                        },
+                    },
+                    create: { clinicId, serviceType: 'DIAGNOSTIC', serviceId, templateId, value: String(value) },
+                    update: { value: String(value) },
+                });
+            }),
+        );
+
+        return this.getServiceMetadata(userId, serviceId);
     }
 }
 
