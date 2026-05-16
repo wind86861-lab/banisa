@@ -394,6 +394,27 @@
   border-radius: 10px;
 }
 
+/* Metadata numeric range filter */
+.xp-meta-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.xp-meta-range input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.xp-meta-range span {
+  color: #6b7a99;
+  font-weight: 700;
+}
+
 /* Price Range */
 .xp-price-range {
   display: flex;

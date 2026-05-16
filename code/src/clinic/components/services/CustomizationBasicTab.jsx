@@ -30,12 +30,14 @@ function MetadataField({ template, value, onChange }) {
         );
     }
     if (template.inputType === 'CHECKBOX') {
+        // Store only 'true' (has it) or '' (cleared) — never a "false" row,
+        // so the patient filter shows a clean single option, not "true/false".
         return (
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
                 <input
                     type="checkbox"
                     checked={value === 'true'}
-                    onChange={(e) => onChange(template.id, e.target.checked ? 'true' : 'false')}
+                    onChange={(e) => onChange(template.id, e.target.checked ? 'true' : '')}
                 />
                 Ha
             </label>

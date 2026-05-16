@@ -284,6 +284,9 @@ export default function PatientCheckInPage() {
                 <div className="ci-card ci-card--success">
                     <div className="ci-success-icon" style={{ background: '#10b981' }}>✓</div>
                     <h2>To'lov qabul qilindi</h2>
+                    {alreadyChecked && (
+                        <p className="ci-already-note">Siz allaqachon check-in qilgansiz.</p>
+                    )}
                     <p className="ci-success-sub">Xizmat xonasiga o'ting — sizni shifokor kutmoqda.</p>
                     <div className="ci-price-card">
                         <div className="ci-price-final-row">

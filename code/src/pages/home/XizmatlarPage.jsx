@@ -475,23 +475,44 @@ export default function XizmatlarPage() {
             });
         });
         return [...map.values()]
-            .map(e => ({
-                ...e,
-                options: [...e.values.entries()]
-                    .map(([value, count]) => ({ value, count }))
-                    .sort((a, b) => e.inputType === 'NUMBER'
-                        ? Number(a.value) - Number(b.value)
-                        : String(a.value).localeCompare(String(b.value))),
-            }))
+            .map(e => {
+                const nums = [...e.values.keys()].map(Number).filter(n => !Number.isNaN(n));
+                // NUMBER with several distinct values → range; else discrete options
+                const isRange = e.inputType === 'NUMBER' && new Set(nums).size > 4;
+                const isBoolean = e.inputType === 'CHECKBOX';
+                return {
+                    ...e,
+                    kind: isRange ? 'range' : (isBoolean ? 'boolean' : 'enum'),
+                    bounds: isRange ? { lo: Math.min(...nums), hi: Math.max(...nums) } : null,
+                    options: [...e.values.entries()]
+                        .map(([value, count]) => ({ value, count }))
+                        .sort((a, b) => e.inputType === 'NUMBER'
+                            ? Number(a.value) - Number(b.value)
+                            : String(a.value).localeCompare(String(b.value))),
+                };
+            })
             .sort((a, b) => String(a.label).localeCompare(String(b.label)));
     }, [categoryPool]);
 
     const toggleMeta = (key, value) => {
         setMetaFilters(prev => {
-            const cur = prev[key] || [];
+            const cur = Array.isArray(prev[key]) ? prev[key] : [];
             const next = cur.includes(value) ? cur.filter(v => v !== value) : [...cur, value];
             const updated = { ...prev, [key]: next };
             if (next.length === 0) delete updated[key];
+            return updated;
+        });
+        setCurrentPage(1);
+    };
+
+    const setMetaRange = (key, bound, value) => {
+        setMetaFilters(prev => {
+            const cur = (prev[key] && !Array.isArray(prev[key])) ? prev[key] : {};
+            const next = { ...cur, [bound]: value };
+            const updated = { ...prev, [key]: next };
+            if ((next.min == null || next.min === '') && (next.max == null || next.max === '')) {
+                delete updated[key];
+            }
             return updated;
         });
         setCurrentPage(1);
@@ -551,13 +572,24 @@ export default function XizmatlarPage() {
         if (minRating > 0) {
             list = list.filter(s => s.rating >= minRating);
         }
-        const metaKeys = Object.keys(metaFilters).filter(k => metaFilters[k]?.length);
+        const hasBound = (v) => v != null && v !== '';
+        const metaKeys = Object.keys(metaFilters).filter(k => {
+            const f = metaFilters[k];
+            return Array.isArray(f) ? f.length > 0 : (hasBound(f?.min) || hasBound(f?.max));
+        });
         if (metaKeys.length) {
             list = list.filter(s => {
                 const mv = s.metadata || [];
                 return metaKeys.every(k => {
                     const entry = mv.find(m => m.key === k);
-                    return entry && metaFilters[k].includes(entry.value);
+                    if (!entry) return false;
+                    const f = metaFilters[k];
+                    if (Array.isArray(f)) return f.includes(entry.value);
+                    const num = Number(entry.value);
+                    if (Number.isNaN(num)) return false;
+                    if (hasBound(f.min) && num < Number(f.min)) return false;
+                    if (hasBound(f.max) && num > Number(f.max)) return false;
+                    return true;
                 });
             });
         }
@@ -589,15 +621,27 @@ export default function XizmatlarPage() {
     selectedLocations.forEach(loc => {
         activeFilters.push({ id: `loc-${loc}`, label: loc, onRemove: () => { setSelectedLocations(prev => prev.filter(x => x !== loc)); setCurrentPage(1); } });
     });
-    Object.entries(metaFilters).forEach(([key, vals]) => {
+    Object.entries(metaFilters).forEach(([key, f]) => {
         const meta = dynamicMetadata.find(m => m.key === key);
-        (vals || []).forEach(val => {
-            activeFilters.push({
-                id: `meta-${key}-${val}`,
-                label: `${meta?.label || key}: ${val}${meta?.unit ? ' ' + meta.unit : ''}`,
-                onRemove: () => toggleMeta(key, val),
+        const unit = meta?.unit ? ' ' + meta.unit : '';
+        if (Array.isArray(f)) {
+            f.forEach(val => {
+                const isBool = meta?.kind === 'boolean';
+                activeFilters.push({
+                    id: `meta-${key}-${val}`,
+                    label: isBool ? (meta?.label || key) : `${meta?.label || key}: ${val}${unit}`,
+                    onRemove: () => toggleMeta(key, val),
+                });
             });
-        });
+        } else if (f && (f.min != null && f.min !== '' || f.max != null && f.max !== '')) {
+            const lo = (f.min != null && f.min !== '') ? f.min : '…';
+            const hi = (f.max != null && f.max !== '') ? f.max : '…';
+            activeFilters.push({
+                id: `meta-${key}-range`,
+                label: `${meta?.label || key}: ${lo}–${hi}${unit}`,
+                onRemove: () => setMetaFilters(prev => { const u = { ...prev }; delete u[key]; return u; }),
+            });
+        }
     });
     if (minRating > 0) activeFilters.push({ id: 'rating', label: `${minRating}+ yulduz`, onRemove: () => { setMinRating(0); setCurrentPage(1); } });
     if (priceMax !== null && priceMax < poolPriceRange.max) activeFilters.push({ id: 'price', label: `≤ ${formatPrice(priceMax)} so'm`, onRemove: () => { setPriceMax(null); setCurrentPage(1); } });
@@ -727,26 +771,62 @@ export default function XizmatlarPage() {
             )}
 
             {/* ── Xizmat xususiyatlari — clinic-entered, filterable metadata ── */}
-            {dynamicMetadata.map(meta => (
-                <FilterGroup
-                    key={meta.key}
-                    title={`${meta.label}${meta.unit ? ` (${meta.unit})` : ''}`}
-                >
-                    <div className="xp-filter-options">
-                        {meta.options.map(opt => (
-                            <label key={opt.value} className="xp-filter-option">
+            {dynamicMetadata.map(meta => {
+                const range = (metaFilters[meta.key] && !Array.isArray(metaFilters[meta.key]))
+                    ? metaFilters[meta.key] : {};
+                return (
+                    <FilterGroup
+                        key={meta.key}
+                        title={`${meta.label}${meta.unit ? ` (${meta.unit})` : ''}`}
+                    >
+                        {meta.kind === 'range' ? (
+                            <div className="xp-meta-range">
                                 <input
-                                    type="checkbox"
-                                    checked={(metaFilters[meta.key] || []).includes(opt.value)}
-                                    onChange={() => toggleMeta(meta.key, opt.value)}
+                                    type="number"
+                                    placeholder={`Min ${meta.bounds.lo}`}
+                                    value={range.min ?? ''}
+                                    onChange={e => setMetaRange(meta.key, 'min', e.target.value)}
                                 />
-                                <span className="xp-filter-option-label">{opt.value}</span>
-                                <span className="xp-filter-option-count">{opt.count}</span>
-                            </label>
-                        ))}
-                    </div>
-                </FilterGroup>
-            ))}
+                                <span>–</span>
+                                <input
+                                    type="number"
+                                    placeholder={`Max ${meta.bounds.hi}`}
+                                    value={range.max ?? ''}
+                                    onChange={e => setMetaRange(meta.key, 'max', e.target.value)}
+                                />
+                            </div>
+                        ) : meta.kind === 'boolean' ? (
+                            <div className="xp-filter-options">
+                                <label className="xp-filter-option">
+                                    <input
+                                        type="checkbox"
+                                        checked={(metaFilters[meta.key] || []).includes('true')}
+                                        onChange={() => toggleMeta(meta.key, 'true')}
+                                    />
+                                    <span className="xp-filter-option-label">Bor</span>
+                                    <span className="xp-filter-option-count">
+                                        {meta.options.find(o => o.value === 'true')?.count || 0}
+                                    </span>
+                                </label>
+                            </div>
+                        ) : (
+                            <div className="xp-filter-options">
+                                {meta.options.map(opt => (
+                                    <label key={opt.value} className="xp-filter-option">
+                                        <input
+                                            type="checkbox"
+                                            checked={(metaFilters[meta.key] || []).includes(opt.value)}
+                                            onChange={() => toggleMeta(meta.key, opt.value)}
+                                        />
+                                        <span className="xp-filter-option-label">{opt.value}</span>
+                                        <span className="xp-filter-option-count">{opt.count}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+                    </FilterGroup>
+                );
+            })}
 
             {/* ── Narx Diapazoni — bounds adapt to current pool ── */}
             <FilterGroup title="Narx Diapazoni">
