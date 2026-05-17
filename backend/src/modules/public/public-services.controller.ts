@@ -140,18 +140,16 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                     },
                 });
             } catch (err: any) {
-                // P2021: table does not exist, P2022: column does not exist —
-                // schema not migrated on this environment.
-                if (err?.code === 'P2021' || err?.code === 'P2022') {
-                    console.error(
-                        '[public/services] ClinicServiceMetadata schema missing — ' +
-                        'serving catalog without metadata. Run `prisma migrate deploy`.',
-                        err.code,
-                    );
-                    metaRows = [];
-                } else {
-                    throw err;
-                }
+                // Metadata is non-critical enrichment. ANY failure here (missing
+                // table/column P2021/P2022, bad relation, connection blip, etc.)
+                // must degrade to "no metadata" — it must never 500 the whole
+                // public catalog. Log loudly so the root cause is still visible.
+                console.error(
+                    '[public/services] metadata query failed — serving catalog ' +
+                    'without metadata. code=%s msg=%s',
+                    err?.code, err?.message,
+                );
+                metaRows = [];
             }
         }
 
@@ -333,16 +331,13 @@ export const getPublicServiceFilters = async (_req: Request, res: Response, next
                 include: { template: true },
             });
         } catch (err: any) {
-            if (err?.code === 'P2021' || err?.code === 'P2022') {
-                console.error(
-                    '[public/services/filters] ClinicServiceMetadata schema missing — ' +
-                    'returning empty facets. Run `prisma migrate deploy`.',
-                    err.code,
-                );
-                rows = [];
-            } else {
-                throw err;
-            }
+            // Any failure → empty facets, never a 500 (see getPublicServices).
+            console.error(
+                '[public/services/filters] metadata query failed — returning ' +
+                'empty facets. code=%s msg=%s',
+                err?.code, err?.message,
+            );
+            rows = [];
         }
 
         const byTemplate = new Map<string, {
