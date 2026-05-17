@@ -14,6 +14,7 @@ import axios from 'axios';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
 import Footer from './Footer';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import ReviewSection from '../../components/ReviewSection';
 import './css/base.css';
 import './css/XizmatDetailPage.css';
@@ -132,12 +133,7 @@ export default function XizmatDetailPage() {
     }, [id, location.search]);
 
     if (loading) {
-        return (
-            <div className="xd-loading">
-                <div className="xd-spinner" />
-                <p>Yuklanmoqda...</p>
-            </div>
-        );
+        return <BanisaLoader message="Xizmat yuklanmoqda..." />;
     }
 
     if (error || !svc) {

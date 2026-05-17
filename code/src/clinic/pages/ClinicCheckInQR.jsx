@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import api from '../../shared/api/axios';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import '../../pages/checkin/CheckIn.css';
 
 export default function ClinicCheckInQR() {
@@ -33,7 +34,7 @@ export default function ClinicCheckInQR() {
 
     const handlePrint = () => window.print();
 
-    if (loading) return <div className="ci-page"><div className="ci-spinner" /></div>;
+    if (loading) return <BanisaLoader message="QR kod yuklanmoqda..." />;
     if (err) return <div className="ci-page"><div className="ci-card ci-card--error"><div className="ci-icon">⚠️</div><h2>{err}</h2></div></div>;
 
     return (

@@ -7,6 +7,7 @@ import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './css/UserProfile.css';
 
 export default function UserProfile() {
@@ -65,16 +66,7 @@ export default function UserProfile() {
     };
 
     if (isLoading) {
-        return (
-            <div className="home-page">
-                <TopBar />
-                <Navigation />
-                <div style={{ padding: 80, textAlign: 'center', minHeight: '60vh' }}>
-                    <p>Yuklanmoqda...</p>
-                </div>
-                <Footer />
-            </div>
-        );
+        return <BanisaLoader message="Profil yuklanmoqda..." />;
     }
 
     return (

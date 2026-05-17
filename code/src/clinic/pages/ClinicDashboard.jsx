@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { useClinicStats, useClinicProfile } from '../hooks/useClinicData';
 import { useAuth } from '../../shared/auth/AuthContext';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './clinic-admin.css';
 import './clinic-dashboard.css';
 
@@ -130,27 +131,7 @@ export default function ClinicDashboard() {
     const weeklyData = stats?.weeklyTrend || [];
 
     if (statsLoading) {
-        return (
-            <div>
-                <div className="cd-welcome">
-                    <div className="cd-welcome-top">
-                        <div>
-                            <h1>Yuklanmoqda...</h1>
-                            <p>Dashboard ma'lumotlari yuklanmoqda</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="cd-stats-grid">
-                    {[1, 2, 3, 4].map(i => (
-                        <div key={i} className="cd-skeleton" style={{ height: 100 }} />
-                    ))}
-                </div>
-                <div className="cd-charts-row" style={{ marginTop: 16 }}>
-                    <div className="cd-skeleton" style={{ height: 300 }} />
-                    <div className="cd-skeleton" style={{ height: 300 }} />
-                </div>
-            </div>
-        );
+        return <BanisaLoader message="Dashboard yuklanmoqda..." />;
     }
 
     return (

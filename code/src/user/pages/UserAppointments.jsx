@@ -13,6 +13,7 @@ import { fmtSum, shortBookingNo } from '../../shared/utils/format';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import Confetti from '../components/Confetti';
 import './css/UserAppointments.css';
 
@@ -380,11 +381,7 @@ export default function UserAppointments() {
 
                 {/* ─── List ─── */}
                 {isLoading ? (
-                    <div className="ua-loading">
-                        <div className="ua-skeleton" />
-                        <div className="ua-skeleton" />
-                        <div className="ua-skeleton" />
-                    </div>
+                    <BanisaLoader message="Bronlar yuklanmoqda..." />
                 ) : !hasAny ? (
                     <div className="ua-empty">
                         <Calendar size={48} className="ua-empty-icon" />

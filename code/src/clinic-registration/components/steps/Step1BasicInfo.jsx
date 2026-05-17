@@ -45,9 +45,11 @@ export default function Step1BasicInfo({ data, onNext, onPrev, currentStep, isSu
       <Box sx={{ mb: 3, pb: 3, borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
         <Box sx={{
           width: 44, height: 44, borderRadius: '12px', flexShrink: 0,
-          background: 'linear-gradient(135deg, rgba(10,36,99,0.08), rgba(62,146,204,0.12))',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.375rem',
-        }}>🏥</Box>
+          overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <img src="/images/banisa-logo.png" alt="Banisa" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        </Box>
         <Box>
           <Typography sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '1.5rem', fontWeight: 700, color: '#0A2463', lineHeight: 1.2 }}>
             Asosiy Ma'lumotlar

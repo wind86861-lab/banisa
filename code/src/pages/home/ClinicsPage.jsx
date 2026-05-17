@@ -7,6 +7,7 @@ import { useAuth } from '../../shared/auth/AuthContext';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
 import Footer from './Footer';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './css/ClinicsPage.css';
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
@@ -348,6 +349,10 @@ export default function ClinicsPage() {
     const { data, isLoading } = usePublicClinics(filters);
     const clinics = data?.data ?? [];
     const meta = data?.meta ?? {};
+
+    if (isLoading) {
+        return <BanisaLoader message="Klinikalar yuklanmoqda..." />;
+    }
 
     const updateFilter = (key, value) => {
         setFilters(prev => ({ ...prev, [key]: value, page: 1 }));

@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { useClinicServices, useActivateService, useDeactivateService } from '../hooks/useClinicServices';
 import { useWorkingHours } from '../hooks/useServiceSettings';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import ServiceCustomizationDrawer from '../components/services/ServiceCustomizationDrawer';
 import CheckupPackagesTab from '../components/services/CheckupPackagesTab';
 import SurgicalServicesTab from '../components/services/SurgicalServicesTab';
@@ -278,7 +279,7 @@ export default function ClinicServices() {
 
             {/* Content */}
             {isLoading ? (
-                <div className="ca-loading"><Loader2 size={32} className="ca-spin" /><span>Yuklanmoqda...</span></div>
+                <BanisaLoader message="Xizmatlar yuklanmoqda..." />
             ) : filtered.length === 0 ? (
                 <div className="ca-empty">
                     <div className="ca-empty-icon"><BriefcaseMedical size={36} /></div>

@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle, Clock, Search, XCircle, AlertCircle, RefreshCw, LogOut } from 'lucide-react';
 import { useAuth } from '../../shared/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 
 const maskPhone = (phone) => {
   if (!phone) return '—';
@@ -89,6 +90,10 @@ export default function StatusPage() {
     return null;
   }
 
+  if (loading) {
+    return <BanisaLoader message="Yangilanmoqda..." />;
+  }
+
   const statusInfo = STATUS_CONFIG[user.status] || STATUS_CONFIG.PENDING;
   const currentStatusIdx = STATUS_ORDER.indexOf(user.status);
 
@@ -105,11 +110,11 @@ export default function StatusPage() {
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Box sx={{
-                width: 44, height: 44, borderRadius: 2,
-                background: 'linear-gradient(135deg, #0A2463, #3E92CC)',
+                width: 40, height: 40, borderRadius: '10px',
+                overflow: 'hidden',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <Typography sx={{ color: 'white', fontSize: '1.3rem' }}>🏥</Typography>
+                <img src="/images/banisa-logo.png" alt="Banisa" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </Box>
               <Box>
                 <Typography variant="h6" fontWeight={800} color="#0A2463">Banisa</Typography>

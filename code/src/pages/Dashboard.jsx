@@ -1,11 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import {
     Users, Activity, DollarSign, Briefcase,
     TrendingUp, TrendingDown, MoreHorizontal, Settings,
     Calendar, MapPin, UserCheck, Heart, Bell, CheckSquare,
-    Home, Truck, Monitor, Building2, Loader2
+    Home, Truck, Monitor, Building2
 } from 'lucide-react';
+import BanisaLoader from '../shared/components/BanisaLoader';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -247,11 +247,7 @@ const Dashboard = () => {
     }, []);
 
     if (loading) {
-        return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-                <Loader2 size={40} className="spin" style={{ color: 'var(--color-primary)' }} />
-            </div>
-        );
+        return <BanisaLoader message="Ma'lumotlar yuklanmoqda..." />;
     }
 
     return (

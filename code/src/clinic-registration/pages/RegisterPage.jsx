@@ -13,6 +13,7 @@ import Step6AdminPerson from '../components/steps/Step6AdminPerson';
 import Step7Documents from '../components/steps/Step7Documents';
 import Step8Payment from '../components/steps/Step8Payment';
 import { useRegistrationForm } from '../hooks/useRegistrationForm';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import { STEPS } from '../utils/constants';
 
 const STEP_COMPONENTS = [
@@ -47,6 +48,10 @@ export default function RegisterPage() {
   } = useRegistrationForm();
 
   if (isSubmitted) return <SuccessScreen email={submittedEmail} />;
+
+  if (isSubmitting) {
+    return <BanisaLoader message="Ariza yuborilmoqda..." />;
+  }
 
   const CurrentStep = STEP_COMPONENTS[currentStep - 1];
   const progress = (completedSteps.size / 8) * 100;
@@ -99,13 +104,10 @@ export default function RegisterPage() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
             <Box sx={{
               width: 48, height: 48, borderRadius: '12px', flexShrink: 0,
-              background: 'linear-gradient(135deg, #1DBFC1, #00BDE0)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden',
               boxShadow: '0 4px 10px rgba(29, 191, 193, 0.3)',
             }}>
-              <Typography sx={{ fontSize: '1.2rem', fontWeight: 700, color: 'white', lineHeight: 1, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                B
-              </Typography>
+              <img src="/images/banisa-logo.png" alt="Banisa" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </Box>
             <Box>
               <Typography sx={{ color: 'white', fontWeight: 700, fontSize: '1.0625rem', lineHeight: 1.2, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>

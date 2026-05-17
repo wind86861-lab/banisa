@@ -8,6 +8,7 @@ import {
 import api from '../../shared/api/axios';
 import { useClinicProfile, useUpdateProfile } from '../hooks/useClinicData';
 import { useWorkingHours, useUpdateWorkingHours } from '../hooks/useServiceSettings';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './clinic-admin.css';
 
 const TABS = [
@@ -102,9 +103,9 @@ function ScheduleTab() {
         }
     };
 
-    if (isLoading) return (
-        <div className="ca-loading"><Loader2 size={24} className="ca-spin" /><span>Yuklanmoqda...</span></div>
-    );
+    if (isLoading) {
+        return <BanisaLoader message="Ish jadvali yuklanmoqda..." />;
+    }
 
     return (
         <div className="ca-section-card">
@@ -376,9 +377,9 @@ export default function ClinicProfile() {
         setTimeout(() => setSaved(false), 3000);
     };
 
-    if (isLoading) return (
-        <div className="ca-loading"><Loader2 size={32} className="ca-spin" /><span>Yuklanmoqda...</span></div>
-    );
+    if (isLoading) {
+        return <BanisaLoader message="Profil yuklanmoqda..." />;
+    }
 
     return (
         <div>

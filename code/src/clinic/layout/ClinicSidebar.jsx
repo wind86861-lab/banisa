@@ -70,9 +70,7 @@ export default function ClinicSidebar({ isOpen, toggleSidebar }) {
             {/* ─── Header / Branding ─── */}
             <div className="sidebar-header">
                 <a href="/clinic/dashboard" className="logo">
-                    <div className="logo-icon" style={{ fontSize: 16 }}>
-                        <Activity size={20} />
-                    </div>
+                    <img src="/images/banisa-logo.png" alt="Banisa" className="logo-icon" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
                     {isOpen && <span>Banisa Clinic</span>}
                 </a>
             </div>

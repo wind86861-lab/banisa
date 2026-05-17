@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Phone, Lock, User, Mail, Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Building2 } from 'lucide-react';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './css/UserAuth.css';
 
 function safeRedirect(target, fallback = '/user/dashboard') {
@@ -57,6 +58,10 @@ export default function UserSignupPage() {
         } finally { setLoading(false); }
     };
 
+    if (loading) {
+        return <BanisaLoader message="Ro'yxatdan o'tish..." />;
+    }
+
     return (
         <div className="auth-page">
             <div className="auth-split">
@@ -64,13 +69,16 @@ export default function UserSignupPage() {
                 {/* ── LEFT BRAND ── */}
                 <div className="auth-brand">
                     <div className="auth-brand-logo">
-                        <div className="auth-brand-logo-icon">
-                            <svg viewBox="0 0 46 46" fill="none">
-                                <rect width="46" height="46" rx="12" fill="#fff" fillOpacity="0.15" />
-                                <rect x="13" y="20" width="20" height="6" rx="1.5" fill="#fff" />
-                                <rect x="20" y="13" width="6" height="20" rx="1.5" fill="#fff" />
-                            </svg>
-                        </div>
+                        <img
+                            src="/images/banisa-logo.png?v=3"
+                            alt="Banisa"
+                            style={{
+                                width: 84, height: 84, borderRadius: 16,
+                                objectFit: 'cover', display: 'block',
+                                border: 'none', outline: 'none',
+                                filter: 'drop-shadow(0 0 18px rgba(0,189,224,0.4))',
+                            }}
+                        />
                         <div className="auth-brand-name">BANISA</div>
                     </div>
                     <div className="auth-brand-body">

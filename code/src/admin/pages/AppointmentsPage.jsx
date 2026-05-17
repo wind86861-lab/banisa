@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-    Search, Calendar, User, Building2, Tag, RefreshCw, AlertCircle, Loader2,
+    Search, Calendar, User, Building2, Tag, RefreshCw, AlertCircle,
     ArrowRight
 } from 'lucide-react';
 import api from '../../shared/api/axios';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import AppointmentDrawer from './AppointmentDrawer';
 import './AppointmentsPage.css';
 
@@ -140,7 +141,7 @@ export default function AppointmentsPage() {
 
             {/* List */}
             {isLoading ? (
-                <div className="ap-loading"><Loader2 size={28} className="spin" /> Yuklanmoqda...</div>
+                <BanisaLoader message="Bronlar yuklanmoqda..." />
             ) : items.length === 0 ? (
                 <div className="ap-empty">
                     <AlertCircle size={48} />

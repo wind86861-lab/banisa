@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../shared/auth/AuthContext';
+import BanisaLoader from '../shared/components/BanisaLoader';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -27,6 +28,10 @@ export default function AdminLoginPage() {
     }
   };
 
+  if (loading) {
+    return <BanisaLoader message="Kirish..." />;
+  }
+
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -41,13 +46,16 @@ export default function AdminLoginPage() {
       }}>
         {/* Logo & Title */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: 16,
-            background: 'linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 16px', fontSize: 28, fontWeight: 700, color: '#fff',
-            boxShadow: '0 8px 32px rgba(6, 182, 212, 0.3)',
-          }}>B</div>
+          <img
+            src="/images/banisa-logo.png"
+            alt="Banisa"
+            style={{
+              width: 84, height: 84, borderRadius: 16,
+              objectFit: 'cover',
+              margin: '0 auto 20px', display: 'block',
+              filter: 'drop-shadow(0 0 18px rgba(6,182,212,0.35))',
+            }}
+          />
           <div style={{ color: '#F1F5F9', fontSize: 24, fontWeight: 700, marginBottom: 4 }}>
             Super Admin Portal
           </div>

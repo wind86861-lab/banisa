@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import {
     Search, List, LayoutGrid, Plus, Edit3,
-    Trash2, Users, X, Loader2, RefreshCw,
+    Trash2, Users, X, RefreshCw,
     Phone, Stethoscope,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-    useClinicStaff, useCreateStaff,
-    useUpdateStaff, useDeleteStaff,
-} from '../hooks/useClinicData';
+import { useClinicStaff, useCreateStaff, useUpdateStaff, useDeleteStaff } from '../hooks/useClinicData';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './clinic-admin.css';
 
 const EMPTY_FORM = { firstName: '', lastName: '', specialty: '', phone: '', isActive: true };
@@ -179,7 +177,7 @@ export default function ClinicStaff() {
             )}
 
             {isLoading ? (
-                <div className="ca-loading"><Loader2 size={32} className="ca-spin" /><span>Yuklanmoqda...</span></div>
+                <BanisaLoader message="Xodimlar yuklanmoqda..." />
             ) : staff.length === 0 ? (
                 <div className="ca-empty">
                     <div className="ca-empty-icon"><Users size={36} /></div>

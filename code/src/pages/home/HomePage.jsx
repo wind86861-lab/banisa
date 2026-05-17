@@ -1,4 +1,3 @@
-import { Loader2 } from 'lucide-react';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
 import HeroNew from './sections/HeroNew';
@@ -13,6 +12,7 @@ import RealReviews from './sections/RealReviews';
 import CTABanner from './sections/CTABanner';
 import FooterNew from './sections/FooterNew';
 import { useHomeData } from '../../hooks/useHomeData';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './css/base.css';
 import './css/HomeNew.css';
 
@@ -29,10 +29,7 @@ export default function HomePage() {
             <PersonalizedBanner />
 
             {isLoading ? (
-                <div style={{ padding: '64px 0', textAlign: 'center', color: '#94a3b8' }}>
-                    <Loader2 size={32} className="cdp-spin" style={{ animation: 'spin 1s linear infinite' }} />
-                    <p style={{ marginTop: 12, fontSize: 14 }}>Yuklanmoqda...</p>
-                </div>
+                <BanisaLoader message="Yuklanmoqda" />
             ) : (
                 <>
                     <CategoriesGrid categories={data?.categories} />

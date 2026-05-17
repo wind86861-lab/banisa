@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Banisa — Logo Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --teal-600:#0d9488; --teal-500:#14b8a6; --teal-400:#2dd4bf; --teal-100:#ccfbf1; --teal-50:#f0fdfa;
+    --ink-900:#0f172a; --ink-800:#1a1f3a; --ink-700:#1e293b; --ink-500:#64748b; --ink-300:#cbd5e1; --ink-100:#f1f5f9;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#eef0f3;font-family:'Plus Jakarta Sans', system-ui, sans-serif;color:var(--ink-900)}
+  .page{max-width:1440px;margin:0 auto;padding:64px 56px}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;gap:32px;margin-bottom:40px;padding-bottom:32px;border-bottom:1px solid rgba(15,23,42,0.1)}
+  .head h1{font-size:48px;font-weight:700;letter-spacing:-0.03em;margin:0}
+  .head p{margin:8px 0 0;color:var(--ink-500);font-size:16px;max-width:540px}
+  .head .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:rgba(13,148,136,0.1);color:var(--teal-600);font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;font-weight:500}
+  .head .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--teal-500)}
+
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:20px}
+  .card{background:#fff;border-radius:24px;overflow:hidden;position:relative;box-shadow:0 1px 0 rgba(15,23,42,0.04), 0 8px 24px -16px rgba(15,23,42,0.12)}
+  .card .label{position:absolute;left:20px;bottom:20px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--ink-500);background:rgba(255,255,255,0.85);backdrop-filter:blur(8px);padding:6px 10px;border-radius:999px;z-index:5}
+  .card.dark .label{color:rgba(255,255,255,0.7);background:rgba(15,23,42,0.5)}
+
+  .span-4{grid-column:span 4} .span-5{grid-column:span 5} .span-6{grid-column:span 6} .span-7{grid-column:span 7} .span-8{grid-column:span 8} .span-3{grid-column:span 3}
+  .h-360{height:360px} .h-420{height:420px} .h-280{height:280px} .h-520{height:520px}
+
+  .center{display:flex;align-items:center;justify-content:center;height:100%;width:100%}
+
+  /* === MOCKUP 1: App icon === */
+  .m-appicon{background:linear-gradient(135deg,#0f172a 0%,#1a1f3a 100%);position:relative}
+  .ios-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;padding:48px;align-items:center}
+  .ios-icon{aspect-ratio:1;border-radius:24px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center}
+  .ios-icon.banisa{background:#fff;box-shadow:0 12px 32px -8px rgba(13,148,136,0.5)}
+  .ios-icon.banisa img{width:78%;height:78%;object-fit:contain}
+  .ios-icon .placeholder{width:60%;height:60%;border-radius:14px;background:rgba(255,255,255,0.12)}
+
+  /* === MOCKUP 2: Browser tab / website header === */
+  .m-browser{background:#f8fafc}
+  .browser-bar{background:#e2e8f0;padding:14px 18px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #cbd5e1}
+  .tl{width:12px;height:12px;border-radius:50%}
+  .url{flex:1;background:#fff;border-radius:8px;padding:8px 14px;font-family:'Geist Mono',monospace;font-size:12px;color:var(--ink-700);margin-left:12px;display:flex;align-items:center;gap:10px}
+  .url-fav{width:16px;height:16px;object-fit:contain}
+  .browser-body{padding:24px 32px;display:flex;align-items:center;justify-content:space-between}
+  .nav{display:flex;align-items:center;gap:14px}
+  .nav img{width:38px;height:38px}
+  .nav .name{font-weight:700;font-size:22px;letter-spacing:-0.02em}
+  .nav-links{display:flex;gap:24px;color:var(--ink-500);font-size:14px;font-weight:500}
+  .browser-hero{padding:48px 32px 56px;background:linear-gradient(135deg,#e6fffa 0%,#f0f9ff 50%,#fdf4ff 100%)}
+  .browser-hero h2{font-size:42px;line-height:1.05;letter-spacing:-0.03em;margin:0 0 12px}
+  .browser-hero h2 span{color:var(--teal-600)}
+  .browser-hero p{color:var(--ink-500);margin:0;font-size:14px}
+
+  /* === MOCKUP 3: Business card === */
+  .m-card{background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);position:relative;overflow:hidden}
+  .m-card::before{content:"";position:absolute;top:-200px;right:-200px;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(20,184,166,0.18),transparent 70%)}
+  .biz{padding:48px;height:100%;display:flex;flex-direction:column;justify-content:space-between;color:#fff;position:relative;z-index:2}
+  .biz .top{display:flex;align-items:center;gap:14px}
+  .biz .top img{width:48px;height:48px}
+  .biz .top .name{font-weight:700;font-size:24px;letter-spacing:-0.02em}
+  .biz .person{font-family:'Plus Jakarta Sans'}
+  .biz .person .who{font-size:24px;font-weight:600;letter-spacing:-0.02em;margin-bottom:4px}
+  .biz .person .role{color:rgba(255,255,255,0.55);font-size:13px;letter-spacing:0.05em;text-transform:uppercase;font-family:'Geist Mono',monospace}
+  .biz .contact{display:flex;flex-direction:column;gap:6px;font-size:13px;color:rgba(255,255,255,0.75);font-family:'Geist Mono',monospace}
+
+  /* === MOCKUP 4: Phone screen === */
+  .m-phone{background:#f1f5f9;display:flex;align-items:center;justify-content:center;padding:32px}
+  .phone{width:240px;height:480px;background:#fff;border-radius:38px;border:8px solid #0f172a;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding-top:48px;box-shadow:0 24px 48px -16px rgba(15,23,42,0.3)}
+  .phone .splash-logo{width:120px;height:120px;display:flex;align-items:center;justify-content:center}
+  .phone .splash-logo img{width:100%;height:100%;object-fit:contain}
+  .phone .splash-name{font-size:28px;font-weight:700;letter-spacing:-0.02em;margin-top:24px}
+  .phone .splash-tag{font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.18em;color:var(--ink-500);text-transform:uppercase;margin-top:6px}
+  .phone .dots{margin-top:auto;margin-bottom:32px;display:flex;gap:6px}
+  .phone .dots div{width:6px;height:6px;border-radius:50%;background:var(--ink-300)}
+  .phone .dots div:first-child{background:var(--teal-500);width:18px;border-radius:3px}
+
+  /* === MOCKUP 5: Sign / billboard === */
+  .m-sign{background:linear-gradient(160deg,#cbd5e1 0%,#94a3b8 100%);position:relative;overflow:hidden}
+  .sign-board{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;padding:32px 48px;border-radius:8px;display:flex;align-items:center;gap:18px;box-shadow:0 24px 48px -12px rgba(15,23,42,0.3), 0 0 0 6px #0f172a, 0 0 0 12px #fff}
+  .sign-board img{width:64px;height:64px}
+  .sign-board .text{display:flex;flex-direction:column}
+  .sign-board .text .name{font-size:36px;font-weight:700;letter-spacing:-0.03em;line-height:1}
+  .sign-board .text .sub{font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.18em;color:var(--ink-500);text-transform:uppercase;margin-top:8px}
+
+  /* === MOCKUP 6: Avatar / social === */
+  .m-social{background:#fff;padding:36px 28px;display:flex;flex-direction:column;gap:20px;justify-content:center;height:100%}
+  .row-soc{display:flex;align-items:center;gap:14px}
+  .avatar{width:54px;height:54px;border-radius:50%;background:#0f172a;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+  .avatar img{width:88%;height:88%;object-fit:contain}
+  .avatar.teal{background:#0d9488}
+  .row-soc .who{font-weight:600;font-size:15px}
+  .row-soc .handle{color:var(--ink-500);font-size:13px;font-family:'Geist Mono',monospace}
+  .row-soc .verify{margin-left:auto;width:18px;height:18px;border-radius:50%;background:var(--teal-500);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700}
+
+  /* === MOCKUP 7: T-shirt / merch === */
+  .m-shirt{background:linear-gradient(135deg,#f0fdfa 0%,#ecfeff 100%);position:relative}
+  .tshirt-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .tshirt{width:280px;height:300px;background:#0f172a;clip-path:polygon(20% 8%,38% 0%,62% 0%,80% 8%,100% 18%,92% 36%,80% 32%,80% 100%,20% 100%,20% 32%,8% 36%,0% 18%);position:relative;display:flex;align-items:center;justify-content:center;padding-top:30px}
+  .tshirt img{width:80px;height:80px}
+
+  /* === MOCKUP 8: Document letterhead === */
+  .m-doc{background:#e8eaee;padding:32px;display:flex;align-items:center;justify-content:center}
+  .doc{width:100%;max-width:440px;aspect-ratio:1/1.35;background:#fff;border-radius:6px;box-shadow:0 16px 40px -16px rgba(15,23,42,0.2);padding:36px;display:flex;flex-direction:column;gap:24px}
+  .doc .top{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:2px solid var(--teal-600)}
+  .doc .top .lock{display:flex;align-items:center;gap:10px}
+  .doc .top .lock img{width:32px;height:32px}
+  .doc .top .lock .name{font-size:18px;font-weight:700;letter-spacing:-0.02em}
+  .doc .top .meta{font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--ink-500);text-align:right}
+  .doc .lines{display:flex;flex-direction:column;gap:8px}
+  .doc .line{height:6px;background:#e2e8f0;border-radius:3px;width:100%}
+  .doc .line.short{width:64%}
+  .doc .line.h{height:14px;background:#cbd5e1;width:50%;margin-bottom:4px}
+
+  /* === MOCKUP 9: Loading screen — animated network === */
+  .m-loading{background:#0f172a;position:relative;overflow:hidden}
+  .loading-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+  .loading-svg{width:160px;height:160px}
+  .loading-svg .seg{transform-origin:80px 80px;animation:netblink 1.8s ease-in-out infinite}
+  .loading-svg .seg:nth-child(1){animation-delay:0s}
+  .loading-svg .seg:nth-child(2){animation-delay:0.18s}
+  .loading-svg .seg:nth-child(3){animation-delay:0.36s}
+  .loading-svg .seg:nth-child(4){animation-delay:0.54s}
+  .loading-svg .seg:nth-child(5){animation-delay:0.72s}
+  .loading-svg .seg:nth-child(6){animation-delay:0.9s}
+  @keyframes netblink{0%,60%,100%{opacity:0.18}30%{opacity:1}}
+  .loading-svg .core{transform-origin:80px 80px;animation:corepulse 2s ease-in-out infinite}
+  @keyframes corepulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+
+  /* === MOCKUP 10: Email signature === */
+  .m-email{padding:32px;background:#f8fafc;display:flex;align-items:center;justify-content:center}
+  .sig{display:flex;align-items:center;gap:16px;background:#fff;padding:20px 24px;border-radius:14px;border:1px solid #e2e8f0;box-shadow:0 1px 0 rgba(15,23,42,0.04)}
+  .sig img{width:56px;height:56px}
+  .sig .info{display:flex;flex-direction:column;gap:2px}
+  .sig .info .who{font-weight:700;font-size:15px}
+  .sig .info .role{color:var(--ink-500);font-size:12px}
+  .sig .info .ctx{display:flex;gap:10px;align-items:center;margin-top:4px}
+  .sig .info .ctx span{font-family:'Geist Mono',monospace;font-size:10px;color:var(--ink-500);letter-spacing:0.05em}
+
+  /* === MOCKUP 11: Stamp / sticker === */
+  .m-stamp{background:linear-gradient(135deg,#faf8f3 0%,#fef3c7 100%);position:relative}
+  .stamp-c{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px}
+  .stamp{width:170px;height:170px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px -8px rgba(15,23,42,0.15), 0 0 0 4px #0d9488 inset, 0 0 0 6px #fff inset, 0 0 0 8px #0d9488 inset;position:relative}
+  .stamp img{width:60%;height:60%}
+  .stamp-c .ribbon{font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.25em;color:var(--teal-600);text-transform:uppercase;font-weight:600}
+
+  /* === MOCKUP 12: Window / clinic door === */
+  .m-window{background:linear-gradient(180deg,#cbd5e1 0%,#94a3b8 100%);position:relative;overflow:hidden}
+  .window{position:absolute;inset:24px;background:rgba(255,255,255,0.4);backdrop-filter:blur(8px);border-radius:6px;border:8px solid #fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;box-shadow:0 16px 40px -8px rgba(15,23,42,0.2)}
+  .window img{width:90px;height:90px}
+  .window .hours{font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.18em;color:var(--ink-700);text-transform:uppercase;text-align:center}
+  .window .hours div:first-child{margin-bottom:4px;color:var(--teal-600)}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="head">
+    <div>
+      <span class="head pill" style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:rgba(13,148,136,0.1);color:#0d9488;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;font-weight:500"><span style="width:8px;height:8px;border-radius:50%;background:#14b8a6"></span>Logo Mockups</span>
+      <h1 style="margin-top:14px">Banisa logo — joylashuv variantlari</h1>
+      <p>Network logo "B" markaz bilan, real-world kontekstlarda. Har bir kartochka logoning turli muhitda qanday ishlashini ko'rsatadi.</p>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- App icon -->
+    <div class="card span-6 h-420 dark m-appicon">
+      <div class="ios-grid" style="height:100%">
+        <div class="ios-icon"><div class="placeholder"></div></div>
+        <div class="ios-icon"><div class="placeholder"></div></div>
+        <div class="ios-icon banisa"><img src="banisa-network-logo.png" alt="Banisa"/></div>
+        <div class="ios-icon"><div class="placeholder"></div></div>
+        <div class="ios-icon"><div class="placeholder"></div></div>
+        <div class="ios-icon"><div class="placeholder"></div></div>
+        <div class="ios-icon"><div class="placeholder"></div></div>
+        <div class="ios-icon"><div class="placeholder"></div></div>
+      </div>
+      <div class="label">01 · App icon · iOS home</div>
+    </div>
+
+    <!-- Phone splash -->
+    <div class="card span-3 h-420 m-phone">
+      <div class="phone">
+        <div class="splash-logo"><img src="banisa-network-logo.png" alt="Banisa"/></div>
+        <div class="splash-name">banisa</div>
+        <div class="splash-tag">tibbiyot platformasi</div>
+        <div class="dots"><div></div><div></div><div></div></div>
+      </div>
+      <div class="label">02 · Mobile splash</div>
+    </div>
+
+    <!-- Loading -->
+    <div class="card span-3 h-420 dark m-loading">
+      <div class="loading-c">
+        <svg class="loading-svg" viewBox="0 0 160 160">
+          <!-- 6 segments: line + outer node, blinking in sequence -->
+          <g class="seg">
+            <line x1="80" y1="80" x2="80" y2="20" stroke="#2dd4bf" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="80" cy="20" r="9" fill="#2dd4bf"/>
+          </g>
+          <g class="seg">
+            <line x1="80" y1="80" x2="131.96" y2="50" stroke="#14b8a6" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="131.96" cy="50" r="6.5" fill="#14b8a6"/>
+          </g>
+          <g class="seg">
+            <line x1="80" y1="80" x2="131.96" y2="110" stroke="#0d9488" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="131.96" cy="110" r="6.5" fill="#0d9488"/>
+          </g>
+          <g class="seg">
+            <line x1="80" y1="80" x2="80" y2="140" stroke="#14b8a6" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="80" cy="140" r="6.5" fill="#14b8a6"/>
+          </g>
+          <g class="seg">
+            <line x1="80" y1="80" x2="28.04" y2="110" stroke="#2dd4bf" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="28.04" cy="110" r="6.5" fill="#2dd4bf"/>
+          </g>
+          <g class="seg">
+            <line x1="80" y1="80" x2="28.04" y2="50" stroke="#5eead4" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="28.04" cy="50" r="6.5" fill="#5eead4"/>
+          </g>
+          <!-- Core -->
+          <g class="core">
+            <circle cx="80" cy="80" r="24" fill="#0d9488"/>
+            <text x="80" y="80" text-anchor="middle" dominant-baseline="central" font-family="Plus Jakarta Sans, system-ui" font-weight="800" font-size="30" fill="#fff">B</text>
+          </g>
+        </svg>
+      </div>
+      <div class="label">03 · Loading screen</div>
+    </div>
+
+    <!-- Browser / website -->
+    <div class="card span-7 h-360 m-browser">
+      <div class="browser-bar">
+        <div class="tl" style="background:#ef4444"></div>
+        <div class="tl" style="background:#f59e0b"></div>
+        <div class="tl" style="background:#10b981"></div>
+        <div class="url"><img class="url-fav" src="banisa-network-logo.png" alt=""/>https://banisa.uz</div>
+      </div>
+      <div class="browser-body">
+        <div class="nav">
+          <img src="banisa-network-logo.png" alt="Banisa"/>
+          <div class="name">banisa</div>
+        </div>
+        <div class="nav-links">
+          <span>Klinikalar</span><span>Xizmatlar</span><span>Sharhlar</span><span style="color:#0d9488;font-weight:600">Bron qilish</span>
+        </div>
+      </div>
+      <div class="browser-hero">
+        <h2>Sog'liq sizning <span>qo'lingizda</span></h2>
+        <p>499+ xizmat · 8+ tasdiqlangan klinika · O'zbekiston bo'ylab</p>
+      </div>
+      <div class="label">04 · Website / favicon</div>
+    </div>
+
+    <!-- Business card -->
+    <div class="card span-5 h-360 dark m-card">
+      <div class="biz">
+        <div class="top">
+          <img src="banisa-network-logo.png" alt="Banisa"/>
+          <div class="name">banisa</div>
+        </div>
+        <div>
+          <div class="person">
+            <div class="who">Sardor Ahmadjonov</div>
+            <div class="role">Operator · Customer Care</div>
+          </div>
+          <div class="contact" style="margin-top:18px">
+            <div>+998 71 200 00 00</div>
+            <div>sardor@banisa.uz</div>
+            <div>banisa.uz</div>
+          </div>
+        </div>
+      </div>
+      <div class="label">05 · Business card</div>
+    </div>
+
+    <!-- Sign / billboard -->
+    <div class="card span-6 h-360 m-sign">
+      <div class="sign-board">
+        <img src="banisa-network-logo.png" alt="Banisa"/>
+        <div class="text">
+          <div class="name">banisa</div>
+          <div class="sub">Onlayn tibbiyot platformasi</div>
+        </div>
+      </div>
+      <div class="label">06 · Outdoor sign</div>
+    </div>
+
+    <!-- Stamp -->
+    <div class="card span-3 h-360 m-stamp">
+      <div class="stamp-c">
+        <div class="stamp"><img src="banisa-network-logo.png" alt="Banisa"/></div>
+        <div class="ribbon">✓ Verified Clinic</div>
+      </div>
+      <div class="label">07 · Verification stamp</div>
+    </div>
+
+    <!-- T-shirt -->
+    <div class="card span-3 h-360 m-shirt">
+      <div class="tshirt-wrap">
+        <div class="tshirt"><img src="banisa-network-logo.png" alt="Banisa"/></div>
+      </div>
+      <div class="label">08 · Merch / uniform</div>
+    </div>
+
+    <!-- Social avatars -->
+    <div class="card span-4 h-280 m-social">
+      <div class="row-soc">
+        <div class="avatar"><img src="banisa-network-logo.png" alt="Banisa"/></div>
+        <div>
+          <div class="who">Banisa</div>
+          <div class="handle">@banisa_uz</div>
+        </div>
+        <div class="verify">✓</div>
+      </div>
+      <div class="row-soc">
+        <div class="avatar teal" style="background:#fff;border:1px solid #e2e8f0"><img src="banisa-network-logo.png" alt="Banisa"/></div>
+        <div>
+          <div class="who">Banisa Healthcare</div>
+          <div class="handle">linkedin.com/banisa</div>
+        </div>
+      </div>
+      <div class="row-soc">
+        <div class="avatar" style="background:#0d9488"><img src="banisa-network-logo.png" alt="Banisa" style="filter:brightness(0) invert(1)"/></div>
+        <div>
+          <div class="who">banisa.uz</div>
+          <div class="handle">instagram</div>
+        </div>
+      </div>
+      <div class="label">09 · Social avatars</div>
+    </div>
+
+    <!-- Email signature -->
+    <div class="card span-4 h-280 m-email">
+      <div class="sig">
+        <img src="banisa-network-logo.png" alt="Banisa"/>
+        <div class="info">
+          <div class="who">Sardor Ahmadjonov</div>
+          <div class="role">Customer Care · Banisa</div>
+          <div class="ctx">
+            <span>+998 71 200 00 00</span>
+            <span>·</span>
+            <span>banisa.uz</span>
+          </div>
+        </div>
+      </div>
+      <div class="label">10 · Email signature</div>
+    </div>
+
+    <!-- Window -->
+    <div class="card span-4 h-280 m-window">
+      <div class="window">
+        <img src="banisa-network-logo.png" alt="Banisa"/>
+        <div class="hours">
+          <div>Open · Du–Ju 08:00–20:00</div>
+          <div>Sha 09:00–14:00</div>
+        </div>
+      </div>
+      <div class="label">11 · Clinic window</div>
+    </div>
+
+    <!-- Letterhead doc -->
+    <div class="card span-12 h-520 m-doc">
+      <div class="doc">
+        <div class="top">
+          <div class="lock">
+            <img src="banisa-network-logo.png" alt="Banisa"/>
+            <div class="name">banisa</div>
+          </div>
+          <div class="meta">
+            Hisob-faktura<br/>
+            INV-2026-001234<br/>
+            01-May 2026
+          </div>
+        </div>
+        <div class="lines">
+          <div class="line h"></div>
+          <div class="line"></div>
+          <div class="line"></div>
+          <div class="line short"></div>
+        </div>
+        <div class="lines">
+          <div class="line h"></div>
+          <div class="line"></div>
+          <div class="line short"></div>
+        </div>
+        <div class="lines" style="margin-top:auto">
+          <div class="line"></div>
+          <div class="line short"></div>
+        </div>
+      </div>
+      <div class="label">12 · Invoice / letterhead</div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

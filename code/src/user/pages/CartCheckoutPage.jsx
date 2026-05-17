@@ -7,6 +7,7 @@ import { fmtSum } from '../../shared/utils/format';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './css/CheckoutPage.css';
 
 const fmt = fmtSum;
@@ -48,6 +49,10 @@ export default function CartCheckoutPage() {
 
         fetchPaymentMethods();
     }, [cart]);
+
+    if (submitting) {
+        return <BanisaLoader message="Bron yaratilmoqda..." />;
+    }
 
     if (success) {
         return (

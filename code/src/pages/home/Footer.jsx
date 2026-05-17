@@ -14,7 +14,7 @@ export default function Footer() {
     const email = s.email || 'info@banisa.uz';
     const workingHours = s.workingHours || 'Dush–Juma: 09:00–18:00';
     const address = s.address || "Toshkent, O'zbekiston";
-    const logo = s.logo || '/images/1752849488.logo-white.svg';
+    const logo = s.logo || '/images/banisa-logo.png';
 
     return (
         <footer id="contact" className="cm-footer" style={{ backgroundImage: "url('https://themes.w3cms.in/clinicmaster/medical/public/storage/theme-options/1759147154.bg4.webp')", backgroundRepeat: 'no-repeat', backgroundPosition: 'right center', backgroundSize: 'cover' }}>

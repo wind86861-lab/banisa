@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../shared/auth/AuthContext';
 import PhoneInput from '../../shared/components/PhoneInput';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 
 const statCards = [
   { icon: '🏥', label: '500+ Klinikalar', color: '#00C9A7' },
@@ -65,6 +66,10 @@ export default function LoginPage() {
     }
   };
 
+  if (loading) {
+    return <BanisaLoader message="Kirish..." />;
+  }
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F0F4FF' }}>
       {/* Left Panel - Decorative (desktop only) */}
@@ -90,9 +95,9 @@ export default function LoginPage() {
             border: '3px solid white',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             bgcolor: 'rgba(255,255,255,0.1)',
-            mb: 2,
+            mb: 2, overflow: 'hidden',
           }}>
-            <Typography sx={{ fontSize: '1.75rem' }}>🏥</Typography>
+            <img src="/images/banisa-logo.png" alt="Banisa" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </Box>
         </motion.div>
 

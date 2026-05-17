@@ -5,6 +5,7 @@ import { useCreateAppointment } from '../hooks/useBooking';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './css/CheckoutPage.css';
 
 const fmt = (n) => n ? Number(n).toLocaleString('uz-UZ') : '0';
@@ -59,6 +60,10 @@ export default function CheckoutPage() {
     const formattedDate = selectedDate
         ? new Date(selectedDate).toLocaleDateString('uz-UZ', { day: '2-digit', month: 'long', year: 'numeric' })
         : '—';
+
+    if (createAppointment.isPending) {
+        return <BanisaLoader message="Bron yaratilmoqda..." />;
+    }
 
     return (
         <div className="home-page">

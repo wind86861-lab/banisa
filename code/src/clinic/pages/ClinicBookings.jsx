@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
     Search, List, LayoutGrid, Eye, CheckCircle2,
-    XCircle, RefreshCw, Loader2, Calendar, Clock,
+    XCircle, RefreshCw, Calendar, Clock,
     User, Phone, Stethoscope, X, AlertTriangle, Wallet,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useClinicBookings, useUpdateBookingStatus } from '../hooks/useClinicData';
 import CashConfirmModal from '../components/CashConfirmModal';
 import AppointmentMetadataInput from '../components/AppointmentMetadataInput';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './clinic-admin.css';
 
 const STATUS_OPTS = [
@@ -358,7 +359,7 @@ export default function ClinicBookings() {
             </div>
 
             {isLoading ? (
-                <div className="ca-loading"><Loader2 size={32} className="ca-spin" /><span>Yuklanmoqda...</span></div>
+                <BanisaLoader message="Bronlar yuklanmoqda..." />
             ) : bookings.length === 0 ? (
                 <div className="ca-empty">
                     <div className="ca-empty-icon"><Calendar size={36} /></div>

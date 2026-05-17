@@ -6,6 +6,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useClinicDiscounts, useCreateDiscount, useUpdateDiscount, useDeleteDiscount } from '../hooks/useClinicData';
 import { useClinicServices } from '../hooks/useClinicServices';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './clinic-admin.css';
 
 const DISCOUNT_TYPE_OPTS = [
@@ -218,7 +219,7 @@ export default function ClinicDiscounts() {
             </div>
 
             {isLoading ? (
-                <div className="ca-loading"><Loader2 size={32} className="ca-spin" /><span>Yuklanmoqda...</span></div>
+                <BanisaLoader message="Chegirmalar yuklanmoqda..." />
             ) : discounts.length === 0 ? (
                 <div className="ca-empty">
                     <div className="ca-empty-icon"><Tag size={36} /></div>

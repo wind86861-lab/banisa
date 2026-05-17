@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import {
     Bell, BellOff, CheckCheck, Clock, Calendar,
     Star, Package, AlertCircle, Info, Megaphone,
-    Settings, RefreshCw, Loader2, X, Filter,
+    Settings, RefreshCw, X, Filter,
     ToggleLeft, ToggleRight, ChevronRight,
     UserCheck, Wallet, Banknote,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../shared/api/axios';
 import CashConfirmModal from '../components/CashConfirmModal';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './clinic-admin.css';
 
 /* ─── helpers ─── */
@@ -353,10 +354,7 @@ export default function ClinicNotifications() {
 
                     {/* List */}
                     {isLoading ? (
-                        <div className="ca-loading" style={{ padding: 40 }}>
-                            <Loader2 size={28} className="ca-spin" />
-                            <span>Yuklanmoqda...</span>
-                        </div>
+                        <BanisaLoader message="Bildirishnomalar yuklanmoqda..." />
                     ) : notifications.length === 0 ? (
                         <div className="ca-empty" style={{ padding: 60 }}>
                             <div className="ca-empty-icon">

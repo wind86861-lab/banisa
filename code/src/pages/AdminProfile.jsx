@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import { Camera, Save, Lock, User as UserIcon } from 'lucide-react';
 import { adminApi } from '../services/api';
+import BanisaLoader from '../shared/components/BanisaLoader';
 import './AdminProfile.css';
 
 const profileSchema = z.object({
@@ -118,11 +119,7 @@ export default function AdminProfile() {
     const handleCloseSnackbar = () => setSnackbar({ ...snackbar, open: false });
 
     if (loading) {
-        return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                <CircularProgress />
-            </Box>
-        );
+        return <BanisaLoader message="Profil yuklanmoqda..." />;
     }
 
     return (

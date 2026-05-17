@@ -53,15 +53,10 @@ export default function Navigation() {
                     {/* Logo */}
                     <Link to="/" className="cm-nav-logo">
                         <div className="cm-nav-logo-icon">
-                            {logoUrl ? (
-                                <img src={logoUrl} alt={siteName} style={{ width: 46, height: 46, borderRadius: 12, objectFit: 'cover' }} />
-                            ) : (
-                                <svg viewBox="0 0 46 46" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect width="46" height="46" rx="12" fill={logoColor} />
-                                    <rect x="13" y="20" width="20" height="6" rx="1.5" fill="#fff" />
-                                    <rect x="20" y="13" width="6" height="20" rx="1.5" fill="#fff" />
-                                </svg>
-                            )}
+                            <img
+                                src={logoUrl || '/images/banisa-logo.png'}
+                                alt={siteName}
+                            />
                         </div>
                         <div className="cm-nav-logo-text">
                             {siteName}

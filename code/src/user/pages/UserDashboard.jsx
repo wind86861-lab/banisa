@@ -6,12 +6,13 @@ import api from '../../shared/api/axios';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './css/UserDashboard.css';
 
 export default function UserDashboard() {
     const { user, logout } = useUserAuth();
 
-    const { data: appointments = [] } = useQuery({
+    const { data: appointments = [], isLoading: isLoadingAppointments } = useQuery({
         queryKey: ['user', 'appointments'],
         queryFn: async () => {
             const res = await api.get('/user/appointments');
@@ -19,13 +20,17 @@ export default function UserDashboard() {
         },
     });
 
-    const { data: reviews = [] } = useQuery({
+    const { data: reviews = [], isLoading: isLoadingReviews } = useQuery({
         queryKey: ['user', 'reviews'],
         queryFn: async () => {
             const res = await api.get('/user/reviews');
             return res.data.data || [];
         },
     });
+
+    if (isLoadingAppointments || isLoadingReviews) {
+        return <BanisaLoader message="Ma'lumotlar yuklanmoqda..." />;
+    }
 
     const stats = [
         { label: 'Jami bronlar', value: appointments.length, icon: Calendar, color: '#00BDE0' },

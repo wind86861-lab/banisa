@@ -1,0 +1,120 @@
+/* === BANISA LOADER OVERLAY === */
+.banisa-loader-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #0f172a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* === ANIMATED NETWORK LOADER === */
+.banisa-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+}
+
+.banisa-loader svg {
+    width: 160px;
+    height: 160px;
+}
+
+.banisa-loader .seg {
+    transform-origin: 80px 80px;
+    animation: netblink 1.8s ease-in-out infinite;
+}
+
+.banisa-loader .seg:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.banisa-loader .seg:nth-child(2) {
+    animation-delay: 0.18s;
+}
+
+.banisa-loader .seg:nth-child(3) {
+    animation-delay: 0.36s;
+}
+
+.banisa-loader .seg:nth-child(4) {
+    animation-delay: 0.54s;
+}
+
+.banisa-loader .seg:nth-child(5) {
+    animation-delay: 0.72s;
+}
+
+.banisa-loader .seg:nth-child(6) {
+    animation-delay: 0.9s;
+}
+
+@keyframes netblink {
+    0%, 60%, 100% {
+        opacity: 0.18;
+    }
+    30% {
+        opacity: 1;
+    }
+}
+
+.banisa-loader .core {
+    transform-origin: 80px 80px;
+    animation: corepulse 2s ease-in-out infinite;
+}
+
+@keyframes corepulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.06);
+    }
+}
+
+.banisa-loader-label {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.45);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    animation: labelFade 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes labelFade {
+    from {
+        opacity: 0.35;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 480px) {
+    .banisa-loader svg {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .banisa-loader-label {
+        font-size: 12px;
+    }
+}

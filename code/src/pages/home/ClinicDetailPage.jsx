@@ -14,6 +14,7 @@ import UserAuthModal from './UserAuthModal';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
 import Footer from './Footer';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import './css/ClinicDetailPage.css';
 
 const CLINIC_TYPE_LABELS = {
@@ -254,16 +255,9 @@ export default function ClinicDetailPage() {
     }, [activeServiceTab]);
 
     // ─── Early returns (must come AFTER all hooks) ─────────────────
-    if (isLoading) return (
-        <div className="home-page">
-            <TopBar /><Navigation />
-            <div className="cdp-state-screen">
-                <Loader2 size={40} className="cdp-spin" />
-                <p>Yuklanmoqda...</p>
-            </div>
-            <Footer />
-        </div>
-    );
+    if (isLoading) {
+        return <BanisaLoader message="Klinika yuklanmoqda..." />;
+    }
 
     if (error || !clinic) return (
         <div className="home-page">
