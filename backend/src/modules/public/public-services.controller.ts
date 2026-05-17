@@ -321,6 +321,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
 export const getPublicServiceFilters = async (_req: Request, res: Response, next: NextFunction) => {
     try {
         let rows: Prisma.ClinicServiceMetadataGetPayload<{ include: { template: true } }>[] = [];
+        let metaErr: any = null; // TEMP-DIAG: see _diag below. REMOVE.
         try {
             rows = await prisma.clinicServiceMetadata.findMany({
                 where: {
@@ -337,6 +338,7 @@ export const getPublicServiceFilters = async (_req: Request, res: Response, next
                 'empty facets. code=%s msg=%s',
                 err?.code, err?.message,
             );
+            metaErr = err;
             rows = [];
         }
 
@@ -375,7 +377,36 @@ export const getPublicServiceFilters = async (_req: Request, res: Response, next
                 : null,
         }));
 
-        res.json({ success: true, data });
+        // ─── TEMP-DIAG ─── surfaces exactly why patient filters are empty
+        // without prod DB/log access. Safe (counts only, no PII). REMOVE
+        // once the root cause is identified & fixed.
+        let _diag: any;
+        try {
+            const [total, diagnostic, tplOk, clinicOk, fullMatch, tplTotal, tplVisible] = await Promise.all([
+                prisma.clinicServiceMetadata.count(),
+                prisma.clinicServiceMetadata.count({ where: { serviceType: 'DIAGNOSTIC' } }),
+                prisma.clinicServiceMetadata.count({ where: { serviceType: 'DIAGNOSTIC', template: { isActive: true, visibleToPatient: true } } }),
+                prisma.clinicServiceMetadata.count({ where: { serviceType: 'DIAGNOSTIC', clinic: { status: ClinicStatus.APPROVED, isActive: true } } }),
+                prisma.clinicServiceMetadata.count({ where: { serviceType: 'DIAGNOSTIC', template: { isActive: true, visibleToPatient: true }, clinic: { status: ClinicStatus.APPROVED, isActive: true } } }),
+                prisma.metadataTemplate.count(),
+                prisma.metadataTemplate.count({ where: { isActive: true, visibleToPatient: true } }),
+            ]);
+            _diag = {
+                tableOk: true,
+                rowsTotal: total,
+                rowsDiagnostic: diagnostic,
+                rowsTemplateVisible: tplOk,
+                rowsClinicApproved: clinicOk,
+                rowsFullyMatching: fullMatch,
+                templatesTotal: tplTotal,
+                templatesVisible: tplVisible,
+                facetsReturned: data.length,
+                metaQueryError: metaErr ? { code: metaErr?.code, msg: String(metaErr?.message).slice(0, 200) } : null,
+            };
+        } catch (e: any) {
+            _diag = { tableOk: false, code: e?.code, msg: String(e?.message).slice(0, 200) };
+        }
+        res.json({ success: true, data, _diag });
     } catch (error) {
         next(error);
     }
