@@ -9,6 +9,7 @@ import {
 import TopBar from './TopBar';
 import Navigation from './Navigation';
 import Footer from './Footer';
+import BanisaLoader from '../../shared/components/BanisaLoader';
 import { usePublicServices } from '../../hooks/usePublicServices';
 import { useCart } from '../../contexts/CartContext';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
@@ -167,6 +168,32 @@ function FilterGroup({ title, children, defaultOpen = true }) {
                 <ChevronDown size={14} />
             </div>
             {open && children}
+        </div>
+    );
+}
+
+const hasBound = (v) => v != null && v !== '';
+
+/* Debounced numeric range inputs for a metadata facet — local state keeps
+   typing smooth; the parent filter state (which re-filters the whole list)
+   is committed only 300ms after the last keystroke. */
+function MetaRangeInputs({ lo, hi, value, onCommit }) {
+    const [local, setLocal] = useState({ min: value.min ?? '', max: value.max ?? '' });
+    useEffect(() => { setLocal({ min: value.min ?? '', max: value.max ?? '' }); }, [value.min, value.max]);
+    const timer = useRef();
+    useEffect(() => () => clearTimeout(timer.current), []);
+    const change = (bound, v) => {
+        setLocal(p => ({ ...p, [bound]: v }));
+        clearTimeout(timer.current);
+        timer.current = setTimeout(() => onCommit(bound, v), 300);
+    };
+    return (
+        <div className="xp-meta-range">
+            <input type="number" inputMode="numeric" placeholder={`Min ${lo}`}
+                value={local.min} onChange={e => change('min', e.target.value)} />
+            <span>–</span>
+            <input type="number" inputMode="numeric" placeholder={`Max ${hi}`}
+                value={local.max} onChange={e => change('max', e.target.value)} />
         </div>
     );
 }
@@ -530,6 +557,101 @@ export default function XizmatlarPage() {
             .sort((a, b) => b.count - a.count);
     }, [categoryPool]);
 
+    /* ── Faceted (cross-filter) engine ─────────────────────────────────
+       One pure predicate per filter dimension. `passes(s, skipDim,
+       skipMetaKey)` = the service matches every active filter EXCEPT the
+       one being counted, so a group's own selection never shrinks its own
+       counts ("OR within a group, AND across groups"). Every option count
+       below is computed leave-one-out, so the numbers always reflect what
+       you'd actually get — no dead-end (0-result) combinations. */
+    const metaKeys = useMemo(() => Object.keys(metaFilters).filter(k => {
+        const f = metaFilters[k];
+        return Array.isArray(f) ? f.length > 0 : (hasBound(f?.min) || hasBound(f?.max));
+    }), [metaFilters]);
+
+    const preds = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        const metaPred = (s, key) => {
+            const entry = (s.metadata || []).find(m => m.key === key);
+            if (!entry) return false;
+            const f = metaFilters[key];
+            if (Array.isArray(f)) return f.includes(entry.value);
+            const num = Number(entry.value);
+            if (Number.isNaN(num)) return false;
+            if (hasBound(f.min) && num < Number(f.min)) return false;
+            if (hasBound(f.max) && num > Number(f.max)) return false;
+            return true;
+        };
+        return {
+            search: s => !q ||
+                s.title.toLowerCase().includes(q) ||
+                s.desc.toLowerCase().includes(q) ||
+                (SPECIALTY_LABELS[s.specialty] || s.specialty).toLowerCase().includes(q),
+            specialty: s => !selectedSpecialties.length || selectedSpecialties.includes(s.specialty),
+            availability: s => !selectedAvailability.length || s.availability.some(a => selectedAvailability.includes(a)),
+            location: s => !selectedLocations.length || (s.clinic?.region && selectedLocations.includes(s.clinic.region)),
+            rating: s => minRating <= 0 || s.rating >= minRating,
+            price: s => s.price <= effectivePriceMax,
+            metaPred,
+        };
+    }, [searchQuery, selectedSpecialties, selectedAvailability, selectedLocations, minRating, effectivePriceMax, metaFilters]);
+
+    const passes = useMemo(() => (s, skipDim, skipMetaKey) => {
+        if (skipDim !== 'search' && !preds.search(s)) return false;
+        if (skipDim !== 'specialty' && !preds.specialty(s)) return false;
+        if (skipDim !== 'availability' && !preds.availability(s)) return false;
+        if (skipDim !== 'location' && !preds.location(s)) return false;
+        if (skipDim !== 'rating' && !preds.rating(s)) return false;
+        if (skipDim !== 'price' && !preds.price(s)) return false;
+        for (const k of metaKeys) {
+            if (k === skipMetaKey) continue;
+            if (!preds.metaPred(s, k)) return false;
+        }
+        return true;
+    }, [preds, metaKeys]);
+
+    const facetCounts = useMemo(() => {
+        const tally = (skipDim, pick) => {
+            const m = {};
+            for (const s of categoryPool) {
+                if (!passes(s, skipDim, null)) continue;
+                for (const v of pick(s)) m[v] = (m[v] || 0) + 1;
+            }
+            return m;
+        };
+        const specialty = tally('specialty', s => [s.specialty]);
+        const availability = tally('availability', s => s.availability);
+        const location = tally('location', s => (s.clinic?.region ? [s.clinic.region] : []));
+
+        const ratingBase = categoryPool.filter(s => passes(s, 'rating', null));
+        const rating = {
+            5: ratingBase.filter(s => s.rating >= 5).length,
+            4: ratingBase.filter(s => s.rating >= 4).length,
+            3: ratingBase.filter(s => s.rating >= 3).length,
+            0: ratingBase.length,
+        };
+
+        const meta = {};
+        for (const md of dynamicMetadata) {
+            const counts = {};
+            let total = 0;
+            for (const s of categoryPool) {
+                if (!passes(s, null, md.key)) continue;
+                const entry = (s.metadata || []).find(x => x.key === md.key);
+                if (!entry) continue;
+                counts[entry.value] = (counts[entry.value] || 0) + 1;
+                total++;
+            }
+            meta[md.key] = { counts, total };
+        }
+        return { specialty, availability, location, rating, meta };
+    }, [categoryPool, passes, dynamicMetadata]);
+
+    const specialtyOptions = dynamicSpecialties.map(o => ({ ...o, count: facetCounts.specialty[o.id] || 0 }));
+    const availabilityOptions = dynamicAvailability.map(o => ({ ...o, count: facetCounts.availability[o.id] || 0 }));
+    const locationOptions = dynamicLocations.map(o => ({ ...o, count: facetCounts.location[o.id] || 0 }));
+    const ratingCounts = facetCounts.rating;
+
     /* ── When category changes: drop stale selections & reset price ── */
     const handleCategoryChange = (id) => {
         const newPool = id === 'all' ? SERVICES_DATA : SERVICES_DATA.filter(s => s.category === id);
@@ -548,53 +670,8 @@ export default function XizmatlarPage() {
 
     /* ── FILTERED + SORTED result list ── */
     const filtered = useMemo(() => {
-        let list = [...categoryPool];
-
-        if (searchQuery.trim()) {
-            const q = searchQuery.toLowerCase();
-            list = list.filter(s =>
-                s.title.toLowerCase().includes(q) ||
-                s.desc.toLowerCase().includes(q) ||
-                (SPECIALTY_LABELS[s.specialty] || s.specialty).toLowerCase().includes(q)
-            );
-        }
-        if (selectedSpecialties.length) {
-            list = list.filter(s => selectedSpecialties.includes(s.specialty));
-        }
-        if (selectedAvailability.length) {
-            list = list.filter(s =>
-                s.availability.some(a => selectedAvailability.includes(a))
-            );
-        }
-        if (selectedLocations.length) {
-            list = list.filter(s => s.clinic?.region && selectedLocations.includes(s.clinic.region));
-        }
-        if (minRating > 0) {
-            list = list.filter(s => s.rating >= minRating);
-        }
-        const hasBound = (v) => v != null && v !== '';
-        const metaKeys = Object.keys(metaFilters).filter(k => {
-            const f = metaFilters[k];
-            return Array.isArray(f) ? f.length > 0 : (hasBound(f?.min) || hasBound(f?.max));
-        });
-        if (metaKeys.length) {
-            list = list.filter(s => {
-                const mv = s.metadata || [];
-                return metaKeys.every(k => {
-                    const entry = mv.find(m => m.key === k);
-                    if (!entry) return false;
-                    const f = metaFilters[k];
-                    if (Array.isArray(f)) return f.includes(entry.value);
-                    const num = Number(entry.value);
-                    if (Number.isNaN(num)) return false;
-                    if (hasBound(f.min) && num < Number(f.min)) return false;
-                    if (hasBound(f.max) && num > Number(f.max)) return false;
-                    return true;
-                });
-            });
-        }
-        list = list.filter(s => s.price <= effectivePriceMax);
-
+        // `.filter` returns a fresh array, so the in-place sort is safe.
+        const list = categoryPool.filter(s => passes(s, null, null));
         switch (sortBy) {
             case 'price_asc': list.sort((a, b) => a.price - b.price); break;
             case 'price_desc': list.sort((a, b) => b.price - a.price); break;
@@ -603,7 +680,7 @@ export default function XizmatlarPage() {
             default: list.sort((a, b) => b.reviews - a.reviews);
         }
         return list;
-    }, [categoryPool, searchQuery, selectedSpecialties, selectedAvailability, selectedLocations, minRating, effectivePriceMax, metaFilters, sortBy]);
+    }, [categoryPool, passes, sortBy]);
 
     /* ── pagination ── */
     const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
@@ -685,25 +762,7 @@ export default function XizmatlarPage() {
 
     const pricePct = Math.round((effectivePriceMax / poolPriceRange.max) * 100);
 
-    /* ── Rating counts from pool (before rating filter) ── */
-    const ratingCounts = useMemo(() => {
-        const poolBeforeRating = categoryPool.filter(s => {
-            if (searchQuery.trim()) {
-                const q = searchQuery.toLowerCase();
-                if (!s.title.toLowerCase().includes(q) && !s.desc.toLowerCase().includes(q) &&
-                    !(SPECIALTY_LABELS[s.specialty] || s.specialty).toLowerCase().includes(q)) return false;
-            }
-            if (selectedSpecialties.length && !selectedSpecialties.includes(s.specialty)) return false;
-            if (selectedAvailability.length && !s.availability.some(a => selectedAvailability.includes(a))) return false;
-            return s.price <= effectivePriceMax;
-        });
-        return {
-            5: poolBeforeRating.filter(s => s.rating >= 5).length,
-            4: poolBeforeRating.filter(s => s.rating >= 4).length,
-            3: poolBeforeRating.filter(s => s.rating >= 3).length,
-            0: poolBeforeRating.length,
-        };
-    }, [categoryPool, searchQuery, selectedSpecialties, selectedAvailability, effectivePriceMax]);
+    /* ratingCounts is now derived leave-one-out in facetCounts (see above). */
 
     const SidebarContent = () => (
         <>
@@ -715,48 +774,62 @@ export default function XizmatlarPage() {
             </div>
 
             {/* ── Mutaxassislik — only shows specialties present in current pool ── */}
-            <FilterGroup title={`Mutaxassislik (${dynamicSpecialties.length})`}>
+            <FilterGroup title={`Mutaxassislik (${specialtyOptions.length})`}>
                 <div className="xp-filter-options">
-                    {dynamicSpecialties.map(sp => (
-                        <label key={sp.id} className="xp-filter-option">
+                    {specialtyOptions.map(sp => {
+                        const checked = selectedSpecialties.includes(sp.id);
+                        const off = sp.count === 0 && !checked;
+                        return (
+                        <label key={sp.id} className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
                             <input
                                 type="checkbox"
-                                checked={selectedSpecialties.includes(sp.id)}
+                                checked={checked}
+                                disabled={off}
                                 onChange={() => toggleSpecialty(sp.id)}
                             />
                             <span className="xp-filter-option-label">{sp.label}</span>
                             <span className="xp-filter-option-count">{sp.count}</span>
                         </label>
-                    ))}
+                        );
+                    })}
                 </div>
             </FilterGroup>
 
             {/* ── Ko'rinish Turi — only shows types present in current pool ── */}
             <FilterGroup title="Ko'rinish Turi">
                 <div className="xp-filter-options">
-                    {dynamicAvailability.map(av => (
-                        <label key={av.id} className="xp-filter-option">
+                    {availabilityOptions.map(av => {
+                        const checked = selectedAvailability.includes(av.id);
+                        const off = av.count === 0 && !checked;
+                        return (
+                        <label key={av.id} className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
                             <input
                                 type="checkbox"
-                                checked={selectedAvailability.includes(av.id)}
+                                checked={checked}
+                                disabled={off}
                                 onChange={() => toggleAvailability(av.id)}
                             />
                             <span className="xp-filter-option-label">{av.label}</span>
                             <span className="xp-filter-option-count">{av.count}</span>
                         </label>
-                    ))}
+                        );
+                    })}
                 </div>
             </FilterGroup>
 
             {/* ── Joylashuv — region filter from real clinic data ── */}
-            {dynamicLocations.length > 0 && (
+            {locationOptions.length > 0 && (
                 <FilterGroup title="Joylashuv (Viloyat)">
                     <div className="xp-filter-options">
-                        {dynamicLocations.map(loc => (
-                            <label key={loc.id} className="xp-filter-option">
+                        {locationOptions.map(loc => {
+                            const checked = selectedLocations.includes(loc.id);
+                            const off = loc.count === 0 && !checked;
+                            return (
+                            <label key={loc.id} className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
                                 <input
                                     type="checkbox"
-                                    checked={selectedLocations.includes(loc.id)}
+                                    checked={checked}
+                                    disabled={off}
                                     onChange={() => toggleLocation(loc.id)}
                                 />
                                 <span className="xp-filter-option-label">
@@ -765,63 +838,74 @@ export default function XizmatlarPage() {
                                 </span>
                                 <span className="xp-filter-option-count">{loc.count}</span>
                             </label>
-                        ))}
+                            );
+                        })}
                     </div>
                 </FilterGroup>
             )}
 
             {/* ── Xizmat xususiyatlari — clinic-entered, filterable metadata ── */}
             {dynamicMetadata.map(meta => {
-                const range = (metaFilters[meta.key] && !Array.isArray(metaFilters[meta.key]))
-                    ? metaFilters[meta.key] : {};
+                const sel = metaFilters[meta.key];
+                const range = (sel && !Array.isArray(sel)) ? sel : {};
+                const selArr = Array.isArray(sel) ? sel : [];
+                const fc = facetCounts.meta[meta.key] || { counts: {}, total: 0 };
                 return (
                     <FilterGroup
                         key={meta.key}
                         title={`${meta.label}${meta.unit ? ` (${meta.unit})` : ''}`}
                     >
                         {meta.kind === 'range' ? (
-                            <div className="xp-meta-range">
-                                <input
-                                    type="number"
-                                    placeholder={`Min ${meta.bounds.lo}`}
-                                    value={range.min ?? ''}
-                                    onChange={e => setMetaRange(meta.key, 'min', e.target.value)}
+                            <>
+                                <MetaRangeInputs
+                                    lo={meta.bounds.lo}
+                                    hi={meta.bounds.hi}
+                                    value={range}
+                                    onCommit={(b, v) => setMetaRange(meta.key, b, v)}
                                 />
-                                <span>–</span>
-                                <input
-                                    type="number"
-                                    placeholder={`Max ${meta.bounds.hi}`}
-                                    value={range.max ?? ''}
-                                    onChange={e => setMetaRange(meta.key, 'max', e.target.value)}
-                                />
-                            </div>
+                                <div style={{ fontSize: 11, color: '#9aa7bd', marginTop: 6 }}>
+                                    {fc.total} ta xizmatda mavjud
+                                </div>
+                            </>
                         ) : meta.kind === 'boolean' ? (
                             <div className="xp-filter-options">
-                                <label className="xp-filter-option">
-                                    <input
-                                        type="checkbox"
-                                        checked={(metaFilters[meta.key] || []).includes('true')}
-                                        onChange={() => toggleMeta(meta.key, 'true')}
-                                    />
-                                    <span className="xp-filter-option-label">Bor</span>
-                                    <span className="xp-filter-option-count">
-                                        {meta.options.find(o => o.value === 'true')?.count || 0}
-                                    </span>
-                                </label>
+                                {(() => {
+                                    const c = fc.counts['true'] || 0;
+                                    const checked = selArr.includes('true');
+                                    const off = c === 0 && !checked;
+                                    return (
+                                    <label className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
+                                        <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            disabled={off}
+                                            onChange={() => toggleMeta(meta.key, 'true')}
+                                        />
+                                        <span className="xp-filter-option-label">Bor</span>
+                                        <span className="xp-filter-option-count">{c}</span>
+                                    </label>
+                                    );
+                                })()}
                             </div>
                         ) : (
                             <div className="xp-filter-options">
-                                {meta.options.map(opt => (
-                                    <label key={opt.value} className="xp-filter-option">
+                                {meta.options.map(opt => {
+                                    const c = fc.counts[opt.value] || 0;
+                                    const checked = selArr.includes(opt.value);
+                                    const off = c === 0 && !checked;
+                                    return (
+                                    <label key={opt.value} className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
                                         <input
                                             type="checkbox"
-                                            checked={(metaFilters[meta.key] || []).includes(opt.value)}
+                                            checked={checked}
+                                            disabled={off}
                                             onChange={() => toggleMeta(meta.key, opt.value)}
                                         />
                                         <span className="xp-filter-option-label">{opt.value}</span>
-                                        <span className="xp-filter-option-count">{opt.count}</span>
+                                        <span className="xp-filter-option-count">{c}</span>
                                     </label>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </FilterGroup>
@@ -881,6 +965,13 @@ export default function XizmatlarPage() {
             </FilterGroup>
         </>
     );
+
+    // Loading guard placed AFTER all hooks (useState/useEffect/useMemo) so the
+    // hook order is identical on every render — an early return above the hooks
+    // caused React error #310 ("rendered more hooks than previous render").
+    if (isLoading) {
+        return <BanisaLoader message="Xizmatlar yuklanmoqda..." />;
+    }
 
     return (
         <div className="xp-page">
