@@ -39,7 +39,11 @@ npm install
 echo -e "\n${GREEN}Step 4: Running database migration...${NC}"
 cd $BACKEND_DIR
 npx prisma generate
-npx prisma db push --accept-data-loss
+# Use tracked migrations (NOT `db push --accept-data-loss`). `migrate deploy`
+# applies every pending migration in prisma/migrations and records it in
+# _prisma_migrations, so the prod schema can never silently drift behind the
+# deployed code (which is exactly what broke /api/public/services).
+npx prisma migrate deploy
 
 echo -e "${YELLOW}⚠️  Migration complete. Check for any warnings above.${NC}"
 

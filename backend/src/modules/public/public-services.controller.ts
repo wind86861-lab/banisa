@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { ClinicStatus } from '@prisma/client';
+import { ClinicStatus, Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { getServiceById as getDiagnosticById } from '../diagnostics/diagnostics.service';
 
@@ -117,21 +117,43 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
 
         const diagClinicIds = [...new Set(diagnosticLinks.map(l => l.clinicId))];
         const diagServiceIds = [...new Set(diagnosticLinks.map(l => l.diagnosticServiceId))];
-        const metaRows = diagClinicIds.length
-            ? await prisma.clinicServiceMetadata.findMany({
-                where: {
-                    serviceType: 'DIAGNOSTIC',
-                    clinicId: { in: diagClinicIds },
-                    serviceId: { in: diagServiceIds },
-                    template: { isActive: true, visibleToPatient: true },
-                },
-                include: {
-                    template: {
-                        select: { key: true, labelUz: true, labelRu: true, unit: true, inputType: true, category: true },
+        // Metadata is an enhancement layer — it must never take the whole public
+        // catalog down. If the ClinicServiceMetadata table/columns are absent
+        // (e.g. migration not yet applied on this environment), degrade to "no
+        // metadata" instead of returning a 500 for every request.
+        let metaRows: Prisma.ClinicServiceMetadataGetPayload<{
+            include: { template: { select: { key: true; labelUz: true; labelRu: true; unit: true; inputType: true; category: true } } };
+        }>[] = [];
+        if (diagClinicIds.length) {
+            try {
+                metaRows = await prisma.clinicServiceMetadata.findMany({
+                    where: {
+                        serviceType: 'DIAGNOSTIC',
+                        clinicId: { in: diagClinicIds },
+                        serviceId: { in: diagServiceIds },
+                        template: { isActive: true, visibleToPatient: true },
                     },
-                },
-            })
-            : [];
+                    include: {
+                        template: {
+                            select: { key: true, labelUz: true, labelRu: true, unit: true, inputType: true, category: true },
+                        },
+                    },
+                });
+            } catch (err: any) {
+                // P2021: table does not exist, P2022: column does not exist —
+                // schema not migrated on this environment.
+                if (err?.code === 'P2021' || err?.code === 'P2022') {
+                    console.error(
+                        '[public/services] ClinicServiceMetadata schema missing — ' +
+                        'serving catalog without metadata. Run `prisma migrate deploy`.',
+                        err.code,
+                    );
+                    metaRows = [];
+                } else {
+                    throw err;
+                }
+            }
+        }
 
         const metaByPair = new Map<string, typeof metaRows>();
         for (const row of metaRows) {
@@ -300,14 +322,28 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
  *  value set by an approved clinic, with its distinct values / numeric range. */
 export const getPublicServiceFilters = async (_req: Request, res: Response, next: NextFunction) => {
     try {
-        const rows = await prisma.clinicServiceMetadata.findMany({
-            where: {
-                serviceType: 'DIAGNOSTIC',
-                template: { isActive: true, visibleToPatient: true },
-                clinic: { status: ClinicStatus.APPROVED, isActive: true },
-            },
-            include: { template: true },
-        });
+        let rows: Prisma.ClinicServiceMetadataGetPayload<{ include: { template: true } }>[] = [];
+        try {
+            rows = await prisma.clinicServiceMetadata.findMany({
+                where: {
+                    serviceType: 'DIAGNOSTIC',
+                    template: { isActive: true, visibleToPatient: true },
+                    clinic: { status: ClinicStatus.APPROVED, isActive: true },
+                },
+                include: { template: true },
+            });
+        } catch (err: any) {
+            if (err?.code === 'P2021' || err?.code === 'P2022') {
+                console.error(
+                    '[public/services/filters] ClinicServiceMetadata schema missing — ' +
+                    'returning empty facets. Run `prisma migrate deploy`.',
+                    err.code,
+                );
+                rows = [];
+            } else {
+                throw err;
+            }
+        }
 
         const byTemplate = new Map<string, {
             key: string; labelUz: string; labelRu: string | null;
