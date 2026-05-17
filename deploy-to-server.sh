@@ -43,7 +43,10 @@ npx prisma generate
 # applies every pending migration in prisma/migrations and records it in
 # _prisma_migrations, so the prod schema can never silently drift behind the
 # deployed code (which is exactly what broke /api/public/services).
-npx prisma migrate deploy
+# `migrate deploy` fails with P3005 on a DB originally built via `db push`
+# (no _prisma_migrations baseline). Fall back to an additive `db push` so the
+# new ClinicServiceMetadata table is created instead of silently skipped.
+npx prisma migrate deploy || npx prisma db push --skip-generate
 
 echo -e "${YELLOW}⚠️  Migration complete. Check for any warnings above.${NC}"
 
