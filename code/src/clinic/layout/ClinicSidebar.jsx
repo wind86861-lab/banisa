@@ -70,7 +70,17 @@ export default function ClinicSidebar({ isOpen, toggleSidebar }) {
             {/* ─── Header / Branding ─── */}
             <div className="sidebar-header">
                 <a href="/clinic/dashboard" className="logo">
-                    <img src="/images/banisa-logo.png" alt="Banisa" className="logo-icon" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
+                    <img
+                        src="/images/banisa-logo.png?v=3"
+                        alt="Banisa"
+                        className="logo-icon"
+                        style={{
+                            width: 44, height: 44, borderRadius: 12,
+                            objectFit: 'cover', display: 'block',
+                            border: 'none', outline: 'none',
+                            filter: 'drop-shadow(0 0 14px rgba(0,189,224,0.35))',
+                        }}
+                    />
                     {isOpen && <span>Banisa Clinic</span>}
                 </a>
             </div>

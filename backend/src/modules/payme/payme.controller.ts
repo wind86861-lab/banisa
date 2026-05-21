@@ -26,6 +26,7 @@ const reply = (res: Response, id: number | string, result?: any, error?: any) =>
 export const handleMerchantApi = async (req: Request, res: Response) => {
     const { id, method, params } = req.body as JsonRpcRequest;
     const isTestMode = !!(req as any).paymeTestMode;
+    console.log('[Payme] method:', method, 'isTestMode:', isTestMode, 'order_id:', params?.account?.order_id);
 
     try {
         let outcome: { result?: any; error?: any };

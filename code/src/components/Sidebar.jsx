@@ -127,7 +127,17 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         >
             <div className="sidebar-header">
                 <a href="/" className="logo">
-                    <img src="/images/banisa-logo.png" alt="Banisa" className="logo-icon" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }} />
+                    <img
+                        src="/images/banisa-logo.png?v=3"
+                        alt="Banisa"
+                        className="logo-icon"
+                        style={{
+                            width: 44, height: 44, borderRadius: 12,
+                            objectFit: 'cover', display: 'block',
+                            border: 'none', outline: 'none',
+                            filter: 'drop-shadow(0 0 14px rgba(0,189,224,0.35))',
+                        }}
+                    />
                     {isOpen && (
                         <div className="logo-text">
                             <span>Banisa</span>

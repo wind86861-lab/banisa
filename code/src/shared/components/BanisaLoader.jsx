@@ -32,15 +32,15 @@ const BanisaLoader = ({ message = 'Yuklanmoqda' }) => {
                     </g>
                     <g className="core">
                         <circle cx="80" cy="80" r="24" fill="#0d9488" />
-                        <text 
-                            x="80" 
-                            y="80" 
-                            textAnchor="middle" 
-                            dominantBaseline="central" 
-                            fontFamily="Plus Jakarta Sans, system-ui" 
-                            fontWeight="800" 
-                            fontSize="30" 
-                            fill="#fff"
+                        <text
+                            x="80"
+                            y="80"
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            fontFamily="Plus Jakarta Sans, system-ui"
+                            fontWeight="800"
+                            fontSize="30"
+                            fill="#ffffff"
                         >
                             B
                         </text>

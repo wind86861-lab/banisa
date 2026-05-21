@@ -5,7 +5,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: #0f172a;
+    background: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -17,6 +17,7 @@
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -66,9 +67,13 @@
 }
 
 @keyframes netblink {
-    0%, 60%, 100% {
+
+    0%,
+    60%,
+    100% {
         opacity: 0.18;
     }
+
     30% {
         opacity: 1;
     }
@@ -80,9 +85,12 @@
 }
 
 @keyframes corepulse {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: scale(1);
     }
+
     50% {
         transform: scale(1.06);
     }
@@ -92,7 +100,7 @@
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     font-size: 13px;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba(15, 23, 42, 0.5);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     animation: labelFade 1.2s ease-in-out infinite alternate;
@@ -102,6 +110,7 @@
     from {
         opacity: 0.35;
     }
+
     to {
         opacity: 1;
     }
@@ -113,7 +122,7 @@
         width: 120px;
         height: 120px;
     }
-    
+
     .banisa-loader-label {
         font-size: 12px;
     }

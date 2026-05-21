@@ -21,5 +21,5 @@ export const env = {
     // Payme (Paycom) integration
     PAYME_MERCHANT_ID: process.env.PAYME_MERCHANT_ID || '69e72340adc989d99c87540a',
     PAYME_PROD_KEY: process.env.PAYME_PROD_KEY || 'FRGo7DCSPDc0T5a7yZ?0X1O?1HxgOnrAAeUM',
-    PAYME_TEST_KEY: process.env.PAYME_TEST_KEY || '',
+    PAYME_TEST_KEY: process.env.PAYME_TEST_KEY || '#H@vGJ1&&KTK&21@NDfq88fNqswOxBy?2JnH',
 };
