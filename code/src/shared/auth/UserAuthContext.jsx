@@ -1,15 +1,24 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { setAccessToken, clearAccessToken, setIsPatientSession } from '../api/axios';
+import { setAccessToken, getAccessToken, clearAccessToken, setIsPatientSession } from '../api/axios';
 import axiosInstance from '../api/axios';
 
-// ─── SEPARATE PATIENT TOKEN STORAGE ────────────────────────────────────────
-// Uses different keys from clinic/admin storage ('access_token', 'auth_user')
-const USER_TOKEN_KEY = 'user_access_token';
+// ─── Patient session storage policy (XSS-hardened) ──────────────────────────
+// Access token lives in MODULE MEMORY only (see api/axios.js). The HttpOnly
+// `refresh_token` cookie is the only persistent credential — an XSS payload
+// cannot read it. localStorage is reserved for non-secret hints:
+//
+//   user_had_session   "1" if this browser has ever held a patient session.
+//                       On reload we use this to decide whether to attempt
+//                       a silent refresh, avoiding spurious 401s for visitors
+//                       who never logged in.
+//   user_data          The cached user profile (name/phone/role). Not secret;
+//                       lets us paint the navbar before the refresh completes.
+//                       Treated as a hint only — every render still trusts
+//                       the in-memory `user` state.
 const USER_DATA_KEY = 'user_data';
+const HAD_SESSION_KEY = 'user_had_session';
 
 export const userTokenStorage = {
-  setToken: (token) => localStorage.setItem(USER_TOKEN_KEY, token),
-  getToken: () => localStorage.getItem(USER_TOKEN_KEY),
   setUser: (user) => localStorage.setItem(USER_DATA_KEY, JSON.stringify(user)),
   getUser: () => {
     try {
@@ -18,10 +27,11 @@ export const userTokenStorage = {
     } catch { return null; }
   },
   clear: () => {
-    localStorage.removeItem(USER_TOKEN_KEY);
     localStorage.removeItem(USER_DATA_KEY);
+    localStorage.removeItem(HAD_SESSION_KEY);
   },
-  isLoggedIn: () => !!localStorage.getItem(USER_TOKEN_KEY),
+  // For axios.js refresh logic that needs to know which login flow to redirect to.
+  isLoggedIn: () => !!getAccessToken(),
 };
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
@@ -33,7 +43,15 @@ const isTokenExpired = (token) => {
   } catch { return true; }
 };
 
-// Singleton promise — StrictMode fix (same pattern as AuthContext)
+const tokenMsLeft = (token) => {
+  if (!token) return -1;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000 - Date.now();
+  } catch { return -1; }
+};
+
+// Singleton so React StrictMode's double-mount doesn't double-refresh.
 let userRestorePromise = null;
 
 // ─── CONTEXT ────────────────────────────────────────────────────────────────
@@ -42,19 +60,15 @@ const UserAuthContext = createContext(null);
 export const UserAuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // ── Session-expiring warning shown ~60s before auto-logout ─────────────
   const [expiringSoon, setExpiringSoon] = useState(false);
 
-  // ── Auto-logout on token expiry ─────────────────────────────────────────
+  // ── Auto-logout on token expiry (reads in-memory token, not localStorage) ──
   useEffect(() => {
     if (!user) return;
     const tick = () => {
-      const token = userTokenStorage.getToken();
+      const token = getAccessToken();
       if (!token) return;
-      let exp = 0;
-      try { exp = JSON.parse(atob(token.split('.')[1])).exp * 1000; } catch { return; }
-      const msLeft = exp - Date.now();
+      const msLeft = tokenMsLeft(token);
       if (msLeft <= 0) {
         clearAccessToken();
         setIsPatientSession(false);
@@ -71,53 +85,39 @@ export const UserAuthProvider = ({ children }) => {
   }, [user]);
 
   const extendSession = async () => {
-    // Trigger silent refresh via cookie; axios interceptor or this endpoint will
-    // set a fresh access token. Refresh is best-effort; on failure we let
-    // the normal expiry path log the user out.
     try {
       const { data } = await axiosInstance.post('/user/auth/refresh');
       const newToken = data?.data?.accessToken;
-      if (newToken) {
-        userTokenStorage.setToken(newToken);
-        setAccessToken(newToken);
-      }
+      if (newToken) setAccessToken(newToken);
       setExpiringSoon(false);
-    } catch { /* ignore — user will be logged out by tick */ }
+    } catch { /* ignore — normal expiry path will log them out */ }
   };
 
-  // ── Session restore ─────────────────────────────────────────────────────
+  // ── Session restore on page load ────────────────────────────────────────
   useEffect(() => {
+    // One-time cleanup of the legacy localStorage access token (now memory-only).
+    // Existing sessions saved it before the XSS hardening pass — wipe on next load.
+    try { localStorage.removeItem('user_access_token'); } catch { /* ignore */ }
+
     const restoreSession = async () => {
       try {
-        // Skip patient session restore on admin pages — prevents spurious 401
         if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
           setIsLoading(false);
           return;
         }
 
-        // 1. Check sessionStorage first
-        const existingToken = userTokenStorage.getToken();
-        const existingUser = userTokenStorage.getUser();
-
-        if (existingToken && existingUser && existingUser.role === 'PATIENT') {
-          if (!isTokenExpired(existingToken)) {
-            setAccessToken(existingToken);
-            setIsPatientSession(true);
-            setUser(existingUser);
-            setIsLoading(false);
-            return;
-          }
-          userTokenStorage.clear();
-          clearAccessToken();
-          setIsPatientSession(false);
-        }
-
-        // 2. Try cookie-based silent refresh ONLY if a past session existed
-        // Avoids spurious 401 errors for users who never logged in
-        const hadSession = localStorage.getItem('user_had_session');
+        // Only attempt silent refresh if this browser previously had a patient
+        // session — avoids 401-spam for first-time visitors.
+        const hadSession = localStorage.getItem(HAD_SESSION_KEY);
         if (!hadSession) {
           setIsLoading(false);
           return;
+        }
+
+        // Optimistic paint from cached profile (non-secret).
+        const cachedUser = userTokenStorage.getUser();
+        if (cachedUser && cachedUser.role === 'PATIENT') {
+          setUser(cachedUser);
         }
 
         if (!userRestorePromise) {
@@ -134,10 +134,9 @@ export const UserAuthProvider = ({ children }) => {
           const token = data.data?.accessToken ?? data.accessToken;
           const userData = data.data?.user ?? data.user;
 
-          if (token && userData && userData.role === 'PATIENT') {
+          if (token && userData && userData.role === 'PATIENT' && !isTokenExpired(token)) {
             setAccessToken(token);
             setIsPatientSession(true);
-            userTokenStorage.setToken(token);
             userTokenStorage.setUser(userData);
             setUser(userData);
             setIsLoading(false);
@@ -145,16 +144,13 @@ export const UserAuthProvider = ({ children }) => {
           }
         }
 
-        // Nothing to restore — normal unauthenticated state.
-        // Clear patient-specific storage only. Do NOT call clearAccessToken() here:
-        // AuthContext may have set a clinic token concurrently and we must not wipe it.
+        // Refresh failed or returned non-patient — clear everything.
         userTokenStorage.clear();
         setIsPatientSession(false);
         setUser(null);
         setIsLoading(false);
       } catch (err) {
         console.error('User auth restore error:', err);
-        // Clear patient-specific storage only — same reason as above.
         userTokenStorage.clear();
         setIsPatientSession(false);
         setUser(null);
@@ -176,9 +172,8 @@ export const UserAuthProvider = ({ children }) => {
 
     setAccessToken(token);
     setIsPatientSession(true);
-    userTokenStorage.setToken(token);
     userTokenStorage.setUser(userData);
-    localStorage.setItem('user_had_session', '1');
+    localStorage.setItem(HAD_SESSION_KEY, '1');
     setUser(userData);
     userRestorePromise = null;
     return userData;
@@ -197,7 +192,6 @@ export const UserAuthProvider = ({ children }) => {
     clearAccessToken();
     setIsPatientSession(false);
     userTokenStorage.clear();
-    localStorage.removeItem('user_had_session');
     setUser(null);
     userRestorePromise = null;
   };

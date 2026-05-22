@@ -2,10 +2,11 @@
 node_modules/
 */node_modules/
 
-# Environment variables
+# Environment variables — never commit ANY .env variant except templates.
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.template
 
 # Build outputs
 dist/

@@ -99,9 +99,12 @@ api.interceptors.response.use(
       }
 
       setAccessToken(newToken);
-      if (_isPatientSession) {
-        localStorage.setItem('user_access_token', newToken);
-        if (refreshedUser) localStorage.setItem('user_data', JSON.stringify(refreshedUser));
+      // Patient access token stays in memory only (XSS-hardened). The
+      // HttpOnly refresh cookie is what persists the session across reloads.
+      // We still cache the non-secret user profile so the navbar can paint
+      // instantly on reload.
+      if (_isPatientSession && refreshedUser) {
+        localStorage.setItem('user_data', JSON.stringify(refreshedUser));
       }
       processQueue(null, newToken);
       original.headers.Authorization = `Bearer ${newToken}`;
@@ -123,7 +126,8 @@ api.interceptors.response.use(
           loginUrl = '/user/login';
         }
         tokenStorage.clear();
-        localStorage.removeItem('user_access_token');
+        // No `user_access_token` to clear anymore — patient access token is
+        // memory-only since the XSS hardening pass. Only profile hints remain.
         localStorage.removeItem('user_data');
         localStorage.removeItem('user_had_session');
         window.location.href = loginUrl;
