@@ -202,7 +202,7 @@ export default function CashConfirmModal({ booking, onClose, onSuccess }) {
                     </button>
                     <button
                         onClick={handleSubmit}
-                        disabled={confirmCash.isPending || amount === '' || amount < 0}
+                        disabled={confirmCash.isPending || amount === '' || amount < 1 || amount > expected * 5}
                         style={{
                             background: '#10b981', color: '#fff',
                             border: 'none', padding: '10px 20px',

@@ -82,16 +82,6 @@ export default function ClinicServices() {
 
     const activeCategoryId = subcategoryFilter !== 'all' ? subcategoryFilter : (categoryFilter !== 'all' ? categoryFilter : undefined);
 
-    // Debug logging
-    useEffect(() => {
-        console.log('🔍 Filter Debug:', {
-            categoryFilter,
-            subcategoryFilter,
-            activeCategoryId,
-            search: debouncedSearch,
-        });
-    }, [categoryFilter, subcategoryFilter, activeCategoryId, debouncedSearch]);
-
     const { data: services, isLoading, refetch } = useClinicServices({
         search: debouncedSearch || undefined,
         categoryId: activeCategoryId,
@@ -150,7 +140,6 @@ export default function ClinicServices() {
             setActivatedClinicServiceId(clinicServiceId);
 
             // Step 2: Save customization using the new clinicServiceId
-            console.log('📤 Customization payload:', JSON.stringify(customizationData, null, 2));
             await api.put(`/clinic/services/${clinicServiceId}/customization`, customizationData);
 
             // Step 3: Invalidate all clinic services queries to force refresh

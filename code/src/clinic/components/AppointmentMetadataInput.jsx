@@ -58,8 +58,11 @@ export default function AppointmentMetadataInput({ appointmentId }) {
     setValues((prev) => ({ ...prev, [templateId]: value }));
   };
 
-  const handleSave = (template) => {
-    const value = values[template.id];
+  // Accept an explicit value override so SELECT/CHECKBOX can save the value
+  // they just set without racing the state update (the old setTimeout(100)
+  // hack would still read stale state in slow renders).
+  const handleSave = (template, overrideValue) => {
+    const value = overrideValue !== undefined ? overrideValue : values[template.id];
 
     // Client-side validation
     if (template.validation?.required && !value) {
@@ -117,7 +120,7 @@ export default function AppointmentMetadataInput({ appointmentId }) {
             isRequired={item.isRequired}
             value={values[item.template.id] || ''}
             onChange={(value) => handleChange(item.template.id, value)}
-            onSave={() => handleSave(item.template)}
+            onSave={(overrideValue) => handleSave(item.template, overrideValue)}
             saveStatus={saveStatus[item.template.id]}
           />
         ))}
@@ -152,8 +155,9 @@ function MetadataField({ template, isRequired, value, onChange, onSave, saveStat
           <select
             value={value}
             onChange={(e) => {
-              onChange(e.target.value);
-              setTimeout(onSave, 100);
+              const v = e.target.value;
+              onChange(v);
+              onSave(v);
             }}
             required={isRequired}
           >
@@ -184,8 +188,9 @@ function MetadataField({ template, isRequired, value, onChange, onSave, saveStat
               type="checkbox"
               checked={value === 'true'}
               onChange={(e) => {
-                onChange(e.target.checked ? 'true' : 'false');
-                setTimeout(onSave, 100);
+                const v = e.target.checked ? 'true' : 'false';
+                onChange(v);
+                onSave(v);
               }}
             />
             <span>Ha</span>

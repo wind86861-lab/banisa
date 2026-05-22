@@ -30,7 +30,7 @@ const NAV_GROUPS = [
             { key: 'profile', label: 'Klinika Profili', path: '/clinic/profile', icon: <Building2 size={20} /> },
             { key: 'staff', label: 'Xodimlar', path: '/clinic/staff', icon: <Users size={20} /> },
             { key: 'notifications', label: 'Bildirishnomalar', path: '/clinic/notifications', icon: <Bell size={20} /> },
-            { key: 'reports', label: 'Hisobotlar', path: '/clinic/reports', icon: <BarChart2 size={20} /> },
+            // Reports hidden until built — the page is a placeholder.
         ],
     },
 ];
@@ -40,8 +40,9 @@ function useUnreadCount() {
         queryKey: ['clinic', 'notifications', 'unread-count'],
         queryFn: async () => {
             try {
-                const { data } = await api.get('/clinic/notifications', { params: { isRead: false, limit: 1 } });
-                return data.data?.unreadCount ?? 0;
+                // Dedicated count endpoint — avoids paging through full notif list.
+                const { data } = await api.get('/clinic/notifications/unread-count');
+                return data.data?.count ?? data.data?.unreadCount ?? 0;
             } catch { return 0; }
         },
         refetchInterval: 60_000,

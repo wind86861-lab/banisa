@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
     Search, List, LayoutGrid, Plus, Edit3,
     Trash2, Users, X, RefreshCw,
-    Phone, Stethoscope,
+    Phone, Stethoscope, Loader2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useClinicStaff, useCreateStaff, useUpdateStaff, useDeleteStaff } from '../hooks/useClinicData';

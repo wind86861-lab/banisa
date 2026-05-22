@@ -5,7 +5,7 @@ import {
     Star, Package, AlertCircle, Info, Megaphone,
     Settings, RefreshCw, X, Filter,
     ToggleLeft, ToggleRight, ChevronRight,
-    UserCheck, Wallet, Banknote,
+    UserCheck, Wallet, Banknote, Loader2,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../shared/api/axios';
@@ -315,14 +315,8 @@ export default function ClinicNotifications() {
                     >
                         <RefreshCw size={16} />
                     </button>
-                    <button
-                        className={`ca-icon-btn${view === 'settings' ? ' active' : ''}`}
-                        onClick={() => setView(v => v === 'settings' ? 'history' : 'settings')}
-                        title="Sozlamalar"
-                        style={view === 'settings' ? { background: 'rgba(0,189,224,0.12)', color: 'var(--color-primary)' } : {}}
-                    >
-                        <Settings size={16} />
-                    </button>
+                    {/* Settings panel hidden until the backend endpoint exists —
+                        previously this opened a panel whose Save button hit a 404. */}
                 </div>
             </div>
 

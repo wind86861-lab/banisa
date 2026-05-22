@@ -10,6 +10,7 @@ import { useClinicBookings, useUpdateBookingStatus } from '../hooks/useClinicDat
 import CashConfirmModal from '../components/CashConfirmModal';
 import AppointmentMetadataInput from '../components/AppointmentMetadataInput';
 import BanisaLoader from '../../shared/components/BanisaLoader';
+import { useToast } from '../../shared/components/Toast';
 import './clinic-admin.css';
 
 const STATUS_OPTS = [
@@ -264,6 +265,7 @@ export default function ClinicBookings() {
     const [drawer, setDrawer] = useState(null);
     const [dialog, setDialog] = useState(null);
     const [cashBooking, setCashBooking] = useState(null);
+    const toast = useToast();
 
     const { data, isLoading, refetch } = useClinicBookings({ status, search, page, limit: 20 });
     const updateStatus = useUpdateBookingStatus();
@@ -317,7 +319,7 @@ export default function ClinicBookings() {
                 status: newStatus,
             });
         } catch (e) {
-            alert(e.response?.data?.message || e.message || 'Xatolik');
+            toast.error(e.response?.data?.message || e.message || 'Xatolik');
         }
         setDialog(null);
     };

@@ -13,6 +13,9 @@ const PAGE_TITLES = {
     '/clinic/discounts':  'Chegirmalar',
     '/clinic/staff':      'Xodimlar',
     '/clinic/reports':    'Hisobotlar',
+    '/clinic/notifications': 'Bildirishnomalar',
+    '/clinic/cashier':    'Kassir navbati',
+    '/clinic/checkin-qr': 'Check-in QR',
 };
 
 export default function ClinicTopbar({ toggleSidebar, isSidebarOpen, isDarkMode, toggleTheme }) {

@@ -25,13 +25,16 @@ export default function ClinicCashierQueue() {
     const [confirmTarget, setConfirmTarget] = useState(null);
     const [tick, setTick] = useState(0);
 
-    const { data, isLoading, isFetching, refetch } = useQuery({
+    const { data, isLoading, isFetching, isError, refetch } = useQuery({
         queryKey: ['clinic', 'cashier-queue'],
         queryFn: async () => {
             const res = await api.get('/clinic/appointments/cashier-queue');
             return res.data;
         },
         refetchInterval: 5000,
+        // Stop hammering the API when the tab is hidden — clinic admins often
+        // leave this open in the background; 5s × all tabs adds up fast.
+        refetchIntervalInBackground: false,
         refetchOnWindowFocus: true,
     });
 
@@ -76,6 +79,12 @@ export default function ClinicCashierQueue() {
                     <Loader2 size={28} className="cq-spin" />
                     <p>Yuklanmoqda...</p>
                 </div>
+            ) : isError ? (
+                <div className="cq-empty">
+                    <h3>Navbatni yuklab bo'lmadi</h3>
+                    <p>Internet aloqasini tekshirib, qayta urinib ko'ring.</p>
+                    <button className="cq-refresh" onClick={() => refetch()}>Qayta urinish</button>
+                </div>
             ) : sorted.length === 0 ? (
                 <div className="cq-empty">
                     <CheckCircle2 size={36} style={{ color: '#10b981' }} />
@@ -88,7 +97,11 @@ export default function ClinicCashierQueue() {
                         const min = waitedMinutes(a.checkedInAt);
                         const cls = urgencyClass(min);
                         const fullName = [a.patient?.firstName, a.patient?.lastName].filter(Boolean).join(' ') || a.patient?.phone || 'Bemor';
-                        const svc = a.diagnosticService?.nameUz || a.surgicalService?.nameUz || 'Xizmat';
+                        const svc = a.diagnosticService?.nameUz
+                            || a.surgicalService?.nameUz
+                            || a.checkupPackage?.nameUz
+                            || a.sanatoriumService?.nameUz
+                            || 'Xizmat';
                         const finalP = a.finalPrice || a.price || 0;
                         return (
                             <div key={a.id} data-appt={a.id} className={`cq-row ${cls}`}>
