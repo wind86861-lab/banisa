@@ -83,7 +83,7 @@ export default function UserFavoritesPage() {
                                                 <strong>{fmtSum(it.service.price)} <span>so'm</span></strong>
                                                 <button
                                                     className="uf-book-btn"
-                                                    onClick={() => navigate(`/xizmatlar?focus=${it.serviceId}`)}
+                                                    onClick={() => navigate(`/xizmatlar/${it.serviceId}`)}
                                                 >
                                                     Ko'rish
                                                 </button>

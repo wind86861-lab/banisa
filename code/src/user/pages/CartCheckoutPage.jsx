@@ -182,7 +182,12 @@ export default function CartCheckoutPage() {
                 });
             }
         } catch (err) {
-            setError(err.response?.data?.error?.message || err.response?.data?.message || 'Xatolik yuz berdi');
+            const status = err.response?.status;
+            if (status === 401 || status === 403) {
+                setError("Bron qilish uchun bemor hisobi bilan tizimga kirishingiz kerak. Iltimos, qayta kiring.");
+            } else {
+                setError(err.response?.data?.error?.message || err.response?.data?.message || 'Xatolik yuz berdi');
+            }
         } finally {
             setSubmitting(false);
         }

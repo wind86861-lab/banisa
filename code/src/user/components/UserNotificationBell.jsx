@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Bell, Check, X } from 'lucide-react';
 import api from '../../shared/api/axios';
+import { useUserAuth } from '../../shared/auth/UserAuthContext';
 
 // Poll cadence: 10s when tab visible, 60s when hidden.
 const ACTIVE_INTERVAL = 10000;
@@ -22,20 +23,29 @@ function fmtRelative(iso) {
 export default function UserNotificationBell() {
     const navigate = useNavigate();
     const qc = useQueryClient();
+    const { user } = useUserAuth();
     const [open, setOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const panelRef = useRef(null);
     const etagRef = useRef(localStorage.getItem(STORAGE_KEY) || '');
     const lastCountRef = useRef(0);
+    // Hard stop once we see auth failure — otherwise we'd spam 403s every 10s
+    // for the whole session (e.g. clinic_admin viewing a public page).
+    const stoppedRef = useRef(false);
+
+    const isPatient = user?.role === 'PATIENT';
 
     const tick = useCallback(async () => {
-        if (!navigator.onLine) return;
+        if (!navigator.onLine || stoppedRef.current || !isPatient) return;
         try {
             const res = await api.get('/user/notifications/unread-count', {
                 headers: etagRef.current ? { 'If-None-Match': etagRef.current } : {},
                 validateStatus: (s) => s === 200 || s === 304 || s === 401 || s === 403,
             });
-            if (res.status >= 400) return; // not authorized → silently stop
+            if (res.status === 401 || res.status === 403) {
+                stoppedRef.current = true; // permanent stop until reload
+                return;
+            }
             if (res.status === 304) return;
             const newEtag = res.headers?.etag || res.headers?.ETag;
             if (newEtag) {
@@ -51,13 +61,14 @@ export default function UserNotificationBell() {
         } catch {
             /* silent */
         }
-    }, [qc]);
+    }, [qc, isPatient]);
 
     useEffect(() => {
+        if (!isPatient) return; // skip the polling loop entirely for non-patients
         let timer = null;
         let stopped = false;
         const loop = () => {
-            if (stopped) return;
+            if (stopped || stoppedRef.current) return;
             tick();
             timer = setTimeout(loop, document.hidden ? IDLE_INTERVAL : ACTIVE_INTERVAL);
         };
@@ -65,7 +76,10 @@ export default function UserNotificationBell() {
         const onVis = () => { if (timer) clearTimeout(timer); loop(); };
         document.addEventListener('visibilitychange', onVis);
         return () => { stopped = true; if (timer) clearTimeout(timer); document.removeEventListener('visibilitychange', onVis); };
-    }, [tick]);
+    }, [tick, isPatient]);
+
+    // Render nothing for non-patients — defence in depth on top of Navigation's gate.
+    if (!isPatient) return null;
 
     const { data, isLoading } = useQuery({
         queryKey: ['user', 'notifications', 'recent'],
