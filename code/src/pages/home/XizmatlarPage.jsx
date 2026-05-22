@@ -54,7 +54,7 @@ const SORT_OPTIONS = [
 ];
 
 function formatPrice(num) {
-    return num.toLocaleString('uz-UZ');
+    return Number(num || 0).toLocaleString('uz-UZ');
 }
 
 function StarRating({ rating }) {

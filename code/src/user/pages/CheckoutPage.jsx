@@ -6,9 +6,8 @@ import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
 import BanisaLoader from '../../shared/components/BanisaLoader';
+import { fmtSum as fmt } from '../../shared/utils/format';
 import './css/CheckoutPage.css';
-
-const fmt = (n) => n ? Number(n).toLocaleString('uz-UZ') : '0';
 
 export default function CheckoutPage() {
     const location = useLocation();
@@ -34,6 +33,13 @@ export default function CheckoutPage() {
 
     const { clinic, service, selectedDate, selectedTime, notes, serviceType, serviceId } = bookingData;
 
+    // Pricing: `clinic.price` is the discounted final price; `clinic.originalPrice`
+    // is the pre-discount one (only set when discount > 0). Show the gap honestly
+    // instead of hardcoding "-0 so'm".
+    const finalPrice = Number(clinic?.price) || 0;
+    const originalPrice = Number(clinic?.originalPrice) || finalPrice;
+    const discount = Math.max(0, originalPrice - finalPrice);
+
     const handleCheckout = async () => {
         setError('');
         try {
@@ -45,7 +51,10 @@ export default function CheckoutPage() {
                 surgicalServiceId: serviceType === 'SURGICAL' ? serviceId : undefined,
                 scheduledAt,
                 notes: notes || undefined,
-                price: clinic.price || 0,
+                // Backend re-applies clinic.defaultDiscountPercent in computePricing,
+                // so we MUST send the pre-discount original price. Sending the already
+                // discounted clinic.price double-applies the discount.
+                price: originalPrice,
             });
             if (paymentMethod === 'naqd') {
                 navigate(`/user/appointments/${appointment.id}`);
@@ -134,16 +143,18 @@ export default function CheckoutPage() {
                             <div className="co-price-breakdown">
                                 <div className="co-price-row">
                                     <span>Xizmat narxi</span>
-                                    <span>{fmt(clinic?.price)} so'm</span>
+                                    <span>{fmt(originalPrice)} so'm</span>
                                 </div>
-                                <div className="co-price-row">
-                                    <span>Chegirma</span>
-                                    <span className="co-green">-0 so'm</span>
-                                </div>
+                                {discount > 0 && (
+                                    <div className="co-price-row">
+                                        <span>Chegirma</span>
+                                        <span className="co-green">−{fmt(discount)} so'm</span>
+                                    </div>
+                                )}
                                 <div className="co-price-divider" />
                                 <div className="co-price-row co-price-total">
                                     <span>Jami</span>
-                                    <span>{fmt(clinic?.price)} so'm</span>
+                                    <span>{fmt(finalPrice)} so'm</span>
                                 </div>
                             </div>
 

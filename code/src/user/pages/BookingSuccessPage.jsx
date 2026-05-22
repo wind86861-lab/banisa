@@ -3,9 +3,8 @@ import { CheckCircle2, Calendar, Building2, Clock, CreditCard, ArrowRight, Home 
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
+import { fmtSum as fmt } from '../../shared/utils/format';
 import './css/BookingSuccess.css';
-
-const fmt = (n) => n ? Number(n).toLocaleString('uz-UZ') : '0';
 
 export default function BookingSuccessPage() {
     const location = useLocation();
@@ -30,9 +29,12 @@ export default function BookingSuccessPage() {
         })
         : '—';
 
+    // Show what the patient actually pays — `finalPrice` already has the
+    // clinic discount applied; fall back to gross `price` only if missing.
+    const apptCharged = (a) => a.finalPrice ?? a.price ?? 0;
     const totalPrice = cartCheckout
-        ? appointments.reduce((sum, a) => sum + (a.price || 0), 0)
-        : appointment.price;
+        ? appointments.reduce((sum, a) => sum + apptCharged(a), 0)
+        : apptCharged(appointment);
 
     return (
         <div className="home-page">
@@ -103,7 +105,7 @@ export default function BookingSuccessPage() {
                                     <span className="bs-detail-label">
                                         <CreditCard size={14} /> Narx
                                     </span>
-                                    <span className="bs-detail-value bs-price">{fmt(appointment.price)} so'm</span>
+                                    <span className="bs-detail-value bs-price">{fmt(apptCharged(appointment))} so'm</span>
                                 </div>
                             </>
                         )}

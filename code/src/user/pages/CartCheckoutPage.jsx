@@ -270,14 +270,22 @@ export default function CartCheckoutPage() {
                                     <span>Klinikalar</span>
                                     <span>{cart.length} ta</span>
                                 </div>
-                                <div className="co-price-row">
-                                    <span>Chegirma</span>
-                                    <span className="co-green">-0 so'm</span>
-                                </div>
+                                {paymentMethod === 'naqd' && cashSavings > 0 && (
+                                    <>
+                                        <div className="co-price-row">
+                                            <span>Oraliq jami</span>
+                                            <span>{fmt(grandTotal)} so'm</span>
+                                        </div>
+                                        <div className="co-price-row">
+                                            <span>Naqd chegirma ({minCashPct}%)</span>
+                                            <span className="co-green">−{fmt(cashSavings)} so'm</span>
+                                        </div>
+                                    </>
+                                )}
                                 <div className="co-price-divider" />
                                 <div className="co-price-row co-price-total">
                                     <span>Jami</span>
-                                    <span>{fmt(grandTotal)} so'm</span>
+                                    <span>{fmt(paymentMethod === 'naqd' ? cashTotal : grandTotal)} so'm</span>
                                 </div>
                             </div>
 

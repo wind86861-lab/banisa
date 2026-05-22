@@ -1,6 +1,14 @@
 // Patient-facing display helpers. Used across booking/check-in/ticket pages.
 
-export const fmtSum = (n) => (n ? Number(n).toLocaleString('uz-UZ') : '0');
+// Distinguish "we don't have a price" (—) from "price is exactly zero" (0).
+// The old `n ? … : '0'` collapsed null/undefined/NaN/0 into the same "0"
+// which masked field-name mismatches and made free items unclear.
+export const fmtSum = (n) => {
+    if (n == null) return '—';
+    const num = Number(n);
+    if (Number.isNaN(num)) return '—';
+    return num.toLocaleString('uz-UZ');
+};
 
 // "+998901234567" -> "+998 90 123 45 67". Tolerates already-formatted input.
 export function fmtPhone(raw) {
