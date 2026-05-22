@@ -107,56 +107,60 @@ export class AppointmentService {
             if (!svc) throw new AppError('Xizmat topilmadi', 404, ErrorCodes.NOT_FOUND);
         }
 
-        // 3. Check duplicate same-day booking
+        // 3+6. Duplicate check + create inside one Serializable transaction so
+        // two concurrent requests for the same patient/clinic/day can't both
+        // pass the duplicate check and produce twin bookings.
         const scheduledDate = new Date(data.scheduledAt);
         const dayStart = new Date(scheduledDate);
         dayStart.setHours(0, 0, 0, 0);
         const dayEnd = new Date(scheduledDate);
         dayEnd.setHours(23, 59, 59, 999);
-        const existing = await prisma.appointment.findFirst({
-            where: {
-                patientId,
-                clinicId: data.clinicId,
-                scheduledAt: { gte: dayStart, lte: dayEnd },
-                status: {
-                    notIn: ['CANCELLED', 'NO_SHOW', 'COMPLETED', 'RESCHEDULED'],
-                },
-            },
-            include: INCLUDE_FULL,
-        });
-        if (existing) {
-            return existing; // idempotent — returns existing pending booking
-        }
 
-        // 4. Compute pricing (discount from clinic default)
         const pricing = computePricing(data.price, clinic.defaultDiscountPercent);
-
-        // 5. Generate booking number + QR token
         const bookingNumber = await generateBookingNumber();
         const qrToken = generateQrToken();
 
-        // 6. Create
-        const appointment = await prisma.appointment.create({
-            data: {
-                bookingNumber,
-                clinicId: data.clinicId,
-                patientId,
-                serviceType: data.serviceType,
-                diagnosticServiceId: data.diagnosticServiceId,
-                surgicalServiceId: data.surgicalServiceId,
-                scheduledAt: scheduledDate,
-                status: 'PENDING',
-                price: data.price,
-                notes: data.notes,
-                qrToken,
-                discountPercent: pricing.discountPercent,
-                discountAmount: pricing.discountAmount,
-                finalPrice: pricing.finalPrice,
-                commissionRate: clinic.commissionRate,
-                paymentStatus: 'UNPAID',
-            },
-            include: INCLUDE_FULL,
-        });
+        const appointment = await prisma.$transaction(async (tx) => {
+            const existing = await tx.appointment.findFirst({
+                where: {
+                    patientId,
+                    clinicId: data.clinicId,
+                    scheduledAt: { gte: dayStart, lte: dayEnd },
+                    status: {
+                        notIn: ['CANCELLED', 'NO_SHOW', 'COMPLETED', 'RESCHEDULED'],
+                    },
+                },
+                include: INCLUDE_FULL,
+            });
+            if (existing) return existing; // idempotent
+
+            return tx.appointment.create({
+                data: {
+                    bookingNumber,
+                    clinicId: data.clinicId,
+                    patientId,
+                    serviceType: data.serviceType,
+                    diagnosticServiceId: data.diagnosticServiceId,
+                    surgicalServiceId: data.surgicalServiceId,
+                    scheduledAt: scheduledDate,
+                    status: 'PENDING',
+                    price: data.price,
+                    notes: data.notes,
+                    qrToken,
+                    discountPercent: pricing.discountPercent,
+                    discountAmount: pricing.discountAmount,
+                    finalPrice: pricing.finalPrice,
+                    commissionRate: clinic.commissionRate,
+                    paymentStatus: 'UNPAID',
+                },
+                include: INCLUDE_FULL,
+            });
+        }, { isolationLevel: 'Serializable' });
+
+        // If the row was already there, skip the audit log + early return.
+        if ((appointment as any).bookingNumber !== bookingNumber) {
+            return appointment;
+        }
 
         await logAppointmentEvent({
             appointmentId: appointment.id,

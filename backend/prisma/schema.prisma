@@ -731,6 +731,7 @@ model PaymeTransaction {
   @@index([paymeId])
   @@index([orderId])
   @@index([state])
+  @@index([orderId, state])
 }
 
 model ClinicRegistrationPerson {

@@ -76,10 +76,22 @@ app.set('trust proxy', 1);
 // Global rate limiter — 100 req / 15 min per IP (VULN-02)
 app.use('/api/', apiLimiter);
 
-// Logic Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Logic Middleware — explicit body limits so a single oversized payload
+// can't tie up event loop / memory (uploads use multer, not express.json).
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(cookieParser()); // required for HttpOnly refresh-token cookie (VULN-03)
+
+// Lightweight healthcheck for nginx / PM2 / uptime monitors.
+app.get('/api/health', async (_req, res) => {
+    try {
+        const prisma = (await import('./config/database')).default;
+        await prisma.$queryRaw`SELECT 1`;
+        res.json({ ok: true, ts: Date.now() });
+    } catch {
+        res.status(503).json({ ok: false });
+    }
+});
 
 // Static file serving (uploaded documents, logos, licenses)
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

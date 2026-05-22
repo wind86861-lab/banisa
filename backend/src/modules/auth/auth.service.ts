@@ -20,8 +20,11 @@ export const generateRefreshToken = (payload: { id: string }): string =>
     jwt.sign(payload, env.JWT_REFRESH_SECRET as jwt.Secret, { expiresIn: '7d' } as jwt.SignOptions);
 
 export const register = async (userData: any) => {
-    const existingUser = await prisma.user.findUnique({
-        where: { phone: userData.phone },
+    // Normalize at the boundary — login normalizes too, so storing the raw
+    // user input lets duplicate accounts slip in with different spacing.
+    const normalizedPhone = normalizePhone(userData.phone);
+    const existingUser = await prisma.user.findFirst({
+        where: { OR: [{ phone: normalizedPhone }, { phone: userData.phone }] },
     });
 
     if (existingUser) {
@@ -32,7 +35,7 @@ export const register = async (userData: any) => {
 
     const user = await prisma.user.create({
         data: {
-            phone: userData.phone,
+            phone: normalizedPhone,
             email: userData.email,
             passwordHash: hashedPassword,
             firstName: userData.firstName,

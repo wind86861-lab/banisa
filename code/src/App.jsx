@@ -7,6 +7,7 @@ import { CartProvider } from './contexts/CartContext';
 import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect, UserGuard, UserPublicOnlyGuard } from './shared/auth/guards';
 import ScrollToTop from './components/ScrollToTop';
 import { ToastProvider } from './shared/components/Toast';
+import ErrorBoundary from './shared/components/ErrorBoundary';
 
 // Admin pages
 import NotFoundPage from './shared/pages/NotFoundPage';
@@ -105,6 +106,7 @@ function AdminLayout() {
 
 function App() {
     return (
+        <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
             <ToastProvider>
                 <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -232,6 +234,7 @@ function App() {
                 </Router>
             </ToastProvider>
         </QueryClientProvider>
+        </ErrorBoundary>
     );
 }
 
