@@ -93,14 +93,20 @@ export default function XizmatDetailPage() {
         if (result.success) {
             const notification = document.createElement('div');
             notification.className = 'xd-cart-notification';
-            notification.innerHTML = `
-                <div class="xd-cart-notification-content">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                    <span>Savatga qo'shildi!</span>
-                </div>
-            `;
+            const inner = document.createElement('div');
+            inner.className = 'xd-cart-notification-content';
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNS, 'svg');
+            svg.setAttribute('width', '20'); svg.setAttribute('height', '20');
+            svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
+            svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2');
+            const poly = document.createElementNS(svgNS, 'polyline');
+            poly.setAttribute('points', '20 6 9 17 4 12');
+            svg.appendChild(poly);
+            const span = document.createElement('span');
+            span.textContent = "Savatga qo'shildi!";
+            inner.appendChild(svg); inner.appendChild(span);
+            notification.appendChild(inner);
             document.body.appendChild(notification);
             setTimeout(() => notification.classList.add('show'), 10);
             setTimeout(() => {

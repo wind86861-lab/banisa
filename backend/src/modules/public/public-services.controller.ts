@@ -4,8 +4,9 @@ import prisma from '../../config/database';
 import { getServiceById as getDiagnosticById } from '../diagnostics/diagnostics.service';
 
 /** Parse the `meta` query param: a JSON object of templateKey -> constraint.
- *  Constraint is either a string[] (allowed values) or { min?, max? } for numbers. */
-function parseMetaFilter(raw: unknown): Record<string, string[] | { min?: number; max?: number }> {
+ *  Constraint is either a string[] (allowed values), { value: number } for
+ *  range-template containment, or { min?, max? } for legacy range-on-patient-side. */
+function parseMetaFilter(raw: unknown): Record<string, any> {
     if (!raw) return {};
     try {
         const parsed = JSON.parse(String(raw));
@@ -15,7 +16,7 @@ function parseMetaFilter(raw: unknown): Record<string, string[] | { min?: number
     }
 }
 
-type MetaRow = { template: { key: string }; value: string };
+type MetaRow = { template: { key: string; inputType?: string }; value: string; valueMax?: string | null };
 
 /** True when this clinic-service's metadata satisfies every active filter (AND). */
 function passesMetaFilter(
@@ -29,12 +30,23 @@ function passesMetaFilter(
         const constraint = metaFilter[key];
         if (Array.isArray(constraint)) {
             if (!constraint.map(String).includes(row.value)) return false;
-        } else {
-            const num = Number(row.value);
-            if (Number.isNaN(num)) return false;
-            if (constraint.min != null && num < Number(constraint.min)) return false;
-            if (constraint.max != null && num > Number(constraint.max)) return false;
+            continue;
         }
+        // Range template (clinic stored min=value, max=valueMax). Patient sent
+        // a single number under `.value`. Match if patient's value falls in [min, max].
+        if (constraint && constraint.value != null) {
+            const patientVal = Number(constraint.value);
+            const clinicMin = Number(row.value);
+            const clinicMax = row.valueMax != null ? Number(row.valueMax) : Infinity;
+            if (Number.isNaN(patientVal) || Number.isNaN(clinicMin)) return false;
+            if (patientVal < clinicMin || patientVal > clinicMax) return false;
+            continue;
+        }
+        // Legacy fallback: patient sent {min, max} and clinic stored a single value.
+        const num = Number(row.value);
+        if (Number.isNaN(num)) return false;
+        if (constraint.min != null && num < Number(constraint.min)) return false;
+        if (constraint.max != null && num > Number(constraint.max)) return false;
     }
     return true;
 }
@@ -213,6 +225,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                         key: r.template.key,
                         label: r.template.labelUz,
                         value: r.value,
+                        valueMax: (r as any).valueMax ?? null,
                         unit: r.template.unit,
                         inputType: r.template.inputType,
                         category: r.template.category,
@@ -360,8 +373,12 @@ export const getPublicServiceFilters = async (_req: Request, res: Response, next
                 byTemplate.set(t.id, facet);
             }
             facet.values.add(row.value);
-            const n = Number(row.value);
-            if (!Number.isNaN(n)) facet.nums.push(n);
+            // For NUMBER (range) templates: collect both ends so the facet
+            // bounds span every clinic's accepted range.
+            const lo = Number(row.value);
+            const hi = (row as any).valueMax != null ? Number((row as any).valueMax) : lo;
+            if (!Number.isNaN(lo)) facet.nums.push(lo);
+            if (!Number.isNaN(hi)) facet.nums.push(hi);
         }
 
         const data = [...byTemplate.values()].map(f => ({
@@ -372,6 +389,8 @@ export const getPublicServiceFilters = async (_req: Request, res: Response, next
             inputType: f.inputType,
             category: f.category,
             options: f.inputType === 'NUMBER' ? [] : [...f.values].sort(),
+            // NUMBER templates: patient enters a single value; bounds come from
+            // the union of all clinic ranges so the input can suggest sane min/max.
             range: f.inputType === 'NUMBER' && f.nums.length
                 ? { min: Math.min(...f.nums), max: Math.max(...f.nums) }
                 : null,

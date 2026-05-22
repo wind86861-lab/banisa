@@ -78,6 +78,30 @@ export const clinicAppointmentController = {
         }
     },
 
+    // Real-time cashier queue: AWAITING_CASH (CHECKED_IN + UNPAID + CASH).
+    cashierQueue: async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            const { clinicId } = await resolveClinicActor(req);
+            const items = await prisma.appointment.findMany({
+                where: {
+                    clinicId,
+                    status: 'CHECKED_IN',
+                    paymentStatus: 'UNPAID',
+                    paymentMethod: 'CASH',
+                },
+                orderBy: { checkedInAt: 'asc' },
+                include: {
+                    patient: { select: { id: true, firstName: true, lastName: true, phone: true } },
+                    diagnosticService: { select: { id: true, nameUz: true } },
+                    surgicalService: { select: { id: true, nameUz: true } },
+                },
+            });
+            sendSuccess(res, items, { total: items.length });
+        } catch (err) {
+            next(err);
+        }
+    },
+
     accept: async (req: AuthRequest, res: Response, next: NextFunction) => {
         try {
             const { clinicId, actor } = await resolveClinicActor(req);

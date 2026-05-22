@@ -154,11 +154,18 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
     const upsertMut = useUpsertCustomization();
     const deleteMut = useDeleteCustomization();
 
-    // Seed metadata inputs from saved values once templates load
+    // Seed metadata inputs from saved values once templates load.
+    // For NUMBER (range) templates we store {value, valueMax}; for others a plain string.
     useEffect(() => {
         if (!open || !Array.isArray(linkedMetadata)) return;
         const init = {};
-        linkedMetadata.forEach(m => { init[m.id] = m.currentValue ?? ''; });
+        linkedMetadata.forEach(m => {
+            if (m.inputType === 'NUMBER') {
+                init[m.id] = { value: m.currentValue ?? '', valueMax: m.currentValueMax ?? '' };
+            } else {
+                init[m.id] = m.currentValue ?? '';
+            }
+        });
         setMetadataValues(init);
     }, [linkedMetadata, open]);
 
@@ -166,13 +173,15 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
         setMetadataValues(prev => ({ ...prev, [templateId]: value }));
 
     // Persist metadata values for this service (keyed clinic-side by auth).
-    // Throws on validation error so the caller can surface it.
     const saveMetadata = async () => {
         if (!service?.id || !Array.isArray(linkedMetadata) || linkedMetadata.length === 0) return;
-        const values = linkedMetadata.map(m => ({
-            templateId: m.id,
-            value: metadataValues[m.id] ?? '',
-        }));
+        const values = linkedMetadata.map(m => {
+            const v = metadataValues[m.id];
+            if (m.inputType === 'NUMBER') {
+                return { templateId: m.id, value: v?.value ?? '', valueMax: v?.valueMax ?? '' };
+            }
+            return { templateId: m.id, value: v ?? '' };
+        });
         await api.put(`/clinic/services/${service.id}/metadata-values`, { values });
     };
 
@@ -182,6 +191,9 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
         const missing = linkedMetadata.find(m => {
             if (!m.isRequired) return false;
             const val = metadataValues[m.id];
+            if (m.inputType === 'NUMBER') {
+                return !val || String(val.value ?? '').trim() === '' || String(val.valueMax ?? '').trim() === '';
+            }
             return val === undefined || val === null || String(val).trim() === '';
         });
         return missing ? missing.labelUz : null;

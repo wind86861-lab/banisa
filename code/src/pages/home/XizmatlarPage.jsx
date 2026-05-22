@@ -4,7 +4,7 @@ import {
     Search, SlidersHorizontal, X, ChevronDown, ChevronRight,
     LayoutGrid, List, Star, Users, Clock, MapPin, ArrowUpRight,
     Stethoscope, Activity, Leaf, Package, Home, ChevronLeft,
-    Filter, Loader2, ShoppingCart
+    Filter, Loader2, ShoppingCart, Heart
 } from 'lucide-react';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
@@ -13,6 +13,7 @@ import BanisaLoader from '../../shared/components/BanisaLoader';
 import { usePublicServices } from '../../hooks/usePublicServices';
 import { useCart } from '../../contexts/CartContext';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
+import { useFavoriteIds, useToggleFavorite } from '../../user/hooks/useFavorites';
 import './css/base.css';
 import './css/XizmatlarPage.css';
 
@@ -75,7 +76,7 @@ const FALLBACK_IMAGES = {
     checkup: '/images/default-checkup.svg',
 };
 
-function ServiceCard({ service, listView, onAddToCart, isLoggedIn }) {
+function ServiceCard({ service, listView, onAddToCart, isLoggedIn, favoriteIds, onToggleFavorite }) {
     const cat = CATEGORIES.find(c => c.id === service.category);
 
     // Fix image URL - add backend base URL if it's a relative path
@@ -105,6 +106,24 @@ function ServiceCard({ service, listView, onAddToCart, isLoggedIn }) {
                     {cat && <cat.icon size={11} />}
                     {cat?.label?.split(' ')[0]}
                 </span>
+                {isLoggedIn && (() => {
+                    const stype = service.category === 'jarrohlik' ? 'SURGICAL' : 'DIAGNOSTIC';
+                    const isFav = favoriteIds?.has(`${stype}:${service.serviceId || service.id}`);
+                    return (
+                        <button
+                            className={`xp-card-fav${isFav ? ' active' : ''}`}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onToggleFavorite?.({ serviceType: stype, serviceId: service.serviceId || service.id });
+                            }}
+                            title={isFav ? 'Sevimlilardan olib tashlash' : 'Sevimlilarga qo\'shish'}
+                            aria-label="Sevimli"
+                        >
+                            <Heart size={16} fill={isFav ? '#ef4444' : 'none'} />
+                        </button>
+                    );
+                })()}
             </div>
             <div className="xp-card-body">
                 <h3 className="xp-card-title">{service.title}</h3>
@@ -156,7 +175,58 @@ function ServiceCard({ service, listView, onAddToCart, isLoggedIn }) {
     );
 }
 
-function FilterGroup({ title, children, defaultOpen = true }) {
+// Compact page list with ellipses. Returns [1, '...', 4, 5, 6, '...', 12].
+function compactPages(current, total) {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const pages = new Set([1, total, current, current - 1, current + 1]);
+    if (current <= 3) [2, 3, 4].forEach(p => pages.add(p));
+    if (current >= total - 2) [total - 1, total - 2, total - 3].forEach(p => pages.add(p));
+    const sorted = [...pages].filter(p => p >= 1 && p <= total).sort((a, b) => a - b);
+    const result = [];
+    for (let i = 0; i < sorted.length; i++) {
+        result.push(sorted[i]);
+        if (i < sorted.length - 1 && sorted[i + 1] - sorted[i] > 1) result.push('…');
+    }
+    return result;
+}
+
+// Pill button with a floating popover. Click outside or Esc to close.
+function FilterDropdown({ label, count = 0, icon = null, children, width = 280, align = 'start' }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+    useEffect(() => {
+        if (!open) return;
+        const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+        document.addEventListener('mousedown', onDoc);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onDoc);
+            document.removeEventListener('keydown', onKey);
+        };
+    }, [open]);
+    return (
+        <div className="xp-fd" ref={ref}>
+            <button
+                type="button"
+                className={`xp-fd-btn${count > 0 ? ' has-count' : ''}${open ? ' open' : ''}`}
+                onClick={() => setOpen(v => !v)}
+            >
+                {icon}
+                <span>{label}</span>
+                {count > 0 && <span className="xp-fd-count">{count}</span>}
+                <ChevronDown size={14} className={`xp-fd-chev${open ? ' open' : ''}`} />
+            </button>
+            {open && (
+                <div className={`xp-fd-pop xp-fd-pop--${align}`} style={{ width }}>
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function FilterGroup({ title, count, children, defaultOpen = true }) {
     const [open, setOpen] = useState(defaultOpen);
     return (
         <div className="xp-filter-group">
@@ -164,10 +234,138 @@ function FilterGroup({ title, children, defaultOpen = true }) {
                 className={`xp-filter-group-title${!open ? ' collapsed' : ''}`}
                 onClick={() => setOpen(!open)}
             >
-                {title}
-                <ChevronDown size={14} />
+                <span className="xp-fg-title-text">{title}</span>
+                {count > 0 && <span className="xp-fg-active-badge">{count}</span>}
+                <ChevronDown size={14} className="xp-fg-chev" />
             </div>
-            {open && children}
+            {open && <div className="xp-fg-body">{children}</div>}
+        </div>
+    );
+}
+
+// Reusable checkbox filter list with optional search + show-more, keeping
+// the user-selected items pinned to the top regardless of the search query.
+function CheckboxFilterList({ options, selected, onToggle, searchable = false, initialLimit = 6, renderLabel }) {
+    const [q, setQ] = useState('');
+    const [expanded, setExpanded] = useState(false);
+    const norm = q.trim().toLowerCase();
+    const filtered = norm ? options.filter(o => (o.label || o.value || '').toLowerCase().includes(norm)) : options;
+    const sorted = [...filtered].sort((a, b) => {
+        const aSel = selected.includes(a.id ?? a.value) ? 0 : 1;
+        const bSel = selected.includes(b.id ?? b.value) ? 0 : 1;
+        if (aSel !== bSel) return aSel - bSel;
+        return (b.count || 0) - (a.count || 0);
+    });
+    const showSearch = searchable && options.length > initialLimit;
+    const showAll = expanded || !!norm || sorted.length <= initialLimit;
+    const visible = showAll ? sorted : sorted.slice(0, initialLimit);
+    const hiddenCount = sorted.length - visible.length;
+
+    return (
+        <>
+            {showSearch && (
+                <div className="xp-fg-search">
+                    <Search size={12} />
+                    <input
+                        type="text"
+                        value={q}
+                        onChange={e => setQ(e.target.value)}
+                        placeholder="Qidirish..."
+                    />
+                    {q && (
+                        <button onClick={() => setQ('')} aria-label="Tozalash">
+                            <X size={12} />
+                        </button>
+                    )}
+                </div>
+            )}
+            <div className="xp-filter-options">
+                {visible.map(opt => {
+                    const id = opt.id ?? opt.value;
+                    const checked = selected.includes(id);
+                    const off = (opt.count === 0) && !checked;
+                    return (
+                        <label key={id} className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
+                            <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={off}
+                                onChange={() => onToggle(id)}
+                            />
+                            <span className="xp-filter-option-label">
+                                {renderLabel ? renderLabel(opt) : (opt.label || opt.value)}
+                            </span>
+                            <span className="xp-filter-option-count">{opt.count}</span>
+                        </label>
+                    );
+                })}
+                {!norm && hiddenCount > 0 && (
+                    <button className="xp-fg-more" onClick={() => setExpanded(true)}>
+                        +{hiddenCount} ko'proq ko'rsatish
+                    </button>
+                )}
+                {expanded && sorted.length > initialLimit && (
+                    <button className="xp-fg-more" onClick={() => setExpanded(false)}>
+                        Yopish
+                    </button>
+                )}
+                {norm && visible.length === 0 && (
+                    <div className="xp-fg-empty">Hech narsa topilmadi</div>
+                )}
+            </div>
+        </>
+    );
+}
+
+// Clickable star rating filter — pick exact min rating like Booking.com.
+function StarRatingFilter({ value, onChange, counts = {} }) {
+    const opts = [
+        { val: 5, label: '5★' },
+        { val: 4, label: '4★+' },
+        { val: 3, label: '3★+' },
+        { val: 0, label: 'Barchasi' },
+    ];
+    return (
+        <div className="xp-rating-pills">
+            {opts.map(o => {
+                const active = value === o.val;
+                return (
+                    <button
+                        key={o.val}
+                        type="button"
+                        className={`xp-rating-pill${active ? ' active' : ''}`}
+                        onClick={() => onChange(o.val)}
+                    >
+                        <span>{o.label}</span>
+                        <span className="xp-rating-pill-count">{counts[o.val] || 0}</span>
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
+// Dual-thumb price range slider — keeps min and max independent.
+function DualRangeSlider({ min, max, value, step, onChange }) {
+    const lo = value.lo ?? min;
+    const hi = value.hi ?? max;
+    const pctLo = max > min ? ((lo - min) / (max - min)) * 100 : 0;
+    const pctHi = max > min ? ((hi - min) / (max - min)) * 100 : 100;
+    return (
+        <div className="xp-dual-range">
+            <div className="xp-dual-track">
+                <div className="xp-dual-fill" style={{ left: `${pctLo}%`, right: `${100 - pctHi}%` }} />
+            </div>
+            <input
+                type="range" min={min} max={max} step={step} value={lo}
+                onChange={e => onChange({ lo: Math.min(Number(e.target.value), hi), hi })}
+                className="xp-dual-thumb"
+            />
+            <input
+                type="range" min={min} max={max} step={step} value={hi}
+                onChange={e => onChange({ lo, hi: Math.max(Number(e.target.value), lo) })}
+                className="xp-dual-thumb"
+            />
         </div>
     );
 }
@@ -364,6 +562,8 @@ export default function XizmatlarPage() {
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useUserAuth();
+    const { set: favoriteIds } = useFavoriteIds();
+    const toggleFavMut = useToggleFavorite();
     const { addToCart } = useCart();
     const [activeCategory, setActiveCategory] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
@@ -371,10 +571,12 @@ export default function XizmatlarPage() {
     const [selectedAvailability, setSelectedAvailability] = useState([]);
     const [minRating, setMinRating] = useState(0);
     const [priceMax, setPriceMax] = useState(null); // null = use pool max
+    const [priceMin, setPriceMin] = useState(null); // null = use pool min
     const [metaFilters, setMetaFilters] = useState({}); // { [templateKey]: string[] }
     const [sortBy, setSortBy] = useState('popular');
     const [viewMode, setViewMode] = useState('grid');
     const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+    const [advancedOpen, setAdvancedOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedLocations, setSelectedLocations] = useState([]);
 
@@ -403,17 +605,24 @@ export default function XizmatlarPage() {
 
         const result = await addToCart(clinicId, serviceType, service.serviceId || service.id, 1);
         if (result.success) {
-            // Show success notification
+            // Build toast nodes via the DOM API instead of innerHTML to avoid
+            // any HTML injection if class names / messages ever come from data.
             const notification = document.createElement('div');
             notification.className = 'xp-cart-notification';
-            notification.innerHTML = `
-                <div class="xp-cart-notification-content">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                    <span>Savatga qo'shildi!</span>
-                </div>
-            `;
+            const inner = document.createElement('div');
+            inner.className = 'xp-cart-notification-content';
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNS, 'svg');
+            svg.setAttribute('width', '20'); svg.setAttribute('height', '20');
+            svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
+            svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2');
+            const poly = document.createElementNS(svgNS, 'polyline');
+            poly.setAttribute('points', '20 6 9 17 4 12');
+            svg.appendChild(poly);
+            const span = document.createElement('span');
+            span.textContent = "Savatga qo'shildi!";
+            inner.appendChild(svg); inner.appendChild(span);
+            notification.appendChild(inner);
             document.body.appendChild(notification);
             setTimeout(() => notification.classList.add('show'), 10);
             setTimeout(() => {
@@ -434,6 +643,22 @@ export default function XizmatlarPage() {
             window.history.replaceState({}, document.title);
         }
     }, [location.state]);
+
+    // Read ?search= and ?category= from the URL so links from the hero / nav /
+    // anywhere actually pre-fill the filter state instead of being ignored.
+    useEffect(() => {
+        const p = new URLSearchParams(location.search);
+        const s = p.get('search');
+        const cat = p.get('category');
+        if (s) {
+            setSearchQuery(s);
+            setCurrentPage(1);
+        }
+        if (cat && CATEGORIES.some(c => c.id === cat)) {
+            setActiveCategory(cat);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.search]);
 
     /* ── category tab counts (fixed totals, no filter applied) ── */
     const categoryCounts = useMemo(() => {
@@ -461,8 +686,9 @@ export default function XizmatlarPage() {
         };
     }, [categoryPool]);
 
-    /* Effective priceMax — resets to pool max when null or when pool changes */
+    /* Effective price bounds — null falls back to pool bounds */
     const effectivePriceMax = priceMax ?? poolPriceRange.max;
+    const effectivePriceMin = priceMin ?? poolPriceRange.min;
 
     /* ── Dynamic specialty options from pool ── */
     const dynamicSpecialties = useMemo(() => {
@@ -490,34 +716,43 @@ export default function XizmatlarPage() {
 
     /* ── Dynamic metadata filter facets from pool (clinic-entered attributes) ── */
     const dynamicMetadata = useMemo(() => {
-        const map = new Map(); // key -> { key, label, unit, inputType, values: Map(value->count) }
+        // key -> { key, label, unit, inputType, ranges: [lo,hi][], values: Map(value->count) }
+        const map = new Map();
         categoryPool.forEach(s => {
             (s.metadata || []).forEach(m => {
                 if (!m?.key || m.value == null || m.value === '') return;
                 if (!map.has(m.key)) {
-                    map.set(m.key, { key: m.key, label: m.label, unit: m.unit, inputType: m.inputType, values: new Map() });
+                    map.set(m.key, { key: m.key, label: m.label, unit: m.unit, inputType: m.inputType, values: new Map(), ranges: [] });
                 }
                 const entry = map.get(m.key);
-                entry.values.set(m.value, (entry.values.get(m.value) || 0) + 1);
+                if (m.inputType === 'NUMBER') {
+                    const lo = Number(m.value);
+                    const hi = m.valueMax != null && m.valueMax !== '' ? Number(m.valueMax) : lo;
+                    if (!Number.isNaN(lo) && !Number.isNaN(hi)) entry.ranges.push([Math.min(lo, hi), Math.max(lo, hi)]);
+                } else {
+                    entry.values.set(m.value, (entry.values.get(m.value) || 0) + 1);
+                }
             });
         });
         return [...map.values()]
             .map(e => {
-                const nums = [...e.values.keys()].map(Number).filter(n => !Number.isNaN(n));
-                // NUMBER with several distinct values → range; else discrete options
-                const isRange = e.inputType === 'NUMBER' && new Set(nums).size > 4;
                 const isBoolean = e.inputType === 'CHECKBOX';
+                if (e.inputType === 'NUMBER') {
+                    if (e.ranges.length === 0) return null;
+                    const lo = Math.min(...e.ranges.map(r => r[0]));
+                    const hi = Math.max(...e.ranges.map(r => r[1]));
+                    return { ...e, kind: 'patient-value', bounds: { lo, hi }, options: [] };
+                }
                 return {
                     ...e,
-                    kind: isRange ? 'range' : (isBoolean ? 'boolean' : 'enum'),
-                    bounds: isRange ? { lo: Math.min(...nums), hi: Math.max(...nums) } : null,
+                    kind: isBoolean ? 'boolean' : 'enum',
+                    bounds: null,
                     options: [...e.values.entries()]
                         .map(([value, count]) => ({ value, count }))
-                        .sort((a, b) => e.inputType === 'NUMBER'
-                            ? Number(a.value) - Number(b.value)
-                            : String(a.value).localeCompare(String(b.value))),
+                        .sort((a, b) => String(a.value).localeCompare(String(b.value))),
                 };
             })
+            .filter(Boolean)
             .sort((a, b) => String(a.label).localeCompare(String(b.label)));
     }, [categoryPool]);
 
@@ -532,13 +767,15 @@ export default function XizmatlarPage() {
         setCurrentPage(1);
     };
 
-    const setMetaRange = (key, bound, value) => {
+    // Patient enters a single value for a NUMBER (range) template.
+    // We store it under { value: ... } so the existing facet engine can detect non-empty.
+    const setMetaValue = (key, value) => {
         setMetaFilters(prev => {
-            const cur = (prev[key] && !Array.isArray(prev[key])) ? prev[key] : {};
-            const next = { ...cur, [bound]: value };
-            const updated = { ...prev, [key]: next };
-            if ((next.min == null || next.min === '') && (next.max == null || next.max === '')) {
+            const updated = { ...prev };
+            if (value == null || value === '') {
                 delete updated[key];
+            } else {
+                updated[key] = { value };
             }
             return updated;
         });
@@ -566,8 +803,13 @@ export default function XizmatlarPage() {
        you'd actually get — no dead-end (0-result) combinations. */
     const metaKeys = useMemo(() => Object.keys(metaFilters).filter(k => {
         const f = metaFilters[k];
-        return Array.isArray(f) ? f.length > 0 : (hasBound(f?.min) || hasBound(f?.max));
+        if (Array.isArray(f)) return f.length > 0;
+        return hasBound(f?.value) || hasBound(f?.min) || hasBound(f?.max);
     }), [metaFilters]);
+
+    // Count of distinct dynamic-metadata filters currently active. Drives the
+    // "Kengaytirilgan filtrlar" pill badge.
+    const dynamicMetaActiveCount = metaKeys.length;
 
     const preds = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
@@ -576,10 +818,19 @@ export default function XizmatlarPage() {
             if (!entry) return false;
             const f = metaFilters[key];
             if (Array.isArray(f)) return f.includes(entry.value);
+            // Range template: clinic stored value=min, valueMax=max. Patient sent {value}.
+            if (hasBound(f?.value)) {
+                const patientVal = Number(f.value);
+                const clinicMin = Number(entry.value);
+                const clinicMax = entry.valueMax != null && entry.valueMax !== '' ? Number(entry.valueMax) : clinicMin;
+                if (Number.isNaN(patientVal) || Number.isNaN(clinicMin)) return false;
+                return patientVal >= clinicMin && patientVal <= clinicMax;
+            }
+            // Legacy {min, max} (kept for backward compat)
             const num = Number(entry.value);
             if (Number.isNaN(num)) return false;
-            if (hasBound(f.min) && num < Number(f.min)) return false;
-            if (hasBound(f.max) && num > Number(f.max)) return false;
+            if (hasBound(f?.min) && num < Number(f.min)) return false;
+            if (hasBound(f?.max) && num > Number(f.max)) return false;
             return true;
         };
         return {
@@ -591,10 +842,10 @@ export default function XizmatlarPage() {
             availability: s => !selectedAvailability.length || s.availability.some(a => selectedAvailability.includes(a)),
             location: s => !selectedLocations.length || (s.clinic?.region && selectedLocations.includes(s.clinic.region)),
             rating: s => minRating <= 0 || s.rating >= minRating,
-            price: s => s.price <= effectivePriceMax,
+            price: s => s.price >= effectivePriceMin && s.price <= effectivePriceMax,
             metaPred,
         };
-    }, [searchQuery, selectedSpecialties, selectedAvailability, selectedLocations, minRating, effectivePriceMax, metaFilters]);
+    }, [searchQuery, selectedSpecialties, selectedAvailability, selectedLocations, minRating, effectivePriceMax, effectivePriceMin, metaFilters]);
 
     const passes = useMemo(() => (s, skipDim, skipMetaKey) => {
         if (skipDim !== 'search' && !preds.search(s)) return false;
@@ -710,6 +961,12 @@ export default function XizmatlarPage() {
                     onRemove: () => toggleMeta(key, val),
                 });
             });
+        } else if (f && hasBound(f.value)) {
+            activeFilters.push({
+                id: `meta-${key}-value`,
+                label: `${meta?.label || key}: ${f.value}${unit}`,
+                onRemove: () => setMetaFilters(prev => { const u = { ...prev }; delete u[key]; return u; }),
+            });
         } else if (f && (f.min != null && f.min !== '' || f.max != null && f.max !== '')) {
             const lo = (f.min != null && f.min !== '') ? f.min : '…';
             const hi = (f.max != null && f.max !== '') ? f.max : '…';
@@ -721,7 +978,10 @@ export default function XizmatlarPage() {
         }
     });
     if (minRating > 0) activeFilters.push({ id: 'rating', label: `${minRating}+ yulduz`, onRemove: () => { setMinRating(0); setCurrentPage(1); } });
-    if (priceMax !== null && priceMax < poolPriceRange.max) activeFilters.push({ id: 'price', label: `≤ ${formatPrice(priceMax)} so'm`, onRemove: () => { setPriceMax(null); setCurrentPage(1); } });
+    if ((priceMin !== null && priceMin > poolPriceRange.min) || (priceMax !== null && priceMax < poolPriceRange.max)) {
+        const lbl = `${formatPrice(effectivePriceMin)}–${formatPrice(effectivePriceMax)} so'm`;
+        activeFilters.push({ id: 'price', label: lbl, onRemove: () => { setPriceMin(null); setPriceMax(null); setCurrentPage(1); } });
+    }
 
     const clearSidebarFilters = () => {
         setSearchQuery('');
@@ -731,6 +991,7 @@ export default function XizmatlarPage() {
         setMetaFilters({});
         setMinRating(0);
         setPriceMax(null);
+        setPriceMin(null);
         setCurrentPage(1);
     };
 
@@ -773,74 +1034,43 @@ export default function XizmatlarPage() {
                 )}
             </div>
 
-            {/* ── Mutaxassislik — only shows specialties present in current pool ── */}
-            <FilterGroup title={`Mutaxassislik (${specialtyOptions.length})`}>
-                <div className="xp-filter-options">
-                    {specialtyOptions.map(sp => {
-                        const checked = selectedSpecialties.includes(sp.id);
-                        const off = sp.count === 0 && !checked;
-                        return (
-                        <label key={sp.id} className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
-                            <input
-                                type="checkbox"
-                                checked={checked}
-                                disabled={off}
-                                onChange={() => toggleSpecialty(sp.id)}
-                            />
-                            <span className="xp-filter-option-label">{sp.label}</span>
-                            <span className="xp-filter-option-count">{sp.count}</span>
-                        </label>
-                        );
-                    })}
-                </div>
+            {/* ── Mutaxassislik ── */}
+            <FilterGroup title="Mutaxassislik" count={selectedSpecialties.length}>
+                <CheckboxFilterList
+                    options={specialtyOptions}
+                    selected={selectedSpecialties}
+                    onToggle={toggleSpecialty}
+                    searchable
+                    initialLimit={6}
+                />
             </FilterGroup>
 
-            {/* ── Ko'rinish Turi — only shows types present in current pool ── */}
-            <FilterGroup title="Ko'rinish Turi">
-                <div className="xp-filter-options">
-                    {availabilityOptions.map(av => {
-                        const checked = selectedAvailability.includes(av.id);
-                        const off = av.count === 0 && !checked;
-                        return (
-                        <label key={av.id} className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
-                            <input
-                                type="checkbox"
-                                checked={checked}
-                                disabled={off}
-                                onChange={() => toggleAvailability(av.id)}
-                            />
-                            <span className="xp-filter-option-label">{av.label}</span>
-                            <span className="xp-filter-option-count">{av.count}</span>
-                        </label>
-                        );
-                    })}
-                </div>
+            {/* ── Ko'rinish Turi ── */}
+            <FilterGroup title="Ko'rinish Turi" count={selectedAvailability.length}>
+                <CheckboxFilterList
+                    options={availabilityOptions}
+                    selected={selectedAvailability}
+                    onToggle={toggleAvailability}
+                    initialLimit={10}
+                />
             </FilterGroup>
 
-            {/* ── Joylashuv — region filter from real clinic data ── */}
+            {/* ── Joylashuv ── */}
             {locationOptions.length > 0 && (
-                <FilterGroup title="Joylashuv (Viloyat)">
-                    <div className="xp-filter-options">
-                        {locationOptions.map(loc => {
-                            const checked = selectedLocations.includes(loc.id);
-                            const off = loc.count === 0 && !checked;
-                            return (
-                            <label key={loc.id} className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
-                                <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    disabled={off}
-                                    onChange={() => toggleLocation(loc.id)}
-                                />
-                                <span className="xp-filter-option-label">
-                                    <MapPin size={11} style={{ marginRight: 4, flexShrink: 0 }} />
-                                    {loc.label}
-                                </span>
-                                <span className="xp-filter-option-count">{loc.count}</span>
-                            </label>
-                            );
-                        })}
-                    </div>
+                <FilterGroup title="Joylashuv" count={selectedLocations.length}>
+                    <CheckboxFilterList
+                        options={locationOptions}
+                        selected={selectedLocations}
+                        onToggle={toggleLocation}
+                        searchable
+                        initialLimit={6}
+                        renderLabel={(opt) => (
+                            <>
+                                <MapPin size={11} style={{ marginRight: 4, flexShrink: 0, opacity: 0.5 }} />
+                                {opt.label}
+                            </>
+                        )}
+                    />
                 </FilterGroup>
             )}
 
@@ -850,23 +1080,29 @@ export default function XizmatlarPage() {
                 const range = (sel && !Array.isArray(sel)) ? sel : {};
                 const selArr = Array.isArray(sel) ? sel : [];
                 const fc = facetCounts.meta[meta.key] || { counts: {}, total: 0 };
+                const activeCount = Array.isArray(sel) ? sel.length : (hasBound(range.value) ? 1 : 0);
                 return (
                     <FilterGroup
                         key={meta.key}
                         title={`${meta.label}${meta.unit ? ` (${meta.unit})` : ''}`}
+                        count={activeCount}
                     >
-                        {meta.kind === 'range' ? (
-                            <>
-                                <MetaRangeInputs
-                                    lo={meta.bounds.lo}
-                                    hi={meta.bounds.hi}
-                                    value={range}
-                                    onCommit={(b, v) => setMetaRange(meta.key, b, v)}
+                        {meta.kind === 'patient-value' ? (
+                            <div className="xp-patient-value">
+                                <input
+                                    type="number"
+                                    className="xp-patient-value-input"
+                                    placeholder={`Sizning ${meta.label.toLowerCase()}ingiz`}
+                                    value={range.value ?? ''}
+                                    min={meta.bounds?.lo}
+                                    max={meta.bounds?.hi}
+                                    onChange={(e) => setMetaValue(meta.key, e.target.value)}
                                 />
-                                <div style={{ fontSize: 11, color: '#9aa7bd', marginTop: 6 }}>
-                                    {fc.total} ta xizmatda mavjud
+                                {meta.unit && <span className="xp-patient-value-unit">{meta.unit}</span>}
+                                <div className="xp-patient-value-hint">
+                                    Klinikalar oraliq: {meta.bounds.lo}–{meta.bounds.hi} {meta.unit || ''}
                                 </div>
-                            </>
+                            </div>
                         ) : meta.kind === 'boolean' ? (
                             <div className="xp-filter-options">
                                 {(() => {
@@ -912,56 +1148,41 @@ export default function XizmatlarPage() {
                 );
             })}
 
-            {/* ── Narx Diapazoni — bounds adapt to current pool ── */}
-            <FilterGroup title="Narx Diapazoni">
+            {/* ── Narx (dual-thumb) ── */}
+            <FilterGroup title="Narx" count={(priceMin !== null && priceMin > poolPriceRange.min) || (priceMax !== null && priceMax < poolPriceRange.max) ? 1 : 0}>
                 <div className="xp-price-range">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6b7a99', marginBottom: 8 }}>
-                        <span style={{ fontWeight: 600 }}>{formatPrice(poolPriceRange.min)} so'm</span>
-                        <span style={{ fontWeight: 700, color: '#031B4E' }}>{formatPrice(effectivePriceMax)} so'm</span>
+                    <div className="xp-price-display">
+                        <div>
+                            <span className="xp-price-label">Min</span>
+                            <strong>{formatPrice(effectivePriceMin)} so'm</strong>
+                        </div>
+                        <div className="xp-price-divider">–</div>
+                        <div>
+                            <span className="xp-price-label">Max</span>
+                            <strong>{formatPrice(effectivePriceMax)} so'm</strong>
+                        </div>
                     </div>
-                    <input
-                        type="range"
-                        className="xp-price-slider"
+                    <DualRangeSlider
                         min={poolPriceRange.min}
                         max={poolPriceRange.max}
+                        value={{ lo: effectivePriceMin, hi: effectivePriceMax }}
                         step={Math.max(10000, Math.round((poolPriceRange.max - poolPriceRange.min) / 50))}
-                        value={effectivePriceMax}
-                        style={{ '--pct': `${pricePct}%` }}
-                        onChange={e => { setPriceMax(Number(e.target.value)); setCurrentPage(1); }}
+                        onChange={({ lo, hi }) => {
+                            setPriceMin(lo);
+                            setPriceMax(hi);
+                            setCurrentPage(1);
+                        }}
                     />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#b0bdd0', marginTop: 6 }}>
-                        <span>Min: {formatPrice(poolPriceRange.min)}</span>
-                        <span>Max: {formatPrice(poolPriceRange.max)}</span>
-                    </div>
                 </div>
             </FilterGroup>
 
-            {/* ── Minimal Reyting — with live counts ── */}
-            <FilterGroup title="Minimal Reyting">
-                <div className="xp-rating-options">
-                    {[5, 4, 3, 0].map(r => (
-                        <label key={r} className="xp-rating-option">
-                            <input
-                                type="radio"
-                                name="rating"
-                                checked={minRating === r}
-                                onChange={() => { setMinRating(r); setCurrentPage(1); }}
-                            />
-                            {r > 0 ? (
-                                <>
-                                    <StarRating rating={r} />
-                                    <span className="xp-rating-label">va yuqori</span>
-                                    <span className="xp-filter-option-count">{ratingCounts[r]}</span>
-                                </>
-                            ) : (
-                                <>
-                                    <span className="xp-rating-label">Barchasi</span>
-                                    <span className="xp-filter-option-count">{ratingCounts[0]}</span>
-                                </>
-                            )}
-                        </label>
-                    ))}
-                </div>
+            {/* ── Reyting (pills) ── */}
+            <FilterGroup title="Reyting" count={minRating > 0 ? 1 : 0}>
+                <StarRatingFilter
+                    value={minRating}
+                    onChange={(r) => { setMinRating(r); setCurrentPage(1); }}
+                    counts={ratingCounts}
+                />
             </FilterGroup>
         </>
     );
@@ -1042,28 +1263,6 @@ export default function XizmatlarPage() {
                     </div>
                 </div>
             </section>
-
-            {/* ── MOBILE SEARCH (mobile only) ── */}
-            <div className="xp-mobile-search-wrap">
-                <div className="xp-mobile-search">
-                    <Search size={18} className="xp-mobile-search-icon" />
-                    <input
-                        type="text"
-                        placeholder="Xizmat yoki kasallik nomi..."
-                        value={searchQuery}
-                        onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                    />
-                    {searchQuery && (
-                        <button
-                            className="xp-mobile-search-clear"
-                            onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
-                            aria-label="Tozalash"
-                        >
-                            <X size={16} />
-                        </button>
-                    )}
-                </div>
-            </div>
 
             {/* ── MOBILE CATEGORY CARDS (mobile only) ── */}
             <div className="xp-mobile-cats-section">
@@ -1148,21 +1347,142 @@ export default function XizmatlarPage() {
                 </div>
             </div>
 
-            {/* ── MAIN ── */}
-            <div className="xp-main">
-                {/* Sidebar — desktop */}
-                <aside className="xp-sidebar">
-                    <SidebarContent />
-                </aside>
-
-                {/* Content */}
+            {/* ── MAIN (full-width, horizontal filter bar) ── */}
+            <div className="xp-main xp-main--wide">
                 <div className="xp-content">
-                    {/* Toolbar */}
-                    <div className="xp-toolbar">
-                        <span className="xp-results-count">
-                            <strong>{filtered.length}</strong> ta xizmat topildi
-                        </span>
-                        <div className="xp-toolbar-right">
+                    {/* ── Search (above filter bar) ── */}
+                    <div className="xp-search-row">
+                        <div className="xp-search-input-wrap">
+                            <Search size={18} className="xp-search-icon" />
+                            <input
+                                type="text"
+                                placeholder="Xizmat yoki kasallik nomi..."
+                                value={searchQuery}
+                                onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                            />
+                            {searchQuery && (
+                                <button
+                                    className="xp-search-clear"
+                                    onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
+                                    aria-label="Tozalash"
+                                >
+                                    <X size={16} />
+                                </button>
+                            )}
+                        </div>
+                        <div className="xp-search-count">
+                            <strong>{filtered.length}</strong> ta xizmat
+                        </div>
+                    </div>
+
+                    {/* ── Horizontal filter bar — desktop ── */}
+                    <div className="xp-fbar">
+                        <div className="xp-fbar-left">
+                            <FilterDropdown
+                                label="Mutaxassislik"
+                                count={selectedSpecialties.length}
+                                width={300}
+                            >
+                                <CheckboxFilterList
+                                    options={specialtyOptions}
+                                    selected={selectedSpecialties}
+                                    onToggle={toggleSpecialty}
+                                    searchable
+                                    initialLimit={8}
+                                />
+                            </FilterDropdown>
+
+                            {locationOptions.length > 0 && (
+                                <FilterDropdown
+                                    label="Joylashuv"
+                                    count={selectedLocations.length}
+                                    width={260}
+                                >
+                                    <CheckboxFilterList
+                                        options={locationOptions}
+                                        selected={selectedLocations}
+                                        onToggle={toggleLocation}
+                                        searchable
+                                        initialLimit={8}
+                                        renderLabel={(opt) => (
+                                            <>
+                                                <MapPin size={11} style={{ marginRight: 4, flexShrink: 0, opacity: 0.5 }} />
+                                                {opt.label}
+                                            </>
+                                        )}
+                                    />
+                                </FilterDropdown>
+                            )}
+
+                            <FilterDropdown
+                                label="Narx"
+                                count={(priceMin !== null && priceMin > poolPriceRange.min) || (priceMax !== null && priceMax < poolPriceRange.max) ? 1 : 0}
+                                width={320}
+                            >
+                                <div className="xp-price-range" style={{ padding: 4 }}>
+                                    <div className="xp-price-display">
+                                        <div>
+                                            <span className="xp-price-label">Min</span>
+                                            <strong>{formatPrice(effectivePriceMin)} so'm</strong>
+                                        </div>
+                                        <div className="xp-price-divider">–</div>
+                                        <div>
+                                            <span className="xp-price-label">Max</span>
+                                            <strong>{formatPrice(effectivePriceMax)} so'm</strong>
+                                        </div>
+                                    </div>
+                                    <DualRangeSlider
+                                        min={poolPriceRange.min}
+                                        max={poolPriceRange.max}
+                                        value={{ lo: effectivePriceMin, hi: effectivePriceMax }}
+                                        step={Math.max(10000, Math.round((poolPriceRange.max - poolPriceRange.min) / 50))}
+                                        onChange={({ lo, hi }) => { setPriceMin(lo); setPriceMax(hi); setCurrentPage(1); }}
+                                    />
+                                </div>
+                            </FilterDropdown>
+
+                            <FilterDropdown
+                                label="Reyting"
+                                count={minRating > 0 ? 1 : 0}
+                                width={240}
+                            >
+                                <StarRatingFilter
+                                    value={minRating}
+                                    onChange={(r) => { setMinRating(r); setCurrentPage(1); }}
+                                    counts={ratingCounts}
+                                />
+                            </FilterDropdown>
+
+                            <FilterDropdown
+                                label="Ko'rinish"
+                                count={selectedAvailability.length}
+                                width={220}
+                            >
+                                <CheckboxFilterList
+                                    options={availabilityOptions}
+                                    selected={selectedAvailability}
+                                    onToggle={toggleAvailability}
+                                    initialLimit={10}
+                                />
+                            </FilterDropdown>
+
+                            {dynamicMetadata.length > 0 && (
+                                <button
+                                    type="button"
+                                    className={`xp-adv-btn${advancedOpen ? ' open' : ''}${dynamicMetaActiveCount > 0 ? ' has-count' : ''}`}
+                                    onClick={() => setAdvancedOpen(v => !v)}
+                                >
+                                    <SlidersHorizontal size={14} />
+                                    Kengaytirilgan filtrlar
+                                    {dynamicMetaActiveCount > 0 && (
+                                        <span className="xp-fd-count">{dynamicMetaActiveCount}</span>
+                                    )}
+                                    <ChevronDown size={14} className={`xp-fd-chev${advancedOpen ? ' open' : ''}`} />
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="xp-fbar-right">
                             <button
                                 className="xp-mobile-filter-btn"
                                 onClick={() => setMobileFilterOpen(true)}
@@ -1170,12 +1490,7 @@ export default function XizmatlarPage() {
                                 <SlidersHorizontal size={16} />
                                 Filtrlar
                                 {activeFilters.length > 0 && (
-                                    <span style={{
-                                        background: '#00BDE0', color: '#fff',
-                                        borderRadius: '50%', width: 18, height: 18,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: 11, fontWeight: 700
-                                    }}>{activeFilters.length}</span>
+                                    <span className="xp-fd-count">{activeFilters.length}</span>
                                 )}
                             </button>
                             <select
@@ -1191,20 +1506,94 @@ export default function XizmatlarPage() {
                                 <button
                                     className={`xp-view-btn${viewMode === 'grid' ? ' active' : ''}`}
                                     onClick={() => setViewMode('grid')}
-                                    title="Grid ko'rinish"
+                                    title="Grid"
                                 >
                                     <LayoutGrid size={16} />
                                 </button>
                                 <button
                                     className={`xp-view-btn${viewMode === 'list' ? ' active' : ''}`}
                                     onClick={() => setViewMode('list')}
-                                    title="List ko'rinish"
+                                    title="List"
                                 >
                                     <List size={16} />
                                 </button>
                             </div>
                         </div>
                     </div>
+
+                    {/* ── Advanced filters panel (metadata) ── */}
+                    {advancedOpen && dynamicMetadata.length > 0 && (
+                        <div className="xp-adv-panel">
+                            <div className="xp-adv-header">
+                                <h4>Xizmat xususiyatlari</h4>
+                                <button className="xp-adv-close" onClick={() => setAdvancedOpen(false)}>
+                                    <X size={16} />
+                                </button>
+                            </div>
+                            <div className="xp-adv-grid">
+                                {dynamicMetadata.map(meta => {
+                                    const sel = metaFilters[meta.key];
+                                    const range = (sel && !Array.isArray(sel)) ? sel : {};
+                                    const selArr = Array.isArray(sel) ? sel : [];
+                                    const fc = facetCounts.meta[meta.key] || { counts: {}, total: 0 };
+                                    // Width hint — many options → wider card so chips fit.
+                                    const optsCount = meta.options?.length || 0;
+                                    const sizeCls = meta.kind === 'patient-value' ? 'sm'
+                                        : optsCount > 8 ? 'lg'
+                                        : optsCount > 4 ? 'md'
+                                        : 'sm';
+                                    const isActive = (Array.isArray(sel) ? sel.length > 0 : hasBound(range.value));
+                                    return (
+                                        <div className={`xp-adv-card xp-adv-card--${sizeCls}${isActive ? ' xp-adv-card--active' : ''}`} key={meta.key}>
+                                            <div className="xp-adv-card-title">
+                                                {meta.label}{meta.unit ? ` (${meta.unit})` : ''}
+                                            </div>
+                                            {meta.kind === 'patient-value' ? (
+                                                <div className="xp-patient-value">
+                                                    <input
+                                                        type="number"
+                                                        className="xp-patient-value-input"
+                                                        placeholder={`Sizning ${meta.label.toLowerCase()}ingiz`}
+                                                        value={range.value ?? ''}
+                                                        min={meta.bounds?.lo}
+                                                        max={meta.bounds?.hi}
+                                                        onChange={(e) => setMetaValue(meta.key, e.target.value)}
+                                                    />
+                                                    {meta.unit && <span className="xp-patient-value-unit">{meta.unit}</span>}
+                                                    <div className="xp-patient-value-hint">
+                                                        Oraliq: {meta.bounds.lo}–{meta.bounds.hi} {meta.unit || ''}
+                                                    </div>
+                                                </div>
+                                            ) : meta.kind === 'boolean' ? (
+                                                <div className="xp-filter-options">
+                                                    {(() => {
+                                                        const c = fc.counts['true'] || 0;
+                                                        const checked = selArr.includes('true');
+                                                        const off = c === 0 && !checked;
+                                                        return (
+                                                            <label className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
+                                                                <input type="checkbox" checked={checked} disabled={off} onChange={() => toggleMeta(meta.key, 'true')} />
+                                                                <span className="xp-filter-option-label">Bor</span>
+                                                                <span className="xp-filter-option-count">{c}</span>
+                                                            </label>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            ) : (
+                                                <CheckboxFilterList
+                                                    options={meta.options.map(opt => ({ value: opt.value, label: opt.value, count: fc.counts[opt.value] || 0 }))}
+                                                    selected={selArr}
+                                                    onToggle={(val) => toggleMeta(meta.key, val)}
+                                                    initialLimit={5}
+                                                    searchable={meta.options.length > 6}
+                                                />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Active filter chips */}
                     {activeFilters.length > 0 && (
@@ -1259,6 +1648,8 @@ export default function XizmatlarPage() {
                                     listView={viewMode === 'list'}
                                     onAddToCart={handleAddToCart}
                                     isLoggedIn={!!user}
+                                    favoriteIds={favoriteIds}
+                                    onToggleFavorite={(args) => toggleFavMut.mutate(args)}
                                 />
                             ))
                         ) : (
@@ -1277,29 +1668,50 @@ export default function XizmatlarPage() {
 
                     {/* Pagination */}
                     {totalPages > 1 && (
-                        <div className="xp-pagination">
-                            <button
-                                className={`xp-page-btn${currentPage === 1 ? ' disabled' : ''}`}
-                                onClick={() => currentPage > 1 && setCurrentPage(p => p - 1)}
-                            >
-                                <ChevronLeft size={16} />
-                            </button>
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                        <nav className="xp-pagination" aria-label="Sahifalar">
+                            <div className="xp-pagination-info">
+                                <strong>{(currentPage - 1) * ITEMS_PER_PAGE + 1}</strong>
+                                –
+                                <strong>{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)}</strong>
+                                <span> / {filtered.length}</span>
+                            </div>
+                            <div className="xp-pagination-controls">
                                 <button
-                                    key={p}
-                                    className={`xp-page-btn${p === currentPage ? ' active' : ''}`}
-                                    onClick={() => setCurrentPage(p)}
+                                    className="xp-page-btn xp-page-nav"
+                                    onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={currentPage === 1}
+                                    aria-label="Oldingi"
                                 >
-                                    {p}
+                                    <ChevronLeft size={16} />
+                                    <span>Oldingi</span>
                                 </button>
-                            ))}
-                            <button
-                                className={`xp-page-btn${currentPage === totalPages ? ' disabled' : ''}`}
-                                onClick={() => currentPage < totalPages && setCurrentPage(p => p + 1)}
-                            >
-                                <ChevronRight size={16} />
-                            </button>
-                        </div>
+                                <div className="xp-page-numbers">
+                                    {compactPages(currentPage, totalPages).map((p, i) => (
+                                        p === '…' ? (
+                                            <span key={`gap-${i}`} className="xp-page-gap">…</span>
+                                        ) : (
+                                            <button
+                                                key={p}
+                                                className={`xp-page-btn${p === currentPage ? ' active' : ''}`}
+                                                onClick={() => { setCurrentPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                                aria-current={p === currentPage ? 'page' : undefined}
+                                            >
+                                                {p}
+                                            </button>
+                                        )
+                                    ))}
+                                </div>
+                                <button
+                                    className="xp-page-btn xp-page-nav"
+                                    onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={currentPage === totalPages}
+                                    aria-label="Keyingi"
+                                >
+                                    <span>Keyingi</span>
+                                    <ChevronRight size={16} />
+                                </button>
+                            </div>
+                        </nav>
                     )}
                 </div>
             </div>

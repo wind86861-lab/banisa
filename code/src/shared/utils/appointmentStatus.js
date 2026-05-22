@@ -26,11 +26,21 @@ export const CANCELLABLE = new Set([
 
 export const canCancel = (a) => !!a && CANCELLABLE.has(a.status);
 
-// Patient should be told to scan the clinic wall QR.
-export const needsCheckIn = (a) =>
-    !!a && a.paymentMethod === 'CASH' && a.status === 'PENDING_ARRIVAL';
+// Patient is ready to scan the clinic wall QR to check in.
+// Cash flow: PENDING_ARRIVAL after operator confirms.
+// Online flow: any confirmed/paid state where the patient hasn't checked in yet.
+export const canCheckIn = (a) => {
+    if (!a) return false;
+    if (['CHECKED_IN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(a.status)) return false;
+    // Cash: clinic must be expecting them
+    if (a.paymentMethod === 'CASH') return a.status === 'PENDING_ARRIVAL';
+    // Online: only after payment + clinic acceptance
+    return a.paymentStatus === 'PAID' && ['CLINIC_ACCEPTED', 'PAID', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'PENDING_ARRIVAL'].includes(a.status);
+};
 
-// Patient is at the clinic, waiting for cashier confirmation.
+export const needsCheckIn = canCheckIn;
+
+// Patient is at the clinic, waiting for cashier confirmation (cash only).
 export const awaitingCashier = (a) =>
     !!a && a.paymentMethod === 'CASH' && a.status === 'CHECKED_IN' && a.paymentStatus !== 'PAID';
 
@@ -38,7 +48,7 @@ export const awaitingCashier = (a) =>
 export const isReadyForService = (a) =>
     !!a && (a.paymentStatus === 'PAID' || a.status === 'COMPLETED' || a.status === 'IN_PROGRESS');
 
-// Status-driven CTA shown on the ticket card. Returns { title, body, tone }.
+// Status-driven CTA shown on the ticket card. Returns { title, body, tone, cta }.
 export function nextActionFor(a) {
     if (!a) return null;
     if (a.status === 'CANCELLED') return { title: 'Bron bekor qilingan', body: 'Yangi bron yaratish uchun xizmatlarga qayting.', tone: 'error' };
@@ -46,21 +56,15 @@ export function nextActionFor(a) {
     if (a.status === 'COMPLETED') return { title: 'Xizmat yakunlandi', body: 'Tashrifingizdan minnatdormiz!', tone: 'ok' };
     if (a.status === 'IN_PROGRESS') return { title: 'Xizmat jarayonda', body: 'Xizmat xonasida bo\'lganingiz uchun rahmat.', tone: 'ok' };
 
-    if (needsCheckIn(a)) return {
-        title: 'Klinikaga keling va check-in qiling',
-        body: 'Naqd to\'lov tanlandi. Klinikaga yetib borgach quyidagi qadamlarni bajaring.',
+    if (canCheckIn(a)) return {
+        title: 'Klinikaga yetib bordingizmi?',
+        body: 'Devordagi Banisa QR kodini skanerlang — sizni klinika qabul qiladi.',
         tone: 'warning',
-        cta: 'checkin',
-        steps: [
-            'Klinika qabulxonasiga boring',
-            'Devordagi Banisa QR kodini telefoningiz kamerasi bilan skanerlang',
-            'Ochilgan sahifada kelishingiz tasdiqlanadi',
-            'Bron QR kodingizni kassirga ko\'rsating va naqd to\'lovni amalga oshiring',
-        ],
+        cta: 'scan',
     };
     if (awaitingCashier(a)) return {
-        title: 'Bron QR kodingizni kassirga ko\'rsating',
-        body: 'Kassir QR kodni skanerlab naqd to\'lovni tasdiqlaydi. Sahifa avtomatik yangilanadi.',
+        title: 'Kassaga yo\'naling',
+        body: 'Kassaga borib naqd to\'lovni amalga oshiring. Kassir tasdiqlagach avtomatik xabar olasiz.',
         tone: 'info',
         cta: 'await-cashier',
     };
@@ -72,7 +76,7 @@ export function nextActionFor(a) {
     // PENDING / OPERATOR_CONFIRMED / SENT_TO_CLINIC / CLINIC_ACCEPTED (non-cash) — waiting for clinic
     if (a.paymentMethod !== 'CASH' && a.paymentStatus !== 'PAID' &&
         ['CLINIC_ACCEPTED', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC'].includes(a.status)) {
-        return { title: 'To\'lov kutilmoqda', body: 'Onlayn to\'lovni amalga oshiring va QR kodingizni oling.', tone: 'info', cta: 'pay' };
+        return { title: 'To\'lov kutilmoqda', body: 'Onlayn to\'lovni amalga oshiring.', tone: 'info', cta: 'pay' };
     }
     return { title: 'Operator tasdiqlashini kuting', body: 'Operator siz bilan tez orada bog\'lanadi.', tone: 'info' };
 }

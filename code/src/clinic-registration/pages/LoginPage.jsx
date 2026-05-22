@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Box, TextField, Button, Typography, InputAdornment, IconButton } from '@mui/material';
-import { Phone, Eye, EyeOff, ArrowRight, CheckCircle } from 'lucide-react';
+import { Phone, Eye, EyeOff, ArrowRight, CheckCircle, Building2, Users, MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../shared/auth/AuthContext';
@@ -8,9 +8,9 @@ import PhoneInput from '../../shared/components/PhoneInput';
 import BanisaLoader from '../../shared/components/BanisaLoader';
 
 const statCards = [
-  { icon: '🏥', label: '500+ Klinikalar', color: '#00C9A7' },
-  { icon: '👥', label: '50,000+ Bemorlar', color: '#3E92CC' },
-  { icon: '📍', label: '8 ta viloyat', color: '#FFD700' },
+  { Icon: Building2, label: '500+ Klinikalar', color: '#00C9A7' },
+  { Icon: Users, label: '50,000+ Bemorlar', color: '#3E92CC' },
+  { Icon: MapPin, label: '8 ta viloyat', color: '#FFD700' },
 ];
 
 export default function LoginPage() {
@@ -140,9 +140,8 @@ export default function LoginPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '1.5rem',
                 }}>
-                  {card.icon}
+                  <card.Icon size={22} color={card.color} strokeWidth={2} />
                 </Box>
                 <Typography sx={{
                   fontFamily: "'DM Sans', sans-serif",

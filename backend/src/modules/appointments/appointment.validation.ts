@@ -56,17 +56,18 @@ export const setClinicDiscountSchema = z.object({
     }),
 });
 
-export const patientCheckInSchema = z.object({
+export const scanCheckInSchema = z.object({
     body: z.object({
-        clinicSecret: z.string().min(5, 'QR kod noto\'g\'ri'),
+        secret: z.string().min(5, 'QR kod noto\'g\'ri'),
         lat: z.number().optional(),
         lng: z.number().optional(),
     }),
 });
 
-export const scanCheckInSchema = z.object({
+export const scanCheckInPickSchema = z.object({
     body: z.object({
         secret: z.string().min(5, 'QR kod noto\'g\'ri'),
+        appointmentId: z.string().uuid('Bron ID noto\'g\'ri'),
     }),
 });
 

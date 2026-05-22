@@ -28,10 +28,25 @@ model User {
   serviceReviews     ServiceReview[]
   surgicalServices   SurgicalService[]   @relation("SurgicalCreatedBy")
   notifications      Notification[]      @relation("UserNotifications")
+  favorites          UserFavorite[]
 
   @@index([phone])
   @@index([status])
   @@index([role])
+}
+
+/// Per-user bookmark of a public service (any service type).
+model UserFavorite {
+  id          String      @id @default(uuid())
+  userId      String
+  serviceType ServiceType
+  serviceId   String
+  createdAt   DateTime    @default(now())
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, serviceType, serviceId])
+  @@index([userId, createdAt])
+  @@index([serviceType, serviceId])
 }
 
 model ServiceCategory {
@@ -988,7 +1003,10 @@ model ClinicServiceMetadata {
   serviceType ServiceType
   serviceId   String
   templateId  String
+  // For NUMBER range templates: `value` = min, `valueMax` = max.
+  // For other types: `value` holds the entered value, `valueMax` = null.
   value       String
+  valueMax    String?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   clinic      Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)

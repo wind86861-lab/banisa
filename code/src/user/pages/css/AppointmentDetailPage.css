@@ -502,6 +502,42 @@
     color: #9a3412;
 }
 
+.apd-checkin-hint {
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: #78350f;
+    text-align: center;
+}
+.apd-checkin-hint strong { color: #422006; }
+
+.apd-cashier-amount {
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 14px;
+    padding: 18px 16px;
+    text-align: center;
+    margin-bottom: 12px;
+    border: 1px dashed #f59e0b;
+}
+.apd-cashier-label {
+    font-size: 13px;
+    color: #92400e;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+}
+.apd-cashier-sum {
+    font-size: 28px;
+    font-weight: 800;
+    color: #78350f;
+    line-height: 1.1;
+}
+.apd-cashier-method {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #92400e;
+}
+
 .apd-scan-btn {
     width: 100%;
     margin-top: 14px;
@@ -844,4 +880,22 @@
         width: 200px;
         height: 200px;
     }
+}
+.apd-review-btn {
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    margin-top: 8px;
+}
+.apd-review-btn:hover { background: linear-gradient(135deg, #d97706, #b45309) !important; }
+
+.apd-review-done {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(250, 204, 21, 0.12);
+    color: #92400e;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 999px;
+    margin-top: 10px;
 }

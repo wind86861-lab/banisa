@@ -48,6 +48,16 @@ export const registerLimiter = rateLimit({
   validate: false,
 });
 
+// Patient scan-checkin — 20 per 5 min per IP (prevents secret brute-force)
+export const scanCheckInLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: isDev ? 10000 : 20,
+  keyGenerator,
+  message: { success: false, error: 'Juda ko\'p urinish. Birozdan keyin qayta urining.' },
+  skip: () => isDev,
+  validate: false,
+});
+
 // Refresh token limit
 export const refreshLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

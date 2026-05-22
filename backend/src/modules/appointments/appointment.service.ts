@@ -609,11 +609,47 @@ export class AppointmentService {
             include: { clinic: true },
         });
         if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
-        if (appt.status !== 'PENDING_ARRIVAL') {
-            if (['CHECKED_IN', 'IN_PROGRESS', 'COMPLETED'].includes(appt.status)) {
-                return appt; // idempotent
-            }
+
+        // Idempotent: already checked in → return current state
+        if (['CHECKED_IN', 'IN_PROGRESS', 'COMPLETED'].includes(appt.status)) {
+            return appt;
+        }
+        // Terminal failure states
+        if (['CANCELLED', 'NO_SHOW'].includes(appt.status)) {
+            throw new AppError('Bu bron faol emas', 400, ErrorCodes.VALIDATION_ERROR);
+        }
+        // Accept any active "expecting-arrival" status:
+        //   - Cash: PENDING_ARRIVAL (operator pre-confirmed cash flow)
+        //   - Online paid: CLINIC_ACCEPTED / OPERATOR_CONFIRMED / SENT_TO_CLINIC / PAID / PENDING_ARRIVAL
+        const allowed = ['PENDING_ARRIVAL', 'CLINIC_ACCEPTED', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'PAID'];
+        if (!allowed.includes(appt.status)) {
             throw new AppError('Bu bron hozir check-in qilinishi mumkin emas', 400, ErrorCodes.VALIDATION_ERROR);
+        }
+
+        // Time window: scheduledAt − 4h ≤ now ≤ scheduledAt + 2h. Late → NO_SHOW.
+        const now = Date.now();
+        const sched = new Date(appt.scheduledAt).getTime();
+        const LATE_MS = 2 * 60 * 60 * 1000;
+        const EARLY_MS = 4 * 60 * 60 * 1000;
+        const fmtTime = (ms: number) => new Date(ms).toLocaleString('uz-UZ', {
+            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+        });
+        if (now > sched + LATE_MS) {
+            await prisma.appointment.update({
+                where: { id: appt.id },
+                data: { status: 'NO_SHOW', noShowMarkedAt: new Date() } as any,
+            });
+            throw new AppError(
+                `Belgilangan vaqt (${fmtTime(sched)}) o'tib ketgan. Iltimos, klinikaga qo'ng'iroq qiling.`,
+                400, ErrorCodes.VALIDATION_ERROR,
+            );
+        }
+        if (now < sched - EARLY_MS) {
+            const hoursToGo = Math.round((sched - now) / 3600000);
+            throw new AppError(
+                `Hali erta — tashrif ${fmtTime(sched)} da. ${hoursToGo} soatdan keyin qaytib keling.`,
+                400, ErrorCodes.VALIDATION_ERROR,
+            );
         }
 
         // Verify clinic QR secret matches
@@ -666,11 +702,13 @@ export class AppointmentService {
             await notifyClinicAdmins({
                 clinicId: clinic.id,
                 type: 'CHECK_IN',
-                title: '🆕 Yangi bemor keldi',
+                title: isCash
+                    ? '💵 Naqd to\'lov kutilmoqda'
+                    : '✅ Bemor keldi',
                 body: isCash
-                    ? `${fullName} — ${serviceName} — Naqd ${formattedPrice} so'm`
-                    : `${fullName} — ${serviceName}`,
-                priority: 'HIGH',
+                    ? `${fullName} — ${serviceName} — ${formattedPrice} so'm`
+                    : `${fullName} — ${serviceName} (onlayn to'langan)`,
+                priority: isCash ? 'HIGH' : 'NORMAL',
                 data: {
                     appointmentId: appt.id,
                     bookingNumber: (updated as any).bookingNumber,
@@ -695,7 +733,7 @@ export class AppointmentService {
     //   - >1 eligible → caller picks
     //   - 0 → tell caller no booking
     // ─────────────────────────────────────────────────────────────
-    async scanCheckIn(patientId: string, secret: string) {
+    async scanCheckIn(patientId: string, secret: string, lat?: number, lng?: number) {
         const clinic = await prisma.clinic.findFirst({
             where: { checkInSecret: secret } as any,
             select: { id: true, nameUz: true },
@@ -707,13 +745,14 @@ export class AppointmentService {
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
 
-        // Only consider PENDING_ARRIVAL for check-in; ignore old completed/cancelled
+        // Consider any active "expecting-arrival" status — cash (PENDING_ARRIVAL)
+        // OR online-paid (CLINIC_ACCEPTED / OPERATOR_CONFIRMED / SENT_TO_CLINIC / PAID).
         const pending = await prisma.appointment.findMany({
             where: {
                 patientId,
                 clinicId: clinic.id,
                 scheduledAt: { gte: todayStart },
-                status: 'PENDING_ARRIVAL',
+                status: { in: ['PENDING_ARRIVAL', 'CLINIC_ACCEPTED', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'PAID'] },
             },
             orderBy: { scheduledAt: 'asc' },
             include: INCLUDE_FULL,
@@ -737,10 +776,29 @@ export class AppointmentService {
             return { kind: 'none' as const, clinic };
         }
 
-        // Pick the earliest PENDING_ARRIVAL and check in (never ask patient to pick)
-        const target = pending[0];
-        const checkedIn = await this.patientCheckIn(patientId, target.id, secret);
-        return { kind: 'checked_in' as const, appointment: checkedIn };
+        if (pending.length === 1) {
+            const target = pending[0];
+            const checkedIn = await this.patientCheckIn(patientId, target.id, secret, lat, lng);
+            return { kind: 'checked_in' as const, appointment: checkedIn };
+        }
+
+        // >1 eligible → caller must pick (UI lists them).
+        return { kind: 'multiple' as const, appointments: pending, clinic };
+    }
+
+    // Pick a specific booking when scanCheckIn returned 'multiple'.
+    async scanCheckInPick(patientId: string, secret: string, appointmentId: string, lat?: number, lng?: number) {
+        const clinic = await prisma.clinic.findFirst({
+            where: { checkInSecret: secret } as any,
+            select: { id: true },
+        });
+        if (!clinic) throw new AppError('QR kod noto\'g\'ri yoki eskirgan', 404, ErrorCodes.NOT_FOUND);
+        const appt = await prisma.appointment.findFirst({
+            where: { id: appointmentId, patientId, clinicId: clinic.id },
+            select: { id: true },
+        });
+        if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
+        return this.patientCheckIn(patientId, appt.id, secret, lat, lng);
     }
 
     // ─────────────────────────────────────────────────────────────

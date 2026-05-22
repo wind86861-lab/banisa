@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
 import { validate } from '../../middleware/validate.middleware';
+import { scanCheckInLimiter } from '../../middleware/rateLimiter';
 import { patientAppointmentController } from './patient.controller';
 import { operatorAppointmentController } from './operator.controller';
 import { clinicAppointmentController } from './clinic.controller';
@@ -13,8 +14,8 @@ import {
     clinicRescheduleSchema,
     clinicCompleteSchema,
     setClinicDiscountSchema,
-    patientCheckInSchema,
     scanCheckInSchema,
+    scanCheckInPickSchema,
     confirmCashSchema,
 } from './appointment.validation';
 
@@ -24,13 +25,12 @@ patientAppointmentRouter.use(requireAuth);
 // Read-only ownership-checked routes: any authenticated role can read their own appointment
 const ANY_OWNER = requireRole(['PATIENT', 'CLINIC_ADMIN', 'SUPER_ADMIN']);
 patientAppointmentRouter.get('/:id', ANY_OWNER, patientAppointmentController.getById);
-patientAppointmentRouter.get('/:id/qr.png', ANY_OWNER, patientAppointmentController.getQrImage);
 // Patient-only mutating actions
 const PATIENT_ONLY = requireRole(['PATIENT']);
 patientAppointmentRouter.post('/', PATIENT_ONLY, validate(createBookingSchema), patientAppointmentController.create);
 patientAppointmentRouter.post('/:id/cancel', PATIENT_ONLY, validate(cancelBookingSchema), patientAppointmentController.cancel);
-patientAppointmentRouter.post('/:id/patient-checkin', PATIENT_ONLY, validate(patientCheckInSchema), patientAppointmentController.patientCheckIn);
-patientAppointmentRouter.post('/scan-checkin', PATIENT_ONLY, validate(scanCheckInSchema), patientAppointmentController.scanCheckIn);
+patientAppointmentRouter.post('/scan-checkin', PATIENT_ONLY, scanCheckInLimiter, validate(scanCheckInSchema), patientAppointmentController.scanCheckIn);
+patientAppointmentRouter.post('/scan-checkin/pick', PATIENT_ONLY, scanCheckInLimiter, validate(scanCheckInPickSchema), patientAppointmentController.scanCheckInPick);
 
 // ─── Operator/Super Admin routes — mounted under /api/admin/appointments ─────
 export const operatorAppointmentRouter = Router();
@@ -46,6 +46,7 @@ operatorAppointmentRouter.put('/clinic/:clinicId/discount', validate(setClinicDi
 export const clinicAppointmentRouter = Router();
 clinicAppointmentRouter.use(requireAuth, requireRole(['CLINIC_ADMIN']));
 clinicAppointmentRouter.get('/', clinicAppointmentController.list);
+clinicAppointmentRouter.get('/cashier-queue', clinicAppointmentController.cashierQueue);
 clinicAppointmentRouter.get('/checkin-qr', clinicAppointmentController.getCheckInQr);
 clinicAppointmentRouter.get('/:id', clinicAppointmentController.getById);
 clinicAppointmentRouter.post('/:id/accept', validate(clinicAcceptSchema), clinicAppointmentController.accept);

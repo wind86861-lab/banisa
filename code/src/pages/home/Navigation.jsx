@@ -89,7 +89,7 @@ export default function Navigation() {
                         {user ? (
                             /* ─── Logged-in PATIENT ─── */
                             <div className="cm-nav-user" ref={dropdownRef}>
-                                <UserNotificationBell />
+                                {user.role === 'PATIENT' && <UserNotificationBell />}
                                 <button
                                     className="cm-nav-avatar-btn"
                                     onClick={() => setDropdownOpen(p => !p)}

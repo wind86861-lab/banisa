@@ -12,6 +12,38 @@ const CATEGORY_OPTIONS = [
 
 const fmt = (n) => n != null ? n.toLocaleString('uz-UZ') : '—';
 
+function MetadataRangeField({ template, valueMin, valueMax, onChange }) {
+    const v = (template.validation && typeof template.validation === 'object') ? template.validation : {};
+    return (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+                type="number"
+                value={valueMin ?? ''}
+                onChange={(e) => onChange(template.id, { value: e.target.value, valueMax })}
+                placeholder="Min"
+                className="ca-input"
+                style={{ flex: 1 }}
+                min={v.min}
+                max={v.max}
+                step={v.step || 'any'}
+            />
+            <span style={{ color: 'var(--text-muted)' }}>–</span>
+            <input
+                type="number"
+                value={valueMax ?? ''}
+                onChange={(e) => onChange(template.id, { value: valueMin, valueMax: e.target.value })}
+                placeholder="Max"
+                className="ca-input"
+                style={{ flex: 1 }}
+                min={v.min}
+                max={v.max}
+                step={v.step || 'any'}
+            />
+            {template.unit && <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>{template.unit}</span>}
+        </div>
+    );
+}
+
 function MetadataField({ template, value, onChange }) {
     const v = (template.validation && typeof template.validation === 'object') ? template.validation : {};
     const common = {
@@ -361,11 +393,20 @@ export default function CustomizationBasicTab({
                                             </span>
                                         )}
                                     </label>
-                                    <MetadataField
-                                        template={template}
-                                        value={metadataValues[template.id]}
-                                        onChange={onMetadataChange}
-                                    />
+                                    {template.inputType === 'NUMBER' ? (
+                                        <MetadataRangeField
+                                            template={template}
+                                            valueMin={metadataValues[template.id]?.value}
+                                            valueMax={metadataValues[template.id]?.valueMax}
+                                            onChange={onMetadataChange}
+                                        />
+                                    ) : (
+                                        <MetadataField
+                                            template={template}
+                                            value={metadataValues[template.id]}
+                                            onChange={onMetadataChange}
+                                        />
+                                    )}
                                 </div>
                             );
                         })}

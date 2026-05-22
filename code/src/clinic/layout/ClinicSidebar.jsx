@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
     Home, Briefcase, Calendar, Tag,
     Building2, Users, BarChart2, Printer,
-    LogOut, ChevronDown, Activity, Bell,
+    LogOut, ChevronDown, Activity, Bell, Banknote,
 } from 'lucide-react';
 import { useAuth } from '../../shared/auth/AuthContext';
 import api from '../../shared/api/axios';
@@ -19,6 +19,7 @@ const NAV_GROUPS = [
             { key: 'dashboard', label: 'Dashboard', path: '/clinic/dashboard', icon: <Home size={20} /> },
             { key: 'services', label: 'Xizmatlar', path: '/clinic/services', icon: <Briefcase size={20} /> },
             { key: 'bookings', label: 'Bronlar', path: '/clinic/bookings', icon: <Calendar size={20} /> },
+            { key: 'cashier', label: 'Kassa navbati', path: '/clinic/cashier', icon: <Banknote size={20} /> },
             { key: 'checkin-qr', label: 'Check-in QR', path: '/clinic/checkin-qr', icon: <Printer size={20} /> },
             { key: 'discounts', label: 'Chegirmalar', path: '/clinic/discounts', icon: <Tag size={20} /> },
         ],

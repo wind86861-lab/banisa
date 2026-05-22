@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { userController } from './user.controller';
 import { getHomeSummary } from './user-home-summary.controller';
+import { favoritesController, toggleFavoriteSchema } from './favorites.controller';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
 import { validate } from '../../middleware/validate.middleware';
 import { updateProfileSchema, createReviewSchema, createAppointmentSchema } from './user.validation';
@@ -26,5 +27,11 @@ router.get('/reviews', ANY_OWNER, userController.getReviews);
 // Mutating actions are PATIENT-only
 router.post('/appointments', requireRole(['PATIENT']), validate(createAppointmentSchema), userController.createAppointment);
 router.post('/reviews', requireRole(['PATIENT']), validate(createReviewSchema), userController.createReview);
+
+// Favorites — patient bookmarks of services
+router.get('/favorites', requireRole(['PATIENT']), favoritesController.list);
+router.get('/favorites/ids', requireRole(['PATIENT']), favoritesController.ids);
+router.post('/favorites/toggle', requireRole(['PATIENT']), validate(toggleFavoriteSchema), favoritesController.toggle);
+router.delete('/favorites/:id', requireRole(['PATIENT']), favoritesController.remove);
 
 export default router;

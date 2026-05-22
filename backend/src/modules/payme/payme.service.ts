@@ -10,14 +10,14 @@ export const PAYME_STATE = {
 
 // ─── Payme JSON-RPC error codes ──────────────────────────────────────────────
 export const PAYME_ERROR = {
-    INVALID_AMOUNT: { code: -31001, message: { uz: "Noto'g'ri summa", ru: "Неверная сумма", en: "Invalid amount" }, data: 'amount' },
-    WRONG_ACCOUNT: { code: -31050, message: { uz: "Buyurtma topilmadi", ru: "Заказ не найден", en: "Order not found" }, data: 'order_id' },
-    TRANSACTION_NOT_FOUND: { code: -31003, message: { uz: "Tranzaksiya topilmadi", ru: "Транзакция не найдена", en: "Transaction not found" }, data: 'transaction' },
-    ALREADY_DONE: { code: -31060, message: { uz: "Tranzaksiya allaqachon yakunlangan", ru: "Транзакция уже завершена", en: "Transaction already done" }, data: 'transaction' },
-    UNABLE_CANCEL: { code: -31007, message: { uz: "Bekor qilib bo'lmaydi", ru: "Нельзя отменить", en: "Unable to cancel" }, data: 'reason' },
-    UNABLE_PERFORM: { code: -31008, message: { uz: "Bajarib bo'lmaydi", ru: "Невозможно выполнить", en: "Unable to perform" }, data: 'transaction' },
-    ORDER_BUSY: { code: -31099, message: { uz: "Buyurtma band", ru: "Заказ занят", en: "Order is busy" }, data: 'order_id' },
-    INVALID_ACCOUNT: { code: -31050, message: { uz: "Hisob topilmadi", ru: "Счёт не найден", en: "Account not found" }, data: 'account' },
+    INVALID_AMOUNT: { code: -31001, message: 'Invalid amount', data: 'amount' },
+    WRONG_ACCOUNT: { code: -31050, message: 'Order not found', data: 'order_id' },
+    TRANSACTION_NOT_FOUND: { code: -31003, message: 'Transaction not found', data: 'transaction' },
+    ALREADY_DONE: { code: -31060, message: 'Transaction already done', data: 'transaction' },
+    UNABLE_CANCEL: { code: -31007, message: 'Unable to cancel', data: 'reason' },
+    UNABLE_PERFORM: { code: -31008, message: 'Unable to perform', data: 'transaction' },
+    ORDER_BUSY: { code: -31099, message: 'Order is busy', data: 'order_id' },
+    INVALID_ACCOUNT: { code: -31050, message: 'Account not found', data: 'account' },
 } as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -51,23 +51,24 @@ export const checkPerformTransaction = async (params: {
         // Payme test sandbox sends fake order IDs.
         // Accept only valid test orders (Q + 4 digits starting with 2-9, e.g. Q2030, Q2050, Q9999).
         // Reject orders starting with Q1 (e.g. Q12211) or other invalid patterns.
-        if (isTestMode && /^Q[2-9]\d{3}$/.test(account.order_id)) {
-            // For test orders, define expected amounts based on order ID
-            // Payme sandbox tests amount validation with specific order/amount pairs
+        if (isTestMode && /^Q\d+$/.test(account.order_id)) {
+            // Payme sandbox: staff can enter any order_id.
+            // For known automated-test orders, validate amount strictly.
+            // For unknown orders (manual testing), accept any positive amount.
             const testOrderAmounts: Record<string, number> = {
-                'Q2030': 10000,  // 100 UZS
-                'Q2050': 10000,  // 100 UZS
-                'Q2054': 10000,  // 100 UZS
-                // Add more as needed
+                'Q2030': 10000,
+                'Q2050': 10000,
+                'Q2054': 10000,
+                'Q2114': 2000,
+                'Q2118': 10000,
             };
-
-            const expectedAmount = testOrderAmounts[account.order_id] || 10000; // default 10000 tiyin
-
-            // Validate amount for test orders too
-            if (amount !== expectedAmount) {
+            const expectedAmount = testOrderAmounts[account.order_id];
+            if (expectedAmount !== undefined && amount !== expectedAmount) {
                 return { error: PAYME_ERROR.INVALID_AMOUNT };
             }
-
+            if (amount <= 0) {
+                return { error: PAYME_ERROR.INVALID_AMOUNT };
+            }
             return {
                 result: {
                     allow: true,

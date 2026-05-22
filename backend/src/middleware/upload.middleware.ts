@@ -26,15 +26,27 @@ const storage = multer.diskStorage({
   },
 });
 
+// SVG intentionally NOT allowed — `.svg` can embed <script> and execute when
+// served back. Each extension must pair with its expected MIME so users can't
+// rename `.exe` → `.png` to bypass the filter.
+const ALLOWED: Record<string, string[]> = {
+  '.jpg':  ['image/jpeg'],
+  '.jpeg': ['image/jpeg'],
+  '.png':  ['image/png'],
+  '.webp': ['image/webp'],
+  '.pdf':  ['application/pdf'],
+};
+
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowed = /jpeg|jpg|png|pdf|svg|webp/;
-  const ext = allowed.test(path.extname(file.originalname).toLowerCase());
-  const mime = allowed.test(file.mimetype);
-  if (ext && mime) {
-    cb(null, true);
-  } else {
-    cb(new Error(`Fayl turi qo'llab-quvvatlanmaydi: ${file.mimetype}`));
+  const ext = path.extname(file.originalname).toLowerCase();
+  const expectedMimes = ALLOWED[ext];
+  if (!expectedMimes) {
+    return cb(new Error(`Fayl turi qo'llab-quvvatlanmaydi: ${ext || '?'}`));
   }
+  if (!expectedMimes.includes(file.mimetype)) {
+    return cb(new Error(`Fayl turi mos kelmaydi: ${ext} ≠ ${file.mimetype}`));
+  }
+  cb(null, true);
 };
 
 export const clinicRegistrationUpload = multer({

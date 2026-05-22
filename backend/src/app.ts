@@ -38,7 +38,25 @@ const app = express();
 
 // Security Middleware
 app.use(helmet({
-    contentSecurityPolicy: false,
+    // We enable CSP with a narrow allowlist below; permissive ('unsafe-inline'
+    // for styles) is the minimum a React+Vite SPA needs without refactoring.
+    contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+            fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+            imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+            connectSrc: ["'self'", 'https://banisa.uz'],
+            frameSrc: ["'self'", 'https://checkout.paycom.uz', 'https://*.paycom.uz'],
+            objectSrc: ["'none'"],
+            baseUri: ["'self'"],
+            formAction: ["'self'", 'https://checkout.paycom.uz'],
+            frameAncestors: ["'self'"],
+            upgradeInsecureRequests: [],
+        },
+    },
     crossOriginOpenerPolicy: false,
     originAgentCluster: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -47,8 +65,9 @@ const corsOrigins = env.CORS_ORIGIN.split(',').map(o => o.trim());
 app.use(cors({
     origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'multipart/form-data'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'If-None-Match'],
     credentials: true,
+    maxAge: 86400,
 }));
 
 // Trust proxy (behind nginx) — required for express-rate-limit to read X-Forwarded-For

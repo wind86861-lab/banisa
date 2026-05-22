@@ -1,20 +1,18 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Html5Qrcode } from 'html5-qrcode';
+import { useQuery } from '@tanstack/react-query';
 import {
     Calendar, Clock, ChevronRight, ArrowRight, Search,
     Building2, CreditCard, Banknote, CheckCircle2, AlertCircle, Hourglass,
-    Stethoscope, ChevronLeft, Camera, X, Loader2
+    ChevronLeft, Camera, X, Loader2
 } from 'lucide-react';
 import api from '../../shared/api/axios';
-import { statusLabel, needsCheckIn, awaitingCashier, isReadyForService } from '../../shared/utils/appointmentStatus';
+import { statusLabel, canCheckIn, awaitingCashier, isReadyForService } from '../../shared/utils/appointmentStatus';
 import { fmtSum, shortBookingNo } from '../../shared/utils/format';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
 import BanisaLoader from '../../shared/components/BanisaLoader';
-import Confetti from '../components/Confetti';
 import './css/UserAppointments.css';
 
 const ACTIVE_STATUSES = ['PENDING', 'PENDING_ARRIVAL', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED', 'CHECKED_IN', 'IN_PROGRESS', 'PAID'];
@@ -44,118 +42,10 @@ function paymentBadge(a) {
 
 export default function UserAppointments() {
     const navigate = useNavigate();
-    const qc = useQueryClient();
     const [statusFilter, setStatusFilter] = useState('all');
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
-
-    const [scannerOpen, setScannerOpen] = useState(false);
-    const [scanError, setScanError] = useState('');
-    const [checkinResult, setCheckinResult] = useState(null);
     const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-    const [showConfetti, setShowConfetti] = useState(false);
-    const html5Ref = useRef(null);
-    const pollRef = useRef(null);
-    const secretRef = useRef(null);
-
-    const stopScanner = useCallback(async () => {
-        if (html5Ref.current) {
-            try { await html5Ref.current.stop(); } catch { }
-            try { html5Ref.current.clear(); } catch { }
-            html5Ref.current = null;
-        }
-    }, []);
-
-    const closeScanner = useCallback(async () => {
-        await stopScanner();
-        setScannerOpen(false);
-        setScanError('');
-    }, [stopScanner]);
-
-    const handleScanSuccess = useCallback(async (text) => {
-        let secret = text.trim();
-        const match = secret.match(/\/checkin\/([A-Za-z0-9_-]+)/);
-        if (match) secret = match[1];
-        if (!/^[A-Za-z0-9_-]{8,}$/.test(secret)) {
-            setScanError("Noto'g'ri QR kod.");
-            return;
-        }
-        await stopScanner();
-        setScannerOpen(false);
-        setCheckinResult({ step: 'loading' });
-        try {
-            const res = await api.post('/user/appointments/scan-checkin', { secret });
-            const data = res.data?.data;
-            if (!data) { setCheckinResult({ step: 'error', msg: 'Javob topilmadi' }); return; }
-            if (data.kind === 'none') {
-                setCheckinResult({ step: 'error', msg: `${data.clinic?.nameUz || 'Bu klinika'}da bugun siz uchun bron topilmadi.` });
-            } else if (data.kind === 'checked_in' || data.kind === 'already') {
-                secretRef.current = null;
-                const isPaid = data.appointment?.paymentStatus === 'PAID';
-                setCheckinResult({ step: isPaid ? 'paid' : 'success', appointment: data.appointment });
-                playSuccessChime();
-                if (navigator.vibrate) { try { navigator.vibrate([60, 40, 60]); } catch { } }
-                qc.invalidateQueries({ queryKey: ['user', 'appointments'] });
-            } else {
-                setCheckinResult({ step: 'error', msg: 'Noma\'lum javob turi' });
-            }
-        } catch (e) {
-            setCheckinResult({ step: 'error', msg: e.response?.data?.error?.message || e.response?.data?.message || 'Check-in xatoligi' });
-        }
-    }, [stopScanner, qc]);
-
-    const pickAppointment = useCallback(async (appt) => {
-        setCheckinResult({ step: 'loading' });
-        try {
-            const secret = secretRef.current;
-            const res = await api.post(`/user/appointments/${appt.id}/patient-checkin`, { clinicSecret: secret });
-            const isPaid = res.data?.data?.paymentStatus === 'PAID';
-            setCheckinResult({ step: isPaid ? 'paid' : 'success', appointment: res.data?.data });
-            playSuccessChime();
-            qc.invalidateQueries({ queryKey: ['user', 'appointments'] });
-        } catch (e) {
-            setCheckinResult({ step: 'error', msg: e.response?.data?.error?.message || e.response?.data?.message || 'Check-in xatoligi' });
-        }
-    }, [qc]);
-
-    useEffect(() => {
-        if (!scannerOpen) return;
-        let cancelled = false;
-        (async () => {
-            try {
-                const scanner = new Html5Qrcode('ua-qr-reader');
-                html5Ref.current = scanner;
-                await scanner.start(
-                    { facingMode: 'environment' },
-                    { fps: 10, qrbox: { width: 260, height: 260 } },
-                    (text) => { if (!cancelled) handleScanSuccess(text); },
-                    () => { }
-                );
-            } catch (e) {
-                setScanError('Kamerani ochib bo\'lmadi: ' + (e?.message || e));
-            }
-        })();
-        return () => { cancelled = true; stopScanner(); };
-    }, [scannerOpen, handleScanSuccess, stopScanner]);
-
-    useEffect(() => {
-        if (checkinResult?.step !== 'success' || !checkinResult?.appointment?.id) return;
-        const tick = async () => {
-            try {
-                const res = await api.get(`/user/appointments/${checkinResult.appointment.id}`);
-                const a = res.data?.data;
-                if (a && (a.status === 'COMPLETED' || a.paymentStatus === 'PAID')) {
-                    setCheckinResult(prev => ({ ...prev, step: 'paid', appointment: { ...prev.appointment, ...a } }));
-                    setShowConfetti(true);
-                    qc.invalidateQueries({ queryKey: ['user', 'appointments'] });
-                }
-            } catch { }
-        };
-        pollRef.current = setInterval(tick, 5000);
-        return () => { if (pollRef.current) clearInterval(pollRef.current); };
-    }, [checkinResult?.step, checkinResult?.appointment?.id, qc]);
-
-    const dismissCheckin = () => setCheckinResult(null);
 
     const { data, isLoading } = useQuery({
         queryKey: ['user', 'appointments', statusFilter, page],
@@ -182,7 +72,7 @@ export default function UserAppointments() {
         let list = appointments;
         if (statusFilter === 'active') list = list.filter(a => ACTIVE_STATUSES.includes(a.status));
         else if (statusFilter === 'past') list = list.filter(a => PAST_STATUSES.includes(a.status));
-        else if (statusFilter === 'action') list = list.filter(a => needsCheckIn(a) || awaitingCashier(a));
+        else if (statusFilter === 'action') list = list.filter(a => canCheckIn(a) || awaitingCashier(a));
         if (search.trim()) {
             const q = search.toLowerCase();
             list = list.filter(a =>
@@ -197,7 +87,7 @@ export default function UserAppointments() {
     const stats = useMemo(() => {
         const total = appointments.length;
         const active = appointments.filter(a => ACTIVE_STATUSES.includes(a.status)).length;
-        const needAction = appointments.filter(a => needsCheckIn(a) || awaitingCashier(a)).length;
+        const needAction = appointments.filter(a => canCheckIn(a) || awaitingCashier(a)).length;
         const completed = appointments.filter(a => a.status === 'COMPLETED').length;
         return { total, active, needAction, completed };
     }, [appointments]);
@@ -239,88 +129,13 @@ export default function UserAppointments() {
     const hasAny = groups.today.length + groups.tomorrow.length + groups.upcoming.length + groups.past.length > 0;
     const totalFiltered = filtered.length;
 
-    const openScanner = useCallback((e) => {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        setScanError('');
-        setScannerOpen(true);
-    }, []);
+    const goScan = () => navigate('/user/scan-checkin');
 
     return (
         <div className="home-page">
             <TopBar />
             <Navigation />
             <main className="home-container ua-main">
-                {/* ─── Inline Check-in Result ─── */}
-                {checkinResult && checkinResult.step === 'loading' && (
-                    <div className="ua-checkin-result ua-checkin-result--loading">
-                        <Loader2 size={28} className="ua-spin" />
-                        <span>Tasdiqlanmoqda...</span>
-                    </div>
-                )}
-                {checkinResult && checkinResult.step === 'error' && (
-                    <div className="ua-checkin-result ua-checkin-result--error">
-                        <AlertCircle size={22} />
-                        <div>
-                            <strong>Xatolik</strong>
-                            <p>{checkinResult.msg}</p>
-                        </div>
-                        <button onClick={dismissCheckin}><X size={16} /></button>
-                    </div>
-                )}
-                {checkinResult && checkinResult.step === 'success' && checkinResult.appointment && (
-                    <div className="ua-checkin-result ua-checkin-result--success">
-                        <button className="ua-checkin-dismiss" onClick={dismissCheckin}><X size={16} /></button>
-                        <div className="ua-checkin-success-icon">&#10003;</div>
-                        <h3>Kelishingiz tasdiqlandi!</h3>
-                        <p className="ua-checkin-sub">Klinika to'lovingizni tasdiqlashi kutilmoqda.</p>
-                        <div className="ua-checkin-service-name">
-                            <Stethoscope size={16} />
-                            <span>{serviceNameOf(checkinResult.appointment)}</span>
-                        </div>
-                        <div className="ua-checkin-price">
-                            <span>To'lov summasi</span>
-                            <strong>{fmtSum(checkinResult.appointment.finalPrice || checkinResult.appointment.price)} so'm</strong>
-                        </div>
-                        <div className="ua-checkin-info">
-                            <div><span>Bron</span><strong>{shortBookingNo(checkinResult.appointment.bookingNumber)}</strong></div>
-                            <div><span>Klinika</span><strong>{checkinResult.appointment.clinic?.nameUz}</strong></div>
-                            <div><span>To'lov</span><strong style={{ color: '#f59e0b' }}>Kutilmoqda</strong></div>
-                        </div>
-                        <div className="ua-checkin-polling">
-                            <span className="ua-checkin-polling-dot" />
-                            <span>Klinika tasdiqlashi kutilmoqda...</span>
-                        </div>
-                    </div>
-                )}
-                {checkinResult && checkinResult.step === 'paid' && checkinResult.appointment && (
-                    <div className="ua-checkin-result ua-checkin-result--paid">
-                        <button className="ua-checkin-dismiss" onClick={dismissCheckin}><X size={16} /></button>
-                        <div className="ua-checkin-success-icon" style={{ background: '#10b981' }}>&#10003;</div>
-                        <h3>To'lovingiz muvaffaqiyatli qabul qilindi!</h3>
-                        <p className="ua-checkin-sub">Xizmat xonasiga o'ting — sizni shifokor kutmoqda.</p>
-                        <div className="ua-checkin-service-name">
-                            <Stethoscope size={16} />
-                            <span>{serviceNameOf(checkinResult.appointment)}</span>
-                        </div>
-                        <div className="ua-checkin-price" style={{ borderColor: '#10b981' }}>
-                            <span>To'langan</span>
-                            <strong style={{ color: '#10b981' }}>{fmtSum(checkinResult.appointment.finalPrice || checkinResult.appointment.price)} so'm</strong>
-                        </div>
-                        <div className="ua-checkin-info">
-                            <div><span>Bron</span><strong>{shortBookingNo(checkinResult.appointment.bookingNumber)}</strong></div>
-                            <div><span>Klinika</span><strong>{checkinResult.appointment.clinic?.nameUz}</strong></div>
-                            <div><span>To'lov</span><strong style={{ color: '#10b981' }}>Tasdiqlandi</strong></div>
-                        </div>
-                        <button className="ua-checkin-detail-btn" onClick={() => navigate(`/user/appointments/${checkinResult.appointment.id}`)}>
-                            Bron tafsilotlari <ChevronRight size={14} />
-                        </button>
-                    </div>
-                )}
-
-                {/* ─── Page Header ─── */}
                 <div className="ua-page-header">
                     <div className="ua-page-header-left">
                         <div className="ua-greeting">
@@ -350,7 +165,6 @@ export default function UserAppointments() {
                     </Link>
                 </div>
 
-                {/* ─── Search + Filters ─── */}
                 <div className="ua-toolbar">
                     <div className="ua-search-wrap">
                         <Search size={18} className="ua-search-icon" />
@@ -379,7 +193,6 @@ export default function UserAppointments() {
                     </button>
                 </div>
 
-                {/* ─── List ─── */}
                 {isLoading ? (
                     <BanisaLoader message="Bronlar yuklanmoqda..." />
                 ) : !hasAny ? (
@@ -406,7 +219,7 @@ export default function UserAppointments() {
                                     <span className="ua-group-count">{groups.today.length}</span>
                                 </div>
                                 {groups.today.map(a => (
-                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} groupType="today" />
+                                    <AppointmentCard key={a.id} a={a} onCheckIn={goScan} groupType="today" />
                                 ))}
                             </>
                         )}
@@ -418,7 +231,7 @@ export default function UserAppointments() {
                                     <span className="ua-group-count">{groups.tomorrow.length}</span>
                                 </div>
                                 {groups.tomorrow.map(a => (
-                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} groupType="tomorrow" />
+                                    <AppointmentCard key={a.id} a={a} onCheckIn={goScan} groupType="tomorrow" />
                                 ))}
                             </>
                         )}
@@ -430,7 +243,7 @@ export default function UserAppointments() {
                                     <span className="ua-group-count">{groups.upcoming.length}</span>
                                 </div>
                                 {groups.upcoming.map(a => (
-                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} groupType="upcoming" />
+                                    <AppointmentCard key={a.id} a={a} onCheckIn={goScan} groupType="upcoming" />
                                 ))}
                             </>
                         )}
@@ -442,14 +255,13 @@ export default function UserAppointments() {
                                     <span className="ua-group-count">{groups.past.length}</span>
                                 </div>
                                 {groups.past.map(a => (
-                                    <AppointmentCard key={a.id} a={a} onCheckIn={openScanner} groupType="past" />
+                                    <AppointmentCard key={a.id} a={a} onCheckIn={goScan} groupType="past" />
                                 ))}
                             </>
                         )}
                     </div>
                 )}
 
-                {/* ─── Pagination ─── */}
                 {meta.totalPages > 1 && (
                     <div className="ua-pagination">
                         <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="ua-page-btn">
@@ -463,25 +275,6 @@ export default function UserAppointments() {
                 )}
             </main>
 
-            {/* ─── QR Scanner Modal ─── */}
-            {scannerOpen && (
-                <div className="ua-scan-overlay" onClick={closeScanner}>
-                    <div className="ua-scan-modal" onClick={e => e.stopPropagation()}>
-                        <div className="ua-scan-header">
-                            <h3><Camera size={18} /> Check-in</h3>
-                            <button onClick={closeScanner}><X size={20} /></button>
-                        </div>
-                        <div id="ua-qr-reader" className="ua-qr-reader" />
-                        {scanError && <p className="ua-scan-error">{scanError}</p>}
-                        <p className="ua-scan-hint">Klinikadagi QR kodga kamerani yo'naltiring</p>
-                    </div>
-                </div>
-            )}
-
-            {/* ─── Confetti Celebration ─── */}
-            {showConfetti && <Confetti duration={3000} onComplete={() => setShowConfetti(false)} />}
-
-            {/* ─── Bottom Sheet Filter (Mobile) ─── */}
             {filterSheetOpen && (
                 <div className="ua-bottom-sheet-overlay" onClick={() => setFilterSheetOpen(false)}>
                     <div className="ua-bottom-sheet" onClick={e => e.stopPropagation()}>
@@ -518,96 +311,27 @@ export default function UserAppointments() {
 
 function AppointmentCard({ a, onCheckIn, groupType = 'upcoming' }) {
     const navigate = useNavigate();
-    const [swipeOffset, setSwipeOffset] = useState(0);
-    const [isSwiping, setIsSwiping] = useState(false);
-    const touchStartX = useRef(0);
-    const touchStartY = useRef(0);
-
     const badge = statusLabel(a.status);
     const dateRaw = a.scheduledAt ? new Date(a.scheduledAt) : null;
     const pay = paymentBadge(a);
-    const needs = needsCheckIn(a);
+    const needs = canCheckIn(a);
     const awaits = awaitingCashier(a);
     const ready = isReadyForService(a);
-
-    const getTimeContext = () => {
-        if (!dateRaw || !needs) return null;
-        const now = new Date();
-        const diff = dateRaw - now;
-        const hours = diff / (1000 * 60 * 60);
-
-        if (hours < 0) {
-            return { type: 'late', msg: 'Kechikdingiz — klinikaga qo\'ng\'iroq qiling', showPhone: true };
-        } else if (hours < 1) {
-            return { type: 'urgent', msg: 'Check-in vaqti!', pulse: true };
-        } else if (hours < 2) {
-            return { type: 'soon', msg: `${Math.floor(hours * 60)} daqiqadan keyin check-in qiling` };
-        }
-        return null;
-    };
-
-    const timeContext = getTimeContext();
+    const isCash = a.paymentMethod === 'CASH';
 
     const handleCardClick = (e) => {
-        if (isSwiping) return;
-        if (e.target.closest('.ua-card-action') || e.target.closest('.ua-card-action button')) {
-            return;
-        }
+        if (e.target.closest('.ua-card-action button')) return;
         navigate(`/user/appointments/${a.id}`);
-    };
-
-    const handleTouchStart = (e) => {
-        touchStartX.current = e.touches[0].clientX;
-        touchStartY.current = e.touches[0].clientY;
-    };
-
-    const handleTouchMove = (e) => {
-        if (!touchStartX.current) return;
-        const deltaX = e.touches[0].clientX - touchStartX.current;
-        const deltaY = e.touches[0].clientY - touchStartY.current;
-
-        if (Math.abs(deltaY) > Math.abs(deltaX)) {
-            return;
-        }
-
-        e.preventDefault();
-        setIsSwiping(true);
-
-        if (needs && deltaX > 0 && deltaX < 120) {
-            setSwipeOffset(deltaX);
-        } else if (deltaX < 0 && deltaX > -120) {
-            setSwipeOffset(deltaX);
-        }
-    };
-
-    const handleTouchEnd = () => {
-        if (swipeOffset > 80 && needs) {
-            onCheckIn();
-        }
-        setSwipeOffset(0);
-        touchStartX.current = 0;
-        touchStartY.current = 0;
-        setTimeout(() => setIsSwiping(false), 100);
     };
 
     return (
         <div
             onClick={handleCardClick}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            className={`ua-card ua-card--${groupType} ${needs || awaits ? 'ua-card--urgent' : ''} ${timeContext?.pulse ? 'ua-card--pulse' : ''} ${isSwiping ? 'ua-card--swiping' : ''}`}
-            style={{ transform: `translateX(${swipeOffset}px)` }}
+            className={`ua-card ua-card--${groupType} ${needs || awaits ? 'ua-card--urgent' : ''}`}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCardClick(e); }}
         >
-            {swipeOffset > 40 && needs && (
-                <div className="ua-swipe-action ua-swipe-action--checkin" style={{ opacity: Math.min(swipeOffset / 80, 1) }}>
-                    <Camera size={20} />
-                    <span>Check-in</span>
-                </div>
-            )}
             <div className="ua-card-left">
                 <div className="ua-card-date">
                     <div className="ua-card-date-num">{dateRaw ? dateRaw.getDate() : '--'}</div>
@@ -636,45 +360,25 @@ function AppointmentCard({ a, onCheckIn, groupType = 'upcoming' }) {
                     <span className={`ua-chip ua-chip--${pay.cls}`}>{pay.icon} {pay.text}</span>
                     {a.bookingNumber && <span className="ua-chip ua-chip--bron">{shortBookingNo(a.bookingNumber)}</span>}
                 </div>
-                {timeContext && (
-                    <div className={`ua-card-action ua-card-action--${timeContext.type}`}>
-                        <div className="ua-card-action-body">
-                            {timeContext.type === 'urgent' && <Camera size={13} className="ua-pulse-icon" />}
-                            {timeContext.type === 'late' && <AlertCircle size={13} />}
-                            {timeContext.type === 'soon' && <Clock size={13} />}
-                            <span>{timeContext.msg}</span>
-                        </div>
-                        {timeContext.showPhone && a.clinic?.phone && (
-                            <a href={`tel:${a.clinic.phone}`} className="ua-action-phone-btn" onClick={(e) => e.stopPropagation()}>
-                                Qo'ng'iroq
-                            </a>
-                        )}
-                        {timeContext.type === 'urgent' && (
-                            <button onClick={(e) => { e.stopPropagation(); onCheckIn(e); }} className="ua-action-checkin-pulse">
-                                Check-in
-                            </button>
-                        )}
-                    </div>
-                )}
-                {!timeContext && needs && (
+                {needs && (
                     <div className="ua-card-action ua-card-action--warn">
                         <div className="ua-card-action-body">
                             <Camera size={13} />
-                            <span>Klinikaga boring va check-in qiling</span>
+                            <span>{isCash ? 'Klinikaga keldingizmi? QR skanerlang' : 'Klinikaga yetib bordingizmi? Kelishingizni bildiring'}</span>
                         </div>
-                        <button onClick={(e) => { e.stopPropagation(); onCheckIn(e); }}>Check-in</button>
+                        <button onClick={(e) => { e.stopPropagation(); onCheckIn(); }}>Skanerlash</button>
                     </div>
                 )}
                 {awaits && (
                     <div className="ua-card-action ua-card-action--info">
                         <Loader2 size={13} className="ua-spin" />
-                        <span>Kassir tasdiqlashini kuting</span>
+                        <span>Kassada to'lang — kassir tasdiqlashini kuting</span>
                     </div>
                 )}
                 {ready && a.status !== 'COMPLETED' && (
                     <div className="ua-card-action ua-card-action--ok">
                         <CheckCircle2 size={13} />
-                        <span>To'langan — xizmat xonasiga o'ting</span>
+                        <span>Xizmat xonasiga o'ting</span>
                     </div>
                 )}
             </div>
@@ -684,24 +388,4 @@ function AppointmentCard({ a, onCheckIn, groupType = 'upcoming' }) {
             </div>
         </div>
     );
-}
-
-function playSuccessChime() {
-    try {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
-        const ctx = new AC();
-        const now = ctx.currentTime;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, now);
-        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.18);
-        gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.4);
-    } catch { }
 }

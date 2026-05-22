@@ -1,0 +1,192 @@
+.scan-page {
+    min-height: 100vh;
+    background: #0f172a;
+    color: #f8fafc;
+    display: flex;
+    flex-direction: column;
+}
+
+.scan-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+}
+
+.scan-header h1 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.scan-back {
+    background: transparent;
+    border: 0;
+    color: #f8fafc;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 8px;
+}
+.scan-back:hover { background: #334155; }
+
+.scan-stage {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.scan-reader {
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 1 / 1;
+    background: #000;
+}
+.scan-reader video { object-fit: cover; }
+
+.scan-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: rgba(15, 23, 42, 0.85);
+    padding: 24px;
+    text-align: center;
+}
+.scan-overlay--err { color: #fecaca; }
+.scan-overlay p { margin: 0; }
+.scan-sub { font-size: 13px; color: #cbd5e1; }
+
+.scan-spin { animation: scan-spin 1s linear infinite; }
+@keyframes scan-spin { to { transform: rotate(360deg); } }
+
+.scan-hint {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.7);
+    color: #f8fafc;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    backdrop-filter: blur(6px);
+}
+
+.scan-torch {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(15, 23, 42, 0.7);
+    color: #f8fafc;
+    border: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(6px);
+}
+.scan-torch:hover { background: rgba(15, 23, 42, 0.9); }
+.scan-torch--on {
+    background: #facc15;
+    color: #422006;
+}
+
+.scan-tip {
+    padding: 16px 20px 24px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+    background: #1e293b;
+    border-top: 1px solid #334155;
+}
+.scan-tip strong { color: #f8fafc; }
+
+.scan-btn {
+    background: #6366f1;
+    color: white;
+    border: 0;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+}
+.scan-btn:hover { background: #4f46e5; }
+.scan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.scan-manual-link {
+    background: transparent;
+    border: 0;
+    color: #93c5fd;
+    cursor: pointer;
+    margin-top: 10px;
+    font-size: 13px;
+    text-decoration: underline;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.scan-manual-link:hover { color: #bfdbfe; }
+
+.scan-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 100;
+}
+.scan-modal {
+    background: #1e293b;
+    border-radius: 14px;
+    padding: 24px;
+    width: 100%;
+    max-width: 380px;
+    color: #f8fafc;
+}
+.scan-modal h3 { margin: 0 0 6px; font-size: 18px; }
+.scan-modal-sub { font-size: 13px; color: #94a3b8; margin: 0 0 14px; }
+.scan-modal-input {
+    width: 100%;
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #f8fafc;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 15px;
+    box-sizing: border-box;
+}
+.scan-modal-input:focus { outline: 2px solid #6366f1; }
+.scan-modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    justify-content: flex-end;
+}
+.scan-btn-secondary {
+    background: transparent;
+    border: 1px solid #475569;
+    color: #cbd5e1;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.scan-btn-secondary:hover { background: #334155; }

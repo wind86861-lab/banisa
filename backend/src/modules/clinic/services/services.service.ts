@@ -209,26 +209,31 @@ export class ClinicServicesService {
         // This clinic's already-saved values for those templates
         const saved = await prisma.clinicServiceMetadata.findMany({
             where: { clinicId, serviceType: 'DIAGNOSTIC', serviceId },
-            select: { templateId: true, value: true },
+            select: { templateId: true, value: true, valueMax: true },
         });
-        const valueMap = new Map(saved.map(v => [v.templateId, v.value]));
+        const valueMap = new Map(saved.map(v => [v.templateId, v]));
 
-        return links.map(link => ({
-            ...link.template,
-            isRequired: link.isRequired,
-            displayOrder: link.displayOrder,
-            currentValue: valueMap.get(link.templateId) ?? null,
-        }));
+        return links.map(link => {
+            const v = valueMap.get(link.templateId);
+            return {
+                ...link.template,
+                isRequired: link.isRequired,
+                displayOrder: link.displayOrder,
+                currentValue: v?.value ?? null,
+                currentValueMax: v?.valueMax ?? null,
+            };
+        });
     }
 
     /**
      * Upsert this clinic's metadata values for a diagnostic service.
-     * Empty values delete the row, so a cleared field stops filtering.
+     * For NUMBER templates we treat `value` as MIN and `valueMax` as MAX (range).
+     * Empty values delete the row.
      */
     async saveServiceMetadata(
         userId: string,
         serviceId: string,
-        values: Array<{ templateId: string; value: string | null }>,
+        values: Array<{ templateId: string; value: string | null; valueMax?: string | null }>,
     ) {
         const clinicId = await this.getClinicId(userId);
 
@@ -247,34 +252,65 @@ export class ClinicServicesService {
         });
         const templateById = new Map(links.map(l => [l.templateId, l.template]));
 
-        for (const { templateId, value } of values) {
+        for (const { templateId, value, valueMax } of values) {
             const template = templateById.get(templateId);
             if (!template) {
                 throw new AppError('Bu xizmatga bog\'lanmagan metadata', 400, ErrorCodes.VALIDATION_ERROR);
             }
-            const error = validateMetadataValue(value, template);
-            if (error) throw new AppError(error, 400, ErrorCodes.VALIDATION_ERROR);
+            const isRange = (template as any).inputType === 'NUMBER';
+            if (isRange) {
+                // RANGE: clinic stores [min, max] of accepted patient values.
+                // Skip the template's per-value validation (which assumed a
+                // single patient value); just verify both ends are valid
+                // numbers and that lo <= hi. Empty values are allowed and
+                // mean "no range set" — the row will be deleted below.
+                const minEmpty = value === null || value === undefined || String(value).trim() === '';
+                const maxEmpty = valueMax === null || valueMax === undefined || String(valueMax).trim() === '';
+                if (minEmpty && maxEmpty) continue;
+                if (minEmpty || maxEmpty) {
+                    throw new AppError(`${(template as any).labelUz}: min va max ikkalasini ham kiriting`, 400, ErrorCodes.VALIDATION_ERROR);
+                }
+                const lo = Number(value);
+                const hi = Number(valueMax);
+                if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
+                    throw new AppError(`${(template as any).labelUz}: qiymat son bo'lishi kerak`, 400, ErrorCodes.VALIDATION_ERROR);
+                }
+                if (lo > hi) {
+                    throw new AppError(`${(template as any).labelUz}: min qiymat max'dan kichik bo'lishi kerak`, 400, ErrorCodes.VALIDATION_ERROR);
+                }
+            } else {
+                const err = validateMetadataValue(value, template);
+                if (err) throw new AppError(err, 400, ErrorCodes.VALIDATION_ERROR);
+            }
         }
 
         await prisma.$transaction(
-            values.map(({ templateId, value }) => {
-                const isEmpty = value === null || value === undefined || String(value).trim() === '';
-                if (isEmpty) {
+            values.map(({ templateId, value, valueMax }) => {
+                const template = templateById.get(templateId)!;
+                const isRange = (template as any).inputType === 'NUMBER';
+                const minEmpty = value === null || value === undefined || String(value).trim() === '';
+                const maxEmpty = valueMax === null || valueMax === undefined || String(valueMax).trim() === '';
+                // Range mode requires BOTH min and max — delete row if either missing.
+                const shouldDelete = isRange ? (minEmpty || maxEmpty) : minEmpty;
+                if (shouldDelete) {
                     return prisma.clinicServiceMetadata.deleteMany({
                         where: { clinicId, serviceType: 'DIAGNOSTIC', serviceId, templateId },
                     });
                 }
+                const data: any = {
+                    clinicId, serviceType: 'DIAGNOSTIC', serviceId, templateId,
+                    value: String(value),
+                    valueMax: isRange ? String(valueMax) : null,
+                };
+                const updateData: any = { value: String(value), valueMax: isRange ? String(valueMax) : null };
                 return prisma.clinicServiceMetadata.upsert({
                     where: {
                         clinicId_serviceType_serviceId_templateId: {
-                            clinicId,
-                            serviceType: 'DIAGNOSTIC',
-                            serviceId,
-                            templateId,
+                            clinicId, serviceType: 'DIAGNOSTIC', serviceId, templateId,
                         },
                     },
-                    create: { clinicId, serviceType: 'DIAGNOSTIC', serviceId, templateId, value: String(value) },
-                    update: { value: String(value) },
+                    create: data,
+                    update: updateData,
                 });
             }),
         );

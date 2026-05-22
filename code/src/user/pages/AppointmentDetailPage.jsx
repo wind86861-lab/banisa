@@ -12,7 +12,9 @@ import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
 import ProgressTimeline from '../components/ProgressTimeline';
-import BookingQr from '../components/BookingQr';
+import ReviewWriteModal from '../components/ReviewWriteModal';
+import { useQuery as useRq } from '@tanstack/react-query';
+import { Star } from 'lucide-react';
 import './css/AppointmentDetailPage.css';
 
 const POLL_MS = 5000;
@@ -47,6 +49,19 @@ export default function AppointmentDetailPage() {
     // After a few minutes of waiting on the cashier, surface a fallback
     // (call the clinic) instead of an endless silent spinner.
     const [waitedLong, setWaitedLong] = useState(false);
+    const [reviewOpen, setReviewOpen] = useState(false);
+
+    // Has the patient already reviewed this clinic? Drives the COMPLETED CTA.
+    const { data: userReviews = [] } = useRq({
+        queryKey: ['user', 'reviews'],
+        queryFn: async () => {
+            const res = await api.get('/user/reviews');
+            return res.data?.data || [];
+        },
+        enabled: !!data && data.status === 'COMPLETED',
+        staleTime: 30000,
+    });
+    const hasReviewed = !!(data?.clinic?.id && userReviews.some(r => r.clinicId === data.clinic.id));
     useEffect(() => {
         if (action?.cta !== 'await-cashier') { setWaitedLong(false); return; }
         const t = setTimeout(() => setWaitedLong(true), CASHIER_WAIT_MS);
@@ -166,32 +181,34 @@ export default function AppointmentDetailPage() {
                                 <h3>{action.title}</h3>
                                 <p>{action.body}</p>
 
-                                {action.cta === 'checkin' && (
+                                {action.cta === 'scan' && (
                                     <>
-                                        <div className="apd-checkin-amount">
-                                            <span>Naqd to'lov summasi:</span>
-                                            <strong>{fmtSum(finalP)} so'm</strong>
-                                        </div>
-                                        {Array.isArray(action.steps) && (
-                                            <ol className="apd-checkin-steps">
-                                                {action.steps.map((s, i) => (
-                                                    <li key={i}>{s}</li>
-                                                ))}
-                                            </ol>
+                                        {isCash && (
+                                            <div className="apd-checkin-amount">
+                                                <span>Naqd to'lov summasi:</span>
+                                                <strong>{fmtSum(finalP)} so'm</strong>
+                                            </div>
                                         )}
+                                        <button className="apd-pay-btn" onClick={() => navigate('/user/scan-checkin')}>
+                                            QR kodni skanerlash
+                                        </button>
+                                        <p className="apd-checkin-hint">
+                                            Klinika qabulxonasidagi yoki devordagi <strong>Banisa QR</strong> kodini toping.
+                                        </p>
                                     </>
                                 )}
 
                                 {action.cta === 'await-cashier' && (
                                     <>
-                                        <div className="apd-qr-block">
-                                            <BookingQr appointmentId={data.id} size={200} />
-                                            <span className="apd-qr-caption">Kassir bu QR kodni skanerlaydi</span>
+                                        <div className="apd-cashier-amount">
+                                            <div className="apd-cashier-label">Kassaga to'lang</div>
+                                            <div className="apd-cashier-sum">{fmtSum(finalP)} so'm</div>
+                                            <div className="apd-cashier-method">💵 Naqd</div>
                                         </div>
                                         {!waitedLong ? (
                                             <div className="apd-action-spinner">
                                                 <Loader2 size={16} className="apd-spin" />
-                                                <span>Klinika to'lovingizni tasdiqlashi kutilmoqda...</span>
+                                                <span>Kassir tasdiqi kutilmoqda...</span>
                                             </div>
                                         ) : (
                                             <div className="apd-wait-fallback">
@@ -213,6 +230,18 @@ export default function AppointmentDetailPage() {
                                     <button className="apd-pay-btn" onClick={() => navigate('/payment', { state: { bookingData: { skipCreate: true, appointmentId: data.id, price: finalP, clinicName: data.clinic?.nameUz, serviceName, scheduledAt: data.scheduledAt, selectedDate: data.scheduledAt?.split('T')[0] } } })}>
                                         To'lash <CreditCard size={16} />
                                     </button>
+                                )}
+
+                                {data.status === 'COMPLETED' && data.clinic?.id && (
+                                    hasReviewed ? (
+                                        <div className="apd-review-done">
+                                            <Star size={16} fill="#facc15" /> Siz bu klinikaga sharh qoldirgansiz
+                                        </div>
+                                    ) : (
+                                        <button className="apd-pay-btn apd-review-btn" onClick={() => setReviewOpen(true)}>
+                                            <Star size={16} /> Sharh qoldirish
+                                        </button>
+                                    )
                                 )}
                             </div>
                         )}
@@ -337,6 +366,14 @@ export default function AppointmentDetailPage() {
             </main>
 
             <Footer />
+
+            {reviewOpen && data?.clinic?.id && (
+                <ReviewWriteModal
+                    clinicId={data.clinic.id}
+                    clinicName={data.clinic.nameUz}
+                    onClose={() => setReviewOpen(false)}
+                />
+            )}
         </div>
     );
 }
