@@ -1,79 +1,116 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
+import { Printer, RefreshCw, Info } from 'lucide-react';
 import api from '../../shared/api/axios';
 import BanisaLoader from '../../shared/components/BanisaLoader';
-import '../../pages/checkin/CheckIn.css';
+import './clinic-checkin-qr.css';
 
+// Printable check-in QR poster. Visual design matches the "Banisa QR Card"
+// preview the team approved. Print rules in clinic-checkin-qr.css strip the
+// clinic shell (sidebar/topbar) and center just the card on the sheet.
 export default function ClinicCheckInQR() {
     const [data, setData] = useState(null);
     const [qrDataUrl, setQrDataUrl] = useState(null);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState('');
-    const canvasRef = useRef(null);
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const res = await api.get('/clinic/appointments/checkin-qr');
-                const d = res.data?.data;
-                setData(d);
-                const url = await QRCode.toDataURL(d.qrUrl, {
-                    errorCorrectionLevel: 'M',
-                    margin: 2,
-                    width: 400,
-                    color: { dark: '#031B4E', light: '#ffffff' },
-                });
-                setQrDataUrl(url);
-            } catch (e) {
-                setErr(e.response?.data?.message || 'QR yuklanmadi');
-            } finally {
-                setLoading(false);
-            }
-        })();
-    }, []);
+    const fetchQr = async () => {
+        setLoading(true);
+        setErr('');
+        try {
+            const res = await api.get('/clinic/appointments/checkin-qr');
+            const d = res.data?.data;
+            if (!d?.qrUrl) throw new Error("QR URL bo'sh — admin bilan bog'laning");
+            setData(d);
+            // Render at high res so prints stay crisp on A4 as well as A6.
+            const url = await QRCode.toDataURL(d.qrUrl, {
+                errorCorrectionLevel: 'H',
+                margin: 0,
+                width: 720,
+                color: { dark: '#0f172a', light: '#ffffff' },
+            });
+            setQrDataUrl(url);
+        } catch (e) {
+            setErr(e.response?.data?.message || e.message || 'QR yuklanmadi');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    const handlePrint = () => window.print();
+    useEffect(() => { fetchQr(); }, []);
 
     if (loading) return <BanisaLoader message="QR kod yuklanmoqda..." />;
-    if (err) return <div className="ci-page"><div className="ci-card ci-card--error"><div className="ci-icon">⚠️</div><h2>{err}</h2></div></div>;
 
-    return (
-        <div className="cq-page">
-            <div className="cr-header">
-                <div>
-                    <h1>🖨️ Check-in QR kodi</h1>
-                    <p>Ushbu QR kodni bosib chiqaring va klinika kirishiga yopishtirib qo'ying</p>
-                </div>
-                <button className="cq-print-btn" onClick={handlePrint}>🖨️ Chop etish</button>
-            </div>
-
-            <div className="cq-body">
-                <div className="cq-card">
-                    <h2>{data?.clinicName}</h2>
-                    <p>Bemor ushbu QR kodni skanlab klinikaga kelishini tasdiqlaydi</p>
-
-                    <div className="cq-qr-container">
-                        {qrDataUrl && (
-                            <img src={qrDataUrl} alt="Klinika Check-in QR" className="cq-qr-img" />
-                        )}
-                        <div className="cq-url">{data?.qrUrl}</div>
-                    </div>
-
-                    <button className="cq-print-btn" onClick={handlePrint}>
-                        🖨️ Chop etish
+    if (err) {
+        return (
+            <div className="qrp-page">
+                <div className="qrp-error">
+                    <h2>QR yuklanmadi</h2>
+                    <p style={{ marginTop: 8 }}>{err}</p>
+                    <button className="qrp-btn qrp-btn--primary" onClick={fetchQr} style={{ marginTop: 16 }}>
+                        <RefreshCw size={15} /> Qayta urinish
                     </button>
                 </div>
+            </div>
+        );
+    }
 
-                <div className="cq-instructions">
-                    <h4>Qo'llanma</h4>
-                    <ol>
-                        <li>Ushbu sahifani chop eting va klinika kirishiga yopishtirib qo'ying.</li>
-                        <li>Bemorlar klinikaga kelganda ushbu QR kodni telefon kamerasi bilan skanleydi.</li>
-                        <li>Skanlagandan so'ng Banisa ilovasi check-in sahifasiga o'tadi.</li>
-                        <li>Check-in muvaffaqiyatli bo'lgach, bemor o'z QR kodini ko'rsatadi.</li>
-                        <li>Kassal xodimi bemorning QR kodini <strong>Kassa → Naqd to'lov</strong> bo'limida skanlab to'lovni tasdiqlaydi.</li>
-                    </ol>
+    return (
+        <div className="qrp-page">
+            <div className="qrp-header">
+                <div>
+                    <h1>Check-in QR kodi</h1>
+                    <p>Quyidagi kartani chop eting va klinika kirishida ko'rinarli joyga osib qo'ying. Bemorlar telefon kamerasi orqali skanlab keladi.</p>
                 </div>
+                <div className="qrp-actions">
+                    <button className="qrp-btn" onClick={fetchQr} title="Qayta yuklash">
+                        <RefreshCw size={15} /> Yangilash
+                    </button>
+                    <button className="qrp-btn qrp-btn--primary" onClick={() => window.print()}>
+                        <Printer size={15} /> Chop etish
+                    </button>
+                </div>
+            </div>
+
+            <div className="qrp-layout">
+                {/* Card (this is the only thing that prints) */}
+                <div className="qrp-card-wrap">
+                    <article className="qrcard" aria-label="Check-in QR kartasi">
+                        <div className="qrcard__brand">banisa</div>
+                        <div className="qrcard__clinic">{data?.clinicName || 'Klinika'}</div>
+
+                        <div className="qrcard__panel">
+                            <span className="qrcard__panel-corner qrcard__panel-corner--tl" />
+                            <span className="qrcard__panel-corner qrcard__panel-corner--tr" />
+                            <span className="qrcard__panel-corner qrcard__panel-corner--bl" />
+                            {qrDataUrl && (
+                                <img src={qrDataUrl} alt="Check-in QR" className="qrcard__qr-img" />
+                            )}
+                        </div>
+
+                        <div className="qrcard__caption">CHECK-IN QR</div>
+                        <p className="qrcard__hint">
+                            Telefon kamerangiz bilan skanlang
+                        </p>
+                    </article>
+                </div>
+
+                {/* Side panel — hidden on print */}
+                <aside className="qrp-info no-print">
+                    <h3><Info size={16} /> Qo'llanma</h3>
+                    <ol>
+                        <li>Kartani bosib chiqaring (A6 yoki A4, ranglarda).</li>
+                        <li>Klinika kirishi yoki qabulxonaga ko'rinarli joyga yopishtiring.</li>
+                        <li>Bemor klinikaga kelganida telefoni kamerasi bilan QRni skanlaydi.</li>
+                        <li>Bemor "Klinikadaman" deb tasdiqlagach, sizning bildirishnomalaringizga keladi.</li>
+                        <li>Naqd to'lov bo'lsa, bemor kassada to'laydi — siz <strong>Kassa navbati</strong> sahifasida tasdiqlaysiz.</li>
+                    </ol>
+                    {data?.qrUrl && (
+                        <div className="qrp-info__url" title="QR ichidagi havola">
+                            {data.qrUrl}
+                        </div>
+                    )}
+                </aside>
             </div>
         </div>
     );

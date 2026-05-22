@@ -1,0 +1,347 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ClinicCheckInQR — print-ready QR poster.
+   Visual language matches the Banisa QR Card preview (banisa-bundler artifact):
+   light neutral background, white portrait card, dark navy QR panel with teal
+   corner markers, teal italic "banisa" wordmark, tracked CHECK-IN QR caption.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+    --qr-teal: #0d9488;
+    --qr-teal-soft: rgba(13, 148, 136, 0.10);
+    --qr-navy: #0f172a;
+    --qr-page-bg: #eef0f3;
+    --qr-text-muted: #64748b;
+}
+
+.qrp-page {
+    min-height: 100vh;
+    background: var(--qr-page-bg);
+    padding: 40px 20px 80px;
+}
+
+.qrp-header {
+    max-width: 1040px;
+    margin: 0 auto 28px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.qrp-header h1 {
+    margin: 0 0 4px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--qr-navy);
+    letter-spacing: -0.2px;
+}
+
+.qrp-header p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--qr-text-muted);
+    max-width: 540px;
+    line-height: 1.55;
+}
+
+.qrp-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.qrp-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: var(--qr-navy);
+    border-radius: 12px;
+    padding: 11px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.qrp-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15,23,42,0.08); }
+
+.qrp-btn--primary {
+    background: var(--qr-navy);
+    color: #fff;
+    border-color: var(--qr-navy);
+}
+
+.qrp-btn--primary:hover { background: #1e293b; }
+
+.qrp-layout {
+    max-width: 1040px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 36px;
+    align-items: start;
+}
+
+.qrp-card-wrap {
+    display: flex;
+    justify-content: center;
+}
+
+/* ─── The actual QR card (this is what prints) ─────────────────────────── */
+
+.qrcard {
+    width: 360px;
+    background: #fff;
+    border-radius: 28px;
+    border: 1px solid #e2e8f0;
+    padding: 40px 30px 36px;
+    text-align: center;
+    box-shadow: 0 20px 60px -20px rgba(15,23,42,0.18);
+    position: relative;
+}
+
+.qrcard__brand {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-style: italic;
+    font-size: 30px;
+    color: var(--qr-teal);
+    letter-spacing: 0.5px;
+    line-height: 1;
+    margin: 4px 0 4px;
+}
+
+.qrcard__clinic {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--qr-navy);
+    margin: 6px 0 28px;
+    line-height: 1.35;
+}
+
+.qrcard__panel {
+    position: relative;
+    width: 250px;
+    height: 250px;
+    margin: 0 auto;
+    border-radius: 20px;
+    background: var(--qr-navy);
+    padding: 18px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qrcard__panel-corner {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border-radius: 5px;
+    background: var(--qr-teal);
+}
+
+.qrcard__panel-corner--tl { top: 12px; left: 12px; }
+.qrcard__panel-corner--tr { top: 12px; right: 12px; }
+.qrcard__panel-corner--bl { bottom: 12px; left: 12px; }
+
+.qrcard__qr-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 8px;
+    padding: 6px;
+    box-sizing: border-box;
+}
+
+.qrcard__caption {
+    margin: 26px 0 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--qr-text-muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+.qrcard__hint {
+    margin: 10px 0 0;
+    font-size: 12.5px;
+    color: var(--qr-text-muted);
+    line-height: 1.5;
+}
+
+/* ─── Side panel: instructions ─────────────────────────────────────────── */
+
+.qrp-info {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 28px;
+}
+
+.qrp-info h3 {
+    margin: 0 0 14px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--qr-navy);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.qrp-info ol {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+    counter-reset: step;
+}
+
+.qrp-info li {
+    counter-increment: step;
+    position: relative;
+    padding: 10px 0 10px 38px;
+    font-size: 13.5px;
+    color: #334155;
+    line-height: 1.55;
+}
+
+.qrp-info li + li { border-top: 1px solid #f1f5f9; }
+
+.qrp-info li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--qr-teal-soft);
+    color: var(--qr-teal);
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qrp-info__url {
+    margin-top: 18px;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--qr-text-muted);
+    word-break: break-all;
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+
+/* ─── Error state ──────────────────────────────────────────────────────── */
+
+.qrp-error {
+    max-width: 480px;
+    margin: 80px auto;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+}
+
+/* ─── Responsive ──────────────────────────────────────────────────────── */
+
+@media (max-width: 880px) {
+    .qrp-layout { grid-template-columns: 1fr; gap: 24px; }
+}
+
+@media (max-width: 480px) {
+    .qrp-page { padding: 24px 14px 60px; }
+    .qrcard { width: 100%; max-width: 340px; padding: 32px 24px 30px; }
+    .qrcard__panel { width: 220px; height: 220px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PRINT — hide everything except the card. The clinic shell (sidebar/topbar)
+   was leaking into the printed sheet; we kill it here.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media print {
+    /* Reset the whole page so only the card shows. */
+    html, body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    @page {
+        size: A6 portrait;
+        margin: 8mm;
+    }
+
+    /* Anything inside the clinic shell that isn't the print area is hidden. */
+    .clinic-sidebar,
+    .clinic-topbar,
+    .main-header,
+    .sidebar,
+    .sidebar-toggle,
+    .header-actions,
+    .clinic-topbar-logout,
+    nav,
+    .qrp-header,
+    .qrp-info,
+    .qrp-actions,
+    .qrp-btn,
+    .no-print {
+        display: none !important;
+    }
+
+    /* Collapse layout offsets the shell normally applies. */
+    .app-container,
+    .main-content,
+    .content-wrapper {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+        background: #fff !important;
+    }
+
+    .qrp-page {
+        background: #fff !important;
+        padding: 0 !important;
+        min-height: 0 !important;
+    }
+
+    .qrp-layout {
+        display: block !important;
+        max-width: none !important;
+        margin: 0 !important;
+        gap: 0 !important;
+    }
+
+    .qrp-card-wrap {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        min-height: 100vh;
+    }
+
+    .qrcard {
+        box-shadow: none !important;
+        border: 2px solid #e2e8f0 !important;
+        width: 88mm;
+        max-width: 88mm;
+        padding: 12mm 8mm 10mm;
+        page-break-inside: avoid;
+    }
+
+    .qrcard__panel {
+        width: 60mm;
+        height: 60mm;
+    }
+}
