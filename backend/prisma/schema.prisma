@@ -233,6 +233,25 @@ model Clinic {
   submittedAt            DateTime?
   legalForm              String?
   legalName              String?
+  legalAddress           String?
+  foundedYear            Int?
+  descriptionRu          String?
+  addressUz              String?
+  addressRu              String?
+  zipCode                String?
+  googleMapsUrl          String?
+  isAlwaysOpen           Boolean                   @default(false)
+  lunchBreakStart        String?
+  lunchBreakEnd          String?
+  holidayNotes           String?
+  licenseUrl             String?
+  certificates           Json?                     @default("[]")
+  bankName               String?
+  bankAccountNumber      String?
+  mfo                    String?
+  oked                   String?
+  vatNumber              String?
+  invoiceEmail           String?
   commissionRate         Float                     @default(0.10)
   defaultDiscountPercent Int                       @default(0)
   checkInSecret          String?                   @unique

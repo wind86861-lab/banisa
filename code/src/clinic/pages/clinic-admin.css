@@ -1305,3 +1305,16 @@
     color: #6366f1;
     font-weight: 600;
 }
+/* Profile save banners */
+.ca-banner-success {
+    padding: 12px 16px; background: #f0fdf4;
+    border: 1px solid #bbf7d0; border-radius: 10px;
+    display: flex; align-items: center; gap: 8px;
+    color: #15803d; font-weight: 600; font-size: 14px;
+}
+.ca-banner-error {
+    padding: 12px 16px; background: #fef2f2;
+    border: 1px solid #fecaca; border-radius: 10px;
+    display: flex; align-items: center; gap: 8px;
+    color: #dc2626; font-weight: 600; font-size: 14px;
+}

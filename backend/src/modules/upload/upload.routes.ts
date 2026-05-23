@@ -96,6 +96,22 @@ router.post(
     }
 );
 
+// ─── Clinic PDF Upload (license / certificates) ──────────────────────────────
+router.post(
+    '/clinic-pdf',
+    requireAuth,
+    requireRole(['CLINIC_ADMIN', 'SUPER_ADMIN']),
+    uploadPdf.single('file'),
+    (req: Request, res: Response, _next: NextFunction) => {
+        if (!req.file) {
+            res.status(400).json({ success: false, message: 'No file uploaded' });
+            return;
+        }
+        const url = `/uploads/docs/${req.file.filename}`;
+        res.json({ success: true, data: { url } });
+    }
+);
+
 // ─── Service Images Upload (Multiple) ──────────────────────────────────────────
 router.post(
     '/service-images',

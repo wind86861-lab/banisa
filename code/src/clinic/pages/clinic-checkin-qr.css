@@ -1,27 +1,38 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    ClinicCheckInQR — print-ready QR poster.
-   Visual language matches the Banisa QR Card preview (banisa-bundler artifact):
-   light neutral background, white portrait card, dark navy QR panel with teal
-   corner markers, teal italic "banisa" wordmark, tracked CHECK-IN QR caption.
+   Pixel-faithful port of the "Banisa QR Card" preview: Plus Jakarta Sans
+   shell, Fraunces serif clinic name with italic teal accent, Geist Mono
+   chips for the brand pill / URL / step labels, and L-bracket corners
+   hugging the QR frame. Print rules strip the clinic shell.
    ═══════════════════════════════════════════════════════════════════════════ */
 
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,500&family=Geist+Mono:wght@400;500;600&display=swap');
+
 :root {
-    --qr-teal: #0d9488;
-    --qr-teal-soft: rgba(13, 148, 136, 0.10);
-    --qr-navy: #0f172a;
+    --qr-teal-1: #5eead4;
+    --qr-teal-2: #2dd4bf;
+    --qr-teal-3: #14b8a6;
+    --qr-teal-4: #0d9488;
+    --qr-ink-900: #0f172a;
+    --qr-ink-700: #334155;
+    --qr-ink-500: #64748b;
+    --qr-ink-300: #cbd5e1;
+    --qr-ink-100: #f1f5f9;
+    --qr-ink-50:  #f8fafc;
     --qr-page-bg: #eef0f3;
-    --qr-text-muted: #64748b;
 }
 
 .qrp-page {
     min-height: 100vh;
     background: var(--qr-page-bg);
-    padding: 40px 20px 80px;
+    padding: 48px 20px 80px;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    color: var(--qr-ink-900);
 }
 
 .qrp-header {
-    max-width: 1040px;
-    margin: 0 auto 28px;
+    max-width: 1100px;
+    margin: 0 auto 36px;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -30,26 +41,22 @@
 }
 
 .qrp-header h1 {
-    margin: 0 0 4px;
+    margin: 0 0 6px;
     font-size: 22px;
     font-weight: 700;
-    color: var(--qr-navy);
+    color: var(--qr-ink-900);
     letter-spacing: -0.2px;
 }
 
 .qrp-header p {
     margin: 0;
     font-size: 14px;
-    color: var(--qr-text-muted);
-    max-width: 540px;
+    color: var(--qr-ink-500);
+    max-width: 560px;
     line-height: 1.55;
 }
 
-.qrp-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
+.qrp-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
 .qrp-btn {
     display: inline-flex;
@@ -57,11 +64,12 @@
     gap: 8px;
     border: 1px solid #e2e8f0;
     background: #fff;
-    color: var(--qr-navy);
+    color: var(--qr-ink-900);
     border-radius: 12px;
     padding: 11px 18px;
     font-size: 14px;
     font-weight: 600;
+    font-family: inherit;
     cursor: pointer;
     transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
 }
@@ -69,19 +77,19 @@
 .qrp-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15,23,42,0.08); }
 
 .qrp-btn--primary {
-    background: var(--qr-navy);
+    background: var(--qr-ink-900);
     color: #fff;
-    border-color: var(--qr-navy);
+    border-color: var(--qr-ink-900);
 }
 
 .qrp-btn--primary:hover { background: #1e293b; }
 
 .qrp-layout {
-    max-width: 1040px;
+    max-width: 1100px;
     margin: 0 auto;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 36px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 44px;
     align-items: start;
 }
 
@@ -90,90 +98,171 @@
     justify-content: center;
 }
 
-/* ─── The actual QR card (this is what prints) ─────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════
+   THE CARD — this is what prints.
+   ═══════════════════════════════════════════════════════════════════════ */
 
-.qrcard {
-    width: 360px;
+/* ── Fluid sizing ──────────────────────────────────────────────────────
+   Card width scales with viewport. All internal dimensions use `em`
+   relative to the card's own font-size, so changing one number rescales
+   the whole card proportionally (brand pill, QR, fonts, gaps — all). */
+.qr-card {
+    /* fluid width: 280px floor, 460px ceiling, ~32% of viewport in between */
+    width: clamp(280px, 32vw, 460px);
+    /* base font-size drives every em inside the card */
+    font-size: clamp(13px, 1.05vw, 16px);
     background: #fff;
-    border-radius: 28px;
-    border: 1px solid #e2e8f0;
-    padding: 40px 30px 36px;
-    text-align: center;
-    box-shadow: 0 20px 60px -20px rgba(15,23,42,0.18);
-    position: relative;
-}
-
-.qrcard__brand {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-style: italic;
-    font-size: 30px;
-    color: var(--qr-teal);
-    letter-spacing: 0.5px;
-    line-height: 1;
-    margin: 4px 0 4px;
-}
-
-.qrcard__clinic {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--qr-navy);
-    margin: 6px 0 28px;
-    line-height: 1.35;
-}
-
-.qrcard__panel {
-    position: relative;
-    width: 250px;
-    height: 250px;
-    margin: 0 auto;
-    border-radius: 20px;
-    background: var(--qr-navy);
-    padding: 18px;
-    box-sizing: border-box;
+    border-radius: 2em;
+    padding: 2.25em 2em 1.75em;
     display: flex;
+    flex-direction: column;
     align-items: center;
+    gap: 1.375em;
+    box-shadow:
+        0 1px 0 rgba(15,23,42,0.05),
+        0 32px 80px -40px rgba(15,23,42,0.4);
+    position: relative;
+}
+
+/* ── Brand pill ─────────────────────────────────────────────────────── */
+.qr-card__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.375em 0.75em;
+    border-radius: 999px;
+    background: var(--qr-ink-100);
+    font-family: 'Geist Mono', ui-monospace, monospace;
+    font-size: 0.625em; /* ≈10px @16 base */
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--qr-ink-500);
+    font-weight: 500;
+}
+
+.qr-card__brand svg { width: 1.4em; height: 1.4em; flex-shrink: 0; }
+
+/* ── Clinic head ────────────────────────────────────────────────────── */
+.qr-card__head { text-align: center; width: 100%; }
+
+.qr-card__name {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-weight: 500;
+    font-variation-settings: "opsz" 144;
+    font-size: 1.75em; /* ≈28px */
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin: 0.5em 0 0.215em;
+    color: var(--qr-ink-900);
+}
+
+.qr-card__name em {
+    font-style: italic;
+    color: var(--qr-teal-4);
+}
+
+.qr-card__sub {
+    font-size: 0.844em; /* ≈13.5px */
+    line-height: 1.5;
+    color: var(--qr-ink-500);
+    margin: 0;
+    padding: 0 0.75em;
+}
+
+/* ── QR frame + L-bracket corners ───────────────────────────────────── */
+.qr-card__frame {
+    background: #fff;
+    border: 1px solid var(--qr-ink-100);
+    border-radius: 1.5em;
+    padding: 1.375em;
+    position: relative;
+}
+
+.qr-card__corner {
+    position: absolute;
+    width: 1.125em;
+    height: 1.125em;
+    border: 0.156em solid var(--qr-teal-3);
+}
+
+.qr-card__corner--tl { top: -0.125em; left: -0.125em; border-right: none; border-bottom: none; border-top-left-radius: 1.5em; }
+.qr-card__corner--tr { top: -0.125em; right: -0.125em; border-left: none; border-bottom: none; border-top-right-radius: 1.5em; }
+.qr-card__corner--bl { bottom: -0.125em; left: -0.125em; border-right: none; border-top: none; border-bottom-left-radius: 1.5em; }
+.qr-card__corner--br { bottom: -0.125em; right: -0.125em; border-left: none; border-top: none; border-bottom-right-radius: 1.5em; }
+
+.qr-card__qr {
+    display: block;
+    width: 15em; /* ≈240px @16 base */
+    height: 15em;
+}
+
+/* ── Foot: CTA + url chip + steps ────────────────────────────────────── */
+.qr-card__foot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.625em;
+    width: 100%;
+    text-align: center;
+}
+
+.qr-card__cta {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 0.906em; /* ≈14.5px */
+    color: var(--qr-ink-900);
+}
+
+.qr-card__cta b { color: var(--qr-teal-4); font-weight: 700; }
+
+.qr-card__url {
+    font-family: 'Geist Mono', ui-monospace, monospace;
+    font-size: 0.656em; /* ≈10.5px */
+    color: var(--qr-ink-500);
+    padding: 0.375em 0.75em;
+    background: var(--qr-ink-100);
+    border-radius: 0.5em;
+    letter-spacing: 0.02em;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.qr-card__steps {
+    display: flex;
+    gap: 0.875em;
+    margin-top: 0.25em;
+    flex-wrap: wrap;
     justify-content: center;
 }
 
-.qrcard__panel-corner {
-    position: absolute;
-    width: 26px;
-    height: 26px;
-    border-radius: 5px;
-    background: var(--qr-teal);
+.qr-card__step {
+    display: flex;
+    align-items: center;
+    gap: 0.375em;
+    font-size: 0.688em; /* ≈11px */
+    color: var(--qr-ink-500);
+    font-family: 'Geist Mono', ui-monospace, monospace;
+    letter-spacing: 0.05em;
 }
 
-.qrcard__panel-corner--tl { top: 12px; left: 12px; }
-.qrcard__panel-corner--tr { top: 12px; right: 12px; }
-.qrcard__panel-corner--bl { bottom: 12px; left: 12px; }
-
-.qrcard__qr-img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    background: #fff;
-    border-radius: 8px;
-    padding: 6px;
-    box-sizing: border-box;
-}
-
-.qrcard__caption {
-    margin: 26px 0 4px;
-    font-size: 12px;
+.qr-card__step-n {
+    width: 1.125em;
+    height: 1.125em;
+    border-radius: 50%;
+    background: var(--qr-teal-3);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.91em;
     font-weight: 600;
-    color: var(--qr-text-muted);
-    letter-spacing: 3px;
-    text-transform: uppercase;
 }
 
-.qrcard__hint {
-    margin: 10px 0 0;
-    font-size: 12.5px;
-    color: var(--qr-text-muted);
-    line-height: 1.5;
-}
-
-/* ─── Side panel: instructions ─────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════
+   Side panel: instructions
+   ═══════════════════════════════════════════════════════════════════════ */
 
 .qrp-info {
     background: #fff;
@@ -186,7 +275,7 @@
     margin: 0 0 14px;
     font-size: 16px;
     font-weight: 700;
-    color: var(--qr-navy);
+    color: var(--qr-ink-900);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -204,11 +293,11 @@
     position: relative;
     padding: 10px 0 10px 38px;
     font-size: 13.5px;
-    color: #334155;
+    color: var(--qr-ink-700);
     line-height: 1.55;
 }
 
-.qrp-info li + li { border-top: 1px solid #f1f5f9; }
+.qrp-info li + li { border-top: 1px solid var(--qr-ink-100); }
 
 .qrp-info li::before {
     content: counter(step);
@@ -218,29 +307,29 @@
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background: var(--qr-teal-soft);
-    color: var(--qr-teal);
+    background: rgba(13,148,136,0.10);
+    color: var(--qr-teal-4);
     font-weight: 700;
     font-size: 13px;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
 .qrp-info__url {
     margin-top: 18px;
     padding: 12px 14px;
-    background: #f8fafc;
-    border: 1px dashed #cbd5e1;
+    background: var(--qr-ink-50);
+    border: 1px dashed var(--qr-ink-300);
     border-radius: 10px;
     font-size: 12px;
-    color: var(--qr-text-muted);
+    color: var(--qr-ink-500);
     word-break: break-all;
-    font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    font-family: 'Geist Mono', ui-monospace, monospace;
 }
 
-/* ─── Error state ──────────────────────────────────────────────────────── */
-
+/* ── Error state ────────────────────────────────────────────────────── */
 .qrp-error {
     max-width: 480px;
     margin: 80px auto;
@@ -252,25 +341,22 @@
     text-align: center;
 }
 
-/* ─── Responsive ──────────────────────────────────────────────────────── */
-
+/* ── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 880px) {
-    .qrp-layout { grid-template-columns: 1fr; gap: 24px; }
+    .qrp-layout { grid-template-columns: 1fr; gap: 28px; }
 }
 
 @media (max-width: 480px) {
     .qrp-page { padding: 24px 14px 60px; }
-    .qrcard { width: 100%; max-width: 340px; padding: 32px 24px 30px; }
-    .qrcard__panel { width: 220px; height: 220px; }
+    /* On phones the 32vw cap would shrink too much — let it fill the column */
+    .qr-card { width: min(94vw, 380px); }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   PRINT — hide everything except the card. The clinic shell (sidebar/topbar)
-   was leaking into the printed sheet; we kill it here.
+   PRINT — hide the clinic shell, center the card, A6 portrait.
    ═══════════════════════════════════════════════════════════════════════ */
 
 @media print {
-    /* Reset the whole page so only the card shows. */
     html, body {
         background: #fff !important;
         margin: 0 !important;
@@ -279,10 +365,9 @@
 
     @page {
         size: A6 portrait;
-        margin: 8mm;
+        margin: 6mm;
     }
 
-    /* Anything inside the clinic shell that isn't the print area is hidden. */
     .clinic-sidebar,
     .clinic-topbar,
     .main-header,
@@ -299,7 +384,6 @@
         display: none !important;
     }
 
-    /* Collapse layout offsets the shell normally applies. */
     .app-container,
     .main-content,
     .content-wrapper {
@@ -331,17 +415,17 @@
         min-height: 100vh;
     }
 
-    .qrcard {
+    .qr-card {
         box-shadow: none !important;
-        border: 2px solid #e2e8f0 !important;
-        width: 88mm;
-        max-width: 88mm;
-        padding: 12mm 8mm 10mm;
+        border: 1px solid #e2e8f0 !important;
+        width: 92mm !important;
+        max-width: 92mm !important;
+        /* Lock em base so the whole card scales predictably to A6 */
+        font-size: 3.6mm !important;
+        padding: 2em 1.75em 1.5em !important;
+        gap: 1.25em !important;
         page-break-inside: avoid;
     }
 
-    .qrcard__panel {
-        width: 60mm;
-        height: 60mm;
-    }
+    .qr-card__qr { width: 14em; height: 14em; }
 }

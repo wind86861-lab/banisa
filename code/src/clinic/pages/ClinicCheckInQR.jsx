@@ -5,9 +5,8 @@ import api from '../../shared/api/axios';
 import BanisaLoader from '../../shared/components/BanisaLoader';
 import './clinic-checkin-qr.css';
 
-// Printable check-in QR poster. Visual design matches the "Banisa QR Card"
-// preview the team approved. Print rules in clinic-checkin-qr.css strip the
-// clinic shell (sidebar/topbar) and center just the card on the sheet.
+// Pixel-faithful port of the "Banisa QR Card" preview. Visual contract lives
+// in clinic-checkin-qr.css; print rules there also strip the clinic shell.
 export default function ClinicCheckInQR() {
     const [data, setData] = useState(null);
     const [qrDataUrl, setQrDataUrl] = useState(null);
@@ -22,11 +21,10 @@ export default function ClinicCheckInQR() {
             const d = res.data?.data;
             if (!d?.qrUrl) throw new Error("QR URL bo'sh — admin bilan bog'laning");
             setData(d);
-            // Render at high res so prints stay crisp on A4 as well as A6.
             const url = await QRCode.toDataURL(d.qrUrl, {
                 errorCorrectionLevel: 'H',
                 margin: 0,
-                width: 720,
+                width: 1200,
                 color: { dark: '#0f172a', light: '#ffffff' },
             });
             setQrDataUrl(url);
@@ -55,6 +53,18 @@ export default function ClinicCheckInQR() {
         );
     }
 
+    // Short, ellipsis-friendly URL for the chip (full URL still in the side panel).
+    const shortUrl = (() => {
+        if (!data?.qrUrl) return '';
+        try {
+            const u = new URL(data.qrUrl);
+            const path = u.pathname.length > 18 ? u.pathname.slice(0, 18) + '…' : u.pathname;
+            return `${u.host}${path}`;
+        } catch {
+            return data.qrUrl.replace(/^https?:\/\//, '');
+        }
+    })();
+
     return (
         <div className="qrp-page">
             <div className="qrp-header">
@@ -73,25 +83,50 @@ export default function ClinicCheckInQR() {
             </div>
 
             <div className="qrp-layout">
-                {/* Card (this is the only thing that prints) */}
+                {/* The card (only thing that prints) */}
                 <div className="qrp-card-wrap">
-                    <article className="qrcard" aria-label="Check-in QR kartasi">
-                        <div className="qrcard__brand">banisa</div>
-                        <div className="qrcard__clinic">{data?.clinicName || 'Klinika'}</div>
+                    <article className="qr-card" aria-label="Check-in QR kartasi">
+                        {/* Brand pill */}
+                        <div className="qr-card__brand">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="12" cy="12" r="3.5" fill="#0d9488" />
+                                <circle cx="12" cy="3" r="1.8" fill="#0d9488" />
+                                <circle cx="20.78" cy="7.5" r="1.8" fill="#0d9488" />
+                                <circle cx="20.78" cy="16.5" r="1.8" fill="#0d9488" />
+                                <circle cx="12" cy="21" r="1.8" fill="#0d9488" />
+                                <circle cx="3.22" cy="16.5" r="1.8" fill="#0d9488" />
+                                <circle cx="3.22" cy="7.5" r="1.8" fill="#0d9488" />
+                            </svg>
+                            <span>Banisa</span>
+                        </div>
 
-                        <div className="qrcard__panel">
-                            <span className="qrcard__panel-corner qrcard__panel-corner--tl" />
-                            <span className="qrcard__panel-corner qrcard__panel-corner--tr" />
-                            <span className="qrcard__panel-corner qrcard__panel-corner--bl" />
+                        {/* Clinic head */}
+                        <div className="qr-card__head">
+                            <h2 className="qr-card__name">{data?.clinicName || 'Klinika'}</h2>
+                            <p className="qr-card__sub">QR kodni skanlab klinikaga kelganingizni tasdiqlang</p>
+                        </div>
+
+                        {/* QR frame with L-bracket corners */}
+                        <div className="qr-card__frame">
+                            <span className="qr-card__corner qr-card__corner--tl" />
+                            <span className="qr-card__corner qr-card__corner--tr" />
+                            <span className="qr-card__corner qr-card__corner--bl" />
+                            <span className="qr-card__corner qr-card__corner--br" />
                             {qrDataUrl && (
-                                <img src={qrDataUrl} alt="Check-in QR" className="qrcard__qr-img" />
+                                <img src={qrDataUrl} alt="Check-in QR" className="qr-card__qr" />
                             )}
                         </div>
 
-                        <div className="qrcard__caption">CHECK-IN QR</div>
-                        <p className="qrcard__hint">
-                            Telefon kamerangiz bilan skanlang
-                        </p>
+                        {/* Foot */}
+                        <div className="qr-card__foot">
+                            <div className="qr-card__cta">📷 Kamera bilan <b>skan qiling</b></div>
+                            {shortUrl && <div className="qr-card__url" title={data?.qrUrl}>{shortUrl}</div>}
+                            <div className="qr-card__steps">
+                                <div className="qr-card__step"><span className="qr-card__step-n">1</span>Skan</div>
+                                <div className="qr-card__step"><span className="qr-card__step-n">2</span>Tasdiq</div>
+                                <div className="qr-card__step"><span className="qr-card__step-n">3</span>Qabul</div>
+                            </div>
+                        </div>
                     </article>
                 </div>
 
@@ -101,7 +136,7 @@ export default function ClinicCheckInQR() {
                     <ol>
                         <li>Kartani bosib chiqaring (A6 yoki A4, ranglarda).</li>
                         <li>Klinika kirishi yoki qabulxonaga ko'rinarli joyga yopishtiring.</li>
-                        <li>Bemor klinikaga kelganida telefoni kamerasi bilan QRni skanlaydi.</li>
+                        <li>Bemor klinikaga kelganida telefon kamerasi bilan QRni skanlaydi.</li>
                         <li>Bemor "Klinikadaman" deb tasdiqlagach, sizning bildirishnomalaringizga keladi.</li>
                         <li>Naqd to'lov bo'lsa, bemor kassada to'laydi — siz <strong>Kassa navbati</strong> sahifasida tasdiqlaysiz.</li>
                     </ol>

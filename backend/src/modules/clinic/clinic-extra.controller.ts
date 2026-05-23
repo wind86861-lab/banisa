@@ -242,13 +242,40 @@ export const getClinicProfile = async (req: AuthRequest, res: Response) => {
     const clinic = await prisma.clinic.findUnique({
         where: { id: clinicId },
         select: {
-            id: true, nameUz: true, nameRu: true, nameEn: true,
-            type: true, description: true, logo: true, coverImage: true,
-            region: true, district: true, street: true, landmark: true,
+            id: true,
+            // Basic
+            nameUz: true, nameRu: true, nameEn: true,
+            type: true, foundedYear: true,
+            description: true, descriptionRu: true,
+            logo: true, coverImage: true,
+            // Address
+            region: true, district: true, street: true, apartment: true,
+            addressUz: true, addressRu: true, zipCode: true,
+            googleMapsUrl: true, landmark: true,
             latitude: true, longitude: true,
-            phones: true, emails: true, website: true, workingHours: true,
-            taxId: true, licenseNumber: true,
-            adminFirstName: true, adminLastName: true, adminEmail: true, adminPhone: true,
+            // Contact
+            phones: true, emails: true, website: true, socialMedia: true,
+            // Schedule
+            workingHours: true, isAlwaysOpen: true,
+            lunchBreakStart: true, lunchBreakEnd: true, holidayNotes: true,
+            // Facility
+            hasEmergency: true, hasAmbulance: true, parkingAvailable: true,
+            hasOnlineBooking: true, bedsCount: true, floorsCount: true,
+            amenities: true, insuranceAccepted: true, priceRange: true,
+            // Legal / license
+            registrationNumber: true, taxId: true,
+            licenseNumber: true, licenseUrl: true,
+            licenseIssuedAt: true, licenseExpiresAt: true, licenseIssuedBy: true,
+            legalName: true, legalAddress: true, legalForm: true,
+            certificates: true,
+            // Bank / payments
+            paymentMethods: true,
+            bankName: true, bankAccountNumber: true, mfo: true, oked: true,
+            vatNumber: true, invoiceEmail: true,
+            // Admin person
+            adminFirstName: true, adminLastName: true,
+            adminEmail: true, adminPhone: true, adminPosition: true,
+            // Meta
             status: true, isActive: true, averageRating: true, reviewCount: true,
             createdAt: true,
         },
@@ -257,45 +284,74 @@ export const getClinicProfile = async (req: AuthRequest, res: Response) => {
     return res.json({ success: true, data: clinic });
 };
 
+// Fields the clinic admin is allowed to self-edit. Status, ratings, commission,
+// approval state, etc. are deliberately excluded — those are admin-only.
+const EDITABLE_FIELDS = [
+    'nameUz', 'nameRu', 'nameEn', 'foundedYear',
+    'description', 'descriptionRu', 'logo', 'coverImage',
+    'region', 'district', 'street', 'apartment',
+    'addressUz', 'addressRu', 'zipCode', 'googleMapsUrl', 'landmark',
+    'latitude', 'longitude',
+    'phones', 'emails', 'website', 'socialMedia',
+    'isAlwaysOpen', 'lunchBreakStart', 'lunchBreakEnd', 'holidayNotes',
+    'hasEmergency', 'hasAmbulance', 'parkingAvailable', 'hasOnlineBooking',
+    'bedsCount', 'floorsCount', 'amenities', 'insuranceAccepted', 'priceRange',
+    'registrationNumber', 'taxId',
+    'licenseNumber', 'licenseUrl', 'licenseIssuedBy',
+    'legalName', 'legalAddress', 'legalForm', 'certificates',
+    'paymentMethods',
+    'bankName', 'bankAccountNumber', 'mfo', 'oked', 'vatNumber', 'invoiceEmail',
+    'adminFirstName', 'adminLastName', 'adminEmail', 'adminPhone', 'adminPosition',
+] as const;
+
 export const updateClinicProfile = async (req: AuthRequest, res: Response) => {
     const clinicId = await getClinicId(req.user!.id);
     if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
 
-    const {
-        nameUz, nameRu, nameEn, description, logo, coverImage,
-        region, district, street, landmark, latitude, longitude,
-        phones, emails, website,
-        taxId, licenseNumber,
-        adminFirstName, adminLastName, adminEmail, adminPhone,
-    } = req.body;
+    const data: Record<string, unknown> = {};
+    for (const key of EDITABLE_FIELDS) {
+        if (req.body[key] !== undefined) data[key] = req.body[key];
+    }
 
-    const updated = await prisma.clinic.update({
-        where: { id: clinicId },
-        data: {
-            ...(nameUz !== undefined && { nameUz }),
-            ...(nameRu !== undefined && { nameRu }),
-            ...(nameEn !== undefined && { nameEn }),
-            ...(description !== undefined && { description }),
-            ...(logo !== undefined && { logo }),
-            ...(coverImage !== undefined && { coverImage }),
-            ...(region !== undefined && { region }),
-            ...(district !== undefined && { district }),
-            ...(street !== undefined && { street }),
-            ...(landmark !== undefined && { landmark }),
-            ...(latitude !== undefined && { latitude }),
-            ...(longitude !== undefined && { longitude }),
-            ...(phones !== undefined && { phones }),
-            ...(emails !== undefined && { emails }),
-            ...(website !== undefined && { website }),
-            ...(taxId !== undefined && { taxId }),
-            ...(licenseNumber !== undefined && { licenseNumber }),
-            ...(adminFirstName !== undefined && { adminFirstName }),
-            ...(adminLastName !== undefined && { adminLastName }),
-            ...(adminEmail !== undefined && { adminEmail }),
-            ...(adminPhone !== undefined && { adminPhone }),
-        },
-    });
+    // Coerce date-only strings to DateTime for the two timestamp columns.
+    for (const dateKey of ['licenseIssuedAt', 'licenseExpiresAt'] as const) {
+        const v = req.body[dateKey];
+        if (v !== undefined) {
+            data[dateKey] = v === null || v === '' ? null : new Date(v);
+        }
+    }
 
+    // foundedYear comes in as string from <input type="number"> on some browsers.
+    if (data.foundedYear !== undefined && data.foundedYear !== null) {
+        const n = Number(data.foundedYear);
+        data.foundedYear = Number.isFinite(n) ? Math.trunc(n) : null;
+    }
+    if (data.bedsCount !== undefined && data.bedsCount !== null && data.bedsCount !== '') {
+        const n = Number(data.bedsCount);
+        data.bedsCount = Number.isFinite(n) ? Math.trunc(n) : null;
+    } else if (data.bedsCount === '') {
+        data.bedsCount = null;
+    }
+    if (data.floorsCount !== undefined && data.floorsCount !== null && data.floorsCount !== '') {
+        const n = Number(data.floorsCount);
+        data.floorsCount = Number.isFinite(n) ? Math.trunc(n) : null;
+    } else if (data.floorsCount === '') {
+        data.floorsCount = null;
+    }
+    if (data.latitude !== undefined && data.latitude !== null && data.latitude !== '') {
+        const n = Number(data.latitude);
+        data.latitude = Number.isFinite(n) ? n : null;
+    } else if (data.latitude === '') {
+        data.latitude = null;
+    }
+    if (data.longitude !== undefined && data.longitude !== null && data.longitude !== '') {
+        const n = Number(data.longitude);
+        data.longitude = Number.isFinite(n) ? n : null;
+    } else if (data.longitude === '') {
+        data.longitude = null;
+    }
+
+    const updated = await prisma.clinic.update({ where: { id: clinicId }, data });
     return res.json({ success: true, data: updated });
 };
 
