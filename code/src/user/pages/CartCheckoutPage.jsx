@@ -17,6 +17,7 @@ export default function CartCheckoutPage() {
     const { cart, refreshCart } = useCart();
     const [paymentMethod, setPaymentMethod] = useState('naqd');
     const [selectedDate, setSelectedDate] = useState('');
+    const [selectedTime, setSelectedTime] = useState('');
     const [notes, setNotes] = useState('');
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -128,14 +129,33 @@ export default function CartCheckoutPage() {
     const supportsClick = allClinicsSupport('CLICK');
     const supportsCard = supportsPayme || supportsClick; // Card = any online payment
 
-    // Min date = tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const minDate = tomorrow.toISOString().split('T')[0];
+    // Min date = today (allow same-day booking).
+    const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local tz
+    const minDate = todayStr;
+    const isToday = selectedDate === todayStr;
+    // If booking for today, earliest pickable time = now + 30 min (clinic prep).
+    const minTimeIfToday = (() => {
+        const m = new Date();
+        m.setMinutes(m.getMinutes() + 30);
+        return m.toTimeString().slice(0, 5);
+    })();
 
     const handleCheckout = async () => {
         if (!selectedDate) {
             setError('Iltimos, sanani tanlang');
+            return;
+        }
+        if (!selectedTime) {
+            setError('Iltimos, vaqtni tanlang');
+            return;
+        }
+        // Build local datetime → ISO. Avoids the old `T09:00Z` hack that put
+        // every booking at 14:00 Tashkent time regardless of user choice.
+        const [hh, mm] = selectedTime.split(':');
+        const dt = new Date(selectedDate);
+        dt.setHours(parseInt(hh, 10), parseInt(mm, 10), 0, 0);
+        if (dt.getTime() < Date.now() + 15 * 60 * 1000) {
+            setError('Tanlangan vaqt o\'tib ketgan. Iltimos, kelajakdagi vaqtni tanlang.');
             return;
         }
 
@@ -143,7 +163,7 @@ export default function CartCheckoutPage() {
         setSubmitting(true);
 
         try {
-            const scheduledAt = `${selectedDate}T09:00:00.000Z`;
+            const scheduledAt = dt.toISOString();
             const response = await axiosInstance.post('/cart/checkout', {
                 scheduledAt,
                 notes: notes || undefined,
@@ -235,18 +255,35 @@ export default function CartCheckoutPage() {
                         {/* Date Selection */}
                         <div className="co-card">
                             <h3 className="co-card-title">
-                                <Calendar size={18} /> Sana
+                                <Calendar size={18} /> Sana va vaqt
                             </h3>
-                            <div>
-                                <label style={{ display: 'block', fontWeight: 500, marginBottom: 6, fontSize: 14 }}>Sana</label>
-                                <input
-                                    type="date"
-                                    min={minDate}
-                                    value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 }}
-                                />
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={{ display: 'block', fontWeight: 500, marginBottom: 6, fontSize: 14 }}>Sana</label>
+                                    <input
+                                        type="date"
+                                        min={minDate}
+                                        value={selectedDate}
+                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontWeight: 500, marginBottom: 6, fontSize: 14 }}>Vaqt</label>
+                                    <input
+                                        type="time"
+                                        min={isToday ? minTimeIfToday : undefined}
+                                        value={selectedTime}
+                                        onChange={(e) => setSelectedTime(e.target.value)}
+                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 }}
+                                    />
+                                </div>
                             </div>
+                            {isToday && (
+                                <p style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>
+                                    Bugungi sana uchun: kamida {minTimeIfToday} dan keyingi vaqtni tanlang.
+                                </p>
+                            )}
 
                             <div style={{ marginTop: 16 }}>
                                 <label style={{ display: 'block', fontWeight: 500, marginBottom: 6, fontSize: 14 }}>Izoh (ixtiyoriy)</label>

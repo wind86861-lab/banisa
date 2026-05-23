@@ -630,11 +630,11 @@ export class AppointmentService {
             throw new AppError('Bu bron hozir check-in qilinishi mumkin emas', 400, ErrorCodes.VALIDATION_ERROR);
         }
 
-        // Time window: scheduledAt − 4h ≤ now ≤ scheduledAt + 2h. Late → NO_SHOW.
+        // Time window: scheduledAt − 24h ≤ now ≤ scheduledAt + 2h. Late → NO_SHOW.
         const now = Date.now();
         const sched = new Date(appt.scheduledAt).getTime();
         const LATE_MS = 2 * 60 * 60 * 1000;
-        const EARLY_MS = 4 * 60 * 60 * 1000;
+        const EARLY_MS = 24 * 60 * 60 * 1000;
         const fmtTime = (ms: number) => new Date(ms).toLocaleString('uz-UZ', {
             day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
         });
