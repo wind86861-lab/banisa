@@ -117,7 +117,7 @@ function App() {
                                 <Routes>
 
                                     {/* ─── PUBLIC HOME PAGE ────────────────────────── */}
-                                    <Route path="/" element={<HomePage />} />
+                                    <Route path="/" element={<Navigate to="/xizmatlar" replace />} />
                                     <Route path="/home" element={<HomePage />} />
 
                                     {/* ─── PUBLIC PAGES ────────────────────────────── */}
