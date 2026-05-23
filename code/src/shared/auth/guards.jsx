@@ -119,7 +119,7 @@ export const UserPublicOnlyGuard = ({ children }) => {
   const { user: patientUser, isLoading: patientLoading } = useUserAuth();
   if (clinicLoading || patientLoading) return <AuthLoading />;
   // Already logged in — redirect to correct dashboard
-  if (patientUser?.role === 'PATIENT') return <Navigate to="/user/dashboard" replace />;
+  if (patientUser?.role === 'PATIENT') return <Navigate to="/xizmatlar" replace />;
   if (clinicUser?.role === 'SUPER_ADMIN') return <Navigate to="/admin/dashboard" replace />;
   if (clinicUser?.role === 'CLINIC_ADMIN') return <Navigate to="/clinic/dashboard" replace />;
   return children;

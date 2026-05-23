@@ -23,7 +23,7 @@ export default function UserLoginPage() {
     const [loading, setLoading] = useState(false);
 
     const redirectParam = searchParams.get('redirect');
-    const from = safeRedirect(redirectParam || location.state?.from, '/user/dashboard');
+    const from = safeRedirect(redirectParam || location.state?.from, '/xizmatlar');
     const signupHref = redirectParam ? `/user/signup?redirect=${encodeURIComponent(redirectParam)}` : '/user/signup';
     const justRegistered = location.state?.registered === true;
 
