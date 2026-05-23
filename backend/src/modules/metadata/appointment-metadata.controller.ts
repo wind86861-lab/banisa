@@ -2,11 +2,26 @@ import { Request, Response } from 'express';
 import prisma from '../../config/database';
 import { validateMetadataValue } from './metadata-validation';
 
+async function resolveClinicId(userId: string): Promise<string | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { clinicId: true },
+  });
+  return user?.clinicId ?? null;
+}
+
+function isAuthorized(role: string, appointmentClinicId: string, userClinicId: string | null): boolean {
+  if (role === 'SUPER_ADMIN') return true;
+  if (!userClinicId) return false;
+  return appointmentClinicId === userClinicId;
+}
+
 export class AppointmentMetadataController {
   // GET /clinic/appointments/:id/required-metadata
   async getRequiredMetadata(req: Request, res: Response) {
     try {
       const id = req.params.id as string;
+      const user = (req as any).user;
 
       const appointment = await prisma.appointment.findUnique({
         where: { id },
@@ -21,6 +36,11 @@ export class AppointmentMetadataController {
         return res.status(404).json({ success: false, error: { message: 'Appointment not found' } });
       }
 
+      const userClinicId = await resolveClinicId(user?.id);
+      if (!isAuthorized(user?.role, appointment.clinicId, userClinicId)) {
+        return res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+      }
+
       // Determine service type and ID
       let serviceType: string | null = null;
       let serviceId: string | null = null;
@@ -32,7 +52,6 @@ export class AppointmentMetadataController {
         serviceType = 'SURGICAL';
         serviceId = appointment.surgicalServiceId;
       } else {
-        // For checkup or other types, check AppointmentService table
         const services = (appointment as any).services || [];
         const checkupService = services.find(
           (s: any) => s.originalServiceId && (s.serviceName?.toLowerCase().includes('checkup') || s.serviceName?.toLowerCase().includes('tekshiruv'))
@@ -47,29 +66,22 @@ export class AppointmentMetadataController {
         return res.json({ success: true, data: [] });
       }
 
-      // Get linked metadata templates
       const links = await prisma.serviceMetadataLink.findMany({
         where: {
           serviceType: serviceType as any,
           serviceId,
         },
-        include: {
-          template: true,
-        },
+        include: { template: true },
         orderBy: { displayOrder: 'asc' },
       });
 
-      // Filter only active templates
       const activeLinks = links.filter((link: any) => link.template?.isActive);
 
-      // Get existing values
       const existingMetadata = await prisma.appointmentMetadata.findMany({
         where: { appointmentId: id as string },
       });
 
-      const existingMap = new Map(
-        existingMetadata.map((m: any) => [m.templateId, m.value])
-      );
+      const existingMap = new Map(existingMetadata.map((m: any) => [m.templateId, m.value]));
 
       const result = activeLinks.map((link: any) => ({
         template: link.template,
@@ -87,9 +99,23 @@ export class AppointmentMetadataController {
   async setMetadata(req: Request, res: Response) {
     try {
       const id = req.params.id as string;
+      const user = (req as any).user;
       const { templateId, value } = req.body;
 
-      // Validate template
+      const appointment = await prisma.appointment.findUnique({
+        where: { id },
+        select: { id: true, clinicId: true },
+      });
+
+      if (!appointment) {
+        return res.status(404).json({ success: false, error: { message: 'Appointment not found' } });
+      }
+
+      const userClinicId = await resolveClinicId(user?.id);
+      if (!isAuthorized(user?.role, appointment.clinicId, userClinicId)) {
+        return res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+      }
+
       const template = await prisma.metadataTemplate.findUnique({
         where: { id: templateId },
       });
@@ -98,7 +124,6 @@ export class AppointmentMetadataController {
         return res.status(400).json({ success: false, error: { message: 'Invalid template' } });
       }
 
-      // Validate value
       const validationError = validateMetadataValue(value, template);
       if (validationError) {
         return res.status(400).json({ success: false, error: { message: validationError } });
@@ -106,16 +131,13 @@ export class AppointmentMetadataController {
 
       const metadata = await prisma.appointmentMetadata.upsert({
         where: {
-          appointmentId_templateId: {
-            appointmentId: id,
-            templateId,
-          },
+          appointmentId_templateId: { appointmentId: id, templateId },
         },
         create: {
           appointmentId: id,
           templateId,
           value,
-          createdBy: (req as any).user?.id,
+          createdBy: user?.id,
         },
         update: {
           value,

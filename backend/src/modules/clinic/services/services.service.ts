@@ -2,6 +2,8 @@ import prisma from '../../../config/database';
 import { AppError, ErrorCodes } from '../../../utils/errors';
 import { validateMetadataValue } from '../../metadata/metadata-validation';
 
+export type MetadataServiceType = 'DIAGNOSTIC' | 'SURGICAL' | 'CHECKUP';
+
 export class ClinicServicesService {
 
     private async getClinicId(userId: string): Promise<string> {
@@ -192,13 +194,13 @@ export class ClinicServicesService {
         });
     }
 
-    async getServiceMetadata(userId: string, serviceId: string) {
+    async getServiceMetadata(userId: string, serviceId: string, serviceType: MetadataServiceType = 'DIAGNOSTIC') {
         const clinicId = await this.getClinicId(userId);
 
         // Templates linked to this base service (active only)
         const links = await prisma.serviceMetadataLink.findMany({
             where: {
-                serviceType: 'DIAGNOSTIC',
+                serviceType: serviceType as any,
                 serviceId,
                 template: { isActive: true },
             },
@@ -208,7 +210,7 @@ export class ClinicServicesService {
 
         // This clinic's already-saved values for those templates
         const saved = await prisma.clinicServiceMetadata.findMany({
-            where: { clinicId, serviceType: 'DIAGNOSTIC', serviceId },
+            where: { clinicId, serviceType: serviceType as any, serviceId },
             select: { templateId: true, value: true, valueMax: true },
         });
         const valueMap = new Map(saved.map(v => [v.templateId, v]));
@@ -234,6 +236,7 @@ export class ClinicServicesService {
         userId: string,
         serviceId: string,
         values: Array<{ templateId: string; value: string | null; valueMax?: string | null }>,
+        serviceType: MetadataServiceType = 'DIAGNOSTIC',
     ) {
         const clinicId = await this.getClinicId(userId);
 
@@ -244,7 +247,7 @@ export class ClinicServicesService {
         // Only templates actually linked to this service may be set
         const links = await prisma.serviceMetadataLink.findMany({
             where: {
-                serviceType: 'DIAGNOSTIC',
+                serviceType: serviceType as any,
                 serviceId,
                 template: { isActive: true },
             },
@@ -294,11 +297,11 @@ export class ClinicServicesService {
                 const shouldDelete = isRange ? (minEmpty || maxEmpty) : minEmpty;
                 if (shouldDelete) {
                     return prisma.clinicServiceMetadata.deleteMany({
-                        where: { clinicId, serviceType: 'DIAGNOSTIC', serviceId, templateId },
+                        where: { clinicId, serviceType: serviceType as any, serviceId, templateId },
                     });
                 }
                 const data: any = {
-                    clinicId, serviceType: 'DIAGNOSTIC', serviceId, templateId,
+                    clinicId, serviceType: serviceType as any, serviceId, templateId,
                     value: String(value),
                     valueMax: isRange ? String(valueMax) : null,
                 };
@@ -306,7 +309,7 @@ export class ClinicServicesService {
                 return prisma.clinicServiceMetadata.upsert({
                     where: {
                         clinicId_serviceType_serviceId_templateId: {
-                            clinicId, serviceType: 'DIAGNOSTIC', serviceId, templateId,
+                            clinicId, serviceType: serviceType as any, serviceId, templateId,
                         },
                     },
                     create: data,
@@ -315,7 +318,7 @@ export class ClinicServicesService {
             }),
         );
 
-        return this.getServiceMetadata(userId, serviceId);
+        return this.getServiceMetadata(userId, serviceId, serviceType);
     }
 }
 

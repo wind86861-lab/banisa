@@ -1,7 +1,13 @@
 import { Response, NextFunction } from 'express';
-import { clinicServicesService } from './services.service';
+import { clinicServicesService, MetadataServiceType } from './services.service';
 import { sendSuccess } from '../../../utils/response';
 import { AuthRequest } from '../../../middleware/auth.middleware';
+
+function normalizeServiceType(v: unknown): MetadataServiceType {
+    const s = String(v ?? '').toUpperCase();
+    if (s === 'SURGICAL' || s === 'CHECKUP' || s === 'DIAGNOSTIC') return s as MetadataServiceType;
+    return 'DIAGNOSTIC';
+}
 
 export class ClinicServicesController {
 
@@ -39,9 +45,11 @@ export class ClinicServicesController {
 
     getServiceMetadata = async (req: AuthRequest, res: Response, next: NextFunction) => {
         try {
+            const serviceType = normalizeServiceType(req.query.serviceType as string | undefined);
             const data = await clinicServicesService.getServiceMetadata(
                 req.user!.id,
                 req.params.serviceId as string,
+                serviceType,
             );
             sendSuccess(res, data);
         } catch (error) {
@@ -51,10 +59,12 @@ export class ClinicServicesController {
 
     saveServiceMetadata = async (req: AuthRequest, res: Response, next: NextFunction) => {
         try {
+            const serviceType = normalizeServiceType(req.body.serviceType);
             const data = await clinicServicesService.saveServiceMetadata(
                 req.user!.id,
                 req.params.serviceId as string,
                 req.body.values,
+                serviceType,
             );
             sendSuccess(res, data, null, 'Metadata saqlandi');
         } catch (error) {

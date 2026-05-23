@@ -381,51 +381,36 @@ export const getPublicServiceFilters = async (_req: Request, res: Response, next
             if (!Number.isNaN(hi)) facet.nums.push(hi);
         }
 
-        const data = [...byTemplate.values()].map(f => ({
-            key: f.key,
-            labelUz: f.labelUz,
-            labelRu: f.labelRu,
-            unit: f.unit,
-            inputType: f.inputType,
-            category: f.category,
-            options: f.inputType === 'NUMBER' ? [] : [...f.values].sort(),
-            // NUMBER templates: patient enters a single value; bounds come from
-            // the union of all clinic ranges so the input can suggest sane min/max.
-            range: f.inputType === 'NUMBER' && f.nums.length
-                ? { min: Math.min(...f.nums), max: Math.max(...f.nums) }
-                : null,
-        }));
+        type Facet = {
+            key: string; labelUz: string; labelRu: string | null;
+            unit: string | null; inputType: string; category: string;
+            options: string[]; range: { min: number; max: number } | null;
+        };
+        const data: Facet[] = [...byTemplate.values()].flatMap<Facet>(f => {
+            if (f.inputType === 'NUMBER') {
+                if (!f.nums.length) return [];
+                const min = Math.min(...f.nums);
+                const max = Math.max(...f.nums);
+                // Degenerate range (no clinic entered a real value) — hide the
+                // facet rather than show "0–0 kg" to the patient.
+                if (min === max) return [];
+                return [{
+                    key: f.key, labelUz: f.labelUz, labelRu: f.labelRu,
+                    unit: f.unit, inputType: f.inputType, category: f.category,
+                    options: [],
+                    range: { min, max },
+                }];
+            }
+            return [{
+                key: f.key, labelUz: f.labelUz, labelRu: f.labelRu,
+                unit: f.unit, inputType: f.inputType, category: f.category,
+                options: [...f.values].sort(),
+                range: null,
+            }];
+        });
 
-        // ─── TEMP-DIAG ─── surfaces exactly why patient filters are empty
-        // without prod DB/log access. Safe (counts only, no PII). REMOVE
-        // once the root cause is identified & fixed.
-        let _diag: any;
-        try {
-            const [total, diagnostic, tplOk, clinicOk, fullMatch, tplTotal, tplVisible] = await Promise.all([
-                prisma.clinicServiceMetadata.count(),
-                prisma.clinicServiceMetadata.count({ where: { serviceType: 'DIAGNOSTIC' } }),
-                prisma.clinicServiceMetadata.count({ where: { serviceType: 'DIAGNOSTIC', template: { isActive: true, visibleToPatient: true } } }),
-                prisma.clinicServiceMetadata.count({ where: { serviceType: 'DIAGNOSTIC', clinic: { status: ClinicStatus.APPROVED, isActive: true } } }),
-                prisma.clinicServiceMetadata.count({ where: { serviceType: 'DIAGNOSTIC', template: { isActive: true, visibleToPatient: true }, clinic: { status: ClinicStatus.APPROVED, isActive: true } } }),
-                prisma.metadataTemplate.count(),
-                prisma.metadataTemplate.count({ where: { isActive: true, visibleToPatient: true } }),
-            ]);
-            _diag = {
-                tableOk: true,
-                rowsTotal: total,
-                rowsDiagnostic: diagnostic,
-                rowsTemplateVisible: tplOk,
-                rowsClinicApproved: clinicOk,
-                rowsFullyMatching: fullMatch,
-                templatesTotal: tplTotal,
-                templatesVisible: tplVisible,
-                facetsReturned: data.length,
-                metaQueryError: metaErr ? { code: metaErr?.code, msg: String(metaErr?.message).slice(0, 200) } : null,
-            };
-        } catch (e: any) {
-            _diag = { tableOk: false, code: e?.code, msg: String(e?.message).slice(0, 200) };
-        }
-        res.json({ success: true, data, _diag });
+        void metaErr; // logged above
+        res.json({ success: true, data });
     } catch (error) {
         next(error);
     }
