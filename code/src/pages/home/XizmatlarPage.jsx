@@ -442,12 +442,11 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
             const c = s.clinic;
             if (!c?.id) return;
             if (!map.has(c.id)) {
-                map.set(c.id, { ...c, serviceCount: 0, ratingSum: 0, ratingCount: 0, image: s.images?.[0] });
+                map.set(c.id, { ...c, serviceCount: 0, ratingSum: 0, ratingCount: 0 });
             }
             const entry = map.get(c.id);
             entry.serviceCount += 1;
             if (s.rating) { entry.ratingSum += s.rating; entry.ratingCount += 1; }
-            if (!entry.image && s.images?.[0]) entry.image = s.images[0];
         });
         return Array.from(map.values())
             .map(c => ({ ...c, avgRating: c.ratingCount ? +(c.ratingSum / c.ratingCount).toFixed(1) : 0 }))
@@ -524,8 +523,8 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
                 </div>
                 <div className="xp-hub-carousel-track" ref={clinicRef}>
                     {clinics.map(c => {
-                        // Prioritize clinic logo, then cover image, then service image, then placeholder
-                        let img = c.logo || c.coverImage || c.image || CLINIC_PLACEHOLDER;
+                        // Clinic logo / cover only — never fall back to a service image
+                        let img = c.logo || c.coverImage || CLINIC_PLACEHOLDER;
                         if (img?.startsWith('/uploads')) img = `https://banisa.uz${img}`;
                         const hasLogo = !!c.logo;
                         return (
