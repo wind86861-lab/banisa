@@ -5,6 +5,7 @@ import {
     Thermometer, Package, Milestone, HelpCircle
 } from 'lucide-react';
 import { SURGICAL_STEPS } from './SurgicalConstants';
+import ImageUpload from '../shared/components/ImageUpload';
 
 const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCancel, saving, categories }) => {
     const [step, setStep] = useState(1);
@@ -105,6 +106,14 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                                 rows={4}
                                 value={formData.fullDescription || ''}
                                 onChange={(e) => handleFormChange('fullDescription', e.target.value)}
+                            />
+                        </div>
+                        <div className="form-group">
+                            <ImageUpload
+                                label="Xizmat rasmi"
+                                hint="Klinikalar o'z rasmini yuklamagan holatlarda ko'rsatiladi"
+                                value={formData.imageUrl || ''}
+                                onChange={(url) => handleFormChange('imageUrl', url)}
                             />
                         </div>
                     </div>

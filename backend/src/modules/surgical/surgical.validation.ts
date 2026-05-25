@@ -12,7 +12,7 @@ const surgicalServiceBody = z.object({
     categoryId: z.string().uuid(),
     shortDescription: z.string().max(200).optional().nullable(),
     fullDescription: z.string().optional().nullable(),
-    imageUrl: z.string().url().optional().nullable(),
+    imageUrl: z.string().max(500).optional().nullable(),
 
     priceRecommended: z.number().min(0),
     priceMin: z.number().min(0),

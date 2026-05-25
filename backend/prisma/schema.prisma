@@ -58,6 +58,7 @@ model ServiceCategory {
   nameEn             String?
   slug               String              @unique
   icon               String?
+  imageUrl           String?
   sortOrder          Int                 @default(0)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt

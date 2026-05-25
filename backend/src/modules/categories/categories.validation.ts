@@ -8,6 +8,7 @@ const categoryBody = z.object({
     level: z.number().int().min(0),
     parentId: z.string().uuid().optional().nullable(),
     icon: z.string().max(10).optional().nullable(),
+    imageUrl: z.string().max(500).optional().nullable(),
     sortOrder: z.number().int().optional(),
 });
 

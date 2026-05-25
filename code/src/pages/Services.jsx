@@ -10,6 +10,7 @@ import { useSearchParams } from 'react-router-dom';
 import { categoriesApi, diagnosticsApi, surgicalApi, sanatoriumApi } from '../services/api';
 import { EMPTY_SURGICAL_FORM, SURGICAL_STEPS } from './SurgicalConstants';
 import SurgicalForm from './SurgicalForm';
+import ImageUpload from '../shared/components/ImageUpload';
 import './Services.css';
 
 const PRICE_FILTERS = [
@@ -24,6 +25,7 @@ const EMPTY_FORM = {
     parentCatId: '',
     categoryId: '',
     shortDescription: '', fullDescription: '',
+    imageUrl: '',
     priceRecommended: '', priceMin: '', priceMax: '',
     durationMinutes: 15, resultTimeHours: 24,
     preparation: '', contraindications: '', sampleType: '',
@@ -272,14 +274,15 @@ const Services = () => {
             };
 
             if (editCatId) {
-                await categoriesApi.update(editCatId, { ...payload, icon: catFormData.icon || '•' });
+                await categoriesApi.update(editCatId, { ...payload, icon: catFormData.icon || '•', imageUrl: catFormData.imageUrl || null });
                 alert('Kategoriya yangilandi!');
             } else {
                 await categoriesApi.create({
                     ...payload,
                     parentId: catFormData.parentId,
                     level: catFormData.level || 2,
-                    icon: catFormData.icon || '•'
+                    icon: catFormData.icon || '•',
+                    imageUrl: catFormData.imageUrl || null,
                 });
                 alert('Kategoriya yaratildi!');
             }
@@ -641,7 +644,7 @@ const Services = () => {
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setEditCatId(sub.id);
-                                                                    setCatFormData({ nameUz: sub.nameUz, parentId: group.id, icon: sub.icon || '' });
+                                                                    setCatFormData({ nameUz: sub.nameUz, parentId: group.id, icon: sub.icon || '', imageUrl: sub.imageUrl || '' });
                                                                     setShowCatForm(true);
                                                                 }}
                                                             >
@@ -1117,6 +1120,14 @@ const Services = () => {
                                                     <label>Batafsil tavsif</label>
                                                     <textarea rows={4} placeholder="Nima uchun kerak, nimani aniqlaydi..." value={formData.fullDescription} onChange={(e) => handleFormChange('fullDescription', e.target.value)} />
                                                 </div>
+                                                <div className="form-group">
+                                                    <ImageUpload
+                                                        label="Xizmat rasmi"
+                                                        hint="Bu rasm klinikalar o'z rasmini yuklamagan holatlarda foydalanuvchilar uchun ko'rsatiladi"
+                                                        value={formData.imageUrl}
+                                                        onChange={(url) => handleFormChange('imageUrl', url)}
+                                                    />
+                                                </div>
                                             </div>
                                         )}
 
@@ -1410,6 +1421,14 @@ const Services = () => {
                                     <small style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px', display: 'block' }}>
                                         Emoji tanlang yoki bo'sh qoldiring (• ishlatiladi)
                                     </small>
+                                </div>
+                                <div className="form-group">
+                                    <ImageUpload
+                                        label="Kategoriya rasmi"
+                                        hint="Bu kategoriyadagi xizmatlar uchun standart rasm — klinika va super-admin xizmatga rasm yuklamasa shu ko'rinadi"
+                                        value={catFormData.imageUrl || ''}
+                                        onChange={(url) => setCatFormData(p => ({ ...p, imageUrl: url }))}
+                                    />
                                 </div>
                                 <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
                                     <button className="btn-secondary" onClick={() => {

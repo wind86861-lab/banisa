@@ -189,7 +189,7 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
                                 id: true, nameUz: true, nameRu: true,
                                 priceMin: true, priceRecommended: true, durationMinutes: true,
                                 imageUrl: true,
-                                category: { select: { id: true, nameUz: true } },
+                                category: { select: { id: true, nameUz: true, imageUrl: true } },
                             },
                         },
                         customization: {
@@ -211,7 +211,7 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
                                 id: true, nameUz: true, nameRu: true,
                                 priceMin: true, priceRecommended: true, durationMinutes: true,
                                 imageUrl: true,
-                                category: { select: { id: true, nameUz: true } },
+                                category: { select: { id: true, nameUz: true, imageUrl: true } },
                             },
                         },
                     },
@@ -279,7 +279,7 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
             const price = cust?.customPrice ?? basePrice;
             const discount = cust?.discountPercent ?? 0;
             const finalPrice = discount > 0 ? Math.round(price * (1 - discount / 100)) : price;
-            const image = cust?.images?.[0]?.url ?? s.imageUrl ?? null;
+            const image = cust?.images?.[0]?.url ?? s.imageUrl ?? s.category?.imageUrl ?? null;
             return {
                 id: s.id,
                 type: 'DIAGNOSTIC',
@@ -315,7 +315,7 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
                 discountPercent: discount > 0 ? discount : null,
                 discountAmount: discount > 0 ? price - finalPrice : null,
                 duration: s.durationMinutes ?? null,
-                image: s.imageUrl ?? null,
+                image: s.imageUrl ?? s.category?.imageUrl ?? null,
                 description: cust.customDescriptionUz ?? null,
             };
         });

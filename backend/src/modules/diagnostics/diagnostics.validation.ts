@@ -78,7 +78,7 @@ export const serviceSchema = z.object({
         preparation: z.string().max(1000).optional().nullable(),
         contraindications: z.string().max(500).optional().nullable(),
         sampleType: z.string().max(100).optional().nullable(),
-        imageUrl: z.string().url().optional().nullable(),
+        imageUrl: z.string().max(500).optional().nullable(),
         isActive: z.boolean().optional(),
         ...extendedFields,
     }).refine(
@@ -106,7 +106,7 @@ export const updateSchema = z.object({
         preparation: z.string().max(1000).optional().nullable(),
         contraindications: z.string().max(500).optional().nullable(),
         sampleType: z.string().max(100).optional().nullable(),
-        imageUrl: z.string().url().optional().nullable(),
+        imageUrl: z.string().max(500).optional().nullable(),
         isActive: z.boolean().optional().nullable(),
         ...extendedFields,
     }),

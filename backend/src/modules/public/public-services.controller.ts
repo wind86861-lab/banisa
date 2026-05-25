@@ -71,7 +71,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                 include: {
                     clinic: { select: CLINIC_SELECT },
                     diagnosticService: {
-                        include: { category: { select: { id: true, nameUz: true } } },
+                        include: { category: { select: { id: true, nameUz: true, imageUrl: true } } },
                     },
                     customization: {
                         include: { images: { orderBy: { order: 'asc' } } },
@@ -84,7 +84,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                 include: {
                     clinic: { select: CLINIC_SELECT },
                     surgicalService: {
-                        include: { category: { select: { id: true, nameUz: true } } },
+                        include: { category: { select: { id: true, nameUz: true, imageUrl: true } } },
                     },
                 },
                 orderBy: { createdAt: 'desc' },
@@ -95,7 +95,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                 include: {
                     clinic: { select: CLINIC_SELECT },
                     sanatoriumService: {
-                        include: { category: { select: { id: true, nameUz: true } } },
+                        include: { category: { select: { id: true, nameUz: true, imageUrl: true } } },
                     },
                 },
             }),
@@ -191,10 +191,11 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                 const s = link.diagnosticService;
                 const cust = link.customization;
                 const custImages = cust?.images?.map((img: any) => img.url) ?? [];
-                // Fallback chain: clinic upload → super-admin base service → (frontend placeholder)
+                // Fallback chain: clinic upload → super-admin base service → sub-category → (frontend placeholder)
+                const fallback = s.imageUrl ?? (s.category as any)?.imageUrl ?? null;
                 const images = custImages.length > 0
                     ? custImages
-                    : (s.imageUrl ? [s.imageUrl] : []);
+                    : (fallback ? [fallback] : []);
                 const originalPrice = s.priceRecommended ?? s.priceMin ?? 0;
                 const customPrice = cust?.customPrice ?? originalPrice;
                 const discount = cust?.discountPercent ?? 0;
@@ -245,7 +246,8 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                 const anyLink = link as any;
                 const cust = anyLink.customizationData || {};
                 const custImages = (anyLink.serviceImages || []).map((img: any) => img.url || img);
-                const images = custImages.length > 0 ? custImages : (s.imageUrl ? [s.imageUrl] : []);
+                const surgFallback = s.imageUrl ?? (s.category as any)?.imageUrl ?? null;
+                const images = custImages.length > 0 ? custImages : (surgFallback ? [surgFallback] : []);
                 const price = cust.customPrice ?? s.priceRecommended ?? s.priceMin ?? 0;
                 const discount = cust.discountPercent ?? 0;
                 const finalPrice = discount > 0 ? Math.round(price * (1 - discount / 100)) : price;
@@ -276,7 +278,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                 const roomImgs = ((link.roomImages as string[] | null) ?? []).map(url =>
                     url
                 );
-                const mainImg = s.imageUrl ?? null;
+                const mainImg = s.imageUrl ?? (s.category as any)?.imageUrl ?? null;
                 const images = mainImg ? [mainImg, ...roomImgs] : roomImgs;
                 const duration = s.durationDays
                     ? `${s.durationDays} kun`
