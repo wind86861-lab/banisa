@@ -1,180 +1,234 @@
+z
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="utf-8">
   <title>Banisa — QR Card</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #eef0f3; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-    #__bundler_loading { position: fixed; bottom: 20px; right: 20px; font: 13px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; color: #666; background: #fff; padding: 8px 14px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.12); z-index: 10000; }
-    #__bundler_thumbnail { position: fixed; inset: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #eef0f3; z-index: 9999; }
-    #__bundler_thumbnail svg { width: 100%; height: 100%; object-fit: contain; }
-    #__bundler_placeholder { color: #999; font-size: 14px; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #eef0f3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    #__bundler_loading {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      font: 13px/1.4 -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #666;
+      background: #fff;
+      padding: 8px 14px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+      z-index: 10000;
+    }
+
+    #__bundler_thumbnail {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #eef0f3;
+      z-index: 9999;
+    }
+
+    #__bundler_thumbnail svg {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    #__bundler_placeholder {
+      color: #999;
+      font-size: 14px;
+    }
   </style>
   <noscript>
-    <style>#__bundler_loading { display: none; }</style>
-    <div style="position:fixed;bottom:12px;left:12px;font:13px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;color:#999;background:rgba(255,255,255,0.9);padding:6px 12px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.08);z-index:10000;">
+    <style>
+      #__bundler_loading {
+        display: none;
+      }
+    </style>
+    <div
+      style="position:fixed;bottom:12px;left:12px;font:13px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;color:#999;background:rgba(255,255,255,0.9);padding:6px 12px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.08);z-index:10000;">
       This page requires JavaScript to display.
     </div>
   </noscript>
 </head>
+
 <body>
   <div id="__bundler_thumbnail">
-  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
-    <rect width="1200" height="800" fill="#eef0f3"></rect>
-    <rect x="420" y="140" width="360" height="520" rx="40" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"></rect>
-    <rect x="475" y="290" width="250" height="250" rx="20" fill="#0f172a"></rect>
-    <rect x="495" y="310" width="40" height="40" rx="6" fill="#0d9488"></rect>
-    <rect x="665" y="310" width="40" height="40" rx="6" fill="#0d9488"></rect>
-    <rect x="495" y="500" width="40" height="40" rx="6" fill="#0d9488"></rect>
-    <circle cx="600" cy="415" r="38" fill="#ffffff"></circle>
-    <circle cx="600" cy="415" r="6" fill="#0d9488"></circle>
-    <circle cx="600" cy="395" r="3" fill="#0d9488"></circle>
-    <circle cx="617" cy="405" r="3" fill="#0d9488"></circle>
-    <circle cx="617" cy="425" r="3" fill="#0d9488"></circle>
-    <circle cx="600" cy="435" r="3" fill="#0d9488"></circle>
-    <circle cx="583" cy="425" r="3" fill="#0d9488"></circle>
-    <circle cx="583" cy="405" r="3" fill="#0d9488"></circle>
-    <text x="600" y="230" text-anchor="middle" font-family="Georgia, serif" font-size="32" font-style="italic" fill="#0d9488">banisa</text>
-    <text x="600" y="610" text-anchor="middle" font-family="system-ui" font-size="14" fill="#64748b" letter-spacing="2">CHECK-IN QR</text>
-  </svg>
-</div>
+    <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="800" fill="#eef0f3"></rect>
+      <rect x="420" y="140" width="360" height="520" rx="40" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"></rect>
+      <rect x="475" y="290" width="250" height="250" rx="20" fill="#0f172a"></rect>
+      <rect x="495" y="310" width="40" height="40" rx="6" fill="#0d9488"></rect>
+      <rect x="665" y="310" width="40" height="40" rx="6" fill="#0d9488"></rect>
+      <rect x="495" y="500" width="40" height="40" rx="6" fill="#0d9488"></rect>
+      <circle cx="600" cy="415" r="38" fill="#ffffff"></circle>
+      <circle cx="600" cy="415" r="6" fill="#0d9488"></circle>
+      <circle cx="600" cy="395" r="3" fill="#0d9488"></circle>
+      <circle cx="617" cy="405" r="3" fill="#0d9488"></circle>
+      <circle cx="617" cy="425" r="3" fill="#0d9488"></circle>
+      <circle cx="600" cy="435" r="3" fill="#0d9488"></circle>
+      <circle cx="583" cy="425" r="3" fill="#0d9488"></circle>
+      <circle cx="583" cy="405" r="3" fill="#0d9488"></circle>
+      <text x="600" y="230" text-anchor="middle" font-family="Georgia, serif" font-size="32" font-style="italic"
+        fill="#0d9488">banisa</text>
+      <text x="600" y="610" text-anchor="middle" font-family="system-ui" font-size="14" fill="#64748b"
+        letter-spacing="2">CHECK-IN QR</text>
+    </svg>
+  </div>
   <div id="__bundler_loading">Unpacking...</div>
 
   <script>
-    
-document.addEventListener('DOMContentLoaded', async function() {
-  const loading = document.getElementById('__bundler_loading');
-  function setStatus(msg) { if (loading) loading.textContent = msg; }
 
-  // Error sink persists across replaceWith since it's on window, not the DOM.
-  window.addEventListener('error', function(e) {
-    var p = document.body || document.documentElement;
-    var d = document.getElementById('__bundler_err') || p.appendChild(document.createElement('div'));
-    d.id = '__bundler_err';
-    d.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;font:12px/1.4 ui-monospace,monospace;background:#2a1215;color:#ff8a80;padding:10px 14px;border-radius:8px;border:1px solid #5c2b2e;z-index:99999;white-space:pre-wrap;max-height:40vh;overflow:auto';
-    d.textContent = (d.textContent ? d.textContent + String.fromCharCode(10) : '') +
-      '[bundle] ' + (e.message || e.type) +
-      (e.filename ? ' (' + e.filename.slice(0, 60) + ':' + e.lineno + ')' : '');
-  }, true);
+    document.addEventListener('DOMContentLoaded', async function () {
+      const loading = document.getElementById('__bundler_loading');
+      function setStatus(msg) { if (loading) loading.textContent = msg; }
 
-  try {
-    const manifestEl = document.querySelector('script[type="__bundler/manifest"]');
-    const templateEl = document.querySelector('script[type="__bundler/template"]');
-    if (!manifestEl || !templateEl) {
-      setStatus('Error: missing bundle data');
-      console.error('[bundler] Missing script tags — manifestEl:', !!manifestEl, 'templateEl:', !!templateEl);
-      return;
-    }
+      // Error sink persists across replaceWith since it's on window, not the DOM.
+      window.addEventListener('error', function (e) {
+        var p = document.body || document.documentElement;
+        var d = document.getElementById('__bundler_err') || p.appendChild(document.createElement('div'));
+        d.id = '__bundler_err';
+        d.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;font:12px/1.4 ui-monospace,monospace;background:#2a1215;color:#ff8a80;padding:10px 14px;border-radius:8px;border:1px solid #5c2b2e;z-index:99999;white-space:pre-wrap;max-height:40vh;overflow:auto';
+        d.textContent = (d.textContent ? d.textContent + String.fromCharCode(10) : '') +
+          '[bundle] ' + (e.message || e.type) +
+          (e.filename ? ' (' + e.filename.slice(0, 60) + ':' + e.lineno + ')' : '');
+      }, true);
 
-    const manifest = JSON.parse(manifestEl.textContent);
-    let template = JSON.parse(templateEl.textContent);
-
-    const uuids = Object.keys(manifest);
-    setStatus('Unpacking ' + uuids.length + ' assets...');
-
-    const blobUrls = {};
-    await Promise.all(uuids.map(async (uuid) => {
-      const entry = manifest[uuid];
       try {
-        const binaryStr = atob(entry.data);
-        const bytes = new Uint8Array(binaryStr.length);
-        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-
-        let finalBytes = bytes;
-        if (entry.compressed) {
-          if (typeof DecompressionStream !== 'undefined') {
-            const ds = new DecompressionStream('gzip');
-            const writer = ds.writable.getWriter();
-            const reader = ds.readable.getReader();
-            writer.write(bytes);
-            writer.close();
-            const chunks = [];
-            let totalLen = 0;
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              chunks.push(value);
-              totalLen += value.length;
-            }
-            finalBytes = new Uint8Array(totalLen);
-            let offset = 0;
-            for (const chunk of chunks) { finalBytes.set(chunk, offset); offset += chunk.length; }
-          } else {
-            console.warn('DecompressionStream not available, asset ' + uuid + ' may not render');
-          }
+        const manifestEl = document.querySelector('script[type="__bundler/manifest"]');
+        const templateEl = document.querySelector('script[type="__bundler/template"]');
+        if (!manifestEl || !templateEl) {
+          setStatus('Error: missing bundle data');
+          console.error('[bundler] Missing script tags — manifestEl:', !!manifestEl, 'templateEl:', !!templateEl);
+          return;
         }
 
-        blobUrls[uuid] = URL.createObjectURL(new Blob([finalBytes], { type: entry.mime }));
+        const manifest = JSON.parse(manifestEl.textContent);
+        let template = JSON.parse(templateEl.textContent);
+
+        const uuids = Object.keys(manifest);
+        setStatus('Unpacking ' + uuids.length + ' assets...');
+
+        const blobUrls = {};
+        await Promise.all(uuids.map(async (uuid) => {
+          const entry = manifest[uuid];
+          try {
+            const binaryStr = atob(entry.data);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+            let finalBytes = bytes;
+            if (entry.compressed) {
+              if (typeof DecompressionStream !== 'undefined') {
+                const ds = new DecompressionStream('gzip');
+                const writer = ds.writable.getWriter();
+                const reader = ds.readable.getReader();
+                writer.write(bytes);
+                writer.close();
+                const chunks = [];
+                let totalLen = 0;
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  chunks.push(value);
+                  totalLen += value.length;
+                }
+                finalBytes = new Uint8Array(totalLen);
+                let offset = 0;
+                for (const chunk of chunks) { finalBytes.set(chunk, offset); offset += chunk.length; }
+              } else {
+                console.warn('DecompressionStream not available, asset ' + uuid + ' may not render');
+              }
+            }
+
+            blobUrls[uuid] = URL.createObjectURL(new Blob([finalBytes], { type: entry.mime }));
+          } catch (err) {
+            console.error('Failed to decode asset ' + uuid + ':', err);
+            blobUrls[uuid] = URL.createObjectURL(new Blob([], { type: entry.mime }));
+          }
+        }));
+
+        const extResEl = document.querySelector('script[type="__bundler/ext_resources"]');
+        const extResources = extResEl ? JSON.parse(extResEl.textContent) : [];
+        const resourceMap = {};
+        for (const entry of extResources) {
+          if (blobUrls[entry.uuid]) resourceMap[entry.id] = blobUrls[entry.uuid];
+        }
+
+        setStatus('Rendering...');
+        for (const uuid of uuids) template = template.split(uuid).join(blobUrls[uuid]);
+
+        // Strip integrity + crossorigin — blob URLs from a file:// document inherit
+        // a null origin, so crossorigin forces a CORS fetch that SRI then rejects.
+        // The manifest bytes are ours; SRI protects against CDN compromise, not this.
+        template = template.replace(/\s+integrity="[^"]*"/gi, '').replace(/\s+crossorigin="[^"]*"/gi, '');
+
+        const resourceScript = '<script>window.__resources = ' +
+          JSON.stringify(resourceMap).split('</' + 'script>').join('<\\/' + 'script>') +
+          ';</' + 'script>';
+        // Inject after <head> so the DOCTYPE stays first; prepending the script
+        // would push the parser into quirks mode. DOMParser always emits a <head>
+        // (synthesizing one if the source HTML omitted it) but may carry
+        // attributes through, so match the full opening tag. slice() rather than
+        // replace() keeps us clear of $-pattern substitution in resourceScript.
+        const headOpen = template.match(/<head[^>]*>/i);
+        if (headOpen) {
+          const i = headOpen.index + headOpen[0].length;
+          template = template.slice(0, i) + resourceScript + template.slice(i);
+        }
+
+        // Parse the template and swap the root element. Scripts inserted via
+        // DOMParser/replaceWith are inert per spec — re-create each with
+        // createElement so they execute, awaiting onload for src scripts to
+        // preserve ordering (React before ReactDOM before Babel before text/babel).
+        const doc = new DOMParser().parseFromString(template, 'text/html');
+        document.documentElement.replaceWith(doc.documentElement);
+        const dead = Array.from(document.scripts);
+        for (const old of dead) {
+          const s = document.createElement('script');
+          for (const a of old.attributes) s.setAttribute(a.name, a.value);
+          s.textContent = old.textContent;
+          // text/babel scripts with a src: fetch and inline. transformScriptTags
+          // does XHR against the src, but blob:null/ from a file:// origin is
+          // silently dropped. Inlining makes it a plain inline babel script,
+          // which transformScriptTags handles unconditionally.
+          if ((s.type === 'text/babel' || s.type === 'text/jsx') && s.src) {
+            const r = await fetch(s.src);
+            s.textContent = await r.text();
+            s.removeAttribute('src');
+          }
+          const p = s.src ? new Promise(function (r) { s.onload = s.onerror = r; }) : null;
+          old.replaceWith(s);
+          if (p) await p;
+        }
+        // Babel standalone auto-transforms type=text/babel on DOMContentLoaded,
+        // which fired before we swapped the document. Trigger manually if present.
+        if (window.Babel && typeof window.Babel.transformScriptTags === 'function') {
+          window.Babel.transformScriptTags();
+        }
       } catch (err) {
-        console.error('Failed to decode asset ' + uuid + ':', err);
-        blobUrls[uuid] = URL.createObjectURL(new Blob([], { type: entry.mime }));
+        setStatus('Error unpacking: ' + err.message);
+        console.error('Bundle unpack error:', err);
       }
-    }));
-
-    const extResEl = document.querySelector('script[type="__bundler/ext_resources"]');
-    const extResources = extResEl ? JSON.parse(extResEl.textContent) : [];
-    const resourceMap = {};
-    for (const entry of extResources) {
-      if (blobUrls[entry.uuid]) resourceMap[entry.id] = blobUrls[entry.uuid];
-    }
-
-    setStatus('Rendering...');
-    for (const uuid of uuids) template = template.split(uuid).join(blobUrls[uuid]);
-
-    // Strip integrity + crossorigin — blob URLs from a file:// document inherit
-    // a null origin, so crossorigin forces a CORS fetch that SRI then rejects.
-    // The manifest bytes are ours; SRI protects against CDN compromise, not this.
-    template = template.replace(/\s+integrity="[^"]*"/gi, '').replace(/\s+crossorigin="[^"]*"/gi, '');
-
-    const resourceScript = '<script>window.__resources = ' +
-      JSON.stringify(resourceMap).split('</' + 'script>').join('<\\/' + 'script>') +
-      ';</' + 'script>';
-    // Inject after <head> so the DOCTYPE stays first; prepending the script
-    // would push the parser into quirks mode. DOMParser always emits a <head>
-    // (synthesizing one if the source HTML omitted it) but may carry
-    // attributes through, so match the full opening tag. slice() rather than
-    // replace() keeps us clear of $-pattern substitution in resourceScript.
-    const headOpen = template.match(/<head[^>]*>/i);
-    if (headOpen) {
-      const i = headOpen.index + headOpen[0].length;
-      template = template.slice(0, i) + resourceScript + template.slice(i);
-    }
-
-    // Parse the template and swap the root element. Scripts inserted via
-    // DOMParser/replaceWith are inert per spec — re-create each with
-    // createElement so they execute, awaiting onload for src scripts to
-    // preserve ordering (React before ReactDOM before Babel before text/babel).
-    const doc = new DOMParser().parseFromString(template, 'text/html');
-    document.documentElement.replaceWith(doc.documentElement);
-    const dead = Array.from(document.scripts);
-    for (const old of dead) {
-      const s = document.createElement('script');
-      for (const a of old.attributes) s.setAttribute(a.name, a.value);
-      s.textContent = old.textContent;
-      // text/babel scripts with a src: fetch and inline. transformScriptTags
-      // does XHR against the src, but blob:null/ from a file:// origin is
-      // silently dropped. Inlining makes it a plain inline babel script,
-      // which transformScriptTags handles unconditionally.
-      if ((s.type === 'text/babel' || s.type === 'text/jsx') && s.src) {
-        const r = await fetch(s.src);
-        s.textContent = await r.text();
-        s.removeAttribute('src');
-      }
-      const p = s.src ? new Promise(function(r) { s.onload = s.onerror = r; }) : null;
-      old.replaceWith(s);
-      if (p) await p;
-    }
-    // Babel standalone auto-transforms type=text/babel on DOMContentLoaded,
-    // which fired before we swapped the document. Trigger manually if present.
-    if (window.Babel && typeof window.Babel.transformScriptTags === 'function') {
-      window.Babel.transformScriptTags();
-    }
-  } catch (err) {
-    setStatus('Error unpacking: ' + err.message);
-    console.error('Bundle unpack error:', err);
-  }
-});
+    });
 
   </script>
 
@@ -190,4 +244,5 @@ document.addEventListener('DOMContentLoaded', async function() {
 "<!DOCTYPE html>\n<html lang=\"en\"><head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>Banisa — QR Card<\u002Ftitle>\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin=\"\">\n<style>/* vietnamese */\n@font-face {\n  font-family: 'Fraunces';\n  font-style: normal;\n  font-weight: 400;\n  font-display: swap;\n  src: url(\"facb40b2-79dc-4437-90fc-a2ba4042085e\") format('woff2');\n  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;\n}\n/* latin-ext */\n@font-face {\n  font-family: 'Fraunces';\n  font-style: normal;\n  font-weight: 400;\n  font-display: swap;\n  src: url(\"5f8047a1-d32e-4c62-8fb5-c0f5c86fd4bb\") format('woff2');\n  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;\n}\n/* latin */\n@font-face {\n  font-family: 'Fraunces';\n  font-style: normal;\n  font-weight: 400;\n  font-display: swap;\n  src: url(\"000d10c3-47ee-46cc-be5a-f140f79de323\") format('woff2');\n  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;\n}\n/* vietnamese */\n@font-face {\n  font-family: 'Fraunces';\n  font-style: normal;\n  font-weight: 500;\n  font-display: swap;\n  src: url(\"facb40b2-79dc-4437-90fc-a2ba4042085e\") format('woff2');\n  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;\n}\n/* latin-ext */\n@font-face {\n  font-family: 'Fraunces';\n  font-style: normal;\n  font-weight: 500;\n  font-display: swap;\n  src: url(\"5f8047a1-d32e-4c62-8fb5-c0f5c86fd4bb\") format('woff2');\n  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;\n}\n/* latin */\n@font-face {\n  font-family: 'Fraunces';\n  font-style: normal;\n  font-weight: 500;\n  font-display: swap;\n  src: url(\"000d10c3-47ee-46cc-be5a-f140f79de323\") format('woff2');\n  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;\n}\n/* vietnamese */\n@font-face {\n  font-family: 'Fraunces';\n  font-style: normal;\n  font-weight: 600;\n  font-display: swap;\n  src: url(\"facb40b2-79dc-4437-90fc-a2ba4042085e\") format('woff2');\n  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;\n}\n/* latin-ext */\n@font-face {\n  font-family: 'Fraunces';\n  font-style: normal;\n  font-weight: 600;\n  font-display: swap;\n  src: url(\"5f8047a1-d32e-4c62-8fb5-c0f5c86fd4bb\") format('woff2');\n  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;\n}\n/* latin */\n@font-face {\n  font-family: 'Fraunces';\n  font-style: normal;\n  font-weight: 600;\n  font-display: swap;\n  src: url(\"000d10c3-47ee-46cc-be5a-f140f79de323\") format('woff2');\n  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;\n}\n/* cyrillic-ext */\n@font-face {\n  font-family: 'Geist Mono';\n  font-style: normal;\n  font-weight: 400;\n  font-display: swap;\n  src: url(\"951aea1d-42c9-4e4e-98e4-0dca0cd53154\") format('woff2');\n  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;\n}\n/* cyrillic */\n@font-face {\n  font-family: 'Geist Mono';\n  font-style: normal;\n  font-weight: 400;\n  font-display: swap;\n  src: url(\"31490a64-2556-454c-81a6-ce45a4cb21c1\") format('woff2');\n  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;\n}\n/* symbols2 */\n@font-face {\n  font-family: 'Geist Mono';\n  font-style: normal;\n  font-weight: 400;\n  font-display: swap;\n  src: url(\"5a0bae7c-127d-44a3-b8ba-a96a08425e3e\") format('woff2');\n  unicode-range: U+2000-2001, U+2004-2008, U+200A, U+23B8-23BD, U+2500-259F;\n}\n/* vietnamese */\n@font-face {\n  font-family: 'Geist Mono';\n  font-style: normal;\n  font-weight: 400;\n  font-display: swap;\n  src: url(\"1a0e175b-3938-4e6c-9619-7f9f785c15c8\") format('woff2');\n  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;\n}\n/* latin-ext */\n@font-face {\n  font-family: 'Geist Mono';\n  font-style: normal;\n  font-weight: 400;\n  font-display: swap;\n  src: url(\"a439f615-0a96-46b8-885a-525f70734e08\") format('woff2');\n  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;\n}\n/* latin */\n@font-face {\n  font-family: 'Geist Mono';\n  font-style: normal;\n  font-weight: 400;\n  font-display: swap;\n  src: url(\"7f1b2707-cb00-4ee2-8b6a-6125ced7b6e9\") format('woff2');\n  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;\n}\n/* cyrillic-ext */\n@font-face {\n  font-family: 'Geist Mono';\n  font-style: normal;\n  font-weight: 500;\n  font-display: swap;\n  src: url(\"951aea1d-42c9-4e4e-98e4-0dca0cd53154\") format('woff2');\n  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;\n}\n/* cyrillic */\n@font-face {\n  font-family: 'Geist Mono';\n  font-style: normal;\n  font-weight: 500;\n  font-display: swap;\n  src: url(\"31490a64-2556-454c-81a6-ce45a4cb21c1\") format('woff2');\n  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;\n}\n/* symbols2 */\n@font-face {\n  font-family: 'Geist Mono';\n  font-style: normal;\n  font-weight: 500;\n  font-display: swap;\n  src: url(\"5a0bae7c-127d-44a3-b8ba-a96a08425e3e\") format('woff2');\n  unicode-range: U+2000-2001, U+2004-2008, U+200A, U+23B8-23BD, U+2500-259F;\n}\n/* vietnamese */\n@font-face {\n  font-family: 'Geist Mono';\n  font-style: normal;\n  font-weight: 500;\n  font-display: swap;\n  src: url(\"1a0e175b-3938-4e6c-9619-7f9f785c15c8\") format('woff2');\n  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;\n}\n/* latin-ext */\n@font-face {\n  font-family: 'Geist Mono';\n  font-style: normal;\n  font-weight: 500;\n  font-display: swap;\n  src: url(\"a439f615-0a96-46b8-885a-525f70734e08\") format('woff2');\n  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;\n}\n/* latin */\n@font-face {\n  font-family: 'Geist Mono';\n  font-style: normal;\n  font-weight: 500;\n  font-display: swap;\n  src: url(\"7f1b2707-cb00-4ee2-8b6a-6125ced7b6e9\") format('woff2');\n  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;\n}\n/* cyrillic-ext */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 400;\n  font-display: swap;\n  src: url(\"690e530c-fb73-4db9-b244-214387b109c2\") format('woff2');\n  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;\n}\n/* vietnamese */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 400;\n  font-display: swap;\n  src: url(\"928405f1-43c5-491f-b5ef-7e3776aef2fa\") format('woff2');\n  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;\n}\n/* latin-ext */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 400;\n  font-display: swap;\n  src: url(\"d263f49a-83e8-49ba-9988-1f3374f14722\") format('woff2');\n  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;\n}\n/* latin */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 400;\n  font-display: swap;\n  src: url(\"0b33212e-126f-45e6-b12d-e5080cb8073d\") format('woff2');\n  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;\n}\n/* cyrillic-ext */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 500;\n  font-display: swap;\n  src: url(\"690e530c-fb73-4db9-b244-214387b109c2\") format('woff2');\n  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;\n}\n/* vietnamese */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 500;\n  font-display: swap;\n  src: url(\"928405f1-43c5-491f-b5ef-7e3776aef2fa\") format('woff2');\n  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;\n}\n/* latin-ext */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 500;\n  font-display: swap;\n  src: url(\"d263f49a-83e8-49ba-9988-1f3374f14722\") format('woff2');\n  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;\n}\n/* latin */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 500;\n  font-display: swap;\n  src: url(\"0b33212e-126f-45e6-b12d-e5080cb8073d\") format('woff2');\n  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;\n}\n/* cyrillic-ext */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 600;\n  font-display: swap;\n  src: url(\"690e530c-fb73-4db9-b244-214387b109c2\") format('woff2');\n  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;\n}\n/* vietnamese */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 600;\n  font-display: swap;\n  src: url(\"928405f1-43c5-491f-b5ef-7e3776aef2fa\") format('woff2');\n  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;\n}\n/* latin-ext */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 600;\n  font-display: swap;\n  src: url(\"d263f49a-83e8-49ba-9988-1f3374f14722\") format('woff2');\n  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;\n}\n/* latin */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 600;\n  font-display: swap;\n  src: url(\"0b33212e-126f-45e6-b12d-e5080cb8073d\") format('woff2');\n  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;\n}\n/* cyrillic-ext */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 700;\n  font-display: swap;\n  src: url(\"690e530c-fb73-4db9-b244-214387b109c2\") format('woff2');\n  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;\n}\n/* vietnamese */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 700;\n  font-display: swap;\n  src: url(\"928405f1-43c5-491f-b5ef-7e3776aef2fa\") format('woff2');\n  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;\n}\n/* latin-ext */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 700;\n  font-display: swap;\n  src: url(\"d263f49a-83e8-49ba-9988-1f3374f14722\") format('woff2');\n  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;\n}\n/* latin */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 700;\n  font-display: swap;\n  src: url(\"0b33212e-126f-45e6-b12d-e5080cb8073d\") format('woff2');\n  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;\n}\n/* cyrillic-ext */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 800;\n  font-display: swap;\n  src: url(\"690e530c-fb73-4db9-b244-214387b109c2\") format('woff2');\n  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;\n}\n/* vietnamese */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 800;\n  font-display: swap;\n  src: url(\"928405f1-43c5-491f-b5ef-7e3776aef2fa\") format('woff2');\n  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;\n}\n/* latin-ext */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 800;\n  font-display: swap;\n  src: url(\"d263f49a-83e8-49ba-9988-1f3374f14722\") format('woff2');\n  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;\n}\n/* latin */\n@font-face {\n  font-family: 'Plus Jakarta Sans';\n  font-style: normal;\n  font-weight: 800;\n  font-display: swap;\n  src: url(\"0b33212e-126f-45e6-b12d-e5080cb8073d\") format('woff2');\n  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;\n}\n<\u002Fstyle>\n<style>\n  :root{\n    --teal-1:#5eead4; --teal-2:#2dd4bf; --teal-3:#14b8a6; --teal-4:#0d9488; --teal-5:#0f766e;\n    --ink-900:#0f172a; --ink-800:#1e293b; --ink-700:#334155; --ink-500:#64748b; --ink-300:#cbd5e1; --ink-100:#f1f5f9; --ink-50:#f8fafc;\n  }\n  *{box-sizing:border-box}\n  html,body{margin:0;padding:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:var(--ink-900);min-height:100vh;display:flex;align-items:center;justify-content:center;transition:background 0.3s ease}\n  body[data-bg=\"light\"]{background:#eef0f3}\n  body[data-bg=\"cream\"]{background:linear-gradient(135deg,#faf8f3 0%,#fef3c7 100%)}\n  body[data-bg=\"mint\"]{background:linear-gradient(135deg,#ecfeff 0%,#f0fdfa 50%,#f5f3ff 100%)}\n  body[data-bg=\"dark\"]{background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%)}\n\n  /* ============ CARD ============ */\n  .qr-card{\n    width:380px;\n    background:#fff;\n    border-radius:32px;\n    padding:36px 32px 28px;\n    display:flex;flex-direction:column;align-items:center;gap:22px;\n    box-shadow:0 1px 0 rgba(15,23,42,0.05), 0 32px 80px -40px rgba(15,23,42,0.4);\n    position:relative;\n    transition:all 0.3s ease;\n  }\n  .qr-card[data-style=\"dark\"]{\n    background:linear-gradient(180deg,#0f172a 0%, #1e293b 100%);\n    color:#fff;\n  }\n  .qr-card[data-style=\"cream\"]{\n    background:#faf8f3;\n  }\n  .qr-card[data-style=\"gradient\"]{\n    background:linear-gradient(180deg,#ffffff 0%,#f0fdfa 100%);\n  }\n\n  /* Brand pill */\n  .brand{\n    display:inline-flex;align-items:center;gap:8px;\n    padding:6px 12px;border-radius:999px;\n    background:var(--ink-100);\n    font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--ink-500);font-weight:500;\n  }\n  .qr-card[data-style=\"dark\"] .brand{background:rgba(20,184,166,0.18);color:var(--teal-2)}\n  .brand svg{width:14px;height:14px;flex-shrink:0}\n\n  /* Clinic head */\n  .clinic-head{text-align:center;width:100%}\n  .clinic-name{\n    font-family:'Fraunces',serif;font-weight:500;font-variation-settings:\"opsz\" 144;\n    font-size:28px;line-height:1.1;letter-spacing:-0.02em;margin:14px 0 6px;\n  }\n  .qr-card[data-style=\"dark\"] .clinic-name em{color:var(--teal-2)}\n  .clinic-name em{font-style:italic;color:var(--teal-4)}\n  .clinic-sub{font-size:13.5px;line-height:1.5;color:var(--ink-500);margin:0;padding:0 12px}\n  .qr-card[data-style=\"dark\"] .clinic-sub{color:rgba(255,255,255,0.6)}\n\n  /* QR frame */\n  .qr-frame{\n    background:#fff;\n    border:1px solid var(--ink-100);\n    border-radius:24px;\n    padding:22px;\n    position:relative;\n  }\n  .qr-card[data-style=\"dark\"] .qr-frame{border:none}\n  .qr-card[data-style=\"cream\"] .qr-frame{background:#fff;border:1px solid rgba(13,148,136,0.15)}\n\n  .qr-frame .corner{position:absolute;width:18px;height:18px;border:2.5px solid var(--teal-3);transition:border-color 0.3s}\n  .qr-frame .corner.tl{top:-2px;left:-2px;border-right:none;border-bottom:none;border-top-left-radius:24px}\n  .qr-frame .corner.tr{top:-2px;right:-2px;border-left:none;border-bottom:none;border-top-right-radius:24px}\n  .qr-frame .corner.bl{bottom:-2px;left:-2px;border-right:none;border-top:none;border-bottom-left-radius:24px}\n  .qr-frame .corner.br{bottom:-2px;right:-2px;border-left:none;border-top:none;border-bottom-right-radius:24px}\n  .qr-card[data-style=\"dark\"] .qr-frame .corner{border-color:var(--teal-2)}\n\n  .qr-svg{display:block}\n\n  /* Foot */\n  .qr-foot{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;text-align:center}\n  .cta{font-family:'Plus Jakarta Sans';font-weight:600;font-size:14.5px}\n  .cta b{color:var(--teal-4)}\n  .qr-card[data-style=\"dark\"] .cta b{color:var(--teal-2)}\n  .url{\n    font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--ink-500);\n    padding:6px 12px;background:var(--ink-100);border-radius:8px;letter-spacing:0.02em;\n    max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;\n  }\n  .qr-card[data-style=\"dark\"] .url{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.55)}\n  .steps{display:flex;gap:14px;margin-top:4px}\n  .step{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-500);font-family:'Geist Mono',monospace;letter-spacing:0.05em}\n  .qr-card[data-style=\"dark\"] .step{color:rgba(255,255,255,0.5)}\n  .step .n{width:18px;height:18px;border-radius:50%;background:var(--teal-3);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600}\n  .qr-card[data-style=\"dark\"] .step .n{background:var(--teal-3)}\n<\u002Fstyle>\n<\u002Fhead>\n<body data-bg=\"light\">\n\n\n\n  <div class=\"qr-card\" id=\"card\" data-style=\"light\">\n    <div class=\"clinic-head\">\n      <div class=\"brand\">\n        <svg viewBox=\"0 0 24 24\" id=\"brand-icon\"><circle cx=\"12\" cy=\"12\" r=\"3.5\" fill=\"#0d9488\"><\u002Fcircle><circle cx=\"12\" cy=\"3\" r=\"1.8\" fill=\"#0d9488\"><\u002Fcircle><circle cx=\"20.78\" cy=\"7.5\" r=\"1.8\" fill=\"#0d9488\"><\u002Fcircle><circle cx=\"20.78\" cy=\"16.5\" r=\"1.8\" fill=\"#0d9488\"><\u002Fcircle><circle cx=\"12\" cy=\"21\" r=\"1.8\" fill=\"#0d9488\"><\u002Fcircle><circle cx=\"3.22\" cy=\"16.5\" r=\"1.8\" fill=\"#0d9488\"><\u002Fcircle><circle cx=\"3.22\" cy=\"7.5\" r=\"1.8\" fill=\"#0d9488\"><\u002Fcircle><\u002Fsvg>\n        <span>Banisa<\u002Fspan>\n      <\u002Fdiv>\n      <h2 class=\"clinic-name\" id=\"clinic-name\">Medilux Medical Center<\u002Fh2>\n      <p class=\"clinic-sub\" id=\"clinic-sub\">QR kodni skanlab klinikaga kelganingizni tasdiqlang<\u002Fp>\n    <\u002Fdiv>\n\n    <div class=\"qr-frame\" id=\"qr-frame\">\n      <div class=\"corner tl\"><\u002Fdiv><div class=\"corner tr\"><\u002Fdiv>\n      <div class=\"corner bl\"><\u002Fdiv><div class=\"corner br\"><\u002Fdiv>\n      <div id=\"qr-mount\"><\u002Fdiv>\n    <\u002Fdiv>\n\n    <div class=\"qr-foot\">\n      <div class=\"cta\">📷 Kamera bilan <b>skan qiling<\u002Fb><\u002Fdiv>\n      <div class=\"url\" id=\"url\">banisa.uz/checkin/6232aef45a9...<\u002Fdiv>\n      <div class=\"steps\">\n        <div class=\"step\"><span class=\"n\">1<\u002Fspan>Skan<\u002Fdiv>\n        <div class=\"step\"><span class=\"n\">2<\u002Fspan>Tasdiq<\u002Fdiv>\n        <div class=\"step\"><span class=\"n\">3<\u002Fspan>Qabul<\u002Fdiv>\n      <\u002Fdiv>\n    <\u002Fdiv>\n  <\u002Fdiv>\n\n  <div id=\"tweaks-root\"><\u002Fdiv>\n\n  <script src=\"6a0f514a-cab5-4eea-b6e6-623218bd85eb\" integrity=\"sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L\" crossorigin=\"anonymous\"><\u002Fscript>\n  <script src=\"fd781d9b-acfa-4a61-9fb9-c63ddc152689\" integrity=\"sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm\" crossorigin=\"anonymous\"><\u002Fscript>\n  <script src=\"418aaa07-c045-4918-b153-45f5623dea0b\" integrity=\"sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y\" crossorigin=\"anonymous\"><\u002Fscript>\n  <script src=\"51f6b21a-61c9-4f55-b332-d4db9722f049\"><\u002Fscript>\n  <script type=\"text/babel\" src=\"d9be47b7-1268-4306-9aa5-9ec147965a08\"><\u002Fscript>\n\n  <script type=\"text/babel\">\n  const QR_DEFAULTS = /*EDITMODE-BEGIN*/{\n    \"clinicName\": \"Tashkent Family Clinic\",\n    \"clinicSub\": \"Klinikaga kelganingizni tasdiqlash uchun skan qiling\",\n    \"url\": \"https:\\/\\/banisa.uz\\/checkin\\/tfc-aaa-bbb-ccc\",\n    \"darkColor\": \"#0f172a\",\n    \"accentColor\": \"#2dd4bf\",\n    \"dotStyle\": \"rounded\",\n    \"finderStyle\": \"square\",\n    \"cardStyle\": \"light\",\n    \"bgStyle\": \"light\",\n    \"logoSize\": 28\n  }/*EDITMODE-END*/;\n\n  // ============================================================\n  //   Banisa icon = network/hub pattern. 1 centre + 6 outer dots.\n  //   Rendered as SVG into the centre of the QR.\n  // ============================================================\n  function banisaIconSVG(size, accent) {\n    const r = size / 2;\n    const cx = r, cy = r;\n    const ringR = r * 0.62;\n    const nodeR = r * 0.13;\n    const coreR = r * 0.22;\n    const pts = [];\n    for (let i = 0; i < 6; i++) {\n      const a = (-Math.PI / 2) + (i * Math.PI / 3);\n      pts.push({ x: cx + Math.cos(a) * ringR, y: cy + Math.sin(a) * ringR });\n    }\n    return `\n      <g>\n        ${pts.map(p => `<line x1=\"${cx}\" y1=\"${cy}\" x2=\"${p.x}\" y2=\"${p.y}\" stroke=\"${accent}\" stroke-width=\"${r*0.05}\" stroke-linecap=\"round\" opacity=\"0.55\"/>`).join('')}\n        ${pts.map(p => `<circle cx=\"${p.x}\" cy=\"${p.y}\" r=\"${nodeR}\" fill=\"${accent}\"/>`).join('')}\n        <circle cx=\"${cx}\" cy=\"${cy}\" r=\"${coreR}\" fill=\"${accent}\"/>\n        <circle cx=\"${cx}\" cy=\"${cy}\" r=\"${coreR * 0.45}\" fill=\"#ffffff\"/>\n      <\u002Fg>\n    `;\n  }\n\n  // ============================================================\n  //   QR renderer\n  // ============================================================\n  function buildQR(text, opts) {\n    const { darkColor, accentColor, dotStyle, finderStyle, logoSize, size = 280 } = opts;\n\n    const qr = qrcode(0, 'H');\n    qr.addData(text);\n    qr.make();\n    const count = qr.getModuleCount();\n\n    const cellSize = size / (count + 4);\n    const offset = 2 * cellSize;\n\n    // Centre logo cut-out: clear modules so logo doesn't conflict\n    const logoModules = Math.round(count * (logoSize / 100));\n    const logoStart = Math.floor((count - logoModules) / 2);\n    const logoEnd = logoStart + logoModules;\n    const inLogoArea = (r, c) => r >= logoStart && r < logoEnd && c >= logoStart && c < logoEnd;\n\n    // Finder pattern detection\n    const inFinder = (r, c) => {\n      return (r < 7 && c < 7) || (r < 7 && c >= count - 7) || (r >= count - 7 && c < 7);\n    };\n\n    const dots = [];\n    for (let r = 0; r < count; r++) {\n      for (let c = 0; c < count; c++) {\n        if (!qr.isDark(r, c)) continue;\n        if (inFinder(r, c)) continue;\n        if (inLogoArea(r, c)) continue;\n        const x = offset + c * cellSize;\n        const y = offset + r * cellSize;\n        if (dotStyle === 'rounded') {\n          dots.push(`<circle cx=\"${x + cellSize / 2}\" cy=\"${y + cellSize / 2}\" r=\"${cellSize * 0.42}\" />`);\n        } else if (dotStyle === 'dot') {\n          dots.push(`<circle cx=\"${x + cellSize / 2}\" cy=\"${y + cellSize / 2}\" r=\"${cellSize * 0.32}\" />`);\n        } else {\n          dots.push(`<rect x=\"${x}\" y=\"${y}\" width=\"${cellSize}\" height=\"${cellSize}\" />`);\n        }\n      }\n    }\n\n    // Finder renderer\n    const finderAt = (r, c) => {\n      const x = offset + c * cellSize;\n      const y = offset + r * cellSize;\n      const outer = cellSize * 7;\n      const mid = cellSize * 5;\n      const inner = cellSize * 3;\n      if (finderStyle === 'rounded') {\n        const radO = cellSize * 1.6, radI = cellSize * 0.9;\n        return `\n          <rect x=\"${x}\" y=\"${y}\" width=\"${outer}\" height=\"${outer}\" rx=\"${radO}\" ry=\"${radO}\" fill=\"${darkColor}\"/>\n          <rect x=\"${x + cellSize}\" y=\"${y + cellSize}\" width=\"${mid}\" height=\"${mid}\" rx=\"${radO * 0.7}\" ry=\"${radO * 0.7}\" fill=\"#ffffff\"/>\n          <rect x=\"${x + 2 * cellSize}\" y=\"${y + 2 * cellSize}\" width=\"${inner}\" height=\"${inner}\" rx=\"${radI}\" ry=\"${radI}\" fill=\"${accentColor}\"/>\n        `;\n      } else if (finderStyle === 'circle') {\n        return `\n          <circle cx=\"${x + outer/2}\" cy=\"${y + outer/2}\" r=\"${outer/2}\" fill=\"${darkColor}\"/>\n          <circle cx=\"${x + outer/2}\" cy=\"${y + outer/2}\" r=\"${mid/2}\" fill=\"#ffffff\"/>\n          <circle cx=\"${x + outer/2}\" cy=\"${y + outer/2}\" r=\"${inner/2}\" fill=\"${accentColor}\"/>\n        `;\n      } else {\n        return `\n          <rect x=\"${x}\" y=\"${y}\" width=\"${outer}\" height=\"${outer}\" fill=\"${darkColor}\"/>\n          <rect x=\"${x + cellSize}\" y=\"${y + cellSize}\" width=\"${mid}\" height=\"${mid}\" fill=\"#ffffff\"/>\n          <rect x=\"${x + 2 * cellSize}\" y=\"${y + 2 * cellSize}\" width=\"${inner}\" height=\"${inner}\" fill=\"${accentColor}\"/>\n        `;\n      }\n    };\n\n    const finders = finderAt(0, 0) + finderAt(0, count - 7) + finderAt(count - 7, 0);\n\n    // Centre logo (Banisa network icon on white pill)\n    const cx = size / 2;\n    const cy = size / 2;\n    const logoOuter = (logoModules * cellSize) - cellSize * 0.6;\n    const iconSize = logoOuter * 0.78;\n\n    const logo = `\n      <rect x=\"${cx - logoOuter/2}\" y=\"${cy - logoOuter/2}\" width=\"${logoOuter}\" height=\"${logoOuter}\" rx=\"${logoOuter * 0.22}\" ry=\"${logoOuter * 0.22}\" fill=\"#ffffff\"/>\n      <g transform=\"translate(${cx - iconSize/2}, ${cy - iconSize/2})\">\n        ${banisaIconSVG(iconSize, accentColor)}\n      <\u002Fg>\n    `;\n\n    return `\n      <svg class=\"qr-svg\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 ${size} ${size}\" width=\"${size}\" height=\"${size}\">\n        <rect width=\"${size}\" height=\"${size}\" fill=\"#ffffff\"/>\n        <g fill=\"${darkColor}\">${dots.join('')}<\u002Fg>\n        ${finders}\n        ${logo}\n      <\u002Fsvg>\n    `;\n  }\n\n  function shortenUrl(url) {\n    const cleaned = url.replace(/^https?:\\/\\//, '');\n    return cleaned.length > 48 ? cleaned.slice(0, 48) + '...' : cleaned;\n  }\n\n  function render(state) {\n    document.getElementById('clinic-name').textContent = state.clinicName;\n    document.getElementById('clinic-sub').textContent = state.clinicSub;\n    document.getElementById('url').textContent = shortenUrl(state.url);\n    document.getElementById('card').setAttribute('data-style', state.cardStyle);\n    document.body.setAttribute('data-bg', state.bgStyle);\n    // Update brand pill icon color to match accent\n    document.querySelectorAll('#brand-icon circle').forEach(c => c.setAttribute('fill', state.accentColor));\n    document.querySelectorAll('.qr-frame .corner').forEach(el => el.style.borderColor = state.accentColor);\n    document.getElementById('qr-mount').innerHTML = buildQR(state.url, { ...state, size: 280 });\n  }\n\n  // ============================================================\n  //   Tweaks panel\n  // ============================================================\n  const { useEffect } = React;\n  const { TweaksPanel, useTweaks, TweakSection, TweakText, TweakColor, TweakRadio, TweakSelect, TweakSlider, TweakButton } = window;\n\n  function App() {\n    const [tweaks, setTweak] = useTweaks(QR_DEFAULTS);\n\n    useEffect(() => { render(tweaks); }, [tweaks]);\n\n    const presets = [\n      { name: \"Medilux Medical Center\", sub: \"QR kodni skanlab klinikaga kelganingizni tasdiqlang\", url: \"https://banisa.uz/checkin/6232aef45a95c22507bd83468c5e02fa\" },\n      { name: \"Akfa Medline\", sub: \"Bemorni qabul qilish uchun ushbu QR'ni skanlang\", url: \"https://banisa.uz/checkin/akfa-medline-2026-q4-001\" },\n      { name: \"Tashkent Family Clinic\", sub: \"Klinikaga kelganingizni tasdiqlash uchun skan qiling\", url: \"https://banisa.uz/checkin/tfc-aaa-bbb-ccc\" }\n    ];\n\n    return (\n      <TweaksPanel title=\"QR Tweaks\">\n\n        <TweakSection title=\"Clinic info\">\n          <TweakText label=\"Name\" value={tweaks.clinicName}\n            onChange={v => setTweak('clinicName', v)}/>\n          <TweakText label=\"Subtitle\" value={tweaks.clinicSub}\n            onChange={v => setTweak('clinicSub', v)}/>\n          <TweakText label=\"URL\" value={tweaks.url}\n            onChange={v => setTweak('url', v)}/>\n        <\u002FTweakSection>\n\n        <TweakSection title=\"Presets\">\n          {presets.map(p => (\n            <TweakButton key={p.name} label={p.name} onClick={() => {\n              setTweak({ clinicName: p.name, clinicSub: p.sub, url: p.url });\n            }}/>\n          ))}\n        <\u002FTweakSection>\n\n        <TweakSection title=\"Card style\">\n          <TweakSelect label=\"Card bg\" value={tweaks.cardStyle}\n            onChange={v => setTweak('cardStyle', v)}\n            options={[\n              {value:'light', label:'White'},\n              {value:'cream', label:'Cream'},\n              {value:'gradient', label:'Soft mint'},\n              {value:'dark', label:'Dark'}\n            ]}/>\n          <TweakSelect label=\"Background\" value={tweaks.bgStyle}\n            onChange={v => setTweak('bgStyle', v)}\n            options={[\n              {value:'light', label:'Neutral grey'},\n              {value:'cream', label:'Cream'},\n              {value:'mint', label:'Mint'},\n              {value:'dark', label:'Dark'}\n            ]}/>\n        <\u002FTweakSection>\n\n        <TweakSection title=\"QR style\">\n          <TweakColor label=\"Dot color\" value={tweaks.darkColor}\n            onChange={v => setTweak('darkColor', v)}\n            options={['#0f172a','#0d9488','#1e293b','#7c3aed','#dc2626','#000000']}/>\n          <TweakColor label=\"Accent\" value={tweaks.accentColor}\n            onChange={v => setTweak('accentColor', v)}\n            options={['#0d9488','#14b8a6','#2dd4bf','#7c3aed','#f59e0b','#dc2626']}/>\n          <TweakSelect label=\"Dot shape\" value={tweaks.dotStyle}\n            onChange={v => setTweak('dotStyle', v)}\n            options={[\n              {value:'rounded', label:'Rounded'},\n              {value:'square', label:'Square'},\n              {value:'dot', label:'Small dot'}\n            ]}/>\n          <TweakSelect label=\"Finder shape\" value={tweaks.finderStyle}\n            onChange={v => setTweak('finderStyle', v)}\n            options={[\n              {value:'rounded', label:'Rounded'},\n              {value:'circle', label:'Circle'},\n              {value:'square', label:'Square'}\n            ]}/>\n          <TweakSlider label=\"Logo size %\" value={tweaks.logoSize}\n            min={14} max={28} step={1}\n            onChange={v => setTweak('logoSize', v)}/>\n        <\u002FTweakSection>\n\n      <\u002FTweaksPanel>\n    );\n  }\n\n  render(QR_DEFAULTS);\n\n  ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<App />);\n  <\u002Fscript>\n\n\n\n<\u002Fbody><\u002Fhtml>"
   </script>
 </body>
+
 </html>
