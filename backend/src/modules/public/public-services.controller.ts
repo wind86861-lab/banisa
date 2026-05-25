@@ -190,7 +190,11 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
             ...visibleDiagnosticLinks.map(link => {
                 const s = link.diagnosticService;
                 const cust = link.customization;
-                const images = cust?.images?.map((img: any) => img.url) ?? [];
+                const custImages = cust?.images?.map((img: any) => img.url) ?? [];
+                // Fallback chain: clinic upload → super-admin base service → (frontend placeholder)
+                const images = custImages.length > 0
+                    ? custImages
+                    : (s.imageUrl ? [s.imageUrl] : []);
                 const originalPrice = s.priceRecommended ?? s.priceMin ?? 0;
                 const customPrice = cust?.customPrice ?? originalPrice;
                 const discount = cust?.discountPercent ?? 0;

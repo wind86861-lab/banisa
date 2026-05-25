@@ -66,6 +66,7 @@ export const getHome = async (_req: Request, res: Response, next: NextFunction) 
                         select: {
                             id: true, nameUz: true, nameRu: true,
                             priceMin: true, priceRecommended: true, durationMinutes: true,
+                            imageUrl: true,
                             category: { select: { nameUz: true } },
                         },
                     },
@@ -121,7 +122,7 @@ export const getHome = async (_req: Request, res: Response, next: NextFunction) 
                 originalPrice: basePrice,
                 discountPercent: discount,
                 duration: s.durationMinutes ?? null,
-                image: cust?.images?.[0]?.url ?? null,
+                image: cust?.images?.[0]?.url ?? s.imageUrl ?? null,
                 clinic: link.clinic
                     ? {
                           id: link.clinic.id,
