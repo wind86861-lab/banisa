@@ -936,6 +936,18 @@ export default function XizmatlarPage() {
     const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
     const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
+    /* ── Check if user is actively searching/filtering ── */
+    const isSearchingOrFiltering = !!(
+        searchQuery.trim() ||
+        selectedSpecialties.length > 0 ||
+        selectedAvailability.length > 0 ||
+        selectedLocations.length > 0 ||
+        minRating > 0 ||
+        (priceMin !== null && priceMin > poolPriceRange.min) ||
+        (priceMax !== null && priceMax < poolPriceRange.max) ||
+        dynamicMetaActiveCount > 0
+    );
+
     /* ── Active filter chips ── */
     const activeFilters = [];
     if (searchQuery) activeFilters.push({ id: 'search', label: `"${searchQuery}"`, onRemove: () => { setSearchQuery(''); setCurrentPage(1); } });
@@ -1109,16 +1121,16 @@ export default function XizmatlarPage() {
                                     const checked = selArr.includes('true');
                                     const off = c === 0 && !checked;
                                     return (
-                                    <label className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
-                                        <input
-                                            type="checkbox"
-                                            checked={checked}
-                                            disabled={off}
-                                            onChange={() => toggleMeta(meta.key, 'true')}
-                                        />
-                                        <span className="xp-filter-option-label">Bor</span>
-                                        <span className="xp-filter-option-count">{c}</span>
-                                    </label>
+                                        <label className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                disabled={off}
+                                                onChange={() => toggleMeta(meta.key, 'true')}
+                                            />
+                                            <span className="xp-filter-option-label">Bor</span>
+                                            <span className="xp-filter-option-count">{c}</span>
+                                        </label>
                                     );
                                 })()}
                             </div>
@@ -1129,16 +1141,16 @@ export default function XizmatlarPage() {
                                     const checked = selArr.includes(opt.value);
                                     const off = c === 0 && !checked;
                                     return (
-                                    <label key={opt.value} className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
-                                        <input
-                                            type="checkbox"
-                                            checked={checked}
-                                            disabled={off}
-                                            onChange={() => toggleMeta(meta.key, opt.value)}
-                                        />
-                                        <span className="xp-filter-option-label">{opt.value}</span>
-                                        <span className="xp-filter-option-count">{c}</span>
-                                    </label>
+                                        <label key={opt.value} className="xp-filter-option" style={off ? { opacity: 0.4 } : undefined}>
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                disabled={off}
+                                                onChange={() => toggleMeta(meta.key, opt.value)}
+                                            />
+                                            <span className="xp-filter-option-label">{opt.value}</span>
+                                            <span className="xp-filter-option-count">{c}</span>
+                                        </label>
                                     );
                                 })}
                             </div>
@@ -1195,9 +1207,6 @@ export default function XizmatlarPage() {
 
     return (
         <div className="xp-page">
-            <TopBar />
-            <Navigation />
-
             {/* ── MOBILE APP HEADER (mobile only) ── */}
             <div className="xp-mobile-header">
                 <button
@@ -1207,7 +1216,7 @@ export default function XizmatlarPage() {
                 >
                     <ChevronLeft size={22} />
                 </button>
-                <h1 className="xp-mobile-title">Xizmatlar</h1>
+                <div style={{ flex: 1 }}></div>
                 <button
                     className="xp-mobile-cart"
                     onClick={() => navigate('/cart')}
@@ -1216,6 +1225,68 @@ export default function XizmatlarPage() {
                     <ShoppingCart size={20} />
                 </button>
             </div>
+
+            {/* ── MOBILE SEARCH & FILTER (mobile only) ── */}
+            <div className="xp-mobile-search-wrap">
+                <div className="xp-mobile-search">
+                    <Search size={18} className="xp-mobile-search-icon" />
+                    <input
+                        type="text"
+                        placeholder="Xizmat yoki kasallik nomi..."
+                        value={searchQuery}
+                        onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                    />
+                    {searchQuery && (
+                        <button
+                            className="xp-mobile-search-clear"
+                            onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
+                            aria-label="Tozalash"
+                        >
+                            <X size={16} />
+                        </button>
+                    )}
+                </div>
+                <button
+                    className="xp-mobile-filter-btn-top"
+                    onClick={() => setMobileFilterOpen(true)}
+                >
+                    <SlidersHorizontal size={16} />
+                    Filtrlar
+                    {activeFilters.length > 0 && (
+                        <span className="xp-fd-count">{activeFilters.length}</span>
+                    )}
+                </button>
+            </div>
+
+            {/* ── MOBILE CATEGORY CARDS (mobile only) — Hidden when searching/filtering ── */}
+            {!isSearchingOrFiltering && (
+                <div className="xp-mobile-cats-section">
+                    <h2 className="xp-mobile-section-title">Kategoriyalar</h2>
+                    <div className="xp-mobile-cats-grid">
+                        {CATEGORIES.filter(cat => cat.id !== 'all').map(cat => (
+                            <Link
+                                key={cat.id}
+                                to={`/xizmatlar/category/${cat.id}`}
+                                className={`xp-mcat-card xp-mcat-${cat.id}`}
+                            >
+                                <div className="xp-mcat-icon-wrap">
+                                    <cat.icon size={26} />
+                                </div>
+                                <div className="xp-mcat-text">
+                                    <span className="xp-mcat-label">{cat.label}</span>
+                                    <span className="xp-mcat-count">{categoryCounts[cat.id] || 0} ta xizmat</span>
+                                </div>
+                                <ChevronRight size={16} className="xp-mcat-arrow" />
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* ── HOME CAROUSELS (mobile only — quick discovery shortcuts) — Hidden when searching/filtering ── */}
+            {!isSearchingOrFiltering && (
+                <HubCarousels services={SERVICES_DATA} isLoggedIn={!!user} onAddToCart={handleAddToCart} />
+            )}
 
             {/* ── HERO (desktop) ── */}
             <section className="xp-hero">
@@ -1263,53 +1334,6 @@ export default function XizmatlarPage() {
                 </div>
             </section>
 
-            {/* ── MOBILE CATEGORY CARDS (mobile only) ── */}
-            <div className="xp-mobile-cats-section">
-                <h2 className="xp-mobile-section-title">Kategoriyalar</h2>
-                <div className="xp-mobile-cats-grid">
-                    {CATEGORIES.map(cat => {
-                        // "all" stays as filter (shows everything below); other categories navigate
-                        if (cat.id === 'all') {
-                            const isActive = activeCategory === 'all';
-                            return (
-                                <button
-                                    key={cat.id}
-                                    className={`xp-mcat-card xp-mcat-all${isActive ? ' active' : ''}`}
-                                    onClick={() => handleCategoryChange('all')}
-                                >
-                                    <div className="xp-mcat-icon-wrap">
-                                        <cat.icon size={26} />
-                                    </div>
-                                    <div className="xp-mcat-text">
-                                        <span className="xp-mcat-label">{cat.label}</span>
-                                        <span className="xp-mcat-count">{categoryCounts.all || 0} ta xizmat</span>
-                                    </div>
-                                    <ChevronRight size={18} className="xp-mcat-arrow" />
-                                </button>
-                            );
-                        }
-                        return (
-                            <Link
-                                key={cat.id}
-                                to={`/xizmatlar/category/${cat.id}`}
-                                className={`xp-mcat-card xp-mcat-${cat.id}`}
-                            >
-                                <div className="xp-mcat-icon-wrap">
-                                    <cat.icon size={26} />
-                                </div>
-                                <div className="xp-mcat-text">
-                                    <span className="xp-mcat-label">{cat.label}</span>
-                                    <span className="xp-mcat-count">{categoryCounts[cat.id] || 0} ta xizmat</span>
-                                </div>
-                                <ChevronRight size={16} className="xp-mcat-arrow" />
-                            </Link>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* ── HOME CAROUSELS (mobile only — quick discovery shortcuts) ── */}
-            <HubCarousels services={SERVICES_DATA} isLoggedIn={!!user} onAddToCart={handleAddToCart} />
 
 
             {/* ── TABS BAR (desktop sticky tabs) ── */}
@@ -1539,8 +1563,8 @@ export default function XizmatlarPage() {
                                     const optsCount = meta.options?.length || 0;
                                     const sizeCls = meta.kind === 'patient-value' ? 'sm'
                                         : optsCount > 8 ? 'lg'
-                                        : optsCount > 4 ? 'md'
-                                        : 'sm';
+                                            : optsCount > 4 ? 'md'
+                                                : 'sm';
                                     const isActive = (Array.isArray(sel) ? sel.length > 0 : hasBound(range.value));
                                     return (
                                         <div className={`xp-adv-card xp-adv-card--${sizeCls}${isActive ? ' xp-adv-card--active' : ''}`} key={meta.key}>

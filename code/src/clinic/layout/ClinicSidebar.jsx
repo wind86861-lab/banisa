@@ -83,7 +83,7 @@ export default function ClinicSidebar({ isOpen, toggleSidebar }) {
                             filter: 'drop-shadow(0 0 14px rgba(0,189,224,0.35))',
                         }}
                     />
-                    {isOpen && <span>Banisa Clinic</span>}
+                    {isOpen && <span>{clinicName}</span>}
                 </a>
             </div>
 
