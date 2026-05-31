@@ -295,3 +295,8 @@
     transform: translateY(-1px);
   }
 }
+
+@keyframes co-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
