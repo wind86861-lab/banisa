@@ -344,26 +344,6 @@ export default function ClinicDetailPage() {
                         </div>
                     </div>
 
-                    {/* ── STATS ROW ── */}
-                    <div className="cdp-stats">
-                        <div className="cdp-stat">
-                            <div className="cdp-stat-ico" style={{ '--c': '#f59e0b', '--bg': '#fef3c7' }}><Award size={20} /></div>
-                            <div><div className="cdp-stat-val">{(clinic.averageRating || 0).toFixed(1)}</div><div className="cdp-stat-lbl">Reyting</div></div>
-                        </div>
-                        <div className="cdp-stat">
-                            <div className="cdp-stat-ico" style={{ '--c': '#3b82f6', '--bg': '#dbeafe' }}><Building2 size={20} /></div>
-                            <div><div className="cdp-stat-val">{clinic.serviceCounts?.total || 0}</div><div className="cdp-stat-lbl">Xizmatlar</div></div>
-                        </div>
-                        <div className="cdp-stat">
-                            <div className="cdp-stat-ico" style={{ '--c': '#10b981', '--bg': '#d1fae5' }}><Users size={20} /></div>
-                            <div><div className="cdp-stat-val">{clinic.confirmedAppointments || 0}+</div><div className="cdp-stat-lbl">Bemorlar</div></div>
-                        </div>
-                        <div className="cdp-stat">
-                            <div className="cdp-stat-ico" style={{ '--c': '#8b5cf6', '--bg': '#ede9fe' }}><MessageSquare size={20} /></div>
-                            <div><div className="cdp-stat-val">{clinic.reviewCount || 0}</div><div className="cdp-stat-lbl">Sharhlar</div></div>
-                        </div>
-                    </div>
-
                     {/* ── MAIN GRID ── */}
                     <div className="cdp-grid">
 
