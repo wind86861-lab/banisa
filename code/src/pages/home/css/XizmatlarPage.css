@@ -3267,9 +3267,10 @@
 
 /* ── HEADER ROUTING: TopBar/Nav on desktop, app-style header on mobile ── */
 @media (min-width: 901px) {
+  /* Desktop hides ONLY the redundant app-bar (TopBar replaces it) and the
+     sticky chips strip (desktop has TABS BAR for that). Search bar with
+     Filtrlar button AND the Kategoriyalar grid stay visible on desktop. */
   .xp-page .xp-mobile-header,
-  .xp-page .xp-mobile-search-wrap,
-  .xp-page .xp-mobile-cats-section,
   .xp-page .xp-mobile-chips-bar {
     display: none !important;
   }
