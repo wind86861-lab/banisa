@@ -512,26 +512,11 @@
     padding: 6px 10px;
     font-size: 11px;
   }
-  .co-oferta-iframe {
-    display: none;
-  }
   .co-oferta-pdf-wrap {
-    background: #f8fafc;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .co-oferta-mobile-cta {
-    display: flex;
-    padding: 36px 24px;
     background: #fff;
-    border: 2px dashed #06b6d4;
-    border-radius: 14px;
-    margin: 20px;
-    color: #0e7490;
-    font-weight: 700;
-    font-size: 15px;
-    box-shadow: 0 4px 14px rgba(6, 182, 212, 0.15);
+  }
+  .co-oferta-iframe {
+    background: #fff;
   }
   .co-oferta-foot {
     padding: 14px 16px;

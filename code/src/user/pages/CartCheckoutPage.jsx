@@ -529,9 +529,16 @@ export default function CartCheckoutPage() {
 
             {/* ── Oferta modal ── */}
             {oferta && ofertaModalOpen && (() => {
-                const pdfHref = oferta.fileUrl.startsWith('http')
-                    ? oferta.fileUrl
-                    : `${window.location.origin === 'http://localhost:5173' ? 'http://localhost:5000' : ''}${oferta.fileUrl}`;
+                const isAbs = oferta.fileUrl.startsWith('http');
+                const origin = window.location.origin === 'http://localhost:5173' ? 'http://localhost:5000' : window.location.origin;
+                const pdfHref = isAbs ? oferta.fileUrl : `${origin}${oferta.fileUrl}`;
+                // Google Docs Viewer: inline PDF reader that works well on mobile
+                // without forcing the user to leave the page. Falls back to the
+                // native renderer only on desktop where it's typically fine.
+                const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 700px)').matches;
+                const viewerSrc = isMobile
+                    ? `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(pdfHref)}`
+                    : pdfHref;
                 return (
                     <div className="co-oferta-backdrop" onClick={() => setOfertaModalOpen(false)}>
                         <div className="co-oferta-modal" onClick={e => e.stopPropagation()}>
@@ -544,14 +551,6 @@ export default function CartCheckoutPage() {
                                     </div>
                                 </div>
                                 <div className="co-oferta-head-actions">
-                                    <a
-                                        href={pdfHref}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="co-oferta-open-tab"
-                                    >
-                                        <ArrowRight size={14} /> Yangi tabda
-                                    </a>
                                     <button
                                         type="button"
                                         onClick={() => setOfertaModalOpen(false)}
@@ -566,19 +565,9 @@ export default function CartCheckoutPage() {
                             <div className="co-oferta-pdf-wrap">
                                 <iframe
                                     title="Ommaviy oferta PDF"
-                                    src={pdfHref}
+                                    src={viewerSrc}
                                     className="co-oferta-iframe"
                                 />
-                                <a
-                                    href={pdfHref}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="co-oferta-mobile-cta"
-                                >
-                                    <FileText size={22} />
-                                    <span>PDFni alohida oynada ochish</span>
-                                    <span className="co-oferta-mobile-cta-sub">Mobil qurilmada PDFni qulayroq o'qish uchun</span>
-                                </a>
                             </div>
 
                             <div className="co-oferta-foot">
