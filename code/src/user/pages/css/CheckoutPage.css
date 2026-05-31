@@ -300,3 +300,248 @@
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+
+/* ── OFERTA MODAL ────────────────────────────────────────────── */
+.co-oferta-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(15, 23, 42, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: co-fade 0.18s ease-out;
+}
+
+.co-oferta-modal {
+  background: #fff;
+  border-radius: 14px;
+  width: min(960px, 100%);
+  height: min(720px, 92vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.35);
+}
+
+.co-oferta-head {
+  padding: 14px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #f8fafc;
+}
+
+.co-oferta-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: #0891b2;
+}
+
+.co-oferta-title-text {
+  min-width: 0;
+  color: #0f172a;
+}
+
+.co-oferta-title-main {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.co-oferta-title-sub {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.co-oferta-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.co-oferta-open-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  background: #e0f2fe;
+  border: 1px solid #7dd3fc;
+  border-radius: 8px;
+  color: #0369a1;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.co-oferta-open-tab:hover {
+  background: #bae6fd;
+}
+
+.co-oferta-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  color: #64748b;
+  display: inline-flex;
+}
+
+.co-oferta-close:hover { background: #e2e8f0; }
+
+.co-oferta-pdf-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: #525659;
+}
+
+.co-oferta-iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #525659;
+}
+
+.co-oferta-mobile-cta {
+  display: none; /* shown only on mobile */
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 24px;
+  text-align: center;
+  text-decoration: none;
+  color: #0f172a;
+}
+
+.co-oferta-mobile-cta-sub {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.co-oferta-foot {
+  padding: 16px 20px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #fff;
+}
+
+.co-oferta-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #0f172a;
+}
+
+.co-oferta-check input[type="checkbox"] {
+  margin-top: 3px;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: #00BDE0;
+  cursor: pointer;
+}
+
+.co-oferta-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.co-oferta-btn-cancel {
+  padding: 11px 18px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.co-oferta-btn-confirm {
+  padding: 11px 22px;
+  background: linear-gradient(135deg, #00BDE0 0%, #0099cc 100%);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.co-oferta-btn-confirm:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* ── Mobile: full-screen modal + replace iframe with big tap-to-open card ── */
+@media (max-width: 700px) {
+  .co-oferta-backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+  .co-oferta-modal {
+    width: 100%;
+    height: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  .co-oferta-head {
+    padding: 12px 14px;
+  }
+  .co-oferta-open-tab {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  .co-oferta-iframe {
+    display: none;
+  }
+  .co-oferta-pdf-wrap {
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .co-oferta-mobile-cta {
+    display: flex;
+    padding: 36px 24px;
+    background: #fff;
+    border: 2px dashed #06b6d4;
+    border-radius: 14px;
+    margin: 20px;
+    color: #0e7490;
+    font-weight: 700;
+    font-size: 15px;
+    box-shadow: 0 4px 14px rgba(6, 182, 212, 0.15);
+  }
+  .co-oferta-foot {
+    padding: 14px 16px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .co-oferta-actions { justify-content: stretch; }
+  .co-oferta-btn-cancel, .co-oferta-btn-confirm {
+    flex: 1 1 auto;
+    justify-content: center;
+    text-align: center;
+    padding: 13px 14px;
+  }
+}

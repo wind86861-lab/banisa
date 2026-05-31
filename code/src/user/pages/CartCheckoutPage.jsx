@@ -528,115 +528,91 @@ export default function CartCheckoutPage() {
             <Footer />
 
             {/* ── Oferta modal ── */}
-            {oferta && ofertaModalOpen && (
-                <div
-                    onClick={() => setOfertaModalOpen(false)}
-                    style={{
-                        position: 'fixed', inset: 0, zIndex: 10000,
-                        background: 'rgba(15,23,42,0.65)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        padding: 16,
-                        animation: 'co-fade 0.18s ease-out',
-                    }}
-                >
-                    <div
-                        onClick={e => e.stopPropagation()}
-                        style={{
-                            background: '#fff', borderRadius: 14,
-                            width: 'min(960px, 100%)', height: 'min(720px, 92vh)',
-                            display: 'flex', flexDirection: 'column',
-                            overflow: 'hidden',
-                            boxShadow: '0 25px 60px rgba(15,23,42,0.35)',
-                        }}
-                    >
-                        {/* Header */}
-                        <div style={{
-                            padding: '14px 20px', borderBottom: '1px solid #e2e8f0',
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                            background: '#f8fafc',
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                                <FileText size={20} style={{ color: '#0891b2', flexShrink: 0 }} />
-                                <div style={{ minWidth: 0 }}>
-                                    <div style={{ fontWeight: 700, fontSize: 15 }}>Ommaviy oferta</div>
-                                    <div style={{ fontSize: 12, color: '#64748b' }}>Versiya {oferta.version} {oferta.fileName ? `· ${oferta.fileName}` : ''}</div>
+            {oferta && ofertaModalOpen && (() => {
+                const pdfHref = oferta.fileUrl.startsWith('http')
+                    ? oferta.fileUrl
+                    : `${window.location.origin === 'http://localhost:5173' ? 'http://localhost:5000' : ''}${oferta.fileUrl}`;
+                return (
+                    <div className="co-oferta-backdrop" onClick={() => setOfertaModalOpen(false)}>
+                        <div className="co-oferta-modal" onClick={e => e.stopPropagation()}>
+                            <div className="co-oferta-head">
+                                <div className="co-oferta-title">
+                                    <FileText size={20} />
+                                    <div className="co-oferta-title-text">
+                                        <div className="co-oferta-title-main">Ommaviy oferta</div>
+                                        <div className="co-oferta-title-sub">v{oferta.version}{oferta.fileName ? ` · ${oferta.fileName}` : ''}</div>
+                                    </div>
+                                </div>
+                                <div className="co-oferta-head-actions">
+                                    <a
+                                        href={pdfHref}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="co-oferta-open-tab"
+                                    >
+                                        <ArrowRight size={14} /> Yangi tabda
+                                    </a>
+                                    <button
+                                        type="button"
+                                        onClick={() => setOfertaModalOpen(false)}
+                                        aria-label="Yopish"
+                                        className="co-oferta-close"
+                                    >
+                                        <X size={20} />
+                                    </button>
                                 </div>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setOfertaModalOpen(false)}
-                                aria-label="Yopish"
-                                style={{
-                                    background: 'transparent', border: 'none', cursor: 'pointer',
-                                    padding: 6, borderRadius: 8, color: '#64748b',
-                                    display: 'inline-flex',
-                                }}
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
 
-                        {/* PDF preview */}
-                        <iframe
-                            title="Ommaviy oferta PDF"
-                            src={oferta.fileUrl.startsWith('http')
-                                ? oferta.fileUrl
-                                : `${window.location.origin === 'http://localhost:5173' ? 'http://localhost:5000' : ''}${oferta.fileUrl}`}
-                            style={{ flex: 1, border: 'none', background: '#525659', minHeight: 0 }}
-                        />
-
-                        {/* Footer: checkbox + actions */}
-                        <div style={{
-                            padding: '14px 20px', borderTop: '1px solid #e2e8f0',
-                            display: 'flex', flexDirection: 'column', gap: 12,
-                            background: '#fff',
-                        }}>
-                            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 14, lineHeight: 1.5 }}>
-                                <input
-                                    type="checkbox"
-                                    checked={ofertaModalChecked}
-                                    onChange={e => setOfertaModalChecked(e.target.checked)}
-                                    style={{ marginTop: 3, width: 18, height: 18, flexShrink: 0, accentColor: '#00BDE0', cursor: 'pointer' }}
+                            <div className="co-oferta-pdf-wrap">
+                                <iframe
+                                    title="Ommaviy oferta PDF"
+                                    src={pdfHref}
+                                    className="co-oferta-iframe"
                                 />
-                                <span>
-                                    Men ushbu ommaviy oferta (v{oferta.version}) shartlari bilan to'liq tanishdim va qabul qilaman.
-                                </span>
-                            </label>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                                <button
-                                    type="button"
-                                    onClick={() => setOfertaModalOpen(false)}
-                                    style={{
-                                        padding: '10px 18px',
-                                        background: '#f1f5f9', border: '1px solid #cbd5e1',
-                                        borderRadius: 10, color: '#0f172a',
-                                        fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                                    }}
+                                <a
+                                    href={pdfHref}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="co-oferta-mobile-cta"
                                 >
-                                    Bekor qilish
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={!ofertaModalChecked}
-                                    onClick={() => { setOfertaAgreed(true); setOfertaModalOpen(false); }}
-                                    style={{
-                                        padding: '10px 22px',
-                                        background: ofertaModalChecked ? 'linear-gradient(135deg,#00BDE0 0%,#0099cc 100%)' : '#94a3b8',
-                                        border: 'none', borderRadius: 10, color: '#fff',
-                                        fontSize: 14, fontWeight: 700,
-                                        cursor: ofertaModalChecked ? 'pointer' : 'not-allowed',
-                                        opacity: ofertaModalChecked ? 1 : 0.7,
-                                        display: 'inline-flex', alignItems: 'center', gap: 8,
-                                    }}
-                                >
-                                    <CheckCircle2 size={16} />
-                                    Tasdiqlash
-                                </button>
+                                    <FileText size={22} />
+                                    <span>PDFni alohida oynada ochish</span>
+                                    <span className="co-oferta-mobile-cta-sub">Mobil qurilmada PDFni qulayroq o'qish uchun</span>
+                                </a>
+                            </div>
+
+                            <div className="co-oferta-foot">
+                                <label className="co-oferta-check">
+                                    <input
+                                        type="checkbox"
+                                        checked={ofertaModalChecked}
+                                        onChange={e => setOfertaModalChecked(e.target.checked)}
+                                    />
+                                    <span>Men ushbu ommaviy oferta (v{oferta.version}) shartlari bilan to'liq tanishdim va qabul qilaman.</span>
+                                </label>
+                                <div className="co-oferta-actions">
+                                    <button
+                                        type="button"
+                                        onClick={() => setOfertaModalOpen(false)}
+                                        className="co-oferta-btn-cancel"
+                                    >
+                                        Bekor qilish
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={!ofertaModalChecked}
+                                        onClick={() => { setOfertaAgreed(true); setOfertaModalOpen(false); }}
+                                        className="co-oferta-btn-confirm"
+                                    >
+                                        <CheckCircle2 size={16} />
+                                        Tasdiqlash
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
         </div>
     );
 }
