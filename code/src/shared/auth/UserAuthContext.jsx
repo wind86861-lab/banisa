@@ -62,14 +62,46 @@ export const UserAuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [expiringSoon, setExpiringSoon] = useState(false);
 
-  // ── Auto-logout on token expiry (reads in-memory token, not localStorage) ──
+  // ── Silent auto-refresh + expiry watchdog ─────────────────────────────────
+  // Strategy: while logged in, refresh the access token in the background as
+  // soon as it has <2 min remaining. The HttpOnly refresh-token cookie is
+  // valid for 7 days, so this is invisible to the user. Only if a refresh
+  // attempt actually FAILS do we fall back to the warning toast and, after
+  // that, log the user out.
   useEffect(() => {
     if (!user) return;
-    const tick = () => {
+    let refreshing = false;
+    let failedOnce = false;
+
+    const trySilentRefresh = async () => {
+      if (refreshing) return false;
+      refreshing = true;
+      try {
+        const { data } = await axiosInstance.post('/user/auth/refresh');
+        const newToken = data?.data?.accessToken ?? data?.accessToken;
+        if (newToken) {
+          setAccessToken(newToken);
+          setExpiringSoon(false);
+          failedOnce = false;
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      } finally {
+        refreshing = false;
+      }
+    };
+
+    const tick = async () => {
       const token = getAccessToken();
       if (!token) return;
       const msLeft = tokenMsLeft(token);
+
+      // Already expired: try one last silent refresh before logging out.
       if (msLeft <= 0) {
+        const ok = await trySilentRefresh();
+        if (ok) return;
         clearAccessToken();
         setIsPatientSession(false);
         userTokenStorage.clear();
@@ -77,8 +109,21 @@ export const UserAuthProvider = ({ children }) => {
         setExpiringSoon(false);
         return;
       }
-      setExpiringSoon(msLeft < 60_000);
+
+      // <2 min left → refresh silently in the background.
+      if (msLeft < 120_000 && !failedOnce) {
+        const ok = await trySilentRefresh();
+        if (!ok) {
+          failedOnce = true; // surface the toast as a last-resort manual option
+          setExpiringSoon(msLeft < 60_000);
+        }
+        return;
+      }
+
+      // Don't show the toast unless an automatic attempt has already failed.
+      setExpiringSoon(failedOnce && msLeft < 60_000);
     };
+
     tick();
     const interval = setInterval(tick, 15_000);
     return () => clearInterval(interval);
