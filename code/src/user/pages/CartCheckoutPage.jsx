@@ -316,6 +316,57 @@ export default function CartCheckoutPage() {
                                     style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14, resize: 'vertical' }}
                                 />
                             </div>
+
+                            {oferta && (
+                                <div id="oferta-block" style={{ marginTop: 18 }}>
+                                    <label
+                                        style={{
+                                            display: 'flex', alignItems: 'flex-start', gap: 12,
+                                            padding: '14px 16px',
+                                            background: ofertaAgreed ? '#ecfeff' : '#fff7ed',
+                                            border: `2px solid ${ofertaAgreed ? '#06b6d4' : '#fb923c'}`,
+                                            borderRadius: 12,
+                                            fontSize: 14, lineHeight: 1.55,
+                                            cursor: 'pointer',
+                                            transition: 'background 0.2s, border-color 0.2s',
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={ofertaAgreed}
+                                            onChange={e => {
+                                                const v = e.target.checked;
+                                                setOfertaAgreed(v);
+                                                if (v && oferta?.fileUrl) {
+                                                    const href = oferta.fileUrl.startsWith('http')
+                                                        ? oferta.fileUrl
+                                                        : `${window.location.origin === 'http://localhost:5173' ? 'http://localhost:5000' : ''}${oferta.fileUrl}`;
+                                                    window.open(href, '_blank', 'noopener,noreferrer');
+                                                }
+                                            }}
+                                            style={{ marginTop: 3, width: 18, height: 18, flexShrink: 0, accentColor: '#00BDE0', cursor: 'pointer' }}
+                                        />
+                                        <span>
+                                            Men{' '}
+                                            <a
+                                                href={oferta.fileUrl.startsWith('http') ? oferta.fileUrl : `${window.location.origin === 'http://localhost:5173' ? 'http://localhost:5000' : ''}${oferta.fileUrl}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={e => e.stopPropagation()}
+                                                style={{ color: '#0891b2', fontWeight: 700, textDecoration: 'underline' }}
+                                            >
+                                                ommaviy oferta
+                                            </a>
+                                            {' '}(v{oferta.version}) shartlari bilan tanishdim va to'liq qabul qilaman.
+                                            {!ofertaAgreed && (
+                                                <span style={{ display: 'block', marginTop: 6, color: '#9a3412', fontSize: 12, fontWeight: 600 }}>
+                                                    * Buyurtma berishdan oldin belgilang. Belgilaganda PDF avtomatik ochiladi.
+                                                </span>
+                                            )}
+                                        </span>
+                                    </label>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -434,37 +485,42 @@ export default function CartCheckoutPage() {
                                 </div>
                             )}
 
-                            {oferta && (
-                                <label style={{
-                                    display: 'flex', alignItems: 'flex-start', gap: 10,
-                                    padding: '12px 14px',
-                                    background: ofertaAgreed ? '#f0fbff' : '#f8fafc',
-                                    border: `1px solid ${ofertaAgreed ? '#bae6fd' : '#e2e8f0'}`,
-                                    borderRadius: 10,
-                                    fontSize: 13, lineHeight: 1.5,
-                                    cursor: 'pointer',
-                                    transition: 'background 0.18s, border-color 0.18s',
+                            {oferta && !ofertaAgreed && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const el = document.getElementById('oferta-block');
+                                        if (el) {
+                                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            el.style.transition = 'box-shadow 0.3s';
+                                            el.style.boxShadow = '0 0 0 4px rgba(251,146,60,0.4)';
+                                            setTimeout(() => { el.style.boxShadow = ''; }, 1400);
+                                        }
+                                    }}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                        padding: '10px 14px',
+                                        background: '#fff7ed', border: '1px solid #fdba74',
+                                        borderRadius: 10, color: '#9a3412',
+                                        fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                                        animation: 'co-pulse 1.8s ease-in-out infinite',
+                                    }}
+                                >
+                                    <AlertCircle size={15} />
+                                    Pastga tushib ommaviy ofertani belgilang ↓
+                                </button>
+                            )}
+                            {oferta && ofertaAgreed && (
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: 8,
+                                    padding: '8px 12px',
+                                    background: '#ecfeff', border: '1px solid #67e8f9',
+                                    borderRadius: 10, color: '#0e7490',
+                                    fontSize: 12, fontWeight: 600,
                                 }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={ofertaAgreed}
-                                        onChange={e => setOfertaAgreed(e.target.checked)}
-                                        style={{ marginTop: 3, width: 16, height: 16, flexShrink: 0, accentColor: '#00BDE0' }}
-                                    />
-                                    <span>
-                                        Men{' '}
-                                        <a
-                                            href={oferta.fileUrl.startsWith('http') ? oferta.fileUrl : `${window.location.origin === 'http://localhost:5173' ? 'http://localhost:5000' : ''}${oferta.fileUrl}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            onClick={e => e.stopPropagation()}
-                                            style={{ color: '#00BDE0', fontWeight: 700, textDecoration: 'underline' }}
-                                        >
-                                            ommaviy oferta
-                                        </a>
-                                        {' '}(v{oferta.version}) shartlari bilan tanishdim va roziman.
-                                    </span>
-                                </label>
+                                    <CheckCircle2 size={14} />
+                                    Oferta qabul qilingan (v{oferta.version})
+                                </div>
                             )}
 
                             {error && <div className="co-error">{error}</div>}
