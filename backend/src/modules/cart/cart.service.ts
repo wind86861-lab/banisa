@@ -28,6 +28,20 @@ export class CartService {
         }
         if (!service) throw new AppError('Xizmat topilmadi', 404, ErrorCodes.NOT_FOUND);
 
+        // Temporary policy: cart may only hold items from ONE clinic at a time.
+        // Matches the checkout-side block; here we stop the conflict at the door.
+        const existing = await prisma.cartItem.findFirst({
+            where: { userId, NOT: { clinicId: data.clinicId } },
+            select: { clinicId: true, clinic: { select: { nameUz: true } } },
+        });
+        if (existing) {
+            throw new AppError(
+                `Savatingizda allaqachon boshqa klinika ("${existing.clinic?.nameUz ?? ''}") xizmatlari bor. Bir vaqtning o'zida faqat bitta klinikadan bron qilish mumkin. Avval savatni tozalang yoki o'sha klinika xizmatlarini olib tashlang.`,
+                409,
+                ErrorCodes.VALIDATION_ERROR,
+            );
+        }
+
         // Atomic upsert — prevents race conditions on rapid double-click
         return prisma.cartItem.upsert({
             where: {

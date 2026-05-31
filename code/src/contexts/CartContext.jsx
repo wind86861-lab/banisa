@@ -59,6 +59,16 @@ export const CartProvider = ({ children }) => {
             return { success: false, message: 'Iltimos, kuting...' };
         }
 
+        // Temporary policy: cart may only hold items from one clinic at a time.
+        // Backend enforces this too; this is just a friendlier client-side guard.
+        const existingClinic = cart.find(g => g.clinic?.id && g.clinic.id !== clinicId);
+        if (existingClinic) {
+            return {
+                success: false,
+                message: `Savatingizda allaqachon boshqa klinika ("${existingClinic.clinic.nameUz || existingClinic.clinic.name || ''}") xizmatlari bor. Bir vaqtning o'zida faqat bitta klinikadan bron qilish mumkin.`,
+            };
+        }
+
         setAddingToCart(true);
         try {
             await axiosInstance.post('/cart', { clinicId, serviceType, serviceId, quantity });
