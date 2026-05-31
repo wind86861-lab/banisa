@@ -1225,16 +1225,46 @@ export default function XizmatlarPage() {
                         </button>
                     )}
                 </div>
-                <button
-                    className="xp-mobile-filter-btn-top"
-                    onClick={() => setMobileFilterOpen(true)}
-                >
-                    <SlidersHorizontal size={16} />
-                    Filtrlar
-                    {activeFilters.length > 0 && (
-                        <span className="xp-fd-count">{activeFilters.length}</span>
-                    )}
-                </button>
+                <div className="xp-top-controls">
+                    <button
+                        className="xp-mobile-filter-btn-top"
+                        onClick={() => setMobileFilterOpen(true)}
+                    >
+                        <SlidersHorizontal size={16} />
+                        Filtrlar
+                        {activeFilters.length > 0 && (
+                            <span className="xp-fd-count">{activeFilters.length}</span>
+                        )}
+                    </button>
+                    <select
+                        className="xp-top-sort"
+                        value={sortBy}
+                        onChange={e => setSortBy(e.target.value)}
+                        aria-label="Tartiblash"
+                    >
+                        {SORT_OPTIONS.map(o => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                    </select>
+                    <div className="xp-top-view">
+                        <button
+                            className={`xp-top-view-btn${viewMode === 'grid' ? ' active' : ''}`}
+                            onClick={() => setViewMode('grid')}
+                            title="Katak ko'rinishi"
+                            aria-label="Katak"
+                        >
+                            <LayoutGrid size={16} />
+                        </button>
+                        <button
+                            className={`xp-top-view-btn${viewMode === 'list' ? ' active' : ''}`}
+                            onClick={() => setViewMode('list')}
+                            title="Ro'yxat ko'rinishi"
+                            aria-label="Ro'yxat"
+                        >
+                            <List size={16} />
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* ── MOBILE CATEGORY CARDS (mobile only) — Hidden when searching/filtering ── */}
@@ -1352,38 +1382,6 @@ export default function XizmatlarPage() {
             {/* ── MAIN (full-width, horizontal filter bar) ── */}
             <div className="xp-main xp-main--wide">
                 <div className="xp-content">
-                    {/* ── Results count + sort/view bar ── */}
-                    <div className="xp-fbar">
-
-                        <div className="xp-fbar-right">
-                            <select
-                                className="xp-sort-select"
-                                value={sortBy}
-                                onChange={e => setSortBy(e.target.value)}
-                            >
-                                {SORT_OPTIONS.map(o => (
-                                    <option key={o.value} value={o.value}>{o.label}</option>
-                                ))}
-                            </select>
-                            <div className="xp-view-btns">
-                                <button
-                                    className={`xp-view-btn${viewMode === 'grid' ? ' active' : ''}`}
-                                    onClick={() => setViewMode('grid')}
-                                    title="Grid"
-                                >
-                                    <LayoutGrid size={16} />
-                                </button>
-                                <button
-                                    className={`xp-view-btn${viewMode === 'list' ? ' active' : ''}`}
-                                    onClick={() => setViewMode('list')}
-                                    title="List"
-                                >
-                                    <List size={16} />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
                     {/* ── Advanced filters panel (metadata) ── */}
                     {advancedOpen && dynamicMetadata.length > 0 && (
                         <div className="xp-adv-panel">
