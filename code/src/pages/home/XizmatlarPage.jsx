@@ -1207,6 +1207,9 @@ export default function XizmatlarPage() {
 
     return (
         <div className="xp-page">
+            <TopBar />
+            <Navigation />
+
             {/* ── MOBILE APP HEADER (mobile only) ── */}
             <div className="xp-mobile-header">
                 <button
