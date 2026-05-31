@@ -1,8 +1,18 @@
 import React from 'react';
 import { useCart } from '../contexts/CartContext';
-import { ShoppingCart, Trash2, Plus, Minus, X, MapPin, Phone, Package, ArrowRight, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ShoppingCart, Trash2, Plus, Minus, X, MapPin, Phone, Package, ArrowRight, ArrowLeft, Building2, ChevronRight, Activity, Stethoscope, Leaf, Heart } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import TopBar from './home/TopBar';
+import Navigation from './home/Navigation';
+import Footer from './home/Footer';
 import './CartPage.css';
+
+const QUICK_CATS = [
+    { id: 'diagnostika', label: 'Diagnostika', Icon: Activity, color: '#00BDE0' },
+    { id: 'operatsiya', label: 'Operatsiya', Icon: Stethoscope, color: '#e74c3c' },
+    { id: 'sanatoriya', label: 'Sanatoriya', Icon: Leaf, color: '#27ae60' },
+    { id: 'checkup', label: 'Checkup', Icon: Package, color: '#9b59b6' },
+];
 
 const CartPage = () => {
     const { cart, loading, removeFromCart, updateQuantity, clearCart } = useCart();
@@ -43,16 +53,63 @@ const CartPage = () => {
 
     if (cart.length === 0) {
         return (
-            <div className="cart-empty">
-                <div className="empty-icon">
-                    <ShoppingCart size={80} />
-                </div>
-                <h2>Savatingiz bo'sh</h2>
-                <p>Xizmatlarni ko'rish va savatga qo'shish uchun katalogga o'ting</p>
-                <button onClick={() => navigate('/xizmatlar')} className="btn-primary">
-                    <Package size={20} />
-                    Xizmatlarni ko'rish
-                </button>
+            <div className="cart-page">
+                <TopBar />
+                <Navigation />
+                <main className="cart-empty-wrap">
+                    <div className="cart-empty-hero">
+                        <div className="cart-empty-icon-ring">
+                            <div className="cart-empty-icon">
+                                <ShoppingCart size={56} strokeWidth={1.6} />
+                            </div>
+                        </div>
+                        <h1 className="cart-empty-title">Savatingiz hozircha bo'sh</h1>
+                        <p className="cart-empty-sub">
+                            Tibbiy xizmatni tanlab, savatga qo'shing. Bir nechta klinikadan bir vaqtda band qilishingiz mumkin.
+                        </p>
+                        <div className="cart-empty-ctas">
+                            <button onClick={() => navigate('/xizmatlar')} className="cart-empty-cta primary">
+                                <Package size={18} />
+                                Xizmatlarni ko'rish
+                                <ArrowRight size={16} />
+                            </button>
+                            <button onClick={() => navigate('/klinikalar')} className="cart-empty-cta secondary">
+                                <Building2 size={18} />
+                                Klinikalar ro'yxati
+                            </button>
+                        </div>
+                    </div>
+
+                    <section className="cart-empty-cats">
+                        <h3 className="cart-empty-cats-title">Mashhur kategoriyalar</h3>
+                        <div className="cart-empty-cats-grid">
+                            {QUICK_CATS.map(c => (
+                                <Link
+                                    key={c.id}
+                                    to={`/xizmatlar/category/${c.id}`}
+                                    className="cart-empty-cat-card"
+                                    style={{ '--cat-color': c.color }}
+                                >
+                                    <div className="cart-empty-cat-icon">
+                                        <c.Icon size={24} />
+                                    </div>
+                                    <span className="cart-empty-cat-label">{c.label}</span>
+                                    <ChevronRight size={16} className="cart-empty-cat-arrow" />
+                                </Link>
+                            ))}
+                        </div>
+                    </section>
+
+                    <div className="cart-empty-quicklinks">
+                        <Link to="/user/appointments" className="cart-empty-quicklink">
+                            <Heart size={16} /> Mening buyurtmalarim
+                        </Link>
+                        <Link to="/user/favorites" className="cart-empty-quicklink">
+                            <Heart size={16} /> Saqlanganlar
+                        </Link>
+                    </div>
+                </main>
+                <Footer />
             </div>
         );
     }
