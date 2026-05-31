@@ -25,6 +25,7 @@ import paymeRoutes from './modules/payme/payme.routes';
 import homepageRoutes from './modules/homepage/homepage.routes';
 import uploadRoutes from './modules/upload/upload.routes';
 import cartRoutes from './modules/cart/cart.routes';
+import ofertaRoutes from './modules/oferta/oferta.routes';
 import {
     patientAppointmentRouter,
     operatorAppointmentRouter,
@@ -118,6 +119,7 @@ app.use('/api/payme', paymeRoutes);
 app.use('/api/homepage', homepageRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api/oferta', ofertaRoutes);
 
 // ─── Appointment workflow (new) ──────────────────────────────────────────────
 app.use('/api/admin/appointments', operatorAppointmentRouter);

@@ -344,11 +344,14 @@ model Appointment {
   cashConfirmedAt       DateTime?
   cashReceivedAmount    Int?
   cashAdjustmentNote    String?
+  ofertaVersionId       String?
+  ofertaAcceptedAt      DateTime?
   clinic                Clinic                 @relation(fields: [clinicId], references: [id])
   diagnosticService     DiagnosticService?     @relation("DiagnosticServiceAppointments", fields: [diagnosticServiceId], references: [id])
   doctor                Doctor?                @relation(fields: [doctorId], references: [id])
   patient               User                   @relation(fields: [patientId], references: [id])
   surgicalService       SurgicalService?       @relation("SurgicalServiceAppointments", fields: [surgicalServiceId], references: [id])
+  ofertaVersion         OfertaVersion?         @relation(fields: [ofertaVersionId], references: [id])
   services              AppointmentService[]
   logs                  AppointmentLog[]
   metadata              AppointmentMetadata[]
@@ -1059,4 +1062,17 @@ enum EditableBy {
   CLINIC
   OPERATOR
   BOTH
+}
+
+model OfertaVersion {
+  id            String        @id @default(uuid())
+  version       String        @unique
+  fileUrl       String
+  fileName      String?
+  isActive      Boolean        @default(false)
+  uploadedAt    DateTime       @default(now())
+  uploadedById  String?
+  appointments  Appointment[]
+
+  @@index([isActive])
 }

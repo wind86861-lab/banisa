@@ -27,6 +27,7 @@ import HomepageSettings from './admin/pages/HomepageSettings';
 import AppointmentsPage from './admin/pages/AppointmentsPage';
 import Users from './pages/Users';
 import MetadataTemplates from './admin/pages/MetadataTemplates';
+import OfertaPage from './admin/pages/OfertaPage';
 
 // Clinic registration pages
 import RegisterPage from './clinic-registration/pages/RegisterPage';
@@ -208,6 +209,7 @@ function App() {
                                         <Route path="profile" element={<AdminProfile />} />
                                         <Route path="homepage" element={<HomepageSettings />} />
                                         <Route path="metadata-templates" element={<MetadataTemplates />} />
+                                        <Route path="oferta" element={<OfertaPage />} />
                                         <Route path="clinic-registrations" element={<Navigate to="/admin/clinics" replace />} />
                                     </Route>
 

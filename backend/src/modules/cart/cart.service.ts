@@ -264,7 +264,7 @@ export class CartService {
         return { count };
     }
 
-    async checkout(userId: string, data: { scheduledAt: string; notes?: string; paymentMethod?: string }) {
+    async checkout(userId: string, data: { scheduledAt: string; notes?: string; paymentMethod?: string; ofertaVersionId?: string }) {
         const cartItems = await prisma.cartItem.findMany({
             where: { userId },
             include: { clinic: true },
@@ -272,6 +272,25 @@ export class CartService {
 
         if (cartItems.length === 0) {
             throw new AppError('Savat bo\'sh', 400, ErrorCodes.VALIDATION_ERROR);
+        }
+
+        // Oferta gate: bemor faol versiyaga rozi bo'lishi kerak (mavjud bo'lsa).
+        const activeOferta = await prisma.ofertaVersion.findFirst({
+            where: { isActive: true },
+            select: { id: true },
+        });
+        let ofertaVersionId: string | null = null;
+        let ofertaAcceptedAt: Date | null = null;
+        if (activeOferta) {
+            if (!data.ofertaVersionId || data.ofertaVersionId !== activeOferta.id) {
+                throw new AppError(
+                    "Buyurtma berish uchun ommaviy oferta shartlariga rozi bo'lishingiz kerak.",
+                    400,
+                    ErrorCodes.VALIDATION_ERROR,
+                );
+            }
+            ofertaVersionId = activeOferta.id;
+            ofertaAcceptedAt = new Date();
         }
 
         // Temporary policy: one booking may only span ONE clinic.
@@ -408,6 +427,8 @@ export class CartService {
                 paymentMethod: isCash ? 'CASH' : undefined,
                 bookingNumber,
                 qrToken,
+                ofertaVersionId,
+                ofertaAcceptedAt,
             };
 
             // Set the appropriate service ID field

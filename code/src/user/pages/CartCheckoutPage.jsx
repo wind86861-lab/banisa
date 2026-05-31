@@ -24,6 +24,16 @@ export default function CartCheckoutPage() {
     const [clinicPaymentMethods, setClinicPaymentMethods] = useState({});
     const [clinicDiscounts, setClinicDiscounts] = useState({});
     const [success, setSuccess] = useState(null); // { appointmentId, isCash } after submit
+    const [oferta, setOferta] = useState(null); // { id, version, fileUrl, fileName } or null if none
+    const [ofertaAgreed, setOfertaAgreed] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        axiosInstance.get('/oferta/current')
+            .then(res => { if (!cancelled) setOferta(res.data?.data || null); })
+            .catch(() => { if (!cancelled) setOferta(null); });
+        return () => { cancelled = true; };
+    }, []);
 
     // Fetch payment methods + cash discount for all clinics in cart
     useEffect(() => {
@@ -147,6 +157,10 @@ export default function CartCheckoutPage() {
             setError("Bitta bron faqat bitta klinikadan bo'lishi mumkin. Iltimos, boshqa klinika xizmatlarini savatdan olib tashlang.");
             return;
         }
+        if (oferta && !ofertaAgreed) {
+            setError("Buyurtma berish uchun ommaviy oferta shartlariga rozi bo'ling.");
+            return;
+        }
         if (!selectedDate) {
             setError('Iltimos, sanani tanlang');
             return;
@@ -174,6 +188,7 @@ export default function CartCheckoutPage() {
                 scheduledAt,
                 notes: notes || undefined,
                 paymentMethod,
+                ofertaVersionId: oferta?.id || undefined,
             });
 
             const result = response.data.data;
@@ -419,13 +434,46 @@ export default function CartCheckoutPage() {
                                 </div>
                             )}
 
+                            {oferta && (
+                                <label style={{
+                                    display: 'flex', alignItems: 'flex-start', gap: 10,
+                                    padding: '12px 14px',
+                                    background: ofertaAgreed ? '#f0fbff' : '#f8fafc',
+                                    border: `1px solid ${ofertaAgreed ? '#bae6fd' : '#e2e8f0'}`,
+                                    borderRadius: 10,
+                                    fontSize: 13, lineHeight: 1.5,
+                                    cursor: 'pointer',
+                                    transition: 'background 0.18s, border-color 0.18s',
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={ofertaAgreed}
+                                        onChange={e => setOfertaAgreed(e.target.checked)}
+                                        style={{ marginTop: 3, width: 16, height: 16, flexShrink: 0, accentColor: '#00BDE0' }}
+                                    />
+                                    <span>
+                                        Men{' '}
+                                        <a
+                                            href={oferta.fileUrl.startsWith('http') ? oferta.fileUrl : `${window.location.origin === 'http://localhost:5173' ? 'http://localhost:5000' : ''}${oferta.fileUrl}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={e => e.stopPropagation()}
+                                            style={{ color: '#00BDE0', fontWeight: 700, textDecoration: 'underline' }}
+                                        >
+                                            ommaviy oferta
+                                        </a>
+                                        {' '}(v{oferta.version}) shartlari bilan tanishdim va roziman.
+                                    </span>
+                                </label>
+                            )}
+
                             {error && <div className="co-error">{error}</div>}
 
                             <button
                                 className="co-confirm-btn"
                                 onClick={handleCheckout}
-                                disabled={submitting || hasMultipleClinics}
-                                style={hasMultipleClinics ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                                disabled={submitting || hasMultipleClinics || (oferta && !ofertaAgreed)}
+                                style={(hasMultipleClinics || (oferta && !ofertaAgreed)) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                             >
                                 {submitting ? 'Saqlanmoqda...' : 'Buyurtma berish'}
                                 <ArrowRight size={18} />

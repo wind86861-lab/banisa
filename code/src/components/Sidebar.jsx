@@ -69,6 +69,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                 { key: 'clinic-packages', icon: <Briefcase size={20} />, label: 'Klinika Paketlari', path: '/admin/clinic-packages' },
                 { key: 'homepage', icon: <Globe size={20} />, label: 'Homepage CMS', path: '/admin/homepage' },
                 { key: 'metadata', icon: <Database size={20} />, label: 'Metadata Templates', path: '/admin/metadata-templates' },
+                { key: 'oferta', icon: <FileText size={20} />, label: 'Ommaviy oferta', path: '/admin/oferta' },
             ]
         },
         {
