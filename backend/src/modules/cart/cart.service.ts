@@ -260,6 +260,17 @@ export class CartService {
             throw new AppError('Savat bo\'sh', 400, ErrorCodes.VALIDATION_ERROR);
         }
 
+        // Temporary policy: one booking may only span ONE clinic.
+        // Prevents patient confusion until multi-clinic UX is properly designed.
+        const distinctClinicIds = new Set(cartItems.map(i => i.clinicId));
+        if (distinctClinicIds.size > 1) {
+            throw new AppError(
+                "Bitta bron faqat bitta klinikadan bo'lishi mumkin. Boshqa klinika xizmatlarini savatdan olib tashlang.",
+                400,
+                ErrorCodes.VALIDATION_ERROR,
+            );
+        }
+
         // Group by clinic
         const byClinic = cartItems.reduce((acc, item) => {
             if (!acc[item.clinicId]) acc[item.clinicId] = [];

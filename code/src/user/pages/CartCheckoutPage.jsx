@@ -140,7 +140,13 @@ export default function CartCheckoutPage() {
         return m.toTimeString().slice(0, 5);
     })();
 
+    const hasMultipleClinics = cart.length > 1;
+
     const handleCheckout = async () => {
+        if (hasMultipleClinics) {
+            setError("Bitta bron faqat bitta klinikadan bo'lishi mumkin. Iltimos, boshqa klinika xizmatlarini savatdan olib tashlang.");
+            return;
+        }
         if (!selectedDate) {
             setError('Iltimos, sanani tanlang');
             return;
@@ -389,12 +395,37 @@ export default function CartCheckoutPage() {
                                 </div>
                             )}
 
+                            {hasMultipleClinics && (
+                                <div style={{
+                                    marginTop: 12,
+                                    padding: '12px 14px',
+                                    background: '#fee2e2',
+                                    border: '1px solid #fca5a5',
+                                    borderRadius: 10,
+                                    fontSize: 13,
+                                    color: '#991b1b',
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: 8,
+                                    lineHeight: 1.5,
+                                }}>
+                                    <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+                                    <div>
+                                        <strong>Bitta bron — bitta klinika</strong>
+                                        <div style={{ marginTop: 2 }}>
+                                            Savatingizda {cart.length} ta klinika xizmatlari bor. Hozircha bir vaqtning o'zida faqat bitta klinikadan bron qilish mumkin. <Link to="/user/cart" style={{ color: '#991b1b', textDecoration: 'underline', fontWeight: 600 }}>Savatga qaytish</Link> orqali boshqa klinika xizmatlarini olib tashlang.
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {error && <div className="co-error">{error}</div>}
 
                             <button
                                 className="co-confirm-btn"
                                 onClick={handleCheckout}
-                                disabled={submitting}
+                                disabled={submitting || hasMultipleClinics}
+                                style={hasMultipleClinics ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                             >
                                 {submitting ? 'Saqlanmoqda...' : 'Buyurtma berish'}
                                 <ArrowRight size={18} />
