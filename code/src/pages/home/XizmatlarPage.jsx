@@ -603,34 +603,10 @@ export default function XizmatlarPage() {
         }
 
         const result = await addToCart(clinicId, serviceType, service.serviceId || service.id, 1);
-        if (result.success) {
-            // Build toast nodes via the DOM API instead of innerHTML to avoid
-            // any HTML injection if class names / messages ever come from data.
-            const notification = document.createElement('div');
-            notification.className = 'xp-cart-notification';
-            const inner = document.createElement('div');
-            inner.className = 'xp-cart-notification-content';
-            const svgNS = 'http://www.w3.org/2000/svg';
-            const svg = document.createElementNS(svgNS, 'svg');
-            svg.setAttribute('width', '20'); svg.setAttribute('height', '20');
-            svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
-            svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2');
-            const poly = document.createElementNS(svgNS, 'polyline');
-            poly.setAttribute('points', '20 6 9 17 4 12');
-            svg.appendChild(poly);
-            const span = document.createElement('span');
-            span.textContent = "Savatga qo'shildi!";
-            inner.appendChild(svg); inner.appendChild(span);
-            notification.appendChild(inner);
-            document.body.appendChild(notification);
-            setTimeout(() => notification.classList.add('show'), 10);
-            setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => notification.remove(), 300);
-            }, 2000);
-        } else {
+        if (!result.success) {
             alert(result.message || 'Xatolik yuz berdi');
         }
+        // Success: silent. The cart badge in the navbar updates automatically.
     };
 
     // Handle navigation state - auto-select subcategory if passed from home page
