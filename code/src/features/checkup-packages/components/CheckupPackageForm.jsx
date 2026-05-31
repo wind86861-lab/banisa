@@ -5,6 +5,7 @@ import * as z from 'zod';
 import { Plus, Info, ChevronRight, ChevronLeft, Check, Beaker, Stethoscope, X, TrendingDown } from 'lucide-react';
 import { useCreateCheckupPackage, useUpdateCheckupPackage } from '../hooks/useCheckupPackages';
 import { diagnosticsApi, categoriesApi } from '../../../services/api';
+import ImageUpload from '../../../shared/components/ImageUpload';
 
 const schema = z.object({
     nameUz: z.string().min(3, "Kamida 3 ta harf"),
@@ -15,6 +16,7 @@ const schema = z.object({
     priceMin: z.number().min(0),
     priceMax: z.number().min(0),
     discount: z.number().optional(),
+    imageUrl: z.string().optional().nullable(),
 });
 
 const STEPS = [
@@ -68,6 +70,7 @@ export default function CheckupPackageForm({ initialData, onClose }) {
             priceMin: initialData?.priceMin || 0,
             priceMax: initialData?.priceMax || 0,
             discount: initialData?.discount || 0,
+            imageUrl: initialData?.imageUrl || '',
         }
     });
 
@@ -85,6 +88,7 @@ export default function CheckupPackageForm({ initialData, onClose }) {
                 priceMin: initialData.priceMin || 0,
                 priceMax: initialData.priceMax || 0,
                 discount: initialData.discount || 0,
+                imageUrl: initialData.imageUrl || '',
             });
             setSelectedSvcs(
                 initialData.items?.map(i => ({
@@ -296,6 +300,17 @@ export default function CheckupPackageForm({ initialData, onClose }) {
                                         maxLength={200}
                                     />
                                     <p className="wiz-char-count">{(watchAll.shortDescription || '').length}/200</p>
+                                </div>
+                            </div>
+
+                            <div className="wiz-field-group full">
+                                <div className="wiz-field">
+                                    <ImageUpload
+                                        label="Paket rasmi"
+                                        hint="Klinika o'z rasmi yuklamasa, bemorlarga shu rasm ko'rsatiladi."
+                                        value={watchAll.imageUrl || ''}
+                                        onChange={(url) => setValue('imageUrl', url || '')}
+                                    />
                                 </div>
                             </div>
                         </div>

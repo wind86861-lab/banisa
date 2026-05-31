@@ -307,6 +307,8 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
 
             ...checkupVisible.map(link => {
                 const p = link.package;
+                const customImage = (link.customizationData as any)?.customImageUrl ?? null;
+                const checkupImg = customImage ?? p.imageUrl ?? null;
                 return {
                     id: link.id,
                     serviceId: p.id,
@@ -320,7 +322,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                     reviews: link.clinic.reviewCount ?? 0,
                     duration: '1 kun',
                     availability: ['offline'],
-                    images: p.imageUrl ? [p.imageUrl] : [],
+                    images: checkupImg ? [checkupImg] : [],
                     tags: [],
                     benefits: [],
                     clinic: formatClinic(link.clinic),

@@ -336,7 +336,7 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
                 discountPercent: discount > 0 ? discount : null,
                 discountAmount: discount > 0 ? basePrice - finalPrice : null,
                 duration: null,
-                image: p.imageUrl ?? null,
+                image: (link.customizationData as any)?.customImageUrl ?? p.imageUrl ?? null,
                 description: p.shortDescription ?? null,
             };
         });

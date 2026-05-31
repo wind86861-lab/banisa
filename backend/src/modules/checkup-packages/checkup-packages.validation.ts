@@ -21,7 +21,7 @@ const basePackageBody = z.object({
     recommendedPrice: z.number().int().min(0).optional(),
     priceMin: z.number().int().min(0).optional(),
     priceMax: z.number().int().min(0).optional(),
-    imageUrl: z.string().url().optional()
+    imageUrl: z.string().max(500).optional().nullable()
 });
 
 export const createCheckupPackageSchema = z.object({
