@@ -6,6 +6,7 @@ import { UserAuthProvider } from './shared/auth/UserAuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect, UserGuard, UserPublicOnlyGuard } from './shared/auth/guards';
 import ScrollToTop from './components/ScrollToTop';
+import BetaBanner from './components/BetaBanner';
 import { ToastProvider } from './shared/components/Toast';
 import ErrorBoundary from './shared/components/ErrorBoundary';
 
@@ -112,6 +113,7 @@ function App() {
             <ToastProvider>
                 <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                     <ScrollToTop />
+                    <BetaBanner />
                     <AuthProvider>
                         <UserAuthProvider>
                             <CartProvider>

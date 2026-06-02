@@ -1,0 +1,101 @@
+.beta-banner {
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    background: linear-gradient(90deg, #fff7ed 0%, #fef3c7 50%, #fff7ed 100%);
+    border-bottom: 1px solid #fcd34d;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+    animation: bb-slideDown 0.35s ease-out;
+}
+
+@keyframes bb-slideDown {
+    from { transform: translateY(-100%); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+}
+
+.beta-banner__inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 8px 56px 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    min-height: 38px;
+}
+
+.beta-banner__icon {
+    color: #b45309;
+    flex-shrink: 0;
+}
+
+.beta-banner__text {
+    color: #78350f;
+    font-size: 13.5px;
+    line-height: 1.4;
+    letter-spacing: 0.1px;
+    font-weight: 500;
+}
+
+.beta-banner__text b {
+    color: #92400e;
+    font-weight: 700;
+}
+
+.beta-banner__text a {
+    color: #b45309;
+    font-weight: 700;
+    text-decoration: none;
+    border-bottom: 1px dashed #d97706;
+    padding-bottom: 1px;
+    white-space: nowrap;
+}
+
+.beta-banner__text a:hover {
+    color: #92400e;
+    border-bottom-style: solid;
+}
+
+.beta-banner__close {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    background: rgba(180, 83, 9, 0.08);
+    border: 1px solid rgba(180, 83, 9, 0.18);
+    color: #92400e;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+    padding: 0;
+}
+
+.beta-banner__close:hover {
+    background: rgba(180, 83, 9, 0.16);
+    transform: translateY(-50%) scale(1.05);
+}
+
+@media (max-width: 700px) {
+    .beta-banner__inner {
+        padding: 7px 42px 7px 12px;
+        gap: 8px;
+        min-height: 34px;
+    }
+    .beta-banner__text {
+        font-size: 12px;
+        line-height: 1.35;
+    }
+    .beta-banner__text a {
+        display: inline-block;
+    }
+    .beta-banner__close {
+        right: 8px;
+        width: 24px;
+        height: 24px;
+    }
+}
