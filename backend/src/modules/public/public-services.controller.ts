@@ -652,6 +652,16 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
             const c = checkupLink.clinic;
             const cust = (checkupLink.customizationData as any) || {};
 
+            // Scale per-item prices so the sum matches the clinic's actual total.
+            // Items keep their relative weight, but the displayed numbers belong to this clinic.
+            const baseSum = p.items.reduce((s: number, i: any) => s + (i.servicePrice || 0) * (i.quantity || 1), 0);
+            const ratio = baseSum > 0 ? checkupLink.clinicPrice / baseSum : 1;
+            const scaledItems = p.items.map((i: any) => ({
+                ...i,
+                servicePrice: Math.round((i.servicePrice || 0) * ratio),
+            }));
+            const scaledDiscount = Math.round((p.discount || 0) * ratio);
+
             return res.json({
                 success: true,
                 data: {
@@ -668,10 +678,10 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
                     priceMin: p.priceMin,
                     priceMax: p.priceMax,
                     priceRecommended: checkupLink.clinicPrice,
-                    discount: p.discount,
+                    discount: scaledDiscount,
                     imageUrl: p.imageUrl,
                     images: p.imageUrl ? [p.imageUrl] : [],
-                    items: p.items,
+                    items: scaledItems,
                     durationMinutes: 480,
                     resultTimeHours: 24,
                     activeClinicsCount: 1,

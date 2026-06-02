@@ -271,16 +271,19 @@ export default function Services() {
                             </div>
                         ))
                     ) : activeTab === 'checkup' ? (
-                        checkupPackages.length > 0 ? checkupPackages.map((pkg, i) => {
+                        checkupPackages.length > 0 ? checkupPackages.map((cp, i) => {
                             const isHovered = lastHovered === i;
-                            const price = pkg.recommendedPrice
-                                ? `${Number(pkg.recommendedPrice).toLocaleString()} so'm`
+                            // API returns ClinicCheckupPackage rows: { clinicPrice, package: {...} }
+                            const pkg = cp.package || cp;
+                            const displayPrice = cp.clinicPrice ?? pkg.recommendedPrice;
+                            const price = displayPrice
+                                ? `${Number(displayPrice).toLocaleString()} so'm`
                                 : pkg.priceMin
                                     ? `${Number(pkg.priceMin).toLocaleString()} so'mdan`
                                     : '';
                             return (
                                 <div
-                                    key={pkg.id}
+                                    key={cp.id || pkg.id}
                                     className={`cm-svc-card ${isHovered ? 'hovered' : ''}`}
                                     onMouseEnter={() => handleMouseEnter(i)}
                                     onClick={() => navigate('/xizmatlar')}
@@ -299,7 +302,7 @@ export default function Services() {
                                     <div className="cm-svc-footer">
                                         <span className="cm-svc-count">
                                             <span className="cm-svc-dot" />
-                                            {pkg.servicesCount || (pkg.services?.length) || 0} Xizmat
+                                            {pkg._count?.items || pkg.servicesCount || (pkg.services?.length) || 0} Xizmat
                                         </span>
                                     </div>
                                     <button className="cm-svc-arrow">

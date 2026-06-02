@@ -322,9 +322,10 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
 
         const checkupPackages = (clinic as any).checkupPackages.map((link: any) => {
             const p = link.package;
-            const basePrice = link.clinicPrice ?? p.recommendedPrice ?? 0;
-            const discount = p.discount ?? 0;
-            const finalPrice = discount > 0 ? Math.round(basePrice * (1 - discount / 100)) : basePrice;
+            // The clinic's own price is the final price the patient pays. No further
+            // super-admin discount is applied — that discount is a base-package concept,
+            // already baked into whatever number the clinic chose for clinicPrice.
+            const finalPrice = link.clinicPrice ?? p.recommendedPrice ?? 0;
             return {
                 id: p.id,
                 type: 'CHECKUP',
@@ -332,9 +333,9 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
                 nameRu: p.nameRu,
                 category: 'Checkup',
                 price: finalPrice,
-                originalPrice: discount > 0 ? basePrice : null,
-                discountPercent: discount > 0 ? discount : null,
-                discountAmount: discount > 0 ? basePrice - finalPrice : null,
+                originalPrice: null,
+                discountPercent: null,
+                discountAmount: null,
                 duration: null,
                 image: (link.customizationData as any)?.customImageUrl ?? p.imageUrl ?? null,
                 description: p.shortDescription ?? null,
