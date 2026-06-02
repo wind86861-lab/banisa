@@ -6,7 +6,7 @@ import './BetaBanner.css';
 const DISMISS_KEY = 'banisa-beta-dismissed-at';
 const REAPPEAR_AFTER_MS = 24 * 60 * 60 * 1000;
 const HIDDEN_PREFIXES = ['/admin', '/clinic', '/auth', '/checkin'];
-const SUPPORT_PHONE = '+998 90 123 45 67';
+const SUPPORT_PHONE = '+998 50 850 50 21';
 
 export default function BetaBanner() {
     const { pathname } = useLocation();
