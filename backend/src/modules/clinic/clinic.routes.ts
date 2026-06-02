@@ -29,6 +29,7 @@ import {
     getClinicProfile, updateClinicProfile,
     getClinicStaff, createClinicStaff, updateClinicStaff, deleteClinicStaff,
     getClinicDiscounts, createClinicDiscount, updateClinicDiscount, deleteClinicDiscount,
+    resolveMapLink,
 } from './clinic-extra.controller';
 
 const router = Router();
@@ -92,6 +93,7 @@ router.patch('/bookings/:id/status', updateBookingStatus);
 // ─── Profile ──────────────────────────────────────────────────────────────────
 router.get('/profile', getClinicProfile);
 router.put('/profile', updateClinicProfile);
+router.post('/resolve-map-link', resolveMapLink);
 
 // ─── Staff ─────────────────────────────────────────────────────────────────────
 router.get('/staff', getClinicStaff);

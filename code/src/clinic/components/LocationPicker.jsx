@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-lea
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Crosshair, Link as LinkIcon, MapPin, Loader2 } from 'lucide-react';
+import api from '../../shared/api/axios';
 import './LocationPicker.css';
 
 // Leaflet default marker icons are broken when bundled by Vite — patch with CDN.
@@ -67,6 +68,7 @@ export default function LocationPicker({ value, onChange }) {
 
     const [linkInput, setLinkInput] = useState('');
     const [linkError, setLinkError] = useState('');
+    const [linkLoading, setLinkLoading] = useState(false);
     const [gpsLoading, setGpsLoading] = useState(false);
     const [gpsError, setGpsError] = useState('');
 
@@ -104,14 +106,32 @@ export default function LocationPicker({ value, onChange }) {
         );
     };
 
-    const handlePasteLink = () => {
+    const handlePasteLink = async () => {
         setLinkError('');
-        const parsed = parseCoordsFromUrl(linkInput);
+        const trimmed = (linkInput || '').trim();
+        if (!trimmed) return;
+        // First try local regex (fast path for long Google/Yandex URLs and raw lat,lng).
+        const parsed = parseCoordsFromUrl(trimmed);
         if (parsed) {
             setCoords(parsed.lat, parsed.lng);
             setLinkInput('');
-        } else {
-            setLinkError('Linkdan koordinata olib bo\'lmadi. Google/Yandex Maps havolasi yoki "lat,lng" formatida kiriting.');
+            return;
+        }
+        // For short links (maps.app.goo.gl/..., yandex.com/maps/-/..., goo.gl/...)
+        // we need server-side redirect resolution — browsers can't follow them cross-origin.
+        setLinkLoading(true);
+        try {
+            const { data } = await api.post('/clinic/resolve-map-link', { url: trimmed });
+            if (data?.data?.lat != null && data?.data?.lng != null) {
+                setCoords(data.data.lat, data.data.lng);
+                setLinkInput('');
+            } else {
+                setLinkError('Linkdan koordinata olib bo\'lmadi.');
+            }
+        } catch (err) {
+            setLinkError(err?.response?.data?.message || 'Linkni ochib bo\'lmadi. Boshqa linkni ko\'ring yoki xaritada bosib qo\'ying.');
+        } finally {
+            setLinkLoading(false);
         }
     };
 
@@ -162,10 +182,12 @@ export default function LocationPicker({ value, onChange }) {
                         type="text"
                         value={linkInput}
                         onChange={(e) => { setLinkInput(e.target.value); setLinkError(''); }}
-                        placeholder="Google/Yandex Maps havolasi yoki 41.31, 69.27"
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handlePasteLink(); } }}
+                        placeholder="Google/Yandex Maps havolasi (maps.app.goo.gl/... ham mumkin)"
+                        disabled={linkLoading}
                     />
-                    <button type="button" className="loc-picker__btn loc-picker__btn--ghost" onClick={handlePasteLink}>
-                        Qo'llash
+                    <button type="button" className="loc-picker__btn loc-picker__btn--ghost" onClick={handlePasteLink} disabled={linkLoading || !linkInput.trim()}>
+                        {linkLoading ? <Loader2 size={14} className="loc-spin" /> : 'Qo\'llash'}
                     </button>
                 </div>
             </div>

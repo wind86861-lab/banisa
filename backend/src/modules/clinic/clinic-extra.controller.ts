@@ -454,3 +454,80 @@ export const updateClinicDiscount = async (_req: Request, res: Response) => {
 export const deleteClinicDiscount = async (_req: Request, res: Response) => {
     return res.status(501).json({ success: false, message: 'Chegirmalar moduli tez kunda' });
 };
+
+// ─── Resolve a Google/Yandex map link into lat/lng ───────────────────────────
+// Short links (maps.app.goo.gl, goo.gl/maps, yandex.com/maps/-/...) redirect to
+// long URLs whose query string carries the coordinates. The browser can't
+// follow these redirects across origins, so we proxy it here.
+const COORD_PATTERNS: RegExp[] = [
+    /@(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/,
+    /[?&](?:q|ll|center|pt|sll|destination)=(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/,
+    /!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/,
+    /[?&]daddr=(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/,
+];
+
+function extractCoords(text: string): { lat: number; lng: number } | null {
+    if (!text) return null;
+    for (const re of COORD_PATTERNS) {
+        const m = text.match(re);
+        if (m) {
+            const lat = parseFloat(m[1]);
+            const lng = parseFloat(m[2]);
+            if (Number.isFinite(lat) && Number.isFinite(lng) &&
+                lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                return { lat, lng };
+            }
+        }
+    }
+    return null;
+}
+
+async function followRedirects(url: string, maxHops = 6): Promise<string> {
+    let current = url;
+    for (let i = 0; i < maxHops; i++) {
+        const res = await fetch(current, {
+            method: 'GET',
+            redirect: 'manual',
+            headers: { 'User-Agent': 'Mozilla/5.0 (banisa-bot)' },
+        });
+        if (res.status >= 300 && res.status < 400) {
+            const next = res.headers.get('location');
+            if (!next) break;
+            current = new URL(next, current).toString();
+            continue;
+        }
+        // Some short-link services return 200 with the canonical URL in the body
+        // (HTML meta refresh or JS redirect). Try to read coords from body too.
+        const body = await res.text();
+        const inBody = extractCoords(body) ? body : null;
+        return inBody || current;
+    }
+    return current;
+}
+
+export const resolveMapLink = async (req: AuthRequest, res: Response) => {
+    try {
+        const { url } = req.body as { url?: string };
+        if (!url || typeof url !== 'string') {
+            return res.status(400).json({ success: false, message: 'URL kerak' });
+        }
+        // Cheap path: maybe coords are already in the input
+        const direct = extractCoords(url);
+        if (direct) return res.json({ success: true, data: direct });
+
+        // Reject anything that isn't a recognized maps host to avoid SSRF.
+        const allowed = /^(https?:\/\/)([a-z0-9-]+\.)?(goo\.gl|google\.[a-z.]+|maps\.app\.goo\.gl|yandex\.[a-z.]+)\//i;
+        if (!allowed.test(url)) {
+            return res.status(400).json({ success: false, message: 'Faqat Google/Yandex Maps havolasi qo\'llab-quvvatlanadi' });
+        }
+
+        const resolved = await followRedirects(url);
+        const coords = extractCoords(resolved);
+        if (!coords) {
+            return res.status(404).json({ success: false, message: 'Linkdan koordinata olib bo\'lmadi' });
+        }
+        return res.json({ success: true, data: coords });
+    } catch (err: any) {
+        return res.status(500).json({ success: false, message: err?.message || 'Linkni ochib bo\'lmadi' });
+    }
+};

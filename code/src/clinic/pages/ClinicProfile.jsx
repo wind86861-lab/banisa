@@ -565,11 +565,6 @@ export default function ClinicProfile() {
                             </div>
                         </div>
                         <div className="ca-form-group ca-form-row single">
-                            <label className="ca-label">Google Maps havolasi (qo'shimcha)</label>
-                            <input type="url" value={form.googleMapsUrl ?? ''} onChange={e => set('googleMapsUrl', e.target.value)} placeholder="https://maps.app.goo.gl/..." />
-                        </div>
-
-                        <div className="ca-form-group ca-form-row single">
                             <label className="ca-label">
                                 <MapPin size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
                                 Klinika joylashuvi xaritada
