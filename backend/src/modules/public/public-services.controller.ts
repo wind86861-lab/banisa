@@ -652,15 +652,17 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
             const c = checkupLink.clinic;
             const cust = (checkupLink.customizationData as any) || {};
 
-            // Scale per-item prices so the sum matches the clinic's actual total.
-            // Items keep their relative weight, but the displayed numbers belong to this clinic.
+            // Per-item prices: clinic's own values from itemPrices map. If clinic hasn't
+            // set them (legacy rows), fall back to super-admin's servicePrice scaled so
+            // the sum equals clinicPrice — same contract from the patient's perspective.
+            const itemPricesMap = (checkupLink.itemPrices as Record<string, number> | null) || null;
             const baseSum = p.items.reduce((s: number, i: any) => s + (i.servicePrice || 0) * (i.quantity || 1), 0);
             const ratio = baseSum > 0 ? checkupLink.clinicPrice / baseSum : 1;
             const scaledItems = p.items.map((i: any) => ({
                 ...i,
-                servicePrice: Math.round((i.servicePrice || 0) * ratio),
+                servicePrice: itemPricesMap?.[i.id] ?? Math.round((i.servicePrice || 0) * ratio),
             }));
-            const scaledDiscount = Math.round((p.discount || 0) * ratio);
+            const scaledDiscount = 0;
 
             return res.json({
                 success: true,

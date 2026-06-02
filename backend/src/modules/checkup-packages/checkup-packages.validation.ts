@@ -44,7 +44,10 @@ export const updateCheckupPackageSchema = z.object({
 export const activateClinicPackageSchema = z.object({
     body: z.object({
         packageId: z.string().cuid(),
-        clinicPrice: z.number().int().min(0),
+        // Clinic sets per-item prices keyed by CheckupPackageItem.id.
+        // clinicPrice is auto-derived from sum(itemPrices). Accepted but recomputed server-side.
+        itemPrices: z.record(z.string(), z.number().int().min(0)).optional(),
+        clinicPrice: z.number().int().min(0).optional(),
         customNotes: z.string().optional(),
         customizationData: z.any().optional()
     })
@@ -52,6 +55,7 @@ export const activateClinicPackageSchema = z.object({
 
 export const updateClinicPackageSchema = z.object({
     body: z.object({
+        itemPrices: z.record(z.string(), z.number().int().min(0)).optional(),
         clinicPrice: z.number().int().min(0).optional(),
         customNotes: z.string().optional(),
         customizationData: z.any().optional()

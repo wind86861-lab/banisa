@@ -218,13 +218,14 @@ export class CheckupPackagesService {
     }
 
     async activateClinicPackage(clinicId: string, data: ActivateClinicCheckupPackageDto) {
-        const pkg = await prisma.checkupPackage.findUnique({ where: { id: data.packageId } });
+        const pkg = await prisma.checkupPackage.findUnique({
+            where: { id: data.packageId },
+            include: { items: true },
+        });
         if (!pkg) throw new AppError('Paket topilmadi', 404, ErrorCodes.NOT_FOUND);
-        if (!pkg.isActive) throw new AppError('Kechirasiz, bud paket hozircha nofaol', 400, ErrorCodes.VALIDATION_ERROR);
+        if (!pkg.isActive) throw new AppError('Kechirasiz, bu paket hozircha nofaol', 400, ErrorCodes.VALIDATION_ERROR);
 
-        if (data.clinicPrice < pkg.priceMin || data.clinicPrice > pkg.priceMax) {
-            throw new AppError(`Narx oralig'i: ${pkg.priceMin} - ${pkg.priceMax} UZS`, 400, ErrorCodes.VALIDATION_ERROR);
-        }
+        const { itemPrices, clinicPrice } = this.normalizePrices(pkg.items, data.itemPrices, data.clinicPrice);
 
         const existing = await prisma.clinicCheckupPackage.findUnique({
             where: { clinicId_packageId: { clinicId, packageId: data.packageId } }
@@ -237,7 +238,8 @@ export class CheckupPackagesService {
                 where: { id: existing.id },
                 data: {
                     isActive: true,
-                    clinicPrice: data.clinicPrice,
+                    clinicPrice,
+                    itemPrices: itemPrices ?? undefined,
                     customNotes: data.customNotes,
                     customizationData: data.customizationData ?? existing.customizationData,
                 }
@@ -248,11 +250,46 @@ export class CheckupPackagesService {
             data: {
                 clinicId,
                 packageId: data.packageId,
-                clinicPrice: data.clinicPrice,
+                clinicPrice,
+                itemPrices: itemPrices ?? undefined,
                 customNotes: data.customNotes,
                 customizationData: data.customizationData,
             }
         });
+    }
+
+    /**
+     * Clinic-side pricing rule:
+     *  - itemPrices is the source of truth (keyed by CheckupPackageItem.id).
+     *  - clinicPrice = sum(itemPrices[id] * quantity) for items the clinic priced.
+     *  - For items the clinic skipped, fall back to super-admin's servicePrice scaled to clinicPrice.
+     *  - If no itemPrices provided at all, fall back to the supplied clinicPrice (legacy path).
+     */
+    private normalizePrices(
+        items: Array<{ id: string; servicePrice: number; quantity: number }>,
+        itemPrices: Record<string, number> | undefined,
+        clinicPriceInput: number | undefined,
+    ): { itemPrices: Record<string, number> | null; clinicPrice: number } {
+        if (itemPrices && Object.keys(itemPrices).length > 0) {
+            const finalMap: Record<string, number> = {};
+            let total = 0;
+            for (const it of items) {
+                const p = itemPrices[it.id];
+                if (typeof p === 'number' && p >= 0) {
+                    finalMap[it.id] = p;
+                    total += p * (it.quantity || 1);
+                }
+            }
+            if (total > 0) return { itemPrices: finalMap, clinicPrice: total };
+        }
+        if (typeof clinicPriceInput === 'number' && clinicPriceInput >= 0) {
+            return { itemPrices: null, clinicPrice: clinicPriceInput };
+        }
+        throw new AppError(
+            'Paket narxlari kiritilmagan — har bir analiz uchun narx belgilang yoki umumiy narx kiriting',
+            400,
+            ErrorCodes.VALIDATION_ERROR,
+        );
     }
 
     async getClinicActivatedPackages(clinicId: string) {
@@ -273,20 +310,22 @@ export class CheckupPackagesService {
     async updateClinicPackage(id: string, clinicId: string, data: UpdateClinicCheckupPackageDto) {
         const cp = await prisma.clinicCheckupPackage.findUnique({
             where: { id },
-            include: { package: true }
+            include: { package: { include: { items: true } } }
         });
         if (!cp || cp.clinicId !== clinicId) throw new AppError('Topilmadi', 404, ErrorCodes.NOT_FOUND);
 
-        if (data.clinicPrice) {
-            if (data.clinicPrice < cp.package.priceMin || data.clinicPrice > cp.package.priceMax) {
-                throw new AppError(`Narx oralig'i: ${cp.package.priceMin} - ${cp.package.priceMax} UZS`, 400, ErrorCodes.VALIDATION_ERROR);
-            }
+        // Recompute prices only if the client sent itemPrices or a new clinicPrice;
+        // otherwise leave both fields untouched.
+        let priceFields: { clinicPrice?: number; itemPrices?: any } = {};
+        if (data.itemPrices !== undefined || data.clinicPrice !== undefined) {
+            const normalized = this.normalizePrices(cp.package.items, data.itemPrices, data.clinicPrice);
+            priceFields = { clinicPrice: normalized.clinicPrice, itemPrices: normalized.itemPrices ?? undefined };
         }
 
         return await prisma.clinicCheckupPackage.update({
             where: { id },
             data: {
-                clinicPrice: data.clinicPrice,
+                ...priceFields,
                 customNotes: data.customNotes,
                 customizationData: data.customizationData
                     ? { ...(cp.customizationData as any || {}), ...data.customizationData }

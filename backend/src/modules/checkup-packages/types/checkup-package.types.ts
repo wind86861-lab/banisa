@@ -29,13 +29,15 @@ export interface UpdateCheckupPackageDto extends Partial<CreateCheckupPackageDto
 
 export interface ActivateClinicCheckupPackageDto {
     packageId: string;
-    clinicPrice: number;
+    clinicPrice?: number;
+    itemPrices?: Record<string, number>;
     customNotes?: string;
     customizationData?: any;
 }
 
 export interface UpdateClinicCheckupPackageDto {
     clinicPrice?: number;
+    itemPrices?: Record<string, number>;
     customNotes?: string;
     customizationData?: any;
 }

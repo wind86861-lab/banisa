@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, Loader2, Save, Check, Upload, Image as ImageIcon, Package2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { X, Loader2, Check, Upload, Package2, Wand2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../../shared/api/axios';
 import '../../pages/clinic-admin.css';
@@ -7,29 +7,28 @@ import '../../pages/clinic-admin.css';
 const TABS = [
     { key: 0, label: 'Asosiy' },
     { key: 1, label: 'Tavsif' },
-    { key: 2, label: 'Xizmatlar' },
+    { key: 2, label: 'Narxlar' },
     { key: 3, label: 'Rasmlar' },
 ];
 
 const EMPTY_FORM = {
     customNameUz: '',
     customNameRu: '',
-    clinicPrice: '',
-    discountPercent: '',
     customNotes: '',
     customShortDescription: '',
     customFullDescription: '',
     customTargetAudience: '',
     customImageUrl: '',
+    itemPrices: {},
 };
 
-function BasicTab({ form, setForm, basePackage }) {
-    const priceNum = Number(form.clinicPrice);
-    const priceValid = form.clinicPrice !== '' && !isNaN(priceNum) && priceNum >= (basePackage.priceMin ?? 0) && priceNum <= (basePackage.priceMax ?? Infinity);
+function fmt(n) {
+    return Number(n || 0).toLocaleString('uz-UZ');
+}
 
+function BasicTab({ form, setForm, basePackage, totalPrice }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Base info */}
             <div style={{
                 padding: '12px 16px', background: 'rgba(99,102,241,0.06)',
                 border: '1px solid rgba(99,102,241,0.15)', borderRadius: 10,
@@ -40,7 +39,6 @@ function BasicTab({ form, setForm, basePackage }) {
                 )}
             </div>
 
-            {/* Custom naming */}
             <div className="ca-form-group">
                 <label>Klinikangiz nomlanishi (Uz)</label>
                 <input
@@ -62,39 +60,26 @@ function BasicTab({ form, setForm, basePackage }) {
                 />
             </div>
 
-            {/* Price + Discount */}
-            <div className="ca-form-row">
-                <div className="ca-form-group">
-                    <label>Klinika narxi (UZS) <span style={{ color: '#ef4444' }}>*</span></label>
-                    <input
-                        type="number"
-                        value={form.clinicPrice}
-                        onChange={e => setForm({ ...form, clinicPrice: e.target.value })}
-                        placeholder={String(basePackage.recommendedPrice ?? basePackage.priceMin ?? 0)}
-                        min={basePackage.priceMin}
-                        max={basePackage.priceMax}
-                        step={1000}
-                        required
-                        style={{
-                            border: `1.5px solid ${priceValid ? 'var(--color-primary)' : form.clinicPrice !== '' ? '#ef4444' : 'var(--border-color)'}`,
-                        }}
-                    />
-                    <span className="ca-hint">Diapazon: {Number(basePackage.priceMin).toLocaleString('uz-UZ')} – {Number(basePackage.priceMax).toLocaleString('uz-UZ')} UZS</span>
+            {/* Live total — readonly, sum of per-item prices */}
+            <div style={{
+                padding: '14px 16px',
+                background: totalPrice > 0 ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.06)',
+                border: `1px solid ${totalPrice > 0 ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.25)'}`,
+                borderRadius: 10,
+            }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
+                    Paket umumiy narxi (har bir analiz narxidan hisoblanadi)
                 </div>
-                <div className="ca-form-group">
-                    <label>Chegirma (%)</label>
-                    <input
-                        type="number"
-                        value={form.discountPercent}
-                        onChange={e => setForm({ ...form, discountPercent: e.target.value })}
-                        placeholder="0"
-                        min="0"
-                        max="100"
-                    />
+                <div style={{ fontSize: 22, fontWeight: 700, color: totalPrice > 0 ? '#059669' : '#ef4444' }}>
+                    {fmt(totalPrice)} UZS
                 </div>
+                {totalPrice === 0 && (
+                    <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>
+                        ⚠ "Narxlar" bo'limida har bir analiz uchun narx kiriting
+                    </div>
+                )}
             </div>
 
-            {/* Notes */}
             <div className="ca-form-group">
                 <label>Qo'shimcha ma'lumot <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(ixtiyoriy)</span></label>
                 <textarea
@@ -119,9 +104,7 @@ function DescriptionTab({ form, setForm, basePackage }) {
                     placeholder={basePackage.shortDescription || 'Paket haqida qisqacha...'}
                     rows={3}
                 />
-                <span className="ca-hint">Bo'sh qoldirilsa, standart tavsif ishlatiladi</span>
             </div>
-
             <div className="ca-form-group">
                 <label>To'liq tavsif</label>
                 <textarea
@@ -130,9 +113,7 @@ function DescriptionTab({ form, setForm, basePackage }) {
                     placeholder={basePackage.fullDescription || 'Paket tarkibi, qanday o\'tishi, natijalar haqida batafsil...'}
                     rows={8}
                 />
-                <span className="ca-hint">Bemorlar uchun tushunarli tilda yozing</span>
             </div>
-
             <div className="ca-form-group">
                 <label>Maqsadli auditoriya</label>
                 <input
@@ -146,7 +127,7 @@ function DescriptionTab({ form, setForm, basePackage }) {
     );
 }
 
-function ServicesTab({ items }) {
+function PricesTab({ items, form, setForm, totalPrice }) {
     if (!items || items.length === 0) {
         return (
             <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
@@ -156,42 +137,107 @@ function ServicesTab({ items }) {
         );
     }
 
+    const setItemPrice = (id, value) => {
+        const num = value === '' ? undefined : Math.max(0, Math.round(Number(value) || 0));
+        const next = { ...(form.itemPrices || {}) };
+        if (num === undefined) delete next[id];
+        else next[id] = num;
+        setForm({ ...form, itemPrices: next });
+    };
+
+    const fillFromReference = () => {
+        const next = {};
+        for (const it of items) {
+            next[it.id] = Math.max(0, Math.round(it.servicePrice || 0));
+        }
+        setForm({ ...form, itemPrices: next });
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{
-                padding: '10px 14px',
+                padding: '12px 14px',
                 background: 'rgba(99,102,241,0.06)',
                 border: '1px solid rgba(99,102,241,0.15)',
                 borderRadius: 10, fontSize: 13,
             }}>
-                <strong>{items.length}</strong> ta xizmat paket tarkibida
+                <strong>{items.length}</strong> ta analiz — har biri uchun klinika narxini kiriting.
+                Umumiy paket narxi avtomatik hisoblanadi.
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {items.map((item, idx) => (
-                    <div key={item.id || idx} style={{
-                        padding: '10px 14px',
-                        background: 'var(--bg-main)',
-                        borderRadius: 8,
-                        border: '1px solid var(--border-color)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                    }}>
-                        <div>
-                            <div style={{ fontSize: 13, fontWeight: 600 }}>
-                                {idx + 1}. {item.serviceName}
-                                {item.quantity > 1 && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> ×{item.quantity}</span>}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <button
+                    type="button"
+                    onClick={fillFromReference}
+                    style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '8px 14px', background: 'transparent',
+                        border: '1px solid var(--border-color)', borderRadius: 8,
+                        cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        color: 'var(--text-muted)',
+                    }}
+                    title="Super-admin tavsiya narxlaridan ko'chirib olish"
+                >
+                    <Wand2 size={14} /> Tavsiya narxlar bilan to'ldirish
+                </button>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#059669' }}>
+                    Jami: {fmt(totalPrice)} UZS
+                </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {items.map((item, idx) => {
+                    const id = item.id;
+                    const value = form.itemPrices?.[id];
+                    const refPrice = item.servicePrice || 0;
+                    return (
+                        <div key={id || idx} style={{
+                            padding: '10px 12px',
+                            background: 'var(--bg-main)',
+                            borderRadius: 8,
+                            border: '1px solid var(--border-color)',
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 140px',
+                            gap: 10,
+                            alignItems: 'center',
+                        }}>
+                            <div>
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>
+                                    {idx + 1}. {item.serviceName}
+                                    {item.quantity > 1 && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> ×{item.quantity}</span>}
+                                </div>
+                                {item.notes && (
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{item.notes}</div>
+                                )}
+                                {refPrice > 0 && (
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                        tavsiya: {fmt(refPrice)} UZS
+                                    </div>
+                                )}
                             </div>
-                            {item.notes && (
-                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{item.notes}</div>
-                            )}
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    min="0"
+                                    step="1000"
+                                    value={value === undefined ? '' : value}
+                                    onChange={e => setItemPrice(id, e.target.value)}
+                                    placeholder={String(refPrice || 0)}
+                                    style={{
+                                        width: '100%', padding: '8px 36px 8px 10px',
+                                        border: '1px solid var(--border-color)', borderRadius: 6,
+                                        fontSize: 13, textAlign: 'right',
+                                    }}
+                                />
+                                <span style={{
+                                    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                                    fontSize: 11, color: 'var(--text-muted)', pointerEvents: 'none',
+                                }}>UZS</span>
+                            </div>
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
-                            {item.servicePrice > 0 && `${Number(item.servicePrice).toLocaleString('uz-UZ')} UZS`}
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );
@@ -224,18 +270,6 @@ function ImagesTab({ form, setForm, basePackage }) {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{
-                padding: '12px 16px',
-                background: 'rgba(59,130,246,0.06)',
-                border: '1px solid rgba(59,130,246,0.15)',
-                borderRadius: 10, fontSize: 13,
-            }}>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>Paket rasmi</div>
-                <div style={{ color: 'var(--text-muted)' }}>
-                    Bu rasm bemorlar uchun paket sahifasida ko'rsatiladi.
-                </div>
-            </div>
-
             {currentImage && (
                 <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                     <img
@@ -256,15 +290,6 @@ function ImagesTab({ form, setForm, basePackage }) {
                         >
                             O'chirish
                         </button>
-                    )}
-                    {!form.customImageUrl && basePackage.imageUrl && (
-                        <div style={{
-                            position: 'absolute', bottom: 0, left: 0, right: 0,
-                            padding: '8px 12px', background: 'rgba(0,0,0,0.6)',
-                            color: 'white', fontSize: 11,
-                        }}>
-                            Standart rasm (o'zgartirish uchun yangi rasm yuklang)
-                        </div>
                     )}
                 </div>
             )}
@@ -319,30 +344,55 @@ export default function CheckupPackageDrawer({
 }) {
     const [activeTab, setActiveTab] = useState(0);
     const [form, setForm] = useState({ ...EMPTY_FORM });
-    const [priceError, setPriceError] = useState(false);
     const [saveError, setSaveError] = useState(null);
     const [saving, setSaving] = useState(false);
 
     const basePackage = pkg?.package || pkg;
     const existingCustom = pkg?.clinicPackage?.customizationData || {};
+    const items = basePackage?.items || basePackage?.package?.items || [];
+
+    const totalPrice = useMemo(() => {
+        let total = 0;
+        for (const it of items) {
+            const p = form.itemPrices?.[it.id];
+            if (typeof p === 'number' && p > 0) total += p * (it.quantity || 1);
+        }
+        return total;
+    }, [form.itemPrices, items]);
 
     useEffect(() => {
         if (!open) {
             setActiveTab(0);
             setForm({ ...EMPTY_FORM });
-            setPriceError(false);
             setSaveError(null);
             setSaving(false);
             return;
         }
-        // Pre-fill from existing customization data
+        // Seed itemPrices: prefer clinic's existing values, else scale super-admin's to match clinicPrice, else use super-admin's raw values.
+        let seededItemPrices = {};
+        const existingMap = pkg?.clinicPackage?.itemPrices;
+        const existingClinicPrice = pkg?.clinicPackage?.clinicPrice;
+        const baseSum = items.reduce((s, i) => s + (i.servicePrice || 0) * (i.quantity || 1), 0);
+
+        if (existingMap && typeof existingMap === 'object') {
+            seededItemPrices = { ...existingMap };
+        } else if (existingClinicPrice && baseSum > 0) {
+            const ratio = existingClinicPrice / baseSum;
+            for (const it of items) {
+                seededItemPrices[it.id] = Math.round((it.servicePrice || 0) * ratio);
+            }
+        } else if (activateMode) {
+            for (const it of items) {
+                seededItemPrices[it.id] = Math.max(0, Math.round(it.servicePrice || 0));
+            }
+        }
+
         setForm({
             ...EMPTY_FORM,
-            clinicPrice: String(pkg?.clinicPackage?.clinicPrice ?? pkg?.recommendedPrice ?? pkg?.priceMin ?? ''),
+            itemPrices: seededItemPrices,
             customNotes: pkg?.clinicPackage?.customNotes ?? '',
             customNameUz: existingCustom.customNameUz ?? '',
             customNameRu: existingCustom.customNameRu ?? '',
-            discountPercent: existingCustom.discountPercent ?? '',
             customShortDescription: existingCustom.customShortDescription ?? '',
             customFullDescription: existingCustom.customFullDescription ?? '',
             customTargetAudience: existingCustom.customTargetAudience ?? '',
@@ -351,15 +401,11 @@ export default function CheckupPackageDrawer({
     }, [open, pkg]);
 
     const handleSave = async () => {
-        const priceNum = Math.round(Number(form.clinicPrice));
-        const min = basePackage?.priceMin ?? 0;
-        const max = basePackage?.priceMax ?? Infinity;
-        if (!form.clinicPrice || isNaN(priceNum) || priceNum < min || priceNum > max) {
-            setPriceError(true);
-            setActiveTab(0);
+        if (totalPrice <= 0) {
+            setSaveError('Iltimos, har bir analiz uchun narx kiriting (Narxlar bo\'limi).');
+            setActiveTab(2);
             return;
         }
-        setPriceError(false);
         setSaving(true);
         setSaveError(null);
 
@@ -367,14 +413,13 @@ export default function CheckupPackageDrawer({
             const customizationData = {
                 customNameUz: form.customNameUz || undefined,
                 customNameRu: form.customNameRu || undefined,
-                discountPercent: form.discountPercent ? Number(form.discountPercent) : undefined,
                 customShortDescription: form.customShortDescription || undefined,
                 customFullDescription: form.customFullDescription || undefined,
                 customTargetAudience: form.customTargetAudience || undefined,
                 customImageUrl: form.customImageUrl || undefined,
             };
             await onSave({
-                clinicPrice: priceNum,
+                itemPrices: form.itemPrices,
                 customNotes: form.customNotes || undefined,
                 customizationData,
             });
@@ -403,7 +448,6 @@ export default function CheckupPackageDrawer({
                         initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
                         transition={{ type: 'tween', duration: 0.28 }}
                     >
-                        {/* Header */}
                         <div className="ca-drawer-header">
                             <div>
                                 <span className="ca-drawer-title">
@@ -416,7 +460,6 @@ export default function CheckupPackageDrawer({
                             <button className="ca-drawer-close" onClick={onClose}><X size={20} /></button>
                         </div>
 
-                        {/* Activate banner */}
                         {activateMode && (
                             <div style={{
                                 margin: '0 20px', padding: '10px 14px',
@@ -424,24 +467,10 @@ export default function CheckupPackageDrawer({
                                 borderRadius: 8, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
                             }}>
                                 <span style={{ fontSize: 18 }}>💡</span>
-                                <span>Paketni aktivlashtirish uchun <strong style={{ color: 'var(--color-primary)' }}>Klinika narxi</strong> va asosiy ma'lumotlarni kiriting.</span>
+                                <span><strong style={{ color: 'var(--color-primary)' }}>Narxlar</strong> bo'limida har bir analiz narxini kiriting — paket umumiy narxi shu yig'indidan tushadi.</span>
                             </div>
                         )}
 
-                        {/* Price error */}
-                        {priceError && (
-                            <div style={{
-                                margin: '8px 20px 0', padding: '8px 14px',
-                                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)',
-                                borderRadius: 8, fontSize: 13, color: '#ef4444',
-                                display: 'flex', alignItems: 'center', gap: 8,
-                            }}>
-                                <span>⚠️</span>
-                                <span><strong>Narx</strong> to'g'ri diapazonda kiritilishi shart!</span>
-                            </div>
-                        )}
-
-                        {/* Tabs */}
                         <div className="ca-tabs" style={{ padding: '0 20px', borderBottom: '1px solid var(--border-color)' }}>
                             {TABS.map(t => (
                                 <button
@@ -454,15 +483,13 @@ export default function CheckupPackageDrawer({
                             ))}
                         </div>
 
-                        {/* Body */}
                         <div className="ca-drawer-body">
-                            {activeTab === 0 && <BasicTab form={form} setForm={setForm} basePackage={basePackage} />}
+                            {activeTab === 0 && <BasicTab form={form} setForm={setForm} basePackage={basePackage} totalPrice={totalPrice} />}
                             {activeTab === 1 && <DescriptionTab form={form} setForm={setForm} basePackage={basePackage} />}
-                            {activeTab === 2 && <ServicesTab items={basePackage?.items || basePackage?.package?.items} />}
+                            {activeTab === 2 && <PricesTab items={items} form={form} setForm={setForm} totalPrice={totalPrice} />}
                             {activeTab === 3 && <ImagesTab form={form} setForm={setForm} basePackage={basePackage} />}
                         </div>
 
-                        {/* Save error */}
                         {saveError && (
                             <div style={{
                                 margin: '0 20px', padding: '10px 14px',
@@ -474,14 +501,13 @@ export default function CheckupPackageDrawer({
                             </div>
                         )}
 
-                        {/* Footer */}
                         <div className="ca-drawer-footer">
                             <button className="ca-btn-secondary" onClick={onClose} disabled={saving}>Bekor qilish</button>
                             <button
                                 className="ca-btn-primary"
                                 style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                                 onClick={handleSave}
-                                disabled={saving}
+                                disabled={saving || totalPrice <= 0}
                             >
                                 {saving ? <Loader2 size={14} className="ca-spin" /> : <Check size={14} />}
                                 {activateMode ? 'Saqlash va Aktivlashtirish' : 'Saqlash'}

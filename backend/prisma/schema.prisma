@@ -587,6 +587,7 @@ model ClinicCheckupPackage {
   clinicId          String
   packageId         String
   clinicPrice       Int
+  itemPrices        Json?          // { [packageItemId: string]: priceInUZS } — clinic's per-item prices. Sum == clinicPrice.
   customNotes       String?
   customizationData Json?
   isActive          Boolean        @default(true)

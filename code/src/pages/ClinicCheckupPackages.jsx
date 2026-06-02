@@ -64,8 +64,8 @@ export default function ClinicCheckupPackages() {
     };
 
     const submitActivation = () => {
-        if (activationForm.clinicPrice < activationForm.pkg.priceMin || activationForm.clinicPrice > activationForm.pkg.priceMax) {
-            alert(`Narx ${activationForm.pkg.priceMin} va ${activationForm.pkg.priceMax} oralig'ida bo'lishi shart!`);
+        if (!activationForm.clinicPrice || Number(activationForm.clinicPrice) <= 0) {
+            alert('Narx kiritilishi shart');
             return;
         }
 
