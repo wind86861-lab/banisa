@@ -1236,6 +1236,14 @@ export default function XizmatlarPage() {
                             <span className="xp-fd-count">{activeFilters.length}</span>
                         )}
                     </button>
+                    <button
+                        className="xp-map-cta"
+                        onClick={() => navigate('/xarita')}
+                        title="Eng yaqin klinikalarni xaritada toping"
+                    >
+                        <MapPin size={16} />
+                        Yaqindagini topish
+                    </button>
                     <select
                         className="xp-top-sort"
                         value={sortBy}

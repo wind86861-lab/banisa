@@ -61,6 +61,8 @@ const CLINIC_SELECT = {
     logo: true,
     averageRating: true,
     reviewCount: true,
+    latitude: true,
+    longitude: true,
 };
 
 export const getPublicServices = async (req: Request, res: Response, next: NextFunction) => {
@@ -117,6 +119,8 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
             address: `${c.region}, ${c.district}, ${c.street}`,
             phones: c.phones as string[],
             logo: c.logo,
+            latitude: c.latitude ?? null,
+            longitude: c.longitude ?? null,
         });
 
         // ── Patient-visible metadata for diagnostic clinic-services ──
@@ -518,6 +522,8 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
                         address: `${c.region}, ${c.district}, ${c.street}`,
                         phones: c.phones as string[],
                         logo: c.logo,
+                        latitude: c.latitude ?? null,
+                        longitude: c.longitude ?? null,
                         rating: c.averageRating ?? 0,
                         reviewCount: c.reviewCount ?? 0,
                         workingHours: c.workingHours,
@@ -551,6 +557,7 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
                                 phones: true, logo: true, averageRating: true, reviewCount: true,
                                 workingHours: true, hasOnlineBooking: true, type: true,
                                 status: true, isActive: true,
+                                latitude: true, longitude: true,
                             },
                         },
                         sanatoriumService: {
@@ -609,6 +616,8 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
                             address: `${c.region}, ${c.district}, ${c.street}`,
                             phones: c.phones as string[],
                             logo: c.logo,
+                            latitude: c.latitude ?? null,
+                            longitude: c.longitude ?? null,
                             rating: c.averageRating ?? 0,
                             reviewCount: c.reviewCount ?? 0,
                             workingHours: c.workingHours,
@@ -636,6 +645,7 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
                         phones: true, logo: true, averageRating: true, reviewCount: true,
                         workingHours: true, hasOnlineBooking: true, type: true,
                         status: true, isActive: true,
+                        latitude: true, longitude: true,
                     },
                 },
             },
@@ -696,6 +706,8 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
                         address: `${c.region}, ${c.district}, ${c.street}`,
                         phones: c.phones as string[],
                         logo: c.logo,
+                        latitude: c.latitude ?? null,
+                        longitude: c.longitude ?? null,
                         rating: c.averageRating ?? 0,
                         reviewCount: c.reviewCount ?? 0,
                         workingHours: c.workingHours,
@@ -776,6 +788,8 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
                 address: `${c.region}, ${c.district}, ${c.street}`,
                 phones: c.phones as string[],
                 logo: c.logo,
+                latitude: c.latitude ?? null,
+                longitude: c.longitude ?? null,
                 rating: c.averageRating ?? 0,
                 reviewCount: c.reviewCount ?? 0,
                 workingHours: c.workingHours,

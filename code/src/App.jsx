@@ -7,6 +7,7 @@ import { CartProvider } from './contexts/CartContext';
 import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect, UserGuard, UserPublicOnlyGuard } from './shared/auth/guards';
 import ScrollToTop from './components/ScrollToTop';
 import BetaBanner from './components/BetaBanner';
+import MapSearchPage from './pages/MapSearchPage';
 import { ToastProvider } from './shared/components/Toast';
 import ErrorBoundary from './shared/components/ErrorBoundary';
 
@@ -125,6 +126,7 @@ function App() {
 
                                     {/* ─── PUBLIC PAGES ────────────────────────────── */}
                                     <Route path="/xizmatlar" element={<XizmatlarPage />} />
+                                    <Route path="/xarita" element={<MapSearchPage />} />
                                     <Route path="/xizmatlar/category/:category" element={<XizmatlarCategoryPage />} />
                                     <Route path="/xizmatlar/:id" element={<XizmatDetailPage />} />
                                     <Route path="/klinikalar" element={<ClinicsPage />} />

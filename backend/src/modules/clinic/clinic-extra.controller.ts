@@ -340,13 +340,13 @@ export const updateClinicProfile = async (req: AuthRequest, res: Response) => {
     }
     if (data.latitude !== undefined && data.latitude !== null && data.latitude !== '') {
         const n = Number(data.latitude);
-        data.latitude = Number.isFinite(n) ? n : null;
+        data.latitude = Number.isFinite(n) && n >= -90 && n <= 90 ? n : null;
     } else if (data.latitude === '') {
         data.latitude = null;
     }
     if (data.longitude !== undefined && data.longitude !== null && data.longitude !== '') {
         const n = Number(data.longitude);
-        data.longitude = Number.isFinite(n) ? n : null;
+        data.longitude = Number.isFinite(n) && n >= -180 && n <= 180 ? n : null;
     } else if (data.longitude === '') {
         data.longitude = null;
     }

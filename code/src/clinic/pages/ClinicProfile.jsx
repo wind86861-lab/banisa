@@ -10,6 +10,7 @@ import api from '../../shared/api/axios';
 import { useClinicProfile, useUpdateProfile } from '../hooks/useClinicData';
 import { useWorkingHours, useUpdateWorkingHours } from '../hooks/useServiceSettings';
 import BanisaLoader from '../../shared/components/BanisaLoader';
+import LocationPicker from '../components/LocationPicker';
 import './clinic-admin.css';
 
 // ─── Static config ──────────────────────────────────────────────────────────
@@ -564,19 +565,42 @@ export default function ClinicProfile() {
                             </div>
                         </div>
                         <div className="ca-form-group ca-form-row single">
-                            <label className="ca-label">Google Maps havolasi</label>
+                            <label className="ca-label">Google Maps havolasi (qo'shimcha)</label>
                             <input type="url" value={form.googleMapsUrl ?? ''} onChange={e => set('googleMapsUrl', e.target.value)} placeholder="https://maps.app.goo.gl/..." />
                         </div>
-                        <div className="ca-form-row">
-                            <div className="ca-form-group">
-                                <label className="ca-label">Kenglik (latitude)</label>
-                                <input type="number" step="0.000001" value={form.latitude ?? ''} onChange={e => set('latitude', e.target.value)} placeholder="41.2995" />
+
+                        <div className="ca-form-group ca-form-row single">
+                            <label className="ca-label">
+                                <MapPin size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                                Klinika joylashuvi xaritada
+                            </label>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+                                Xaritada bino joyiga pin qo'ying — bemorlar shu nuqtaga qarab eng yaqin klinikangizni topadi.
                             </div>
-                            <div className="ca-form-group">
-                                <label className="ca-label">Uzunlik (longitude)</label>
-                                <input type="number" step="0.000001" value={form.longitude ?? ''} onChange={e => set('longitude', e.target.value)} placeholder="69.2401" />
-                            </div>
+                            <LocationPicker
+                                value={{ lat: form.latitude, lng: form.longitude }}
+                                onChange={({ lat, lng }) => {
+                                    set('latitude', lat);
+                                    set('longitude', lng);
+                                }}
+                            />
                         </div>
+
+                        <details style={{ marginTop: 8 }}>
+                            <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)' }}>
+                                Koordinatani qo'lda kiritish
+                            </summary>
+                            <div className="ca-form-row" style={{ marginTop: 8 }}>
+                                <div className="ca-form-group">
+                                    <label className="ca-label">Kenglik (latitude)</label>
+                                    <input type="number" step="0.000001" value={form.latitude ?? ''} onChange={e => set('latitude', e.target.value)} placeholder="41.2995" />
+                                </div>
+                                <div className="ca-form-group">
+                                    <label className="ca-label">Uzunlik (longitude)</label>
+                                    <input type="number" step="0.000001" value={form.longitude ?? ''} onChange={e => set('longitude', e.target.value)} placeholder="69.2401" />
+                                </div>
+                            </div>
+                        </details>
                     </div>
                 </div>
             )}
