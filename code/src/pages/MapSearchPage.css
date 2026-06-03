@@ -106,6 +106,7 @@
     height: 100%;
 }
 .msp-map .leaflet-container { height: 100%; width: 100%; z-index: 1; }
+.msp-map .leaflet-control-attribution { font-size: 10px; }
 
 /* "Pick a service" overlay */
 .msp-hint-overlay {
@@ -113,19 +114,81 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(255, 255, 255, 0.94);
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(255,255,255,0.4);
-    border-radius: 16px;
-    padding: 20px 26px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.5);
+    border-radius: 18px;
+    padding: 22px 24px;
     text-align: center;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
     z-index: 5;
-    pointer-events: none;
     color: #475569;
+    max-width: min(560px, calc(100% - 32px));
 }
-.msp-hint-overlay__title { font-size: 16px; font-weight: 700; color: #0f172a; margin-top: 6px; }
-.msp-hint-overlay__sub { font-size: 13px; color: #64748b; margin-top: 4px; }
+.msp-hint-overlay__icon {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 10px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00BDE0, #0d9488);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.msp-hint-overlay__title { font-size: 17px; font-weight: 700; color: #0f172a; margin-top: 4px; }
+.msp-hint-overlay__sub { font-size: 13px; color: #64748b; margin-top: 6px; line-height: 1.5; }
+.msp-hint-overlay__picks {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 14px;
+}
+.msp-quick-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    color: #0f172a;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.msp-quick-chip:hover {
+    background: rgba(0,189,224,0.08);
+    border-color: #00BDE0;
+    color: #00BDE0;
+}
+
+/* "Hammasini ko'rsatish" reset button (top-right on map) */
+.msp-reset {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 6;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 7px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0f172a;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(15,23,42,0.1);
+}
+.msp-reset:hover { background: #f8fafc; border-color: #00BDE0; color: #00BDE0; }
+
+@media (min-width: 901px) {
+    .msp-reset { right: 396px; }
+}
 
 /* ─── User pin ─── */
 .msp-user-pin {
@@ -153,27 +216,28 @@
     100% { transform: scale(1.6); opacity: 0; }
 }
 
-/* ─── Clinic pin (price label) ─── */
+/* ─── Clinic pins (variants) ─── */
 .msp-clinic-pin {
     background: transparent !important;
     border: none !important;
 }
 .msp-clinic-pin__inner {
     position: relative;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     background: linear-gradient(135deg, #00BDE0, #0d9488);
     color: #fff;
     border: 2px solid #fff;
-    border-radius: 14px;
-    padding: 4px 10px;
-    box-shadow: 0 4px 12px rgba(0,189,224,0.5);
+    border-radius: 16px;
+    padding: 3px 9px 3px 3px;
+    box-shadow: 0 4px 12px rgba(0,189,224,0.45);
     font-size: 12px;
     font-weight: 700;
     white-space: nowrap;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 56px;
-    height: 26px;
+    min-width: 62px;
+    height: 30px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .msp-clinic-pin__inner::after {
     content: '';
@@ -183,32 +247,257 @@
     transform: translateX(-50%) rotate(45deg);
     width: 8px;
     height: 8px;
-    background: linear-gradient(135deg, #00BDE0, #0d9488);
+    background: inherit;
     border-right: 2px solid #fff;
     border-bottom: 2px solid #fff;
+    z-index: -1;
 }
-.msp-clinic-pin__price { line-height: 1; }
+.msp-clinic-pin__avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #fff;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.msp-clinic-pin__avatar img {
+    width: 100%; height: 100%; object-fit: cover;
+}
+.msp-clinic-pin__price { line-height: 1; padding-right: 2px; }
+.msp-clinic-pin__flag {
+    background: #fff;
+    color: #16a34a;
+    border-radius: 8px;
+    padding: 0 4px;
+    font-size: 10px;
+    margin-right: -4px;
+}
 
-/* Map popup */
-.msp-popup { min-width: 180px; }
-.msp-popup__name { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
-.msp-popup__row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; margin-bottom: 4px; }
-.msp-popup__btn {
-    margin-top: 8px;
+/* Cheapest */
+.msp-clinic-pin__inner.is-cheapest {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    box-shadow: 0 4px 14px rgba(22, 163, 74, 0.55);
+}
+
+/* Selected (any variant) */
+.msp-clinic-pin__inner.is-selected {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.12), 0 8px 18px rgba(0,189,224,0.55);
+    z-index: 1000;
+    border-color: #0f172a;
+}
+.msp-clinic-pin__inner.is-selected.is-cheapest {
+    box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.12), 0 8px 18px rgba(22,163,74,0.6);
+}
+
+/* Closed */
+.msp-clinic-pin__inner.is-closed {
+    background: linear-gradient(135deg, #94a3b8, #64748b);
+    box-shadow: 0 4px 10px rgba(100,116,139,0.4);
+    opacity: 0.92;
+}
+
+/* ─── Floating selected-clinic card (replaces Leaflet popup) ─── */
+.msp-card {
+    position: absolute;
+    z-index: 9;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 18px 40px rgba(15,23,42,0.18);
+    padding: 16px;
+    animation: msp-card-in 0.22s ease-out;
+}
+@keyframes msp-card-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Mobile: bottom card above the drawer handle */
+@media (max-width: 900px) {
+    .msp-card {
+        left: 12px;
+        right: 12px;
+        bottom: 68px;
+    }
+}
+/* Desktop: top-left of map area */
+@media (min-width: 901px) {
+    .msp-card {
+        top: 14px;
+        left: 14px;
+        width: 340px;
+    }
+}
+
+.msp-card__close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    background: #00BDE0;
+    justify-content: center;
+}
+.msp-card__close:hover { background: #e2e8f0; color: #ef4444; }
+
+.msp-card__head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding-right: 30px;
+}
+.msp-card__logo {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    object-fit: cover;
+    background: #f1f5f9;
+    flex-shrink: 0;
+    border: 1px solid #e5e7eb;
+}
+.msp-card__logo--ph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #00BDE0, #0d9488);
     color: #fff;
-    border: none;
-    padding: 7px 12px;
-    border-radius: 8px;
+    font-weight: 700;
+    font-size: 18px;
+}
+.msp-card__head-text { flex: 1; min-width: 0; }
+.msp-card__name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+    margin-bottom: 4px;
+}
+.msp-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 11px;
+}
+.msp-card__rating,
+.msp-card__dist,
+.msp-card__open,
+.msp-card__closed {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-weight: 600;
+}
+.msp-card__rating { background: #fef3c7; color: #b45309; }
+.msp-card__reviews { color: #b45309; opacity: 0.7; font-weight: 500; }
+.msp-card__dist { background: rgba(13,148,136,0.1); color: #0d9488; }
+.msp-card__open { background: rgba(22,163,74,0.12); color: #15803d; }
+.msp-card__closed { background: rgba(148,163,184,0.18); color: #475569; }
+
+.msp-card__addr {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.msp-card__price-row {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border-radius: 10px;
+}
+.msp-card__price-label { font-size: 11px; color: #64748b; margin-bottom: 2px; }
+.msp-card__price-val { font-size: 16px; font-weight: 700; color: #0f172a; }
+
+.msp-card__actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+}
+.msp-card__btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 9px 8px;
     font-size: 12px;
     font-weight: 600;
+    border-radius: 9px;
+    border: 1px solid transparent;
     cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
 }
-.msp-popup__btn:hover { background: #00a8c7; }
-.msp-popup__btn:disabled { opacity: 0.6; cursor: wait; }
+.msp-card__btn--ghost { background: #fff; color: #475569; border-color: #e5e7eb; }
+.msp-card__btn--ghost:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
+.msp-card__btn--primary { background: #00BDE0; color: #fff; border-color: #00BDE0; }
+.msp-card__btn--primary:hover:not(:disabled) { background: #00a8c7; }
+.msp-card__btn--primary:disabled { opacity: 0.6; cursor: wait; }
+
+/* ─── Filter chips ─── */
+.msp-chips {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+.msp-chips__group {
+    display: flex;
+    gap: 4px;
+    background: #f1f5f9;
+    border-radius: 999px;
+    padding: 3px;
+}
+.msp-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.msp-chips__group .msp-chip.active {
+    background: #fff;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.1);
+}
+.msp-chip--toggle {
+    background: #fff;
+    border: 1.5px solid #e5e7eb;
+    padding: 4px 10px;
+}
+.msp-chip--toggle.active {
+    background: rgba(22,163,74,0.1);
+    border-color: #16a34a;
+    color: #15803d;
+}
+.msp-chips__count {
+    margin-left: auto;
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 600;
+}
 
 /* ─── Bottom drawer (mobile) / right panel (desktop) ─── */
 .msp-drawer {
@@ -306,7 +595,7 @@
     .msp-drawer__body {
         flex: 1;
         overflow-y: auto;
-        padding: 16px;
+        padding: 12px 16px 16px;
     }
     .msp-map {
         margin-right: 380px;
@@ -325,39 +614,77 @@
     border-radius: 12px;
     margin-bottom: 10px;
     cursor: pointer;
-    transition: border-color 0.15s ease, transform 0.15s ease;
+    transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 .msp-item:hover { border-color: #00BDE0; transform: translateY(-1px); }
-.msp-item.active { border-color: #00BDE0; box-shadow: 0 4px 12px rgba(0,189,224,0.18); }
-.msp-item.unmapped { opacity: 0.7; }
+.msp-item.active {
+    border-color: #00BDE0;
+    box-shadow: 0 4px 14px rgba(0,189,224,0.22);
+    background: linear-gradient(180deg, rgba(0,189,224,0.04), #fff);
+}
+.msp-item.unmapped { opacity: 0.72; }
 
+.msp-item__top {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+.msp-item__logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: #f1f5f9;
+    border: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+.msp-item__logo--ph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #00BDE0, #0d9488);
+    color: #fff;
+    font-weight: 700;
+    font-size: 16px;
+    border: none;
+}
+.msp-item__top-text { flex: 1; min-width: 0; }
 .msp-item__head {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 8px;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
-.msp-item__name { font-size: 14px; font-weight: 700; color: #0f172a; flex: 1; min-width: 0; }
+.msp-item__name { font-size: 14px; font-weight: 700; color: #0f172a; flex: 1; min-width: 0; line-height: 1.3; }
 .msp-item__dist {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     color: #0d9488;
     background: rgba(13,148,136,0.1);
-    padding: 2px 8px;
+    padding: 2px 7px;
     border-radius: 12px;
     flex-shrink: 0;
 }
 .msp-item__dist--no { color: #94a3b8; background: #f1f5f9; }
 .msp-item__sub {
-    font-size: 12px;
+    font-size: 11.5px;
     color: #64748b;
-    margin-bottom: 8px;
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
+}
+.msp-item__open {
+    color: #15803d;
+    font-weight: 600;
+    margin-left: 4px;
+}
+.msp-item__closed {
+    color: #94a3b8;
+    margin-left: 4px;
 }
 .msp-item__row {
     display: flex;
@@ -366,7 +693,20 @@
     gap: 8px;
     margin-bottom: 10px;
 }
+.msp-item__price-wrap { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .msp-item__price { font-size: 15px; color: #0f172a; }
+.msp-item__cheapest {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(22,163,74,0.12);
+    color: #15803d;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
 .msp-item__rating {
     display: inline-flex;
     align-items: center;
@@ -404,6 +744,25 @@
     text-align: center;
     font-size: 13px;
     color: #94a3b8;
+}
+
+/* ─── Skeleton ─── */
+.msp-item--skeleton {
+    pointer-events: none;
+    border-color: #f1f5f9;
+}
+.msp-sk {
+    background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
+    background-size: 200% 100%;
+    animation: msp-sk-pulse 1.4s ease-in-out infinite;
+    border-radius: 6px;
+}
+.msp-sk--row1 { height: 14px; width: 70%; margin-bottom: 8px; }
+.msp-sk--row2 { height: 12px; width: 90%; margin-bottom: 8px; }
+.msp-sk--row3 { height: 28px; width: 60%; }
+@keyframes msp-sk-pulse {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 /* ─── Permission gate ─── */

@@ -9,15 +9,15 @@ function readCache() {
         if (!raw) return null;
         const parsed = JSON.parse(raw);
         if (Date.now() - parsed.at > MAX_CACHE_AGE_MS) return null;
-        return { lat: parsed.lat, lng: parsed.lng };
+        return { lat: parsed.lat, lng: parsed.lng, accuracy: parsed.accuracy ?? null };
     } catch {
         return null;
     }
 }
 
-function writeCache(lat, lng) {
+function writeCache(lat, lng, accuracy) {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ lat, lng, at: Date.now() }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ lat, lng, accuracy, at: Date.now() }));
     } catch {}
 }
 
@@ -45,9 +45,13 @@ export default function useGeolocation({ autoRequest = false } = {}) {
         setError(null);
         navigator.geolocation.getCurrentPosition(
             (pos) => {
-                const c = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                const c = {
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy ?? null,
+                };
                 setCoords(c);
-                writeCache(c.lat, c.lng);
+                writeCache(c.lat, c.lng, c.accuracy);
                 setStatus('granted');
             },
             (err) => {

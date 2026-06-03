@@ -63,6 +63,7 @@ const CLINIC_SELECT = {
     reviewCount: true,
     latitude: true,
     longitude: true,
+    workingHours: true,
 };
 
 export const getPublicServices = async (req: Request, res: Response, next: NextFunction) => {
@@ -121,6 +122,9 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
             logo: c.logo,
             latitude: c.latitude ?? null,
             longitude: c.longitude ?? null,
+            rating: c.averageRating ?? 0,
+            reviewCount: c.reviewCount ?? 0,
+            workingHours: c.workingHours,
         });
 
         // ── Patient-visible metadata for diagnostic clinic-services ──
