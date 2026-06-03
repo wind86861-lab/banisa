@@ -52,8 +52,9 @@ const userIcon = L.divIcon({
 });
 
 /** Render a clinic pin. Variants: cheapest (green badge), selected (enlarged
- *  with halo), closed (gray). A logo, if available, becomes a small avatar. */
-function clinicPinIcon({ priceText, logo, cheapest, selected, closed }) {
+ *  with halo), closed (gray). A logo, if available, becomes a small avatar.
+ *  In service mode we also stamp a small rating badge above the pin. */
+function clinicPinIcon({ priceText, logo, cheapest, selected, closed, rating, showRatingBadge }) {
     const cls = [
         'msp-clinic-pin__inner',
         cheapest ? 'is-cheapest' : '',
@@ -64,11 +65,14 @@ function clinicPinIcon({ priceText, logo, cheapest, selected, closed }) {
         ? `<div class="msp-clinic-pin__avatar"><img src="${logo}" alt="" onerror="this.style.display='none'"/></div>`
         : '';
     const flag = cheapest ? '<span class="msp-clinic-pin__flag">★</span>' : '';
+    const ratingBadge = (showRatingBadge && rating > 0)
+        ? `<span class="msp-clinic-pin__rating">★ ${Number(rating).toFixed(1)}</span>`
+        : '';
     return L.divIcon({
         className: 'msp-clinic-pin',
-        html: `<div class="${cls}">${avatar}<span class="msp-clinic-pin__price">${priceText}</span>${flag}</div>`,
-        iconSize: selected ? [96, 38] : [82, 32],
-        iconAnchor: selected ? [48, 38] : [41, 32],
+        html: `<div class="${cls}">${avatar}<span class="msp-clinic-pin__price">${priceText}</span>${flag}${ratingBadge}</div>`,
+        iconSize: selected ? [96, 50] : [82, 44],
+        iconAnchor: selected ? [48, 50] : [41, 44],
     });
 }
 
@@ -205,10 +209,10 @@ function ServiceAutocomplete({ services, selectedIds, onAdd, onRemove, onClear, 
                 {selectedServices.map(s => {
                     const id = s.serviceId || s.id;
                     return (
-                        <span key={id} className="msp-ac__chip">
-                            {s.title}
+                        <span key={id} className="msp-ac__chip" title={s.title}>
+                            <span className="msp-ac__chip-text">{s.title}</span>
                             <button type="button" className="msp-ac__chip-x" onClick={(e) => { e.stopPropagation(); onRemove(id); }} aria-label={`${s.title} olib tashlash`}>
-                                <X size={11} />
+                                <X size={12} />
                             </button>
                         </span>
                     );
@@ -332,10 +336,14 @@ function SelectedClinicCard({ clinic, browseMode, onClose, onAdd, onOpenClinic, 
                 <div className="msp-card__head-text">
                     <div className="msp-card__name">{clinic.clinicName}</div>
                     <div className="msp-card__meta">
-                        {clinic.rating > 0 && (
+                        {clinic.rating > 0 ? (
                             <span className="msp-card__rating">
                                 <Star size={12} fill="#fbbf24" stroke="#fbbf24" /> {Number(clinic.rating).toFixed(1)}
                                 {clinic.reviewCount > 0 && <span className="msp-card__reviews"> · {clinic.reviewCount}</span>}
+                            </span>
+                        ) : (
+                            <span className="msp-card__rating msp-card__rating--new">
+                                <Sparkles size={11} /> Yangi
                             </span>
                         )}
                         {clinic.distanceKm != null && (
@@ -697,6 +705,8 @@ export default function MapSearchPage() {
                                     cheapest: !browseMode && cheapestPrice != null && c.price === cheapestPrice && mappedClinics.length > 1,
                                     selected: activeClinicId === c.serviceRowId,
                                     closed: c.isOpenNow === false,
+                                    rating: c.rating,
+                                    showRatingBadge: !browseMode,
                                 })}
                                 eventHandlers={{ click: () => setActiveClinicId(c.serviceRowId) }}
                                 zIndexOffset={activeClinicId === c.serviceRowId ? 1000 : 0}
@@ -844,10 +854,13 @@ export default function MapSearchPage() {
                                                 </>
                                             )}
                                         </div>
-                                        {c.rating > 0 && (
+                                        {c.rating > 0 ? (
                                             <span className="msp-item__rating">
                                                 <Star size={11} fill="#fbbf24" stroke="#fbbf24" /> {Number(c.rating).toFixed(1)}
+                                                {c.reviewCount > 0 && <span className="msp-item__reviews"> · {c.reviewCount}</span>}
                                             </span>
+                                        ) : (
+                                            <span className="msp-item__rating msp-item__rating--new">Yangi</span>
                                         )}
                                     </div>
                                     <div className="msp-item__actions">
