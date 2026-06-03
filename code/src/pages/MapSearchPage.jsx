@@ -184,8 +184,13 @@ function ServiceAutocomplete({ services, selectedIds, onAdd, onRemove, onClear, 
     useEffect(() => {
         if (!open) return;
         const onDoc = (e) => { if (!wrapRef.current?.contains(e.target)) setOpen(false); };
+        const onKey = (e) => { if (e.key === 'Escape') { setOpen(false); inputRef.current?.blur(); } };
         document.addEventListener('mousedown', onDoc);
-        return () => document.removeEventListener('mousedown', onDoc);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onDoc);
+            document.removeEventListener('keydown', onKey);
+        };
     }, [open]);
 
     const suggestions = useMemo(() => {
@@ -234,31 +239,53 @@ function ServiceAutocomplete({ services, selectedIds, onAdd, onRemove, onClear, 
             )}
             {open && (
                 <div className="msp-ac__dropdown">
-                    {suggestions.length === 0 ? (
-                        <div className="msp-ac__empty">Hech narsa topilmadi</div>
-                    ) : (
-                        suggestions.map(s => {
-                            const id = s.serviceId || s.id;
-                            const isPicked = selectedSet.has(id);
-                            return (
-                                <button
-                                    key={id}
-                                    type="button"
-                                    className={`msp-ac__item ${isPicked ? 'active' : ''}`}
-                                    onClick={() => {
-                                        if (isPicked) onRemove(id);
-                                        else onAdd(id);
-                                        setQuery('');
-                                        inputRef.current?.focus();
-                                    }}
-                                >
-                                    <div className="msp-ac__item-title">
-                                        {isPicked && <span className="msp-ac__item-tick">✓</span>} {s.title}
-                                    </div>
-                                    <div className="msp-ac__item-sub">{s.specialty} • {s.category}</div>
-                                </button>
-                            );
-                        })
+                    <div className="msp-ac__dd-head">
+                        <span className="msp-ac__dd-headtext">
+                            {selectedServices.length > 0
+                                ? `${selectedServices.length} ta tanlangan`
+                                : 'Xizmatni tanlang'}
+                        </span>
+                        <button type="button" className="msp-ac__dd-close" onClick={() => { setOpen(false); inputRef.current?.blur(); }} aria-label="Yopish">
+                            <X size={14} />
+                        </button>
+                    </div>
+                    <div className="msp-ac__dd-list">
+                        {suggestions.length === 0 ? (
+                            <div className="msp-ac__empty">Hech narsa topilmadi</div>
+                        ) : (
+                            suggestions.map(s => {
+                                const id = s.serviceId || s.id;
+                                const isPicked = selectedSet.has(id);
+                                return (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        className={`msp-ac__item ${isPicked ? 'active' : ''}`}
+                                        onClick={() => {
+                                            if (isPicked) onRemove(id);
+                                            else onAdd(id);
+                                            setQuery('');
+                                            inputRef.current?.focus();
+                                        }}
+                                    >
+                                        <div className="msp-ac__item-title">
+                                            {isPicked && <span className="msp-ac__item-tick">✓</span>} {s.title}
+                                        </div>
+                                        <div className="msp-ac__item-sub">{s.specialty} • {s.category}</div>
+                                    </button>
+                                );
+                            })
+                        )}
+                    </div>
+                    {selectedServices.length > 0 && (
+                        <div className="msp-ac__dd-foot">
+                            <button type="button" className="msp-ac__dd-clear" onClick={() => { onClear(); setQuery(''); }}>
+                                Tozalash
+                            </button>
+                            <button type="button" className="msp-ac__dd-done" onClick={() => { setOpen(false); inputRef.current?.blur(); }}>
+                                Tayyor ({selectedServices.length})
+                            </button>
+                        </div>
                     )}
                 </div>
             )}

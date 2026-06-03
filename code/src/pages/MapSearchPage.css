@@ -1093,3 +1093,74 @@
     border-color: rgba(99,102,241,0.25);
 }
 .msp-item__reviews { color: #94a3b8; font-weight: 500; font-size: 11px; }
+
+/* ─── Dropdown sticky header + footer for easy dismissal ────────────────── */
+.msp-ac__dropdown { display: flex; flex-direction: column; padding: 0; max-height: 70vh; }
+.msp-ac__dd-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 10px 10px 0 0;
+}
+.msp-ac__dd-headtext { font-size: 12px; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 0.4px; }
+.msp-ac__dd-close {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(15,23,42,0.06);
+    border: none;
+    color: #475569;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.msp-ac__dd-close:hover { background: rgba(239,68,68,0.12); color: #ef4444; }
+
+.msp-ac__dd-list { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+
+.msp-ac__dd-foot {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 -6px 12px rgba(15,23,42,0.04);
+}
+.msp-ac__dd-clear {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    padding: 9px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.msp-ac__dd-clear:hover { background: rgba(239,68,68,0.06); color: #ef4444; border-color: rgba(239,68,68,0.30); }
+.msp-ac__dd-done {
+    flex: 1;
+    background: linear-gradient(135deg, #00BDE0 0%, #00a8c7 100%);
+    border: none;
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 14px rgba(0,189,224,0.30);
+    transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+.msp-ac__dd-done:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(0,189,224,0.40); }
+.msp-ac__dd-done:active { transform: translateY(0); }
