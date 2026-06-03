@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import {
     Search, MapPin, Crosshair, Loader2, X, AlertTriangle, RefreshCw,
     ChevronUp, ChevronDown, Star, Phone, ShoppingCart, Navigation,
-    Maximize2, Clock, Sparkles,
+    Maximize2, Clock, Sparkles, Share2, Plus, Minus, History,
 } from 'lucide-react';
 import { usePublicServices } from '../hooks/usePublicServices';
 import useGeolocation, { haversineKm } from '../hooks/useGeolocation';
@@ -23,6 +23,26 @@ L.Icon.Default.mergeOptions({
 });
 
 const TASHKENT_CENTER = [41.3111, 69.2797];
+
+/* ─── Recent clinics (localStorage) ─────────────────────────────────────── */
+const RECENT_KEY = 'banisa-recent-clinics';
+const MAX_RECENT = 5;
+
+function readRecent() {
+    try {
+        const raw = localStorage.getItem(RECENT_KEY);
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+    } catch { return []; }
+}
+
+function pushRecent(entry) {
+    try {
+        const items = readRecent().filter(x => x.clinicId !== entry.clinicId);
+        items.unshift({ ...entry, at: Date.now() });
+        localStorage.setItem(RECENT_KEY, JSON.stringify(items.slice(0, MAX_RECENT)));
+    } catch {}
+}
 
 const userIcon = L.divIcon({
     className: 'msp-user-pin',
@@ -110,6 +130,27 @@ function CenterOn({ center, zoom }) {
         if (center) map.flyTo(center, zoom ?? map.getZoom(), { duration: 0.5 });
     }, [center?.[0], center?.[1]]);
     return null;
+}
+
+/* ─── Floating map controls (zoom + recenter) ──────────────────────────── */
+function MapControls({ userCoords }) {
+    const map = useMap();
+    const recenter = () => {
+        if (userCoords) map.flyTo([userCoords.lat, userCoords.lng], 14, { duration: 0.6 });
+    };
+    return (
+        <div className="msp-controls">
+            <button type="button" className="msp-ctrl" onClick={() => map.zoomIn()} aria-label="Kattalashtirish">
+                <Plus size={16} />
+            </button>
+            <button type="button" className="msp-ctrl" onClick={() => map.zoomOut()} aria-label="Kichraytirish">
+                <Minus size={16} />
+            </button>
+            <button type="button" className="msp-ctrl msp-ctrl--accent" onClick={recenter} aria-label="Mening joyim" title="Mening joyim">
+                <Crosshair size={16} />
+            </button>
+        </div>
+    );
 }
 
 /* ─── Service autocomplete (sticky top bar) ─────────────────────────────── */
@@ -222,11 +263,25 @@ function PermissionGate({ status, error, onRequest }) {
 
 /* ─── Selected clinic card (floating overlay on map) ────────────────────── */
 function SelectedClinicCard({ clinic, onClose, onAdd, adding }) {
+    const [shareHint, setShareHint] = useState('');
     if (!clinic) return null;
     const status = workingStatus(clinic.workingHours);
     const directionsUrl = clinic.onMap
         ? `https://www.google.com/maps/dir/?api=1&destination=${clinic.lat},${clinic.lng}`
         : null;
+    const handleShare = async () => {
+        const url = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+        const text = `${clinic.clinicName} — ${clinic.title}: ${fullPrice(clinic.price)}`;
+        try {
+            if (navigator.share) {
+                await navigator.share({ title: clinic.clinicName, text, url });
+            } else if (navigator.clipboard) {
+                await navigator.clipboard.writeText(`${text}\n${url}`);
+                setShareHint('Havola nusxalandi');
+                setTimeout(() => setShareHint(''), 1600);
+            }
+        } catch {}
+    };
     return (
         <div className="msp-card" role="dialog">
             <button className="msp-card__close" onClick={onClose} aria-label="Yopish"><X size={16} /></button>
@@ -278,6 +333,9 @@ function SelectedClinicCard({ clinic, onClose, onAdd, adding }) {
                         <Phone size={14} /> Qo'ng'iroq
                     </a>
                 )}
+                <button className="msp-card__btn msp-card__btn--ghost" onClick={handleShare} title="Ulashish">
+                    <Share2 size={14} /> {shareHint || 'Ulashish'}
+                </button>
                 <button className="msp-card__btn msp-card__btn--primary" onClick={() => onAdd(clinic)} disabled={adding}>
                     {adding ? <Loader2 size={14} className="msp-spin" /> : <ShoppingCart size={14} />} Band qilish
                 </button>
@@ -298,7 +356,13 @@ function SkeletonRow() {
 }
 
 /* ─── Filter & sort chips ──────────────────────────────────────────────── */
-function FilterChips({ sort, onSort, openOnly, onOpenOnly, total }) {
+const RADIUS_CYCLE = [null, 1, 3, 5, 10];
+function FilterChips({ sort, onSort, openOnly, onOpenOnly, radius, onRadius, total }) {
+    const cycleRadius = () => {
+        const i = RADIUS_CYCLE.indexOf(radius);
+        const next = RADIUS_CYCLE[(i + 1) % RADIUS_CYCLE.length];
+        onRadius(next);
+    };
     return (
         <div className="msp-chips">
             <div className="msp-chips__group">
@@ -315,6 +379,9 @@ function FilterChips({ sort, onSort, openOnly, onOpenOnly, total }) {
             <button className={`msp-chip msp-chip--toggle ${openOnly ? 'active' : ''}`} onClick={() => onOpenOnly(!openOnly)}>
                 <Clock size={12} /> Hozir ochiq
             </button>
+            <button className={`msp-chip msp-chip--toggle ${radius ? 'active' : ''}`} onClick={cycleRadius} title="Masofa filtri">
+                <MapPin size={12} /> {radius ? `${radius} km ichida` : 'Masofa'}
+            </button>
             <span className="msp-chips__count">{total} ta</span>
         </div>
     );
@@ -327,6 +394,7 @@ export default function MapSearchPage() {
     const selectedServiceId = params.get('xizmat') || null;
     const sort = params.get('sort') || 'distance';
     const openOnly = params.get('open') === '1';
+    const radius = params.get('radius') ? Number(params.get('radius')) : null;
 
     const { data: allServices = [], isLoading: servicesLoading } = usePublicServices();
     const { status, coords, error, request } = useGeolocation();
@@ -337,6 +405,7 @@ export default function MapSearchPage() {
     const [listOpen, setListOpen] = useState(true);
     const [adding, setAdding] = useState(false);
     const [resetTick, setResetTick] = useState(0);
+    const [recent, setRecent] = useState(() => readRecent());
 
     const updateParams = useCallback((patch) => {
         const next = new URLSearchParams(params);
@@ -354,6 +423,7 @@ export default function MapSearchPage() {
 
     const setSort = useCallback((s) => updateParams({ sort: s === 'distance' ? null : s }), [updateParams]);
     const setOpenOnly = useCallback((v) => updateParams({ open: v ? '1' : null }), [updateParams]);
+    const setRadius = useCallback((v) => updateParams({ radius: v || null }), [updateParams]);
 
     // Popular services for the empty-state quick-pick: top by clinic count.
     const popularServices = useMemo(() => {
@@ -413,6 +483,7 @@ export default function MapSearchPage() {
     const clinics = useMemo(() => {
         let list = clinicsAll;
         if (openOnly) list = list.filter(c => c.isOpenNow === true);
+        if (radius) list = list.filter(c => c.distanceKm == null || c.distanceKm <= radius);
         const sorted = [...list].sort((a, b) => {
             if (a.onMap && !b.onMap) return -1;
             if (!a.onMap && b.onMap) return 1;
@@ -421,7 +492,7 @@ export default function MapSearchPage() {
             return (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity);
         });
         return sorted;
-    }, [clinicsAll, sort, openOnly]);
+    }, [clinicsAll, sort, openOnly, radius]);
 
     const mappedClinics = clinics.filter(c => c.onMap);
 
@@ -435,6 +506,21 @@ export default function MapSearchPage() {
 
     const activeClinic = activeClinicId ? clinics.find(c => c.serviceRowId === activeClinicId) : null;
     const focusCenter = activeClinic?.onMap ? [activeClinic.lat, activeClinic.lng] : null;
+
+    // Persist last viewed clinic and refresh local state.
+    useEffect(() => {
+        if (!activeClinic?.clinicId) return;
+        pushRecent({
+            clinicId: activeClinic.clinicId,
+            clinicName: activeClinic.clinicName,
+            logo: activeClinic.logo,
+            address: activeClinic.address,
+            lastServiceId: activeClinic.serviceId,
+            lastServiceTitle: activeClinic.title,
+        });
+        setRecent(readRecent());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeClinicId]);
 
     const handleAddToCart = async (c) => {
         if (!user) {
@@ -520,6 +606,9 @@ export default function MapSearchPage() {
                     {/* Fit map to all pins when not focused on one */}
                     {!focusCenter && allPoints.length > 1 && <FitToBounds points={allPoints} />}
                     {focusCenter && <CenterOn center={focusCenter} zoom={15} />}
+
+                    {/* Floating zoom + recenter controls */}
+                    <MapControls userCoords={coords} />
                 </MapContainer>
 
                 {/* Reset button when focused on one clinic */}
@@ -535,6 +624,28 @@ export default function MapSearchPage() {
                         <div className="msp-hint-overlay__icon"><Search size={28} /></div>
                         <div className="msp-hint-overlay__title">Xizmat tanlang</div>
                         <div className="msp-hint-overlay__sub">Tepada qidiruvga xizmat nomini kiriting yoki quyidagilardan birini bosing:</div>
+                        {recent.length > 0 && (
+                            <div className="msp-recent">
+                                <div className="msp-recent__label"><History size={11} /> So'nggi ko'rilgan</div>
+                                <div className="msp-recent__items">
+                                    {recent.map(r => (
+                                        <button
+                                            key={r.clinicId}
+                                            className="msp-recent__item"
+                                            onClick={() => r.lastServiceId && setSelectedServiceId(r.lastServiceId)}
+                                            title={r.lastServiceTitle || ''}
+                                        >
+                                            {r.logo ? (
+                                                <img className="msp-recent__logo" src={r.logo} alt="" />
+                                            ) : (
+                                                <div className="msp-recent__logo msp-recent__logo--ph">{(r.clinicName || '?').slice(0, 1)}</div>
+                                            )}
+                                            <span className="msp-recent__name">{r.clinicName}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         {popularServices.length > 0 && (
                             <div className="msp-hint-overlay__picks">
                                 {popularServices.map(s => (
@@ -578,6 +689,8 @@ export default function MapSearchPage() {
                         onSort={setSort}
                         openOnly={openOnly}
                         onOpenOnly={setOpenOnly}
+                        radius={radius}
+                        onRadius={setRadius}
                         total={clinics.length}
                     />
                 )}
