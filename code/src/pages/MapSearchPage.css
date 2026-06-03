@@ -937,3 +937,124 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* ─── Faza 5: multi-select chips inside top search bar ──────────────────── */
+.msp-ac--multi { align-items: flex-start; padding: 6px 10px; }
+.msp-ac--multi .msp-ac__icon { margin-top: 8px; }
+.msp-ac__chips {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    min-width: 0;
+    cursor: text;
+}
+.msp-ac__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, rgba(0,189,224,0.12) 0%, rgba(0,189,224,0.18) 100%);
+    color: #006e83;
+    border: 1px solid rgba(0,189,224,0.30);
+    border-radius: 999px;
+    padding: 3px 4px 3px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    max-width: 200px;
+    line-height: 1.3;
+}
+.msp-ac__chip > span,
+.msp-ac__chip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msp-ac__chip-x {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.6);
+    border: none;
+    color: #006e83;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.msp-ac__chip-x:hover { background: #fff; color: #ef4444; }
+.msp-ac--multi .msp-ac__input {
+    min-width: 100px;
+    padding: 4px 2px;
+}
+.msp-ac__item-tick { color: #00BDE0; font-weight: 800; margin-right: 2px; }
+
+/* ─── Faza 5: floating quick-bar (replaces full-screen overlay) ─────────── */
+.msp-quickbar {
+    position: absolute;
+    left: 12px;
+    bottom: 18px;
+    right: 12px;
+    z-index: 400;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+.msp-quickbar__group {
+    pointer-events: auto;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    background: rgba(255,255,255,0.94);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(15,23,42,0.06);
+    border-radius: 14px;
+    padding: 8px 10px;
+    box-shadow: 0 8px 24px rgba(15,23,42,0.10);
+    scrollbar-width: none;
+    align-items: center;
+}
+.msp-quickbar__group::-webkit-scrollbar { display: none; }
+.msp-quickbar__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.4px;
+    flex-shrink: 0;
+    padding-right: 4px;
+    border-right: 1px solid rgba(15,23,42,0.08);
+    margin-right: 4px;
+}
+.msp-quick-chip--recent { padding-left: 4px; }
+.msp-quick-chip__logo {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 4px;
+}
+.msp-quick-chip {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* On desktop, quickbar shifts away from the side drawer */
+@media (min-width: 769px) {
+    .msp-quickbar { right: 392px; bottom: 16px; }
+}
+
+/* Browse mode price label */
+.msp-item__price--browse {
+    color: #00BDE0;
+    font-size: 14px;
+}
+.msp-item__more {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 7px;
+    background: rgba(0,189,224,0.10);
+    color: #006e83;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+}

@@ -153,14 +153,29 @@ function MapControls({ userCoords }) {
     );
 }
 
-/* ─── Service autocomplete (sticky top bar) ─────────────────────────────── */
-function ServiceAutocomplete({ services, value, onChange, loading }) {
+/* ─── Service multi-select autocomplete ─────────────────────────────────── */
+function ServiceAutocomplete({ services, selectedIds, onAdd, onRemove, onClear, loading }) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const wrapRef = useRef(null);
+    const inputRef = useRef(null);
 
-    const selected = useMemo(() => services.find(s => s.serviceId === value || s.id === value), [services, value]);
-    const display = selected ? selected.title : '';
+    const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+    // Unique services by serviceId, cheapest variant kept for display.
+    const uniqueServices = useMemo(() => {
+        const map = new Map();
+        for (const s of services) {
+            const key = s.serviceId || s.id;
+            const cur = map.get(key);
+            if (!cur || (s.price ?? Infinity) < (cur.price ?? Infinity)) map.set(key, s);
+        }
+        return Array.from(map.values());
+    }, [services]);
+
+    const selectedServices = useMemo(() =>
+        uniqueServices.filter(s => selectedSet.has(s.serviceId || s.id)),
+        [uniqueServices, selectedSet]);
 
     useEffect(() => {
         if (!open) return;
@@ -169,54 +184,77 @@ function ServiceAutocomplete({ services, value, onChange, loading }) {
         return () => document.removeEventListener('mousedown', onDoc);
     }, [open]);
 
-    const groups = useMemo(() => {
+    const suggestions = useMemo(() => {
         const q = query.trim().toLowerCase();
         const filtered = q
-            ? services.filter(s => (s.title || '').toLowerCase().includes(q) || (s.specialty || '').toLowerCase().includes(q))
-            : services;
-        const map = new Map();
-        for (const s of filtered) {
-            const key = s.serviceId || s.id;
-            const cur = map.get(key);
-            if (!cur || (s.price ?? Infinity) < (cur.price ?? Infinity)) {
-                map.set(key, s);
-            }
-        }
-        return Array.from(map.values()).slice(0, 30);
-    }, [services, query]);
+            ? uniqueServices.filter(s => (s.title || '').toLowerCase().includes(q) || (s.specialty || '').toLowerCase().includes(q))
+            : uniqueServices;
+        return filtered.slice(0, 40);
+    }, [uniqueServices, query]);
+
+    const placeholder = loading
+        ? 'Yuklanmoqda...'
+        : selectedServices.length === 0
+            ? "Xizmat qidiring: UZI, MRT, ko'rik..."
+            : 'Yana xizmat qo\'shish...';
 
     return (
-        <div className="msp-ac" ref={wrapRef}>
+        <div className={`msp-ac msp-ac--multi ${selectedServices.length > 0 ? 'has-chips' : ''}`} ref={wrapRef}>
             <Search size={16} className="msp-ac__icon" />
-            <input
-                className="msp-ac__input"
-                placeholder={loading ? 'Yuklanmoqda...' : (display || "Xizmat qidirish: TIBBIY KO'RIK, UZI, MRT...")}
-                value={open ? query : display}
-                onFocus={() => { setOpen(true); setQuery(''); }}
-                onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-                disabled={loading}
-            />
-            {value && !loading && (
-                <button type="button" className="msp-ac__clear" onClick={() => { onChange(null); setQuery(''); }} aria-label="Tozalash">
+            <div className="msp-ac__chips" onClick={() => inputRef.current?.focus()}>
+                {selectedServices.map(s => {
+                    const id = s.serviceId || s.id;
+                    return (
+                        <span key={id} className="msp-ac__chip">
+                            {s.title}
+                            <button type="button" className="msp-ac__chip-x" onClick={(e) => { e.stopPropagation(); onRemove(id); }} aria-label={`${s.title} olib tashlash`}>
+                                <X size={11} />
+                            </button>
+                        </span>
+                    );
+                })}
+                <input
+                    ref={inputRef}
+                    className="msp-ac__input"
+                    placeholder={selectedServices.length === 0 ? placeholder : (open ? placeholder : '')}
+                    value={query}
+                    onFocus={() => setOpen(true)}
+                    onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+                    disabled={loading}
+                />
+            </div>
+            {selectedServices.length > 0 && !loading && (
+                <button type="button" className="msp-ac__clear" onClick={() => { onClear(); setQuery(''); }} aria-label="Hammasini tozalash">
                     <X size={14} />
                 </button>
             )}
             {open && (
                 <div className="msp-ac__dropdown">
-                    {groups.length === 0 ? (
+                    {suggestions.length === 0 ? (
                         <div className="msp-ac__empty">Hech narsa topilmadi</div>
                     ) : (
-                        groups.map(s => (
-                            <button
-                                key={s.serviceId || s.id}
-                                type="button"
-                                className={`msp-ac__item ${(s.serviceId || s.id) === value ? 'active' : ''}`}
-                                onClick={() => { onChange(s.serviceId || s.id); setOpen(false); }}
-                            >
-                                <div className="msp-ac__item-title">{s.title}</div>
-                                <div className="msp-ac__item-sub">{s.specialty} • {s.category}</div>
-                            </button>
-                        ))
+                        suggestions.map(s => {
+                            const id = s.serviceId || s.id;
+                            const isPicked = selectedSet.has(id);
+                            return (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    className={`msp-ac__item ${isPicked ? 'active' : ''}`}
+                                    onClick={() => {
+                                        if (isPicked) onRemove(id);
+                                        else onAdd(id);
+                                        setQuery('');
+                                        inputRef.current?.focus();
+                                    }}
+                                >
+                                    <div className="msp-ac__item-title">
+                                        {isPicked && <span className="msp-ac__item-tick">✓</span>} {s.title}
+                                    </div>
+                                    <div className="msp-ac__item-sub">{s.specialty} • {s.category}</div>
+                                </button>
+                            );
+                        })
                     )}
                 </div>
             )}
@@ -262,7 +300,7 @@ function PermissionGate({ status, error, onRequest }) {
 }
 
 /* ─── Selected clinic card (floating overlay on map) ────────────────────── */
-function SelectedClinicCard({ clinic, onClose, onAdd, adding }) {
+function SelectedClinicCard({ clinic, browseMode, onClose, onAdd, onOpenClinic, adding }) {
     const [shareHint, setShareHint] = useState('');
     if (!clinic) return null;
     const status = workingStatus(clinic.workingHours);
@@ -316,10 +354,19 @@ function SelectedClinicCard({ clinic, onClose, onAdd, adding }) {
             {clinic.address && <div className="msp-card__addr">{clinic.address}</div>}
 
             <div className="msp-card__price-row">
-                <div>
-                    <div className="msp-card__price-label">{clinic.title}</div>
-                    <div className="msp-card__price-val">{fullPrice(clinic.price)}</div>
-                </div>
+                {browseMode ? (
+                    <div>
+                        <div className="msp-card__price-label">Ko'rib chiqish</div>
+                        <div className="msp-card__price-val">{clinic.matchCount || 0} ta xizmat</div>
+                    </div>
+                ) : (
+                    <div>
+                        <div className="msp-card__price-label">
+                            {clinic.title}{clinic.matchCount > 1 ? ` +${clinic.matchCount - 1}` : ''}
+                        </div>
+                        <div className="msp-card__price-val">{fullPrice(clinic.price)}</div>
+                    </div>
+                )}
             </div>
 
             <div className="msp-card__actions">
@@ -336,9 +383,15 @@ function SelectedClinicCard({ clinic, onClose, onAdd, adding }) {
                 <button className="msp-card__btn msp-card__btn--ghost" onClick={handleShare} title="Ulashish">
                     <Share2 size={14} /> {shareHint || 'Ulashish'}
                 </button>
-                <button className="msp-card__btn msp-card__btn--primary" onClick={() => onAdd(clinic)} disabled={adding}>
-                    {adding ? <Loader2 size={14} className="msp-spin" /> : <ShoppingCart size={14} />} Band qilish
-                </button>
+                {browseMode ? (
+                    <button className="msp-card__btn msp-card__btn--primary" onClick={() => onOpenClinic(clinic)}>
+                        <ShoppingCart size={14} /> Xizmatlar
+                    </button>
+                ) : (
+                    <button className="msp-card__btn msp-card__btn--primary" onClick={() => onAdd(clinic)} disabled={adding}>
+                        {adding ? <Loader2 size={14} className="msp-spin" /> : <ShoppingCart size={14} />} Band qilish
+                    </button>
+                )}
             </div>
         </div>
     );
@@ -391,10 +444,17 @@ function FilterChips({ sort, onSort, openOnly, onOpenOnly, radius, onRadius, tot
 export default function MapSearchPage() {
     const navigate = useNavigate();
     const [params, setParams] = useSearchParams();
-    const selectedServiceId = params.get('xizmat') || null;
+    // Multi-select: csv list in `xizmatlar`, backward-compat with legacy `xizmat`.
+    const selectedServiceIds = useMemo(() => {
+        const csv = params.get('xizmatlar');
+        const legacy = params.get('xizmat');
+        const list = csv ? csv.split(',').filter(Boolean) : (legacy ? [legacy] : []);
+        return Array.from(new Set(list));
+    }, [params]);
     const sort = params.get('sort') || 'distance';
     const openOnly = params.get('open') === '1';
     const radius = params.get('radius') ? Number(params.get('radius')) : null;
+    const browseMode = selectedServiceIds.length === 0;
 
     const { data: allServices = [], isLoading: servicesLoading } = usePublicServices();
     const { status, coords, error, request } = useGeolocation();
@@ -416,10 +476,22 @@ export default function MapSearchPage() {
         setParams(next, { replace: true });
     }, [params, setParams]);
 
-    const setSelectedServiceId = useCallback((id) => {
-        updateParams({ xizmat: id || null });
+    const writeSelected = useCallback((ids) => {
+        const csv = ids.length ? ids.join(',') : null;
+        updateParams({ xizmatlar: csv, xizmat: null });
         setActiveClinicId(null);
     }, [updateParams]);
+
+    const addSelectedService = useCallback((id) => {
+        if (!id || selectedServiceIds.includes(id)) return;
+        writeSelected([...selectedServiceIds, id]);
+    }, [selectedServiceIds, writeSelected]);
+
+    const removeSelectedService = useCallback((id) => {
+        writeSelected(selectedServiceIds.filter(x => x !== id));
+    }, [selectedServiceIds, writeSelected]);
+
+    const clearSelectedServices = useCallback(() => writeSelected([]), [writeSelected]);
 
     const setSort = useCallback((s) => updateParams({ sort: s === 'distance' ? null : s }), [updateParams]);
     const setOpenOnly = useCallback((v) => updateParams({ open: v ? '1' : null }), [updateParams]);
@@ -439,34 +511,52 @@ export default function MapSearchPage() {
             .slice(0, 8);
     }, [allServices]);
 
+    // Services we care about: either user-selected, or all if browsing.
     const matched = useMemo(() => {
-        if (!selectedServiceId) return [];
-        return allServices.filter(s => (s.serviceId || s.id) === selectedServiceId);
-    }, [allServices, selectedServiceId]);
+        if (browseMode) return allServices;
+        const set = new Set(selectedServiceIds);
+        return allServices.filter(s => set.has(s.serviceId || s.id));
+    }, [allServices, selectedServiceIds, browseMode]);
 
+    // Group services by clinic: one row per clinic with the cheapest matching
+    // service surfaced. In browse mode we still surface the clinic's cheapest
+    // service overall, so the pin/list has a meaningful representative entry.
     const clinicsAll = useMemo(() => {
         if (!coords) return [];
-        return matched.map(s => {
-            const lat = s.clinic?.latitude;
-            const lng = s.clinic?.longitude;
+        const byClinic = new Map();
+        for (const s of matched) {
+            if (!s.clinic?.id) continue;
+            const cid = s.clinic.id;
+            const cur = byClinic.get(cid);
+            if (!cur) {
+                byClinic.set(cid, { rep: s, count: 1, totalPrice: s.price ?? null });
+            } else {
+                cur.count += 1;
+                if ((s.price ?? Infinity) < (cur.rep.price ?? Infinity)) cur.rep = s;
+            }
+        }
+        return Array.from(byClinic.values()).map(({ rep, count }) => {
+            const lat = rep.clinic?.latitude;
+            const lng = rep.clinic?.longitude;
             const distanceKm = (lat != null && lng != null)
                 ? haversineKm(coords.lat, coords.lng, lat, lng)
                 : null;
-            const ws = workingStatus(s.clinic?.workingHours);
+            const ws = workingStatus(rep.clinic?.workingHours);
             return {
-                serviceRowId: s.id,
-                serviceId: s.serviceId || s.id,
-                category: s.category,
-                title: s.title,
-                price: s.price,
-                rating: s.clinic?.rating ?? s.rating ?? 0,
-                reviewCount: s.clinic?.reviewCount ?? s.reviews ?? 0,
-                clinicId: s.clinic?.id,
-                clinicName: s.clinic?.name,
-                address: s.clinic?.address,
-                phones: s.clinic?.phones ?? [],
-                logo: s.clinic?.logo ?? null,
-                workingHours: s.clinic?.workingHours ?? null,
+                serviceRowId: rep.id,
+                serviceId: rep.serviceId || rep.id,
+                category: rep.category,
+                title: rep.title,
+                price: rep.price,
+                matchCount: count,
+                rating: rep.clinic?.rating ?? rep.rating ?? 0,
+                reviewCount: rep.clinic?.reviewCount ?? rep.reviews ?? 0,
+                clinicId: rep.clinic?.id,
+                clinicName: rep.clinic?.name,
+                address: rep.clinic?.address,
+                phones: rep.clinic?.phones ?? [],
+                logo: rep.clinic?.logo ?? null,
+                workingHours: rep.clinic?.workingHours ?? null,
                 isOpenNow: ws.isOpen,
                 lat, lng,
                 distanceKm,
@@ -544,6 +634,10 @@ export default function MapSearchPage() {
         setResetTick(t => t + 1);
     };
 
+    const handleOpenClinic = (c) => {
+        if (c?.clinicId) navigate(`/klinikalar/${c.clinicId}`);
+    };
+
     // ─── Permission block ───
     if (status !== 'granted' || !coords) {
         return <PermissionGate status={status} error={error} onRequest={request} />;
@@ -558,8 +652,10 @@ export default function MapSearchPage() {
                 </button>
                 <ServiceAutocomplete
                     services={allServices}
-                    value={selectedServiceId}
-                    onChange={setSelectedServiceId}
+                    selectedIds={selectedServiceIds}
+                    onAdd={addSelectedService}
+                    onRemove={removeSelectedService}
+                    onClear={clearSelectedServices}
                     loading={servicesLoading}
                 />
             </div>
@@ -587,21 +683,26 @@ export default function MapSearchPage() {
                     )}
 
                     {/* Clinic pins (no Leaflet popup — using floating card instead) */}
-                    {mappedClinics.map(c => (
-                        <Marker
-                            key={c.serviceRowId}
-                            position={[c.lat, c.lng]}
-                            icon={clinicPinIcon({
-                                priceText: fmt(c.price),
-                                logo: c.logo,
-                                cheapest: cheapestPrice != null && c.price === cheapestPrice && mappedClinics.length > 1,
-                                selected: activeClinicId === c.serviceRowId,
-                                closed: c.isOpenNow === false,
-                            })}
-                            eventHandlers={{ click: () => setActiveClinicId(c.serviceRowId) }}
-                            zIndexOffset={activeClinicId === c.serviceRowId ? 1000 : 0}
-                        />
-                    ))}
+                    {mappedClinics.map(c => {
+                        const priceText = browseMode
+                            ? (c.rating > 0 ? `★ ${Number(c.rating).toFixed(1)}` : 'Klinika')
+                            : fmt(c.price);
+                        return (
+                            <Marker
+                                key={c.serviceRowId}
+                                position={[c.lat, c.lng]}
+                                icon={clinicPinIcon({
+                                    priceText,
+                                    logo: c.logo,
+                                    cheapest: !browseMode && cheapestPrice != null && c.price === cheapestPrice && mappedClinics.length > 1,
+                                    selected: activeClinicId === c.serviceRowId,
+                                    closed: c.isOpenNow === false,
+                                })}
+                                eventHandlers={{ click: () => setActiveClinicId(c.serviceRowId) }}
+                                zIndexOffset={activeClinicId === c.serviceRowId ? 1000 : 0}
+                            />
+                        );
+                    })}
 
                     {/* Fit map to all pins when not focused on one */}
                     {!focusCenter && allPoints.length > 1 && <FitToBounds points={allPoints} />}
@@ -618,43 +719,35 @@ export default function MapSearchPage() {
                     </button>
                 )}
 
-                {/* Empty state: prompt to pick a service, with popular quick-picks */}
-                {!selectedServiceId && !servicesLoading && (
-                    <div className="msp-hint-overlay">
-                        <div className="msp-hint-overlay__icon"><Search size={28} /></div>
-                        <div className="msp-hint-overlay__title">Xizmat tanlang</div>
-                        <div className="msp-hint-overlay__sub">Tepada qidiruvga xizmat nomini kiriting yoki quyidagilardan birini bosing:</div>
+                {/* Floating quick-pick row (browse mode only). Non-blocking: map stays usable. */}
+                {browseMode && !servicesLoading && (recent.length > 0 || popularServices.length > 0) && (
+                    <div className="msp-quickbar">
                         {recent.length > 0 && (
-                            <div className="msp-recent">
-                                <div className="msp-recent__label"><History size={11} /> So'nggi ko'rilgan</div>
-                                <div className="msp-recent__items">
-                                    {recent.map(r => (
-                                        <button
-                                            key={r.clinicId}
-                                            className="msp-recent__item"
-                                            onClick={() => r.lastServiceId && setSelectedServiceId(r.lastServiceId)}
-                                            title={r.lastServiceTitle || ''}
-                                        >
-                                            {r.logo ? (
-                                                <img className="msp-recent__logo" src={r.logo} alt="" />
-                                            ) : (
-                                                <div className="msp-recent__logo msp-recent__logo--ph">{(r.clinicName || '?').slice(0, 1)}</div>
-                                            )}
-                                            <span className="msp-recent__name">{r.clinicName}</span>
-                                        </button>
-                                    ))}
-                                </div>
+                            <div className="msp-quickbar__group">
+                                <span className="msp-quickbar__label"><History size={11} /> So'nggi</span>
+                                {recent.slice(0, 3).map(r => r.lastServiceId && (
+                                    <button
+                                        key={r.clinicId}
+                                        className="msp-quick-chip msp-quick-chip--recent"
+                                        onClick={() => addSelectedService(r.lastServiceId)}
+                                        title={r.lastServiceTitle || ''}
+                                    >
+                                        {r.logo && <img src={r.logo} alt="" className="msp-quick-chip__logo" />}
+                                        {r.lastServiceTitle || r.clinicName}
+                                    </button>
+                                ))}
                             </div>
                         )}
                         {popularServices.length > 0 && (
-                            <div className="msp-hint-overlay__picks">
-                                {popularServices.map(s => (
+                            <div className="msp-quickbar__group">
+                                <span className="msp-quickbar__label"><Sparkles size={11} /> Mashhur</span>
+                                {popularServices.slice(0, 6).map(s => (
                                     <button
                                         key={s.serviceId || s.id}
                                         className="msp-quick-chip"
-                                        onClick={() => setSelectedServiceId(s.serviceId || s.id)}
+                                        onClick={() => addSelectedService(s.serviceId || s.id)}
                                     >
-                                        <Sparkles size={11} /> {s.title}
+                                        {s.title}
                                     </button>
                                 ))}
                             </div>
@@ -666,8 +759,10 @@ export default function MapSearchPage() {
                 {activeClinic && (
                     <SelectedClinicCard
                         clinic={activeClinic}
+                        browseMode={browseMode}
                         onClose={() => setActiveClinicId(null)}
                         onAdd={handleAddToCart}
+                        onOpenClinic={handleOpenClinic}
                         adding={adding}
                     />
                 )}
@@ -683,7 +778,7 @@ export default function MapSearchPage() {
                     </span>
                 </button>
 
-                {selectedServiceId && clinicsAll.length > 0 && (
+                {clinicsAll.length > 0 && (
                     <FilterChips
                         sort={sort}
                         onSort={setSort}
@@ -696,21 +791,21 @@ export default function MapSearchPage() {
                 )}
 
                 <div className="msp-drawer__body">
-                    {servicesLoading && selectedServiceId ? (
+                    {servicesLoading ? (
                         <>
                             <SkeletonRow /><SkeletonRow /><SkeletonRow />
                         </>
                     ) : clinics.length === 0 ? (
                         <div className="msp-empty">
-                            {!selectedServiceId
-                                ? 'Tepadagi qidiruvdan xizmat tanlang'
-                                : openOnly
-                                    ? "Hozir ochiq klinika topilmadi. Filtrni o'chirib ko'ring."
-                                    : "Bu xizmatni taklif qilayotgan klinika topilmadi"}
+                            {openOnly || radius
+                                ? "Filtr bo'yicha klinika topilmadi. Filtrlarni o'chirib ko'ring."
+                                : browseMode
+                                    ? "Klinikalar topilmadi"
+                                    : "Tanlangan xizmatni taklif qilayotgan klinika topilmadi"}
                         </div>
                     ) : (
                         clinics.map(c => {
-                            const isCheapest = cheapestPrice != null && c.price === cheapestPrice && clinics.length > 1;
+                            const isCheapest = !browseMode && cheapestPrice != null && c.price === cheapestPrice && clinics.length > 1;
                             return (
                                 <div
                                     key={c.serviceRowId}
@@ -739,8 +834,15 @@ export default function MapSearchPage() {
                                     </div>
                                     <div className="msp-item__row">
                                         <div className="msp-item__price-wrap">
-                                            <strong className="msp-item__price">{fullPrice(c.price)}</strong>
-                                            {isCheapest && <span className="msp-item__cheapest">Eng arzon</span>}
+                                            {browseMode ? (
+                                                <strong className="msp-item__price msp-item__price--browse">{c.matchCount} ta xizmat</strong>
+                                            ) : (
+                                                <>
+                                                    <strong className="msp-item__price">{fullPrice(c.price)}</strong>
+                                                    {c.matchCount > 1 && <span className="msp-item__more">+{c.matchCount - 1}</span>}
+                                                    {isCheapest && <span className="msp-item__cheapest">Eng arzon</span>}
+                                                </>
+                                            )}
                                         </div>
                                         {c.rating > 0 && (
                                             <span className="msp-item__rating">
@@ -754,13 +856,22 @@ export default function MapSearchPage() {
                                                 <Phone size={13} /> Qo'ng'iroq
                                             </a>
                                         )}
-                                        <button
-                                            className="msp-item__btn primary"
-                                            onClick={(e) => { e.stopPropagation(); handleAddToCart(c); }}
-                                            disabled={adding}
-                                        >
-                                            <ShoppingCart size={13} /> Band qilish
-                                        </button>
+                                        {browseMode ? (
+                                            <button
+                                                className="msp-item__btn primary"
+                                                onClick={(e) => { e.stopPropagation(); handleOpenClinic(c); }}
+                                            >
+                                                <ShoppingCart size={13} /> Xizmatlar
+                                            </button>
+                                        ) : (
+                                            <button
+                                                className="msp-item__btn primary"
+                                                onClick={(e) => { e.stopPropagation(); handleAddToCart(c); }}
+                                                disabled={adding}
+                                            >
+                                                <ShoppingCart size={13} /> Band qilish
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             );
