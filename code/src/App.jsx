@@ -45,6 +45,8 @@ import ClinicServices from './clinic/pages/ClinicServices';
 import ClinicProfile from './clinic/pages/ClinicProfile';
 import ClinicBookings from './clinic/pages/ClinicBookings';
 import ClinicDiscounts from './clinic/pages/ClinicDiscounts';
+import ClinicPayments from './clinic/pages/ClinicPayments';
+import AdminPaymeOversight from './admin/pages/AdminPaymeOversight';
 import ClinicStaff from './clinic/pages/ClinicStaff';
 import ClinicReports from './clinic/pages/ClinicReports';
 import ClinicNotifications from './clinic/pages/ClinicNotifications';
@@ -186,6 +188,7 @@ function App() {
                                         <Route path="checkin-qr" element={<ClinicCheckInQR />} />
                                         <Route path="cashier" element={<ClinicCashierQueue />} />
                                         <Route path="discounts" element={<ClinicDiscounts />} />
+                                        <Route path="payments" element={<ClinicPayments />} />
                                         <Route path="staff" element={<ClinicStaff />} />
                                         <Route path="reports" element={<ClinicReports />} />
                                         <Route path="notifications" element={<ClinicNotifications />} />
@@ -214,6 +217,7 @@ function App() {
                                         <Route path="homepage" element={<HomepageSettings />} />
                                         <Route path="metadata-templates" element={<MetadataTemplates />} />
                                         <Route path="oferta" element={<OfertaPage />} />
+                                        <Route path="payments" element={<AdminPaymeOversight />} />
                                         <Route path="clinic-registrations" element={<Navigate to="/admin/clinics" replace />} />
                                     </Route>
 

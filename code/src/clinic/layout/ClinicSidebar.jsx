@@ -6,6 +6,7 @@ import {
     Home, Briefcase, Calendar, Tag,
     Building2, Users, BarChart2, Printer,
     LogOut, ChevronDown, Activity, Bell, Banknote,
+    CreditCard,
 } from 'lucide-react';
 import { useAuth } from '../../shared/auth/AuthContext';
 import api from '../../shared/api/axios';
@@ -22,6 +23,7 @@ const NAV_GROUPS = [
             { key: 'cashier', label: 'Kassa navbati', path: '/clinic/cashier', icon: <Banknote size={20} /> },
             { key: 'checkin-qr', label: 'Check-in QR', path: '/clinic/checkin-qr', icon: <Printer size={20} /> },
             { key: 'discounts', label: 'Chegirmalar', path: '/clinic/discounts', icon: <Tag size={20} /> },
+            { key: 'payments', label: "To'lov tizimi", path: '/clinic/payments', icon: <CreditCard size={20} /> },
         ],
     },
     {
@@ -29,8 +31,8 @@ const NAV_GROUPS = [
         items: [
             { key: 'profile', label: 'Klinika Profili', path: '/clinic/profile', icon: <Building2 size={20} /> },
             { key: 'staff', label: 'Xodimlar', path: '/clinic/staff', icon: <Users size={20} /> },
+            { key: 'reports', label: 'Hisobotlar', path: '/clinic/reports', icon: <BarChart2 size={20} /> },
             { key: 'notifications', label: 'Bildirishnomalar', path: '/clinic/notifications', icon: <Bell size={20} /> },
-            // Reports hidden until built — the page is a placeholder.
         ],
     },
 ];

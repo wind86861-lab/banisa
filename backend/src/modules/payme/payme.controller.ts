@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import * as paymeService from './payme.service';
+import type { PaymeContext } from './payme.service';
+import { logWebhook } from './payme-webhook-log.service';
 
 type JsonRpcRequest = {
     jsonrpc: string;
@@ -24,48 +26,55 @@ const reply = (res: Response, id: number | string, result?: any, error?: any) =>
 };
 
 export const handleMerchantApi = async (req: Request, res: Response) => {
+    const startedAt = Date.now();
     const { id, method, params } = req.body as JsonRpcRequest;
-    const isTestMode = !!(req as any).paymeTestMode;
-    console.log('[Payme] method:', method, 'isTestMode:', isTestMode, 'order_id:', params?.account?.order_id);
+    const ctx: PaymeContext = (req as any).paymeCtx
+        ?? { clinicId: null, isTestMode: false };
+    const tag = ctx.clinicId ? `Payme:${ctx.clinicId.slice(0, 8)}` : 'Payme:legacy';
+    console.log(`[${tag}] method=${method} test=${ctx.isTestMode} order=${params?.account?.order_id ?? '-'}`);
 
+    let outcome: { result?: any; error?: any } = {};
     try {
-        let outcome: { result?: any; error?: any };
-
         switch (method) {
             case 'CheckPerformTransaction':
-                outcome = await paymeService.checkPerformTransaction(params as any, isTestMode);
+                outcome = await paymeService.checkPerformTransaction(params as any, ctx);
                 break;
             case 'CreateTransaction':
-                outcome = await paymeService.createTransaction(params as any, isTestMode);
+                outcome = await paymeService.createTransaction(params as any, ctx);
                 break;
             case 'PerformTransaction':
-                outcome = await paymeService.performTransaction(params as any);
+                outcome = await paymeService.performTransaction(params as any, ctx);
                 break;
             case 'CancelTransaction':
-                outcome = await paymeService.cancelTransaction(params as any);
+                outcome = await paymeService.cancelTransaction(params as any, ctx);
                 break;
             case 'CheckTransaction':
-                outcome = await paymeService.checkTransaction(params as any);
+                outcome = await paymeService.checkTransaction(params as any, ctx);
                 break;
             case 'GetStatement':
-                outcome = await paymeService.getStatement(params as any);
+                outcome = await paymeService.getStatement(params as any, ctx);
                 break;
             default:
-                return reply(res, id, undefined, {
-                    code: -32601,
-                    message: 'Method not found',
-                    data: method,
-                });
+                outcome = { error: { code: -32601, message: 'Method not found', data: method } };
         }
-
-        if (outcome.error) return reply(res, id, undefined, outcome.error);
-        return reply(res, id, outcome.result);
     } catch (err) {
-        console.error('[Payme] Internal error:', err);
-        return reply(res, id, undefined, {
-            code: -32400,
-            message: 'Internal system error',
-            data: null,
-        });
+        console.error(`[${tag}] Internal error:`, err);
+        outcome = { error: { code: -32400, message: 'Internal system error', data: null } };
     }
+
+    const durationMs = Date.now() - startedAt;
+    logWebhook({
+        clinicId: ctx.clinicId,
+        method,
+        errorCode: outcome.error?.code ?? null,
+        errorMsg: outcome.error?.message ?? null,
+        orderId: params?.account?.order_id ?? null,
+        paymeId: params?.id ?? null,
+        durationMs,
+        isTestMode: ctx.isTestMode,
+        ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0] ?? req.ip ?? null,
+    });
+
+    if (outcome.error) return reply(res, id, undefined, outcome.error);
+    return reply(res, id, outcome.result);
 };

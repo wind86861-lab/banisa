@@ -42,10 +42,25 @@ export const env = {
     CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
     CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
     CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    // Public base URL of the API (used to build webhook URLs shown to clinics).
+    // Falls back to CORS_ORIGIN-derived guess in dev.
+    PUBLIC_API_BASE_URL: process.env.PUBLIC_API_BASE_URL
+        || (process.env.NODE_ENV === 'production' ? 'https://banisa.uz' : 'http://localhost:5000'),
     PAYME_MERCHANT_ID: requireValue('PAYME_MERCHANT_ID'),
     PAYME_PROD_KEY: requireSecret('PAYME_PROD_KEY', ''),
     PAYME_TEST_KEY: requireSecret('PAYME_TEST_KEY', ''),
+    // Master key for AES-256-GCM envelope encryption of per-clinic Payme secrets.
+    // 32 raw bytes hex-encoded = 64 chars. Generate with:
+    //   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+    PAYME_MASTER_KEY: requireSecret('PAYME_MASTER_KEY', ''),
 };
+
+// In production the master key must be present and the right length.
+if (IS_PROD) {
+    if (!env.PAYME_MASTER_KEY || env.PAYME_MASTER_KEY.length !== 64) {
+        throw new Error('[env] PAYME_MASTER_KEY must be 64 hex chars (32 bytes) in production');
+    }
+}
 
 // Refuse to boot with the legacy fallback secret in production.
 if (IS_PROD) {

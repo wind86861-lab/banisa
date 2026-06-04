@@ -266,6 +266,9 @@ model Clinic {
   reviews                Review[]
   notifications          Notification[]            @relation("ClinicNotifications")
   serviceMetadata        ClinicServiceMetadata[]
+  paymeConfig            ClinicPaymeConfig?
+  paymeConfigVersions    PaymeConfigVersion[]
+  paymeTransactions      PaymeTransaction[]
 
   @@index([status])
   @@index([source])
@@ -749,13 +752,101 @@ model PaymeTransaction {
   orderId     String
   orderType   String   @default("appointment")
   receivers   Json?
+  clinicId    String?
+  isTestMode  Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  clinic Clinic? @relation(fields: [clinicId], references: [id])
 
   @@index([paymeId])
   @@index([orderId])
   @@index([state])
   @@index([orderId, state])
+  @@index([clinicId])
+  @@index([clinicId, state])
+}
+
+// ─── Per-clinic Payme merchant configuration ─────────────────────────────────
+// Secret keys are AES-256-GCM encrypted at rest using PAYME_MASTER_KEY (env).
+// Plaintext keys never leave the TenantVault service.
+model ClinicPaymeConfig {
+  id                  String   @id @default(uuid())
+  clinicId            String   @unique
+  merchantId          String
+  // Production secret key, AES-256-GCM encrypted (base64 ciphertext + iv + tag)
+  prodKeyCiphertext   String
+  prodKeyIv           String
+  prodKeyTag          String
+  // Optional separate test/sandbox key (Payme sandbox env)
+  testKeyCiphertext   String?
+  testKeyIv           String?
+  testKeyTag          String?
+  // Test mode flag — when true, only testKey accepted; prod ignored
+  isTestMode          Boolean  @default(true)
+  // Active flag — admin/clinic can disable without deleting config
+  isActive            Boolean  @default(false)
+  // Activation lifecycle
+  connectedAt         DateTime?
+  lastUsedAt          DateTime?
+  lastRotatedAt       DateTime?
+  // Audit pointers
+  createdBy           String?
+  updatedBy           String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  clinic   Clinic               @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  versions PaymeConfigVersion[]
+
+  @@index([isActive])
+}
+
+// ─── Immutable version history for rollback + compliance ─────────────────────
+model PaymeConfigVersion {
+  id                String   @id @default(uuid())
+  configId          String
+  clinicId          String
+  version           Int
+  merchantId        String
+  prodKeyCiphertext String
+  prodKeyIv         String
+  prodKeyTag        String
+  testKeyCiphertext String?
+  testKeyIv         String?
+  testKeyTag        String?
+  isTestMode        Boolean
+  reason            String?   // "initial" | "rotation" | "manual" | "incident"
+  changedBy         String?
+  createdAt         DateTime @default(now())
+
+  config ClinicPaymeConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  clinic Clinic            @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([configId, version])
+  @@index([clinicId])
+  @@index([createdAt])
+}
+
+// ─── Webhook activity log — powers clinic dashboard & troubleshooter ─────────
+// Retention: rolling 90 days (sweeper job, future). Per-clinic and per-call.
+model PaymeWebhookLog {
+  id         String   @id @default(uuid())
+  clinicId   String?
+  method     String   // Payme JSON-RPC method or "AuthFailed"
+  statusCode Int      // 200 always (per Payme spec); 0 if no response sent
+  errorCode  Int?     // Payme error code if any
+  errorMsg   String?
+  orderId    String?
+  paymeId    String?
+  durationMs Int
+  isTestMode Boolean  @default(false)
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([clinicId, createdAt])
+  @@index([clinicId, errorCode])
+  @@index([createdAt])
 }
 
 model ClinicRegistrationPerson {

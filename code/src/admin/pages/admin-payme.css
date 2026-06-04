@@ -1,0 +1,425 @@
+/* ─── Page ────────────────────────────────────────────────────────────────── */
+.apo-page {
+    padding: 24px 28px 60px;
+    max-width: 1380px;
+    margin: 0 auto;
+}
+
+.apo-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 22px;
+}
+
+.apo-header__left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.apo-header__icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+    box-shadow: 0 8px 24px rgba(6, 182, 212, 0.32);
+}
+
+.apo-header__title {
+    font-size: 22px;
+    font-weight: 800;
+    margin: 0;
+    color: var(--text-primary, #0f172a);
+    letter-spacing: -0.02em;
+}
+
+.apo-header__sub {
+    font-size: 13px;
+    color: var(--text-secondary, #64748b);
+    margin: 4px 0 0;
+}
+
+/* KPI cards */
+.apo-kpis {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+}
+@media (max-width: 1100px) { .apo-kpis { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 700px)  { .apo-kpis { grid-template-columns: repeat(2, 1fr); } }
+
+.apo-kpi {
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04);
+}
+
+.apo-kpi__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 10px;
+}
+
+.apo-kpi__label {
+    font-size: 10px;
+    color: var(--text-secondary, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+}
+
+.apo-kpi__val {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text-primary, #0f172a);
+    letter-spacing: -0.02em;
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Toolbar */
+.apo-tools {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.apo-input {
+    flex: 1 1 240px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-card, #fff);
+    font-size: 13px;
+    font-family: inherit;
+    transition: border-color 120ms, box-shadow 120ms;
+}
+.apo-input:focus {
+    outline: 0; border-color: #06b6d4;
+    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.16);
+}
+
+.apo-select {
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-card, #fff);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-primary, #0f172a);
+    font-family: inherit;
+}
+
+/* Table */
+.apo-table-wrap {
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04);
+}
+
+.apo-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+}
+
+.apo-table thead th {
+    text-align: left;
+    padding: 14px 16px;
+    background: var(--bg, #f8fafc);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-secondary, #64748b);
+    font-weight: 800;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    white-space: nowrap;
+}
+
+.apo-table tbody td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    color: var(--text-primary, #0f172a);
+    vertical-align: middle;
+}
+.apo-table tbody tr:last-child td { border-bottom: 0; }
+.apo-table tbody tr {
+    transition: background 120ms;
+    cursor: pointer;
+}
+.apo-table tbody tr:hover { background: rgba(6, 182, 212, 0.04); }
+
+.apo-clinic-name {
+    font-weight: 700;
+    color: var(--text-primary, #0f172a);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.apo-clinic-meta {
+    font-size: 11px;
+    color: var(--text-secondary, #64748b);
+    margin-top: 2px;
+}
+
+.apo-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.apo-status--live { background: rgba(16, 185, 129, 0.14); color: #047857; }
+.apo-status--test { background: rgba(251, 191, 36, 0.16); color: #b45309; }
+.apo-status--inactive { background: rgba(148, 163, 184, 0.18); color: #475569; }
+.apo-status--none { background: rgba(99, 102, 241, 0.12); color: #4338ca; }
+
+.apo-status__dot {
+    width: 7px; height: 7px; border-radius: 999px;
+    background: currentColor;
+}
+.apo-status--live .apo-status__dot {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+    animation: apo-pulse 2.2s infinite;
+}
+@keyframes apo-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.4); opacity: 0.6; }
+}
+
+.apo-tx-cnt {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary, #64748b);
+    font-weight: 600;
+}
+
+.apo-actions { display: inline-flex; gap: 6px; align-items: center; }
+
+.apo-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 11px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-card, #fff);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--text-primary, #0f172a);
+    transition: background 120ms, transform 100ms;
+}
+.apo-btn:hover { background: var(--bg, #f8fafc); transform: translateY(-1px); }
+.apo-btn--danger { color: #dc2626; border-color: rgba(220, 38, 38, 0.25); }
+.apo-btn--danger:hover { background: rgba(220, 38, 38, 0.05); }
+.apo-btn--ghost { background: transparent; border-color: transparent; }
+
+.apo-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary, #64748b);
+    font-size: 14px;
+}
+
+/* Drawer (drill-down) */
+.apo-drawer-bg {
+    position: fixed; inset: 0; z-index: 1100;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.apo-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 1101;
+    width: min(640px, 92vw);
+    background: var(--bg-card, #fff);
+    box-shadow: -20px 0 60px rgba(15, 23, 42, 0.25);
+    overflow-y: auto;
+    padding: 24px 28px;
+}
+
+.apo-drawer__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.apo-drawer__close {
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    color: #94a3b8;
+    padding: 6px;
+    border-radius: 8px;
+}
+.apo-drawer__close:hover { background: rgba(15,23,42,0.06); }
+
+.apo-drawer__title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-primary, #0f172a);
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.apo-drawer__meta {
+    font-size: 12px;
+    color: var(--text-secondary, #64748b);
+    margin-top: 4px;
+}
+
+.apo-section {
+    margin-bottom: 22px;
+}
+.apo-section__title {
+    font-size: 11px;
+    color: var(--text-secondary, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-weight: 800;
+    margin-bottom: 10px;
+}
+
+.apo-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.apo-info {
+    padding: 10px 12px;
+    background: var(--bg, #f8fafc);
+    border-radius: 10px;
+}
+.apo-info__lbl {
+    font-size: 10px;
+    color: var(--text-secondary, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+.apo-info__val {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary, #0f172a);
+    font-variant-numeric: tabular-nums;
+    word-break: break-all;
+}
+
+.apo-timeline {
+    display: grid;
+    gap: 6px;
+}
+.apo-tl-item {
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--bg, #f8fafc);
+    font-size: 12px;
+}
+.apo-tl-item--err { background: rgba(239, 68, 68, 0.06); }
+
+.apo-tl-dot {
+    width: 8px; height: 8px; border-radius: 999px;
+    margin-top: 5px; margin-left: 7px;
+}
+.apo-tl-dot--ok { background: #10b981; }
+.apo-tl-dot--err { background: #ef4444; }
+
+.apo-tl-title { font-weight: 700; color: var(--text-primary, #0f172a); }
+.apo-tl-meta { font-size: 11px; color: var(--text-secondary, #64748b); margin-top: 2px; }
+.apo-tl-time { font-size: 11px; color: var(--text-secondary, #64748b); white-space: nowrap; }
+.apo-tl-err { color: #b91c1c; font-size: 11px; margin-top: 4px; }
+
+/* Confirm modal */
+.apo-modal-bg {
+    position: fixed; inset: 0; z-index: 1200;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    display: grid; place-items: center;
+    padding: 20px;
+}
+.apo-modal {
+    background: var(--bg-card, #fff);
+    border-radius: 20px;
+    padding: 24px;
+    max-width: 460px;
+    width: 100%;
+    box-shadow: 0 30px 80px rgba(15, 23, 42, 0.3);
+}
+.apo-modal__title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-primary, #0f172a);
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+}
+.apo-modal__sub {
+    font-size: 13px;
+    color: var(--text-secondary, #64748b);
+    margin-bottom: 14px;
+    line-height: 1.5;
+}
+.apo-modal__field {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg, #f8fafc);
+    font-size: 13px;
+    font-family: inherit;
+    margin-bottom: 14px;
+    resize: vertical;
+    min-height: 70px;
+}
+.apo-modal__actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* Skeleton */
+.apo-skel {
+    background: linear-gradient(90deg, rgba(15,23,42,0.06) 0%, rgba(15,23,42,0.1) 50%, rgba(15,23,42,0.06) 100%);
+    background-size: 200% 100%;
+    animation: apo-shimmer 1.4s ease-in-out infinite;
+    border-radius: 10px;
+}
+@keyframes apo-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+@media (max-width: 700px) {
+    .apo-page { padding: 16px 14px 60px; }
+    .apo-table thead { display: none; }
+    .apo-table, .apo-table tbody, .apo-table tr, .apo-table td { display: block; width: 100%; }
+    .apo-table tbody tr { border: 1px solid var(--border-color, #e2e8f0); border-radius: 12px; margin-bottom: 10px; }
+    .apo-table tbody td { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid rgba(15,23,42,0.05); }
+    .apo-table tbody td:last-child { border-bottom: 0; }
+    .apo-info-grid { grid-template-columns: 1fr; }
+}

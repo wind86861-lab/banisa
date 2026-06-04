@@ -23,6 +23,16 @@ export const PAYME_ERROR = {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const now = () => Date.now();
 
+// Tenant context passed by the route layer. When clinicId is non-null we are on
+// the per-clinic endpoint (/api/payme/callback/:clinicId) and must scope every
+// lookup + write to that clinic. clinicId === null is the legacy global path.
+export interface PaymeContext {
+    clinicId: string | null;
+    isTestMode: boolean;
+}
+
+const LEGACY_CTX: PaymeContext = { clinicId: null, isTestMode: false };
+
 // ─── CheckPerformTransaction ─────────────────────────────────────────────────
 // Validates: order exists and amount matches. Called BEFORE CreateTransaction.
 // Returns detail object with receipt items for tax compliance.
@@ -30,8 +40,9 @@ const now = () => Date.now();
 export const checkPerformTransaction = async (params: {
     amount: number;
     account: { order_id: string };
-}, isTestMode = false) => {
+}, ctx: PaymeContext = LEGACY_CTX) => {
     const { amount, account } = params;
+    const { clinicId: tenantClinicId, isTestMode } = ctx;
 
     if (!account?.order_id) {
         return { error: PAYME_ERROR.WRONG_ACCOUNT };
@@ -91,6 +102,13 @@ export const checkPerformTransaction = async (params: {
         return { error: PAYME_ERROR.WRONG_ACCOUNT };
     }
 
+    // Cross-tenant guard: on per-clinic endpoint, refuse orders that belong to
+    // a different clinic. Without this a hijacked merchant key could mark
+    // someone else's appointment as paid.
+    if (tenantClinicId && appointment.clinicId !== tenantClinicId) {
+        return { error: PAYME_ERROR.WRONG_ACCOUNT };
+    }
+
     // 2. Check amount matches (must come before busy check per Payme spec)
     const expectedAmount = appointment.price * 100;
     if (amount !== expectedAmount) {
@@ -145,8 +163,9 @@ export const createTransaction = async (params: {
     time: number;  // Payme's timestamp (ms)
     amount: number;
     account: { order_id: string };
-}, isTestMode = false) => {
+}, ctx: PaymeContext = LEGACY_CTX) => {
     const { id: paymeId, time: paymeTime, amount, account } = params;
+    const { clinicId: tenantClinicId, isTestMode } = ctx;
 
     // Check if transaction already exists
     const existing = await prisma.paymeTransaction.findUnique({
@@ -155,6 +174,10 @@ export const createTransaction = async (params: {
 
     if (existing) {
         if (existing.state !== PAYME_STATE.CREATED) {
+            return { error: PAYME_ERROR.UNABLE_PERFORM };
+        }
+        // Cross-tenant guard: another clinic must not see/resume this tx.
+        if (tenantClinicId && existing.clinicId && existing.clinicId !== tenantClinicId) {
             return { error: PAYME_ERROR.UNABLE_PERFORM };
         }
         return {
@@ -166,8 +189,8 @@ export const createTransaction = async (params: {
         };
     }
 
-    // Validate order (pass test mode flag)
-    const check = await checkPerformTransaction({ amount, account }, isTestMode);
+    // Validate order (pass tenant context through)
+    const check = await checkPerformTransaction({ amount, account }, ctx);
     if (check.error) return { error: check.error };
 
     // Check if another transaction already exists for this order
@@ -183,7 +206,8 @@ export const createTransaction = async (params: {
         return { error: PAYME_ERROR.ORDER_BUSY };
     }
 
-    // Create new transaction
+    // Create new transaction. clinicId is set when the call came from a
+    // per-clinic endpoint; legacy global path leaves it null for now.
     const transaction = await prisma.paymeTransaction.create({
         data: {
             paymeId,
@@ -193,6 +217,8 @@ export const createTransaction = async (params: {
             state: PAYME_STATE.CREATED,
             orderId: account.order_id,
             orderType: 'appointment',
+            clinicId: tenantClinicId,
+            isTestMode,
         },
     });
 
@@ -206,14 +232,20 @@ export const createTransaction = async (params: {
 };
 
 // ─── PerformTransaction ──────────────────────────────────────────────────────
-export const performTransaction = async (params: { id: string }) => {
+export const performTransaction = async (params: { id: string }, ctx: PaymeContext = LEGACY_CTX) => {
     const { id: paymeId } = params;
+    const { clinicId: tenantClinicId } = ctx;
 
     const transaction = await prisma.paymeTransaction.findUnique({
         where: { paymeId },
     });
 
     if (!transaction) {
+        return { error: PAYME_ERROR.TRANSACTION_NOT_FOUND };
+    }
+
+    // Cross-tenant guard
+    if (tenantClinicId && transaction.clinicId && transaction.clinicId !== tenantClinicId) {
         return { error: PAYME_ERROR.TRANSACTION_NOT_FOUND };
     }
 
@@ -264,14 +296,19 @@ export const performTransaction = async (params: { id: string }) => {
 };
 
 // ─── CancelTransaction ───────────────────────────────────────────────────────
-export const cancelTransaction = async (params: { id: string; reason: number }) => {
+export const cancelTransaction = async (params: { id: string; reason: number }, ctx: PaymeContext = LEGACY_CTX) => {
     const { id: paymeId, reason } = params;
+    const { clinicId: tenantClinicId } = ctx;
 
     const transaction = await prisma.paymeTransaction.findUnique({
         where: { paymeId },
     });
 
     if (!transaction) {
+        return { error: PAYME_ERROR.TRANSACTION_NOT_FOUND };
+    }
+
+    if (tenantClinicId && transaction.clinicId && transaction.clinicId !== tenantClinicId) {
         return { error: PAYME_ERROR.TRANSACTION_NOT_FOUND };
     }
 
@@ -330,14 +367,19 @@ export const cancelTransaction = async (params: { id: string; reason: number }) 
 };
 
 // ─── CheckTransaction ────────────────────────────────────────────────────────
-export const checkTransaction = async (params: { id: string }) => {
+export const checkTransaction = async (params: { id: string }, ctx: PaymeContext = LEGACY_CTX) => {
     const { id: paymeId } = params;
+    const { clinicId: tenantClinicId } = ctx;
 
     const transaction = await prisma.paymeTransaction.findUnique({
         where: { paymeId },
     });
 
     if (!transaction) {
+        return { error: PAYME_ERROR.TRANSACTION_NOT_FOUND };
+    }
+
+    if (tenantClinicId && transaction.clinicId && transaction.clinicId !== tenantClinicId) {
         return { error: PAYME_ERROR.TRANSACTION_NOT_FOUND };
     }
 
@@ -354,8 +396,9 @@ export const checkTransaction = async (params: { id: string }) => {
 };
 
 // ─── GetStatement ─────────────────────────────────────────────────────────────
-export const getStatement = async (params: { from: number; to: number }) => {
+export const getStatement = async (params: { from: number; to: number }, ctx: PaymeContext = LEGACY_CTX) => {
     const { from, to } = params;
+    const { clinicId: tenantClinicId } = ctx;
 
     const transactions = await prisma.paymeTransaction.findMany({
         where: {
@@ -363,6 +406,9 @@ export const getStatement = async (params: { from: number; to: number }) => {
                 gte: BigInt(from),
                 lte: BigInt(to),
             },
+            // On a per-clinic endpoint, only this clinic's transactions are
+            // visible. Legacy global path returns everything (back-compat).
+            ...(tenantClinicId ? { clinicId: tenantClinicId } : {}),
         },
         orderBy: { createTime: 'asc' },
     });
