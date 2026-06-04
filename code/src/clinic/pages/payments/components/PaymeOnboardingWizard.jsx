@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Sparkles, ArrowRight, ArrowLeft, CheckCircle2, ExternalLink,
+    Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Phone,
     Eye, EyeOff, Loader2, ShieldCheck, KeyRound, FlaskConical, Power,
-    Copy, AlertTriangle,
+    Copy, AlertTriangle, MessageCircle,
 } from 'lucide-react';
 import api from '../../../../shared/api/axios';
 
@@ -138,21 +138,34 @@ export default function PaymeOnboardingWizard({ webhookUrl, initialConfig, onCan
                                 </div>
                             </button>
 
-                            <a
-                                href="https://business.payme.uz"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="pay-wiz__option"
-                                style={{ textDecoration: 'none' }}
-                            >
+                            <div className="pay-wiz__option" style={{ cursor: 'default' }}>
                                 <div className="pay-wiz__option-title">
-                                    <ExternalLink size={14} style={{ verticalAlign: 'middle', marginRight: 6, color: '#6366f1' }} />
+                                    <Phone size={14} style={{ verticalAlign: 'middle', marginRight: 6, color: '#6366f1' }} />
                                     Yo'q, qanday tuzaman?
                                 </div>
-                                <div className="pay-wiz__option-sub">
-                                    business.payme.uz saytida ariza topshiring — taxminan 1-2 ish kunda kabinet ochiladi
+                                <div className="pay-wiz__option-sub" style={{ marginBottom: 12 }}>
+                                    Banisa jamoasi sizga yordam beradi — Payme bilan shartnoma tuzish jarayonini
+                                    boshidan oxirigacha kuzatib boramiz. Biz bilan bog'laning:
                                 </div>
-                            </a>
+                                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                    <a
+                                        href="tel:+998711234567"
+                                        className="pay-btn pay-btn--primary"
+                                        style={{ textDecoration: 'none' }}
+                                    >
+                                        <Phone size={14} /> +998 71 123 45 67
+                                    </a>
+                                    <a
+                                        href="https://t.me/banisa_uz"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="pay-btn"
+                                        style={{ textDecoration: 'none' }}
+                                    >
+                                        <MessageCircle size={14} /> Telegram'da yozish
+                                    </a>
+                                </div>
+                            </div>
 
                             <div className="pay-wiz__actions">
                                 <button className="pay-btn pay-btn--ghost" onClick={onCancel}>
@@ -281,7 +294,8 @@ export default function PaymeOnboardingWizard({ webhookUrl, initialConfig, onCan
                                 Yoqish va webhook URL
                             </h2>
                             <p className="pay-wiz__sub">
-                                Quyidagi URL'ni Payme merchant kabinetiga (Sozlamalar → Webhook) joylang.
+                                Quyidagi URL'ni Payme bilan shartnoma tuzgan masul xodimga yuboring —
+                                ular sizning kabinetingizga webhook URL'ni ulab beradi.
                             </p>
 
                             <div className="pay-card" style={{ marginBottom: 16 }}>

@@ -209,7 +209,6 @@ function KeyVaultCard({ config, onRotate }) {
 }
 
 function WebhookUrlBlock({ url, onCopy }) {
-    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&data=${encodeURIComponent(url)}`;
     return (
         <div className="pay-card">
             <div className="pay-card__title"><Radio size={14} /> Webhook URL</div>
@@ -222,15 +221,12 @@ function WebhookUrlBlock({ url, onCopy }) {
                     </button>
                 </div>
 
-                <div className="pay-qr-row">
-                    <img className="pay-qr-img" src={qrSrc} alt="Webhook QR" loading="lazy" />
-                    <div className="pay-qr-hint">
-                        <div style={{ marginBottom: 6 }}>
-                            <strong>Payme kabinetiga joylash:</strong>
-                        </div>
-                        Payme merchant kabinetiga kiring → Sozlamalar → Webhook URL — yuqoridagi URL'ni joylang.
-                        Mobil orqali Payme app'da QR kodni skanerlang.
+                <div className="pay-qr-hint" style={{ padding: '12px 14px', background: 'var(--bg, #f8fafc)', borderRadius: 12, border: '1px dashed var(--border-color, #e2e8f0)' }}>
+                    <div style={{ marginBottom: 4 }}>
+                        <strong>Payme xodimga yuborish:</strong>
                     </div>
+                    Yuqoridagi URL'ni Payme bilan shartnoma tuzgan masul xodimga yuboring —
+                    ular Payme tomonida webhook URL'ni sizning kabinetingizga ulab beradi.
                 </div>
             </div>
         </div>
