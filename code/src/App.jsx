@@ -46,7 +46,9 @@ import ClinicProfile from './clinic/pages/ClinicProfile';
 import ClinicBookings from './clinic/pages/ClinicBookings';
 import ClinicDiscounts from './clinic/pages/ClinicDiscounts';
 import ClinicPayments from './clinic/pages/ClinicPayments';
+import ClinicDoctors from './clinic/pages/ClinicDoctors';
 import AdminPaymeOversight from './admin/pages/AdminPaymeOversight';
+import AdminSpecialties from './admin/pages/AdminSpecialties';
 import ClinicStaff from './clinic/pages/ClinicStaff';
 import ClinicReports from './clinic/pages/ClinicReports';
 import ClinicNotifications from './clinic/pages/ClinicNotifications';
@@ -56,6 +58,9 @@ import XizmatlarPage from './pages/home/XizmatlarPage';
 import XizmatlarCategoryPage from './pages/home/XizmatlarCategoryPage';
 import XizmatDetailPage from './pages/home/XizmatDetailPage';
 import ClinicsPage from './pages/home/ClinicsPage';
+import DoctorsPage from './pages/home/DoctorsPage';
+import DoctorProfilePage from './pages/home/DoctorProfilePage';
+import DoctorBookingPage from './pages/home/DoctorBookingPage';
 import ClinicDetailPage from './pages/home/ClinicDetailPage';
 import UserLoginPage from './pages/user/UserLoginPage';
 import UserSignupPage from './pages/user/UserSignupPage';
@@ -133,6 +138,9 @@ function App() {
                                     <Route path="/xizmatlar/:id" element={<XizmatDetailPage />} />
                                     <Route path="/klinikalar" element={<ClinicsPage />} />
                                     <Route path="/klinikalar/:id" element={<ClinicDetailPage />} />
+                                    <Route path="/doktorlar" element={<DoctorsPage />} />
+                                    <Route path="/doktorlar/:id" element={<DoctorProfilePage />} />
+                                    <Route path="/doktorlar/:id/band/:clinicId" element={<DoctorBookingPage />} />
 
                                     {/* ─── USER AUTH ROUTES (PATIENT) ──────────────── */}
                                     <Route path="/user/login" element={<UserPublicOnlyGuard><UserLoginPage /></UserPublicOnlyGuard>} />
@@ -189,6 +197,7 @@ function App() {
                                         <Route path="cashier" element={<ClinicCashierQueue />} />
                                         <Route path="discounts" element={<ClinicDiscounts />} />
                                         <Route path="payments" element={<ClinicPayments />} />
+                                        <Route path="doctors" element={<ClinicDoctors />} />
                                         <Route path="staff" element={<ClinicStaff />} />
                                         <Route path="reports" element={<ClinicReports />} />
                                         <Route path="notifications" element={<ClinicNotifications />} />
@@ -218,6 +227,7 @@ function App() {
                                         <Route path="metadata-templates" element={<MetadataTemplates />} />
                                         <Route path="oferta" element={<OfertaPage />} />
                                         <Route path="payments" element={<AdminPaymeOversight />} />
+                                        <Route path="specialties" element={<AdminSpecialties />} />
                                         <Route path="clinic-registrations" element={<Navigate to="/admin/clinics" replace />} />
                                     </Route>
 

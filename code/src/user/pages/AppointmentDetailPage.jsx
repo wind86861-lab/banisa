@@ -13,6 +13,7 @@ import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
 import ProgressTimeline from '../components/ProgressTimeline';
 import ReviewWriteModal from '../components/ReviewWriteModal';
+import DoctorReviewModal from '../components/DoctorReviewModal';
 import { useQuery as useRq } from '@tanstack/react-query';
 import { Star } from 'lucide-react';
 import './css/AppointmentDetailPage.css';
@@ -50,6 +51,7 @@ export default function AppointmentDetailPage() {
     // (call the clinic) instead of an endless silent spinner.
     const [waitedLong, setWaitedLong] = useState(false);
     const [reviewOpen, setReviewOpen] = useState(false);
+    const [doctorReviewOpen, setDoctorReviewOpen] = useState(false);
 
     // Has the patient already reviewed this clinic? Drives the COMPLETED CTA.
     const { data: userReviews = [] } = useRq({
@@ -243,6 +245,12 @@ export default function AppointmentDetailPage() {
                                         </button>
                                     )
                                 )}
+
+                                {data.status === 'COMPLETED' && data.doctor?.id && (
+                                    <button className="apd-pay-btn apd-review-btn" onClick={() => setDoctorReviewOpen(true)}>
+                                        <Star size={16} /> Doktorga baho
+                                    </button>
+                                )}
                             </div>
                         )}
 
@@ -374,6 +382,12 @@ export default function AppointmentDetailPage() {
                     onClose={() => setReviewOpen(false)}
                 />
             )}
+
+            <DoctorReviewModal
+                appointmentId={id}
+                open={doctorReviewOpen}
+                onClose={() => setDoctorReviewOpen(false)}
+            />
         </div>
     );
 }

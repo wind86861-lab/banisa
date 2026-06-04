@@ -29,6 +29,7 @@ model User {
   surgicalServices   SurgicalService[]   @relation("SurgicalCreatedBy")
   notifications      Notification[]      @relation("UserNotifications")
   favorites          UserFavorite[]
+  doctorReviews      DoctorReview[]
 
   @@index([phone])
   @@index([status])
@@ -269,6 +270,7 @@ model Clinic {
   paymeConfig            ClinicPaymeConfig?
   paymeConfigVersions    PaymeConfigVersion[]
   paymeTransactions      PaymeTransaction[]
+  doctorClinics          DoctorClinic[]
 
   @@index([status])
   @@index([source])
@@ -278,22 +280,137 @@ model Clinic {
 }
 
 model Doctor {
-  id           String        @id @default(uuid())
-  clinicId     String
-  firstName    String
-  lastName     String
-  specialty    String?
-  bio          String?
-  photoUrl     String?
-  phone        String?
-  email        String?
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  appointments Appointment[]
-  clinic       Clinic        @relation(fields: [clinicId], references: [id])
+  id                String        @id @default(uuid())
+  // Legacy primary clinic — kept nullable for backward compatibility.
+  // The real source of truth for "which clinics" is DoctorClinic junction.
+  clinicId          String?
+  firstName         String
+  lastName          String
+  // Legacy free-text specialty kept for backward compat.
+  specialty         String?
+  // New: FK into Specialty catalog managed by super-admin.
+  specialtyId       String?
+  bio               String?
+  bioRu             String?
+  bioEn             String?
+  photoUrl          String?
+  phone             String?
+  email             String?
+  yearsExperience   Int?
+  averageRating     Float?        @default(0)
+  reviewCount       Int           @default(0)
+  isActive          Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  appointments      Appointment[]
+  clinic            Clinic?       @relation(fields: [clinicId], references: [id])
+  specialtyRef      Specialty?    @relation(fields: [specialtyId], references: [id])
+  doctorClinics     DoctorClinic[]
+  reviews           DoctorReview[]
 
   @@index([clinicId])
+  @@index([specialtyId])
+  @@index([isActive])
+  @@index([averageRating])
+}
+
+// ─── Specialty catalog — super-admin managed ────────────────────────────────
+model Specialty {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  nameUz    String
+  nameRu    String?
+  nameEn    String?
+  icon      String?   // lucide icon name or URL
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  doctors   Doctor[]
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// ─── Doctor-Clinic junction (multi-clinic, max 3 enforced app-level) ────────
+model DoctorClinic {
+  id                String   @id @default(uuid())
+  doctorId          String
+  clinicId          String
+  consultationPrice Int      @default(0)   // per-clinic price
+  roomNumber        String?
+  isActive          Boolean  @default(true)
+  joinedAt          DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  doctor    Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  clinic    Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  schedules DoctorSchedule[]
+  timeOffs  DoctorTimeOff[]
+
+  @@unique([doctorId, clinicId])
+  @@index([doctorId])
+  @@index([clinicId])
+  @@index([isActive])
+}
+
+// ─── Weekly recurring schedule per (doctor, clinic) ─────────────────────────
+model DoctorSchedule {
+  id               String   @id @default(uuid())
+  doctorClinicId   String
+  dayOfWeek        Int      // 0=Sun, 1=Mon, ... 6=Sat
+  startTime        String   // HH:MM (local clinic time)
+  endTime          String   // HH:MM
+  slotDurationMin  Int      @default(30)
+  breakStart       String?  // HH:MM
+  breakEnd         String?  // HH:MM
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  doctorClinic DoctorClinic @relation(fields: [doctorClinicId], references: [id], onDelete: Cascade)
+
+  @@index([doctorClinicId])
+  @@index([dayOfWeek])
+}
+
+// ─── One-off time off (vacation, sick, conference) ──────────────────────────
+model DoctorTimeOff {
+  id              String   @id @default(uuid())
+  doctorClinicId  String
+  startAt         DateTime
+  endAt           DateTime
+  reason          String?
+  createdAt       DateTime @default(now())
+
+  doctorClinic DoctorClinic @relation(fields: [doctorClinicId], references: [id], onDelete: Cascade)
+
+  @@index([doctorClinicId])
+  @@index([startAt, endAt])
+}
+
+// ─── Patient review of a doctor (1 per appointment) ─────────────────────────
+model DoctorReview {
+  id            String   @id @default(uuid())
+  doctorId      String
+  patientId     String
+  appointmentId String   @unique
+  clinicId      String   // denormalized — for fast clinic-rating aggregation
+  rating        Int      // 1..5
+  comment       String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  doctor      Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient     User        @relation(fields: [patientId], references: [id])
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@index([doctorId])
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([rating])
   @@index([isActive])
 }
 
@@ -358,6 +475,7 @@ model Appointment {
   services              AppointmentService[]
   logs                  AppointmentLog[]
   metadata              AppointmentMetadata[]
+  doctorReview          DoctorReview?
 
   @@index([clinicId])
   @@index([patientId])

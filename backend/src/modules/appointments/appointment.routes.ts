@@ -3,6 +3,7 @@ import { requireAuth, requireRole } from '../../middleware/auth.middleware';
 import { validate } from '../../middleware/validate.middleware';
 import { scanCheckInLimiter } from '../../middleware/rateLimiter';
 import { patientAppointmentController } from './patient.controller';
+import { createDoctorBooking } from './doctor-booking.controller';
 import { operatorAppointmentController } from './operator.controller';
 import { clinicAppointmentController } from './clinic.controller';
 import {
@@ -28,6 +29,8 @@ patientAppointmentRouter.get('/:id', ANY_OWNER, patientAppointmentController.get
 // Patient-only mutating actions
 const PATIENT_ONLY = requireRole(['PATIENT']);
 patientAppointmentRouter.post('/', PATIENT_ONLY, validate(createBookingSchema), patientAppointmentController.create);
+// Doctor-specific booking with global slot lock (Sprint 5.5)
+patientAppointmentRouter.post('/doctor', PATIENT_ONLY, createDoctorBooking);
 patientAppointmentRouter.post('/:id/cancel', PATIENT_ONLY, validate(cancelBookingSchema), patientAppointmentController.cancel);
 patientAppointmentRouter.post('/scan-checkin', PATIENT_ONLY, scanCheckInLimiter, validate(scanCheckInSchema), patientAppointmentController.scanCheckIn);
 patientAppointmentRouter.post('/scan-checkin/pick', PATIENT_ONLY, scanCheckInLimiter, validate(scanCheckInPickSchema), patientAppointmentController.scanCheckInPick);
