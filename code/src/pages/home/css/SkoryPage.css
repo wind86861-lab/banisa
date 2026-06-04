@@ -15,69 +15,100 @@
 /* Hero */
 .sky-hero {
     position: relative;
-    border-radius: 22px;
-    padding: 22px 26px;
+    border-radius: 24px;
+    padding: 28px 30px;
     color: #fff;
-    background: linear-gradient(135deg, #dc2626 0%, #ef4444 60%, #f87171 100%);
-    box-shadow: 0 18px 40px -12px rgba(239,68,68,0.45);
-    margin-bottom: 16px;
+    background:
+        radial-gradient(circle at 0% 0%, rgba(255,255,255,0.18), transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(0,0,0,0.18), transparent 50%),
+        linear-gradient(135deg, #b91c1c 0%, #dc2626 40%, #ef4444 70%, #f87171 100%);
+    box-shadow: 0 22px 50px -16px rgba(239,68,68,0.55);
+    margin-bottom: 18px;
     overflow: hidden;
 }
 .sky-hero__bg {
     position: absolute; inset: 0;
-    background: radial-gradient(circle at 100% 0%, rgba(255,255,255,0.18), transparent 60%);
+    background:
+        repeating-linear-gradient(135deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 28px);
     pointer-events: none;
+    opacity: 0.7;
 }
 .sky-hero__inner {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 18px;
     flex-wrap: wrap;
 }
 .sky-hero__icon {
-    width: 52px; height: 52px;
-    border-radius: 14px;
+    width: 60px; height: 60px;
+    border-radius: 18px;
     display: grid; place-items: center;
     background: rgba(255,255,255,0.22);
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(10px);
     flex-shrink: 0;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    border: 1px solid rgba(255,255,255,0.25);
 }
+.sky-hero__body { flex: 1 1 200px; min-width: 0; }
 .sky-hero__title {
     margin: 0;
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 800;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.028em;
 }
 .sky-hero__sub {
-    margin: 4px 0 0;
-    font-size: 13px;
+    margin: 6px 0 0;
+    font-size: 14px;
     opacity: 0.92;
+    line-height: 1.4;
 }
-.sky-hero__chip {
-    margin-left: auto;
+.sky-hero__stats {
+    display: flex;
+    gap: 4px;
+    padding: 6px;
+    background: rgba(255,255,255,0.14);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+.sky-hero__stat {
+    padding: 8px 14px;
+    text-align: center;
+    min-width: 86px;
+}
+.sky-hero__stat + .sky-hero__stat {
+    border-left: 1px solid rgba(255,255,255,0.2);
+}
+.sky-hero__stat-val {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 7px 14px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.22);
-    backdrop-filter: blur(8px);
-    font-size: 12px;
-    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
 }
-.sky-hero__warn {
-    position: relative;
-    margin-top: 14px;
-    padding: 10px 14px;
-    background: rgba(0,0,0,0.18);
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 600;
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    line-height: 1.5;
+.sky-hero__stat-lbl {
+    font-size: 10px;
+    margin-top: 4px;
+    opacity: 0.85;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+}
+.sky-live-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: #4ade80;
+    box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.35);
+    animation: sky-live 1.6s ease-in-out infinite;
+}
+@keyframes sky-live {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.25); opacity: 0.7; }
 }
 
 /* Toolbar */
@@ -502,17 +533,18 @@
     color: #64748b;
     margin-top: 3px;
 }
-.sky-cta-warn {
+.sky-cta-note {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
-    padding: 10px 12px;
-    background: rgba(251,191,36,0.15);
-    color: #b45309;
-    border-radius: 11px;
+    padding: 8px 12px;
+    color: #64748b;
     font-size: 11px;
     font-weight: 700;
     margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 .sky-call-list {
     display: grid;

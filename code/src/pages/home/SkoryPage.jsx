@@ -189,9 +189,8 @@ function AmbulanceDetailModal({ amb, onClose }) {
                             </div>
                         )}
 
-                        <div className="sky-cta-warn">
-                            <AlertTriangle size={12} />
-                            Tezkor chaqiruv uchun klinikaga telefon orqali murojaat qiling
+                        <div className="sky-cta-note">
+                            <Phone size={12} /> Klinikaga to'g'ridan-to'g'ri qo'ng'iroq qiling
                         </div>
 
                         <div className="sky-call-list">
@@ -289,23 +288,41 @@ export default function SkoryPage() {
                 >
                     <div className="sky-hero__bg" />
                     <div className="sky-hero__inner">
-                        <div className="sky-hero__icon"><Ambulance size={26} /></div>
-                        <div>
+                        <motion.div
+                            className="sky-hero__icon"
+                            animate={{ scale: [1, 1.08, 1] }}
+                            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+                        >
+                            <Ambulance size={28} />
+                        </motion.div>
+                        <div className="sky-hero__body">
                             <h1 className="sky-hero__title">Tez yordam</h1>
                             <p className="sky-hero__sub">
                                 Eng yaqin va bo'sh ambulanslarni xaritada toping
                             </p>
                         </div>
-                        <div className="sky-hero__chip">
-                            <CheckCircle2 size={12} /> {data?.availableCount ?? 0} ta bo'sh
-                        </div>
-                    </div>
 
-                    <div className="sky-hero__warn">
-                        <AlertTriangle size={14} />
-                        <span>
-                            Bu **ma'lumot tizimi**. Chaqiruv uchun klinika raqamiga to'g'ridan-to'g'ri qo'ng'iroq qiling.
-                        </span>
+                        <div className="sky-hero__stats">
+                            <div className="sky-hero__stat">
+                                <div className="sky-hero__stat-val">
+                                    <span className="sky-live-dot" />
+                                    {data?.availableCount ?? 0}
+                                </div>
+                                <div className="sky-hero__stat-lbl">Bo'sh ambulans</div>
+                            </div>
+                            <div className="sky-hero__stat">
+                                <div className="sky-hero__stat-val">{data?.total ?? 0}</div>
+                                <div className="sky-hero__stat-lbl">Jami</div>
+                            </div>
+                            {userCoords && (
+                                <div className="sky-hero__stat">
+                                    <div className="sky-hero__stat-val">
+                                        <NavIcon size={14} /> Yoqildi
+                                    </div>
+                                    <div className="sky-hero__stat-lbl">Joylashuv</div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </motion.header>
 
