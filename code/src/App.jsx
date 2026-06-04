@@ -47,6 +47,7 @@ import ClinicBookings from './clinic/pages/ClinicBookings';
 import ClinicDiscounts from './clinic/pages/ClinicDiscounts';
 import ClinicPayments from './clinic/pages/ClinicPayments';
 import ClinicDoctors from './clinic/pages/ClinicDoctors';
+import ClinicAmbulances from './clinic/pages/ClinicAmbulances';
 import AdminPaymeOversight from './admin/pages/AdminPaymeOversight';
 import AdminSpecialties from './admin/pages/AdminSpecialties';
 import ClinicStaff from './clinic/pages/ClinicStaff';
@@ -61,6 +62,7 @@ import ClinicsPage from './pages/home/ClinicsPage';
 import DoctorsPage from './pages/home/DoctorsPage';
 import DoctorProfilePage from './pages/home/DoctorProfilePage';
 import DoctorBookingPage from './pages/home/DoctorBookingPage';
+import SkoryPage from './pages/home/SkoryPage';
 import ClinicDetailPage from './pages/home/ClinicDetailPage';
 import UserLoginPage from './pages/user/UserLoginPage';
 import UserSignupPage from './pages/user/UserSignupPage';
@@ -141,6 +143,7 @@ function App() {
                                     <Route path="/doktorlar" element={<DoctorsPage />} />
                                     <Route path="/doktorlar/:id" element={<DoctorProfilePage />} />
                                     <Route path="/doktorlar/:id/band/:clinicId" element={<DoctorBookingPage />} />
+                                    <Route path="/skory" element={<SkoryPage />} />
 
                                     {/* ─── USER AUTH ROUTES (PATIENT) ──────────────── */}
                                     <Route path="/user/login" element={<UserPublicOnlyGuard><UserLoginPage /></UserPublicOnlyGuard>} />
@@ -198,6 +201,7 @@ function App() {
                                         <Route path="discounts" element={<ClinicDiscounts />} />
                                         <Route path="payments" element={<ClinicPayments />} />
                                         <Route path="doctors" element={<ClinicDoctors />} />
+                                        <Route path="ambulances" element={<ClinicAmbulances />} />
                                         <Route path="staff" element={<ClinicStaff />} />
                                         <Route path="reports" element={<ClinicReports />} />
                                         <Route path="notifications" element={<ClinicNotifications />} />

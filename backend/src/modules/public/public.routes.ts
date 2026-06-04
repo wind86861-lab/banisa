@@ -4,6 +4,7 @@ import { getPublicClinics, getPublicClinicDetail } from './public-clinics.contro
 import { getHome, autocomplete } from './public-home.controller';
 import { listDoctors, getDoctorDetail } from './public-doctors.controller';
 import { getDoctorSlots } from './public-doctor-slots.controller';
+import { listPublicAmbulances } from './public-ambulances.controller';
 
 const router = Router();
 
@@ -17,5 +18,6 @@ router.get('/clinics/:id', getPublicClinicDetail);
 router.get('/doctors', listDoctors);
 router.get('/doctors/:id', getDoctorDetail);
 router.get('/doctors/:id/slots', getDoctorSlots);
+router.get('/ambulances', listPublicAmbulances);
 
 export default router;

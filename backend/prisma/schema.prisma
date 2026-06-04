@@ -271,6 +271,7 @@ model Clinic {
   paymeConfigVersions    PaymeConfigVersion[]
   paymeTransactions      PaymeTransaction[]
   doctorClinics          DoctorClinic[]
+  ambulances             Ambulance[]
 
   @@index([status])
   @@index([source])
@@ -1285,4 +1286,74 @@ model OfertaVersion {
   appointments  Appointment[]
 
   @@index([isActive])
+}
+
+// ─── Ambulance system (Phase 1: info-only, no online dispatch) ──────────────
+model Ambulance {
+  id              String           @id @default(uuid())
+  clinicId        String
+  callSign        String           // e.g. "A-12", "Skoraya-7"
+  type            AmbulanceType    @default(BASIC)
+  vehicleModel    String?          // "Mercedes Sprinter 2022"
+  licensePlate    String?
+  capacity        Int              @default(1) // # of patients
+  equipment       Json             @default("[]") // ["defibrillator", "ventilator", "monitor", "ekg"]
+  status          AmbulanceStatus  @default(OFFLINE)
+  // Base location — where the ambulance is parked when idle
+  baseLatitude    Float?
+  baseLongitude   Float?
+  // Optional current location (manually entered for now, GPS in Phase 2)
+  currentLatitude Float?
+  currentLongitude Float?
+  lastStatusAt    DateTime?
+  // Pricing (optional, info only)
+  baseFee         Int?             // som — chaqiruv narxi
+  pricePerKm      Int?             // som per km
+  // Dedicated dispatch phone (optional — falls back to clinic.phones)
+  dispatchPhone   String?
+  notes           String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  clinic       Clinic                @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  statusLogs   AmbulanceStatusLog[]
+
+  @@index([clinicId])
+  @@index([status])
+  @@index([type])
+  @@index([isActive])
+  @@unique([clinicId, callSign])
+}
+
+// Audit + history of status transitions (for stale detection + compliance)
+model AmbulanceStatusLog {
+  id          String          @id @default(uuid())
+  ambulanceId String
+  fromStatus  AmbulanceStatus?
+  toStatus    AmbulanceStatus
+  changedBy   String?
+  reason      String?
+  createdAt   DateTime         @default(now())
+
+  ambulance Ambulance @relation(fields: [ambulanceId], references: [id], onDelete: Cascade)
+
+  @@index([ambulanceId])
+  @@index([createdAt])
+}
+
+enum AmbulanceType {
+  BASIC            // umumiy
+  INTENSIVE_CARE   // reanimatsiya
+  NEONATAL         // yangi tug'ilgan bolalar
+  CARDIAC          // yurak
+  TRAUMA           // travmatologiya
+  OBSTETRIC        // tug'ruq
+}
+
+enum AmbulanceStatus {
+  AVAILABLE   // bo'sh ("pustoy")
+  BUSY        // chaqiruvda
+  MAINTENANCE // texnik xizmat
+  OFFLINE     // smenadan tashqari
 }
