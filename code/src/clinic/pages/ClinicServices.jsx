@@ -4,6 +4,7 @@ import {
     CircleCheckBig, Circle, Clock, Beaker, Settings2,
     X, Sparkles, Eye, Info, AlertCircle,
     BriefcaseMedical, Package, Scissors,
+    Activity, Ambulance,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
@@ -14,6 +15,8 @@ import ServiceCustomizationDrawer from '../components/services/ServiceCustomizat
 import CheckupPackagesTab from '../components/services/CheckupPackagesTab';
 import SurgicalServicesTab from '../components/services/SurgicalServicesTab';
 import SanatoriumServicesTab from '../components/services/SanatoriumServicesTab';
+import ClinicDoctors from './ClinicDoctors';
+import ClinicAmbulances from './ClinicAmbulances';
 import api from '../../shared/api/axios';
 import './clinic-admin.css';
 
@@ -47,6 +50,8 @@ const MAIN_TABS = [
     { key: 'surgical', label: 'Operatsiyalar', icon: <Scissors size={15} /> },
     { key: 'sanatorium', label: 'Sanatoriya', icon: <BriefcaseMedical size={15} /> },
     { key: 'checkup', label: 'Checkup paketlari', icon: <Package size={15} /> },
+    { key: 'doctors', label: 'Doktorlar', icon: <Activity size={15} /> },
+    { key: 'ambulances', label: 'Tez yordam', icon: <Ambulance size={15} /> },
 ];
 
 const FILTER_OPTIONS = [
@@ -186,6 +191,8 @@ export default function ClinicServices() {
                     {mainTab === 'checkup' && <CheckupPackagesTab />}
                     {mainTab === 'surgical' && <SurgicalServicesTab />}
                     {mainTab === 'sanatorium' && <SanatoriumServicesTab />}
+                    {mainTab === 'doctors' && <ClinicDoctors />}
+                    {mainTab === 'ambulances' && <ClinicAmbulances />}
                 </div>
             </div>
         );

@@ -31,8 +31,6 @@ const NAV_GROUPS = [
         items: [
             { key: 'profile', label: 'Klinika Profili', path: '/clinic/profile', icon: <Building2 size={20} /> },
             { key: 'staff', label: 'Xodimlar', path: '/clinic/staff', icon: <Users size={20} /> },
-            { key: 'doctors', label: 'Doktorlar', path: '/clinic/doctors', icon: <Activity size={20} /> },
-            { key: 'ambulances', label: 'Tez yordam', path: '/clinic/ambulances', icon: <Ambulance size={20} /> },
             { key: 'reports', label: 'Hisobotlar', path: '/clinic/reports', icon: <BarChart2 size={20} /> },
             { key: 'notifications', label: 'Bildirishnomalar', path: '/clinic/notifications', icon: <Bell size={20} /> },
         ],
