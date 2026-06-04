@@ -142,6 +142,7 @@ export const getDoctorDetail = async (req: Request, res: Response) => {
             specialtyName: doctor.specialtyRef?.nameUz ?? doctor.specialty ?? null,
             specialtyIcon: doctor.specialtyRef?.icon ?? null,
             photoUrl: doctor.photoUrl,
+            photoUrls: Array.isArray(doctor.photoUrls) ? (doctor.photoUrls as string[]) : [],
             bio: doctor.bio,
             yearsExperience: doctor.yearsExperience,
             averageRating: doctor.averageRating ?? 0,

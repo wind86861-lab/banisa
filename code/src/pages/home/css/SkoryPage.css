@@ -404,6 +404,14 @@
     text-align: center;
     position: relative;
 }
+.sky-modal__photo {
+    width: 72px;
+    height: 72px;
+    border-radius: 14px;
+    object-fit: cover;
+    border: 3px solid rgba(255,255,255,0.4);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
 .sky-modal__call {
     font-size: 24px;
     font-weight: 800;

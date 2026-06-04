@@ -116,7 +116,15 @@ function AmbulanceDetailModal({ amb, onClose }) {
                     <button className="sky-modal__close" onClick={onClose}><X size={18} /></button>
 
                     <div className="sky-modal__hero" style={{ background: `linear-gradient(135deg, ${sm.color}dd, ${sm.color}aa)` }}>
-                        <Ambulance size={32} color="#fff" />
+                        {amb.photoUrl ? (
+                            <img
+                                src={amb.photoUrl}
+                                alt={amb.callSign}
+                                className="sky-modal__photo"
+                            />
+                        ) : (
+                            <Ambulance size={32} color="#fff" />
+                        )}
                         <div className="sky-modal__call">{amb.callSign}</div>
                         <div className="sky-modal__type" style={{ background: '#ffffff2a' }}>
                             {tm.label} • {sm.label}

@@ -31,7 +31,7 @@ export const createAmbulance = async (req: AuthRequest, res: Response) => {
     const {
         callSign, type, vehicleModel, licensePlate, capacity,
         equipment, baseLatitude, baseLongitude, baseFee, pricePerKm,
-        dispatchPhone, notes, status,
+        dispatchPhone, photoUrl, notes, status,
     } = req.body || {};
 
     if (typeof callSign !== 'string' || callSign.trim().length < 1) {
@@ -59,6 +59,7 @@ export const createAmbulance = async (req: AuthRequest, res: Response) => {
                 baseFee: Number.isFinite(baseFee) ? baseFee : null,
                 pricePerKm: Number.isFinite(pricePerKm) ? pricePerKm : null,
                 dispatchPhone: dispatchPhone?.trim() || null,
+                photoUrl: photoUrl?.trim() || null,
                 notes: notes?.trim() || null,
                 status: (status || 'OFFLINE') as any,
                 lastStatusAt: new Date(),
@@ -87,7 +88,7 @@ export const updateAmbulance = async (req: AuthRequest, res: Response) => {
     const {
         callSign, type, vehicleModel, licensePlate, capacity,
         equipment, baseLatitude, baseLongitude, baseFee, pricePerKm,
-        dispatchPhone, notes, isActive,
+        dispatchPhone, photoUrl, notes, isActive,
     } = req.body || {};
     const data: any = {};
     if (typeof callSign === 'string' && callSign.trim().length >= 1) data.callSign = callSign.trim();
@@ -101,6 +102,7 @@ export const updateAmbulance = async (req: AuthRequest, res: Response) => {
     if (Number.isFinite(baseFee) || baseFee === null) data.baseFee = baseFee;
     if (Number.isFinite(pricePerKm) || pricePerKm === null) data.pricePerKm = pricePerKm;
     if (typeof dispatchPhone === 'string') data.dispatchPhone = dispatchPhone.trim() || null;
+    if (typeof photoUrl === 'string') data.photoUrl = photoUrl.trim() || null;
     if (typeof notes === 'string') data.notes = notes.trim() || null;
     if (typeof isActive === 'boolean') data.isActive = isActive;
 

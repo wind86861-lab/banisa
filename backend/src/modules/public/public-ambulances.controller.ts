@@ -60,6 +60,7 @@ export const listPublicAmbulances = async (req: Request, res: Response) => {
             licensePlate: a.licensePlate,
             capacity: a.capacity,
             equipment: a.equipment as string[],
+            photoUrl: a.photoUrl,
             status: a.status,
             latitude: useLat,
             longitude: useLng,

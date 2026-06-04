@@ -1,0 +1,129 @@
+.miu { display: flex; flex-direction: column; gap: 6px; }
+.miu__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.miu__label {
+    font-size: 11px;
+    color: var(--text-secondary, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 800;
+}
+.miu__count {
+    font-size: 11px;
+    color: var(--text-secondary, #64748b);
+    font-weight: 700;
+}
+.miu__hint {
+    font-size: 11px;
+    color: var(--text-secondary, #64748b);
+    margin-bottom: 2px;
+}
+.miu__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+    margin-top: 4px;
+}
+.miu__tile {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg, #f8fafc);
+}
+.miu__tile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.miu__tile-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.18), transparent 40%);
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px;
+}
+.miu__tile-btn {
+    width: 26px; height: 26px;
+    border-radius: 8px;
+    border: 0;
+    background: rgba(15,23,42,0.65);
+    backdrop-filter: blur(6px);
+    color: #fff;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: background 120ms;
+    font-family: inherit;
+    font-weight: 800;
+}
+.miu__tile-btn:hover:not(:disabled) { background: rgba(15,23,42,0.85); }
+.miu__tile-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.miu__tile-btn--sm {
+    width: 22px; height: 22px;
+    font-size: 13px;
+}
+.miu__tile-order {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    background: rgba(15,23,42,0.65);
+    backdrop-filter: blur(6px);
+    border-radius: 999px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+.miu__add {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: 2px dashed var(--border-color, #cbd5e1);
+    background: var(--bg, #f8fafc);
+    border-radius: 12px;
+    cursor: pointer;
+    color: var(--text-secondary, #64748b);
+    font-size: 12px;
+    font-weight: 700;
+    font-family: inherit;
+    transition: all 130ms;
+    padding: 8px;
+    text-align: center;
+}
+.miu__add:hover {
+    border-color: #06b6d4;
+    color: #0e7490;
+    background: rgba(6,182,212,0.05);
+}
+.miu__add:disabled { opacity: 0.6; cursor: not-allowed; }
+.miu__add-hint {
+    font-size: 10px;
+    font-weight: 600;
+    opacity: 0.7;
+}
+.miu__error {
+    margin-top: 6px;
+    padding: 8px 10px;
+    background: rgba(239,68,68,0.08);
+    color: #b91c1c;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.miu__spin { animation: miu-spin 1s linear infinite; }
+@keyframes miu-spin { to { transform: rotate(360deg); } }

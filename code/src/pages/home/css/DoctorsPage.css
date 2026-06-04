@@ -539,6 +539,33 @@
     margin: 0;
 }
 
+.docs-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+}
+.docs-gallery__item {
+    aspect-ratio: 4/3;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 140ms, box-shadow 180ms;
+    font-family: inherit;
+}
+.docs-gallery__item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(6,182,212,0.18);
+}
+.docs-gallery__item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
 /* Clinic schedule cards */
 .docs-clinic-list {
     display: grid;

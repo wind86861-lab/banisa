@@ -6,6 +6,7 @@ import {
     MapPin, Heart, Activity, Stethoscope, Zap,
 } from 'lucide-react';
 import api from '../../../shared/api/axios';
+import ImageUpload from '../../../shared/components/ImageUpload';
 
 const TYPES = [
     { value: 'BASIC',          label: 'Umumiy' },
@@ -46,6 +47,7 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
     const [pricePerKm, setPricePerKm] = useState(existing?.pricePerKm ?? '');
     const [dispatchPhone, setDispatchPhone] = useState(existing?.dispatchPhone || '');
     const [notes, setNotes] = useState(existing?.notes || '');
+    const [photoUrl, setPhotoUrl] = useState(existing?.photoUrl || '');
     const [status, setStatus] = useState(existing?.status || 'OFFLINE');
 
     const toggleEquip = (key) => {
@@ -78,6 +80,7 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
                 baseFee: baseFee === '' ? null : Number(baseFee),
                 pricePerKm: pricePerKm === '' ? null : Number(pricePerKm),
                 dispatchPhone: dispatchPhone || null,
+                photoUrl: photoUrl || null,
                 notes: notes || null,
             };
             if (isEdit) {
@@ -234,6 +237,15 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
                                 value={pricePerKm}
                                 onChange={(e) => setPricePerKm(e.target.value)}
                                 placeholder="3000"
+                            />
+                        </div>
+
+                        <div className="cab-field" style={{ gridColumn: 'span 2' }}>
+                            <ImageUpload
+                                value={photoUrl}
+                                onChange={setPhotoUrl}
+                                label="Ambulans rasmi (ixtiyoriy)"
+                                hint="Bemorlar xaritada ambulansni ko'rganda tanishtirgich"
                             />
                         </div>
 

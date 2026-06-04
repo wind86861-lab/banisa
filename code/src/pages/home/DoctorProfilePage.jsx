@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     Star, Award, Stethoscope, Building2, MapPin, Phone,
     Clock, Calendar, ChevronLeft, Loader2, AlertTriangle,
-    CalendarCheck, Sparkles, MessageCircle,
+    CalendarCheck, Sparkles, MessageCircle, X, ImageIcon,
 } from 'lucide-react';
+
+const resolveSrc = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    if (url.startsWith('/uploads')) return url; // same-origin in prod
+    return url;
+};
 import api from '../../shared/api/axios';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
@@ -118,9 +125,68 @@ function ReviewItem({ r }) {
     );
 }
 
+function Lightbox({ images, index, onClose, onChange }) {
+    if (index == null) return null;
+    return (
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={onClose}
+                style={{
+                    position: 'fixed', inset: 0, zIndex: 1500,
+                    background: 'rgba(0,0,0,0.92)',
+                    display: 'grid', placeItems: 'center',
+                    padding: 20,
+                }}
+            >
+                <button
+                    onClick={onClose}
+                    style={{
+                        position: 'absolute', top: 16, right: 16,
+                        background: 'rgba(255,255,255,0.15)', border: 0,
+                        color: '#fff', padding: 10, borderRadius: 12, cursor: 'pointer',
+                    }}
+                ><X size={20} /></button>
+                <motion.img
+                    key={index}
+                    src={resolveSrc(images[index])}
+                    style={{ maxWidth: '92vw', maxHeight: '88vh', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    onClick={(e) => e.stopPropagation()}
+                />
+                {images.length > 1 && (
+                    <div
+                        style={{
+                            position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+                            display: 'flex', gap: 6,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {images.map((_, i) => (
+                            <button
+                                key={i}
+                                onClick={() => onChange(i)}
+                                style={{
+                                    width: 10, height: 10, borderRadius: 999,
+                                    background: i === index ? '#fff' : 'rgba(255,255,255,0.4)',
+                                    border: 0, cursor: 'pointer',
+                                }}
+                            />
+                        ))}
+                    </div>
+                )}
+            </motion.div>
+        </AnimatePresence>
+    );
+}
+
 export default function DoctorProfilePage() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const [lightboxIdx, setLightboxIdx] = useState(null);
 
     const { data, isLoading, isError } = useQuery({
         queryKey: ['public', 'doctor', id],
@@ -226,6 +292,21 @@ export default function DoctorProfilePage() {
                     </section>
                 )}
 
+                {Array.isArray(data.photoUrls) && data.photoUrls.length > 0 && (
+                    <section className="docs-section">
+                        <div className="docs-section__title">
+                            <ImageIcon size={14} /> Foto galereya
+                        </div>
+                        <div className="docs-gallery">
+                            {data.photoUrls.map((u, i) => (
+                                <button key={i} className="docs-gallery__item" onClick={() => setLightboxIdx(i)}>
+                                    <img src={resolveSrc(u)} alt={`Foto ${i + 1}`} loading="lazy" />
+                                </button>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
                 <section className="docs-section">
                     <div className="docs-section__title">
                         <Building2 size={14} /> Klinikalari ({data.clinics.length})
@@ -256,6 +337,13 @@ export default function DoctorProfilePage() {
             </main>
 
             <Footer />
+
+            <Lightbox
+                images={data.photoUrls || []}
+                index={lightboxIdx}
+                onClose={() => setLightboxIdx(null)}
+                onChange={setLightboxIdx}
+            />
         </div>
     );
 }

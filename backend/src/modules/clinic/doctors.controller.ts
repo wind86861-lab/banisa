@@ -125,7 +125,7 @@ export const createOrAttach = async (req: AuthRequest, res: Response) => {
 
     const {
         doctorId,         // if attaching existing doctor
-        firstName, lastName, specialtyId, phone, email, photoUrl, bio, yearsExperience,
+        firstName, lastName, specialtyId, phone, email, photoUrl, photoUrls, bio, yearsExperience,
         consultationPrice = 0,
         roomNumber,
     } = req.body || {};
@@ -167,6 +167,7 @@ export const createOrAttach = async (req: AuthRequest, res: Response) => {
                 phone: phone?.trim() || null,
                 email: email?.trim() || null,
                 photoUrl: photoUrl?.trim() || null,
+                photoUrls: Array.isArray(photoUrls) ? photoUrls.slice(0, 3) : [],
                 bio: bio?.trim() || null,
                 yearsExperience: Number.isFinite(yearsExperience) ? yearsExperience : null,
                 clinicId, // legacy primary clinic
@@ -224,7 +225,7 @@ export const updateDoctorProfile = async (req: AuthRequest, res: Response) => {
     }
 
     const {
-        firstName, lastName, specialtyId, phone, email, photoUrl, bio, yearsExperience,
+        firstName, lastName, specialtyId, phone, email, photoUrl, photoUrls, bio, yearsExperience,
     } = req.body || {};
     const data: any = {};
     if (typeof firstName === 'string' && firstName.trim().length >= 2) data.firstName = firstName.trim();
@@ -233,6 +234,7 @@ export const updateDoctorProfile = async (req: AuthRequest, res: Response) => {
     if (typeof phone === 'string') data.phone = phone.trim() || null;
     if (typeof email === 'string') data.email = email.trim() || null;
     if (typeof photoUrl === 'string') data.photoUrl = photoUrl.trim() || null;
+    if (Array.isArray(photoUrls)) data.photoUrls = photoUrls.slice(0, 3);
     if (typeof bio === 'string') data.bio = bio.trim() || null;
     if (Number.isFinite(yearsExperience) || yearsExperience === null) data.yearsExperience = yearsExperience;
 

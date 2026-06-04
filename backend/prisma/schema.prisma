@@ -295,6 +295,7 @@ model Doctor {
   bioRu             String?
   bioEn             String?
   photoUrl          String?
+  photoUrls         Json     @default("[]")
   phone             String?
   email             String?
   yearsExperience   Int?
@@ -1311,6 +1312,7 @@ model Ambulance {
   pricePerKm      Int?             // som per km
   // Dedicated dispatch phone (optional — falls back to clinic.phones)
   dispatchPhone   String?
+  photoUrl        String?
   notes           String?
   isActive        Boolean          @default(true)
   createdAt       DateTime         @default(now())

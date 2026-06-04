@@ -6,6 +6,8 @@ import {
     CheckCircle2, Building2, Stethoscope, ArrowRight,
 } from 'lucide-react';
 import api from '../../../shared/api/axios';
+import ImageUpload from '../../../shared/components/ImageUpload';
+import MultiImageUpload from '../../../shared/components/MultiImageUpload';
 
 function NewDoctorForm({ onCancel, onCreated, initial }) {
     const isEdit = !!initial?.doctorClinicId;
@@ -17,6 +19,7 @@ function NewDoctorForm({ onCancel, onCreated, initial }) {
     const [phone, setPhone] = useState(d.phone || '');
     const [email, setEmail] = useState(d.email || '');
     const [photoUrl, setPhotoUrl] = useState(d.photoUrl || '');
+    const [photoUrls, setPhotoUrls] = useState(Array.isArray(d.photoUrls) ? d.photoUrls : []);
     const [bio, setBio] = useState(d.bio || '');
     const [yearsExperience, setYearsExperience] = useState(d.yearsExperience ?? '');
     const [consultationPrice, setConsultationPrice] = useState(initial?.consultationPrice ?? 0);
@@ -34,7 +37,7 @@ function NewDoctorForm({ onCancel, onCreated, initial }) {
                 await api.patch(`/clinic/doctors/${initial.doctorClinicId}/profile`, {
                     firstName, lastName, specialtyId: specialtyId || null,
                     phone: phone || null, email: email || null,
-                    photoUrl: photoUrl || null, bio: bio || null,
+                    photoUrl: photoUrl || null, photoUrls, bio: bio || null,
                     yearsExperience: yearsExperience === '' ? null : Number(yearsExperience),
                 });
                 // Update attachment (price/room)
@@ -47,7 +50,7 @@ function NewDoctorForm({ onCancel, onCreated, initial }) {
             return (await api.post('/clinic/doctors', {
                 firstName, lastName, specialtyId: specialtyId || null,
                 phone: phone || null, email: email || null,
-                photoUrl: photoUrl || null, bio: bio || null,
+                photoUrl: photoUrl || null, photoUrls, bio: bio || null,
                 yearsExperience: yearsExperience === '' ? null : Number(yearsExperience),
                 consultationPrice: Number(consultationPrice) || 0,
                 roomNumber: roomNumber || null,
@@ -96,8 +99,22 @@ function NewDoctorForm({ onCancel, onCreated, initial }) {
             </div>
 
             <div className="cdocs-field">
-                <label>Foto URL (ixtiyoriy)</label>
-                <input value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="https://..." />
+                <ImageUpload
+                    value={photoUrl}
+                    onChange={setPhotoUrl}
+                    label="Asosiy foto (avatar)"
+                    hint="Bemorlar avval shu rasmni ko'radi"
+                />
+            </div>
+
+            <div className="cdocs-field">
+                <MultiImageUpload
+                    value={photoUrls}
+                    onChange={setPhotoUrls}
+                    max={3}
+                    label="Qo'shimcha rasmlar"
+                    hint="Doktor profili sahifasida galereya bo'lib ko'rinadi (3 tagacha)"
+                />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
