@@ -11,9 +11,10 @@ import './css/Navigation.css';
 const NAV_LINKS = [
     { href: '/', label: 'Bosh sahifa', isAnchor: false },
     { href: '/xizmatlar', label: 'Xizmatlar', isAnchor: false },
-    { href: '#how', label: 'Qanday ishlaydi', isAnchor: true },
     { href: '/klinikalar', label: 'Klinikalar', isAnchor: false },
-    { href: '#why', label: 'Nega biz', isAnchor: true },
+    { href: '/doktorlar', label: 'Doktorlar', isAnchor: false },
+    { href: '/skory', label: 'Tez yordam', isAnchor: false, emphasis: 'urgent' },
+    { href: '#how', label: 'Qanday ishlaydi', isAnchor: true },
     { href: '#contact', label: 'Aloqa', isAnchor: true },
 ];
 
@@ -66,11 +67,12 @@ export default function Navigation() {
 
                     {/* Desktop links */}
                     <div className="cm-nav-links">
-                        {NAV_LINKS.map(l => (
-                            l.isAnchor
-                                ? <a key={l.href} href={l.href} className="cm-nav-link">{l.label}</a>
-                                : <Link key={l.href} to={l.href} className="cm-nav-link">{l.label}</Link>
-                        ))}
+                        {NAV_LINKS.map(l => {
+                            const cls = `cm-nav-link${l.emphasis === 'urgent' ? ' cm-nav-link--urgent' : ''}`;
+                            return l.isAnchor
+                                ? <a key={l.href} href={l.href} className={cls}>{l.label}</a>
+                                : <Link key={l.href} to={l.href} className={cls}>{l.label}</Link>;
+                        })}
                     </div>
 
                     {/* Right side */}
@@ -163,11 +165,12 @@ export default function Navigation() {
                             <X size={20} />
                         </button>
                     </div>
-                    {NAV_LINKS.map(l => (
-                        l.isAnchor
-                            ? <a key={l.href} href={l.href} className="cm-mobile-link" onClick={() => setOpen(false)}>{l.label}</a>
-                            : <Link key={l.href} to={l.href} className="cm-mobile-link" onClick={() => setOpen(false)}>{l.label}</Link>
-                    ))}
+                    {NAV_LINKS.map(l => {
+                        const cls = `cm-mobile-link${l.emphasis === 'urgent' ? ' cm-mobile-link--urgent' : ''}`;
+                        return l.isAnchor
+                            ? <a key={l.href} href={l.href} className={cls} onClick={() => setOpen(false)}>{l.label}</a>
+                            : <Link key={l.href} to={l.href} className={cls} onClick={() => setOpen(false)}>{l.label}</Link>;
+                    })}
                     <div className="cm-mobile-divider" />
                     {user ? (
                         <>

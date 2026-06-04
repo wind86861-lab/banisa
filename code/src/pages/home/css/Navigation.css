@@ -822,3 +822,52 @@
     font-size: 13px;
   }
 }
+/* "Tez yordam" urgent emphasis */
+.cm-nav-link--urgent {
+    color: #dc2626 !important;
+    position: relative;
+    padding-left: 22px !important;
+}
+.cm-nav-link--urgent::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+    animation: cm-urgent-pulse 1.8s ease-in-out infinite;
+}
+.cm-nav-link--urgent::after { background: #ef4444 !important; }
+.cm-nav-link--urgent:hover { color: #b91c1c !important; }
+
+.cm-mobile-link--urgent {
+    color: #dc2626 !important;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.cm-mobile-link--urgent::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+    animation: cm-urgent-pulse 1.8s ease-in-out infinite;
+}
+@keyframes cm-urgent-pulse {
+    0%, 100% { transform: translateY(-50%) scale(1); opacity: 1; }
+    50% { transform: translateY(-50%) scale(1.3); opacity: 0.7; }
+}
+.cm-mobile-link--urgent::before {
+    animation: cm-urgent-pulse-mobile 1.8s ease-in-out infinite;
+}
+@keyframes cm-urgent-pulse-mobile {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.7; }
+}
