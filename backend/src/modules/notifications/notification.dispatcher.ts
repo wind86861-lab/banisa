@@ -84,9 +84,10 @@ export async function dispatch(event: NotificationEvent): Promise<void> {
     const channels = await resolveChannels(event);
 
     await Promise.allSettled(channels.map(async (ch) => {
-        // SMS/Telegram for clinic-only events: skip until admin-side binding lands.
-        if (event.clinicId && !event.userId && (ch === 'sms' || ch === 'telegram')) {
-            return logResult(event, ch, { ok: false, skipped: true, error: 'clinic-side ' + ch + ' not wired' });
+        // SMS for clinic-only events is intentionally suppressed — SMS to many
+        // admins via Eskiz quickly burns budget; rely on in-app + Telegram.
+        if (event.clinicId && !event.userId && ch === 'sms') {
+            return logResult(event, ch, { ok: false, skipped: true, error: 'clinic-side sms suppressed' });
         }
 
         const channel = CHANNELS[ch];

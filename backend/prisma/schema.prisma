@@ -32,6 +32,8 @@ model User {
   doctorReviews      DoctorReview[]
   notificationPreference NotificationPreference?
   notificationLogs      NotificationLog[]
+  telegramAccount       TelegramAccount?
+  telegramLoginTokens   TelegramLoginToken[]
 
   @@index([phone])
   @@index([status])
@@ -1103,6 +1105,43 @@ model NotificationPreference {
   updatedAt  DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Binds a Telegram chat to a Banisa user. One user → one chat (unique).
+/// chatId is BigInt — Telegram chat ids can exceed 32-bit range.
+model TelegramAccount {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  chatId         BigInt   @unique
+  telegramUserId BigInt   @unique
+  username       String?
+  firstName      String?
+  language       String   @default("uz")
+  isBlocked      Boolean  @default(false)
+  linkedAt       DateTime @default(now())
+  lastSeenAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isBlocked])
+}
+
+/// Short-lived single-use token for binding a Telegram chat to a user.
+/// Generated when patient clicks "Link Telegram" on web; consumed by
+/// the bot when patient sends /start <token>.
+model TelegramLoginToken {
+  token     String   @id
+  userId    String
+  purpose   String   @default("link") // 'link' | 'login' | 'reset'
+  expiresAt DateTime
+  usedAt    DateTime?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
 }
 
 /// Delivery log — one row per channel attempt, including skipped ones.

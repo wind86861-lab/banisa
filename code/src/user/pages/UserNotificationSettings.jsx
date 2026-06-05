@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, MessageSquare, Send, Loader2 } from 'lucide-react';
+import { Bell, MessageSquare, Send, Loader2, ExternalLink, Link2, Unlink } from 'lucide-react';
 import api from '../../shared/api/axios';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
@@ -50,6 +50,20 @@ export default function UserNotificationSettings() {
     const smsConsent = data?.smsConsent ?? true;
     const tgConsent = data?.tgConsent ?? false;
 
+    const { data: tgStatus, refetch: refetchTg } = useQuery({
+        queryKey: ['user', 'telegram-status'],
+        queryFn: async () => (await api.get('/user/telegram/status')).data.data,
+    });
+    const [tgLink, setTgLink] = useState(null);
+    const linkMutation = useMutation({
+        mutationFn: async () => (await api.post('/user/telegram/link-token')).data.data,
+        onSuccess: (d) => setTgLink(d),
+    });
+    const unlinkMutation = useMutation({
+        mutationFn: async () => (await api.delete('/user/telegram/link')).data,
+        onSuccess: () => { setTgLink(null); refetchTg(); },
+    });
+
     function toggleChannel(eventKey, channelKey) {
         const current = channels[eventKey] || [];
         const next = current.includes(channelKey)
@@ -90,6 +104,55 @@ export default function UserNotificationSettings() {
                         checked={tgConsent}
                         onChange={(v) => toggleConsent('tgConsent', v)}
                     />
+                </div>
+
+                <div className="ns-tg-block">
+                    <div className="ns-tg-head">
+                        <div className="ns-tg-icon"><Send size={18} /></div>
+                        <div className="ns-tg-titles">
+                            <div className="ns-tg-title">Telegram bot</div>
+                            <div className="ns-tg-hint">
+                                {tgStatus?.linked
+                                    ? `Bog'langan${tgStatus.firstName ? ` — ${tgStatus.firstName}` : ''}${tgStatus.username ? ` (@${tgStatus.username})` : ''}`
+                                    : tgStatus?.configured === false
+                                        ? "Bot hozircha sozlanmagan"
+                                        : 'Botga ulangan emas. Tezroq bildirishnoma uchun bog\'lang.'}
+                            </div>
+                        </div>
+                        <div className="ns-tg-actions">
+                            {tgStatus?.linked ? (
+                                <button
+                                    type="button"
+                                    className="ns-tg-btn ns-tg-btn--ghost"
+                                    onClick={() => unlinkMutation.mutate()}
+                                    disabled={unlinkMutation.isPending}
+                                >
+                                    <Unlink size={14} /> Uzish
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="ns-tg-btn"
+                                    onClick={() => linkMutation.mutate()}
+                                    disabled={linkMutation.isPending || tgStatus?.configured === false}
+                                >
+                                    <Link2 size={14} /> Bog'lash
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    {tgLink && !tgStatus?.linked && (
+                        <a
+                            className="ns-tg-deeplink"
+                            href={tgLink.deepLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setTimeout(() => refetchTg(), 4000)}
+                        >
+                            <ExternalLink size={14} /> Telegramda ochish
+                            <span className="ns-tg-deeplink-hint">— 1 soat ichida tasdiqlang</span>
+                        </a>
+                    )}
                 </div>
 
                 <div className="ns-table">

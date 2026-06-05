@@ -66,6 +66,64 @@
     cursor: pointer;
 }
 
+.ns-tg-block {
+    background: linear-gradient(135deg, #f0f9ff 0%, #ecfeff 100%);
+    border: 1px solid #bae6fd;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 18px;
+}
+.ns-tg-head { display: flex; align-items: center; gap: 14px; }
+.ns-tg-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.ns-tg-titles { flex: 1; min-width: 0; }
+.ns-tg-title { font-weight: 700; color: #0f172a; font-size: 15px; }
+.ns-tg-hint { color: #475569; font-size: 13px; margin-top: 2px; }
+.ns-tg-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.ns-tg-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px;
+    background: #0ea5e9; color: #fff;
+    border: none; border-radius: 10px;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.ns-tg-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+.ns-tg-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ns-tg-btn--ghost {
+    background: #fff; color: #475569;
+    border: 1px solid #cbd5e1;
+}
+.ns-tg-btn--ghost:hover:not(:disabled) {
+    border-color: #94a3b8;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+.ns-tg-deeplink {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px dashed #0ea5e9;
+    border-radius: 10px;
+    color: #0369a1;
+    font-size: 13px; font-weight: 600;
+    text-decoration: none;
+}
+.ns-tg-deeplink-hint {
+    color: #94a3b8; font-weight: 500;
+    font-size: 12px;
+}
+
 .ns-table {
     background: #fff;
     border: 1px solid #e2e8f0;

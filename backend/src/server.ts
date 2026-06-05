@@ -2,6 +2,7 @@ import app from './app';
 import { env } from './config/env';
 import prisma from './config/database';
 import { startCheckInScheduler } from './modules/appointments/check-in.scheduler';
+import { getBot, isTelegramConfigured } from './modules/telegram/telegram.bot';
 
 const PORT = env.PORT || 5000;
 
@@ -17,6 +18,7 @@ async function bootstrap() {
             const instanceId = process.env.NODE_APP_INSTANCE ?? process.env.pm_id ?? '0';
             if (instanceId === '0') {
                 startCheckInScheduler();
+                setupTelegramWebhook().catch((e) => console.error('[telegram] webhook setup failed:', e));
             } else {
                 console.log(`[scheduler] skipped on instance ${instanceId}`);
             }
@@ -40,6 +42,33 @@ async function bootstrap() {
     } catch (error) {
         console.error('Failed to start server:', error);
         process.exit(1);
+    }
+}
+
+async function setupTelegramWebhook() {
+    if (!isTelegramConfigured()) {
+        console.log('[telegram] TELEGRAM_BOT_TOKEN not set — skipping webhook setup');
+        return;
+    }
+    const bot = getBot();
+    if (!bot) return;
+    const publicBase = process.env.PUBLIC_API_BASE_URL || '';
+    if (!publicBase || publicBase.includes('localhost')) {
+        console.log('[telegram] PUBLIC_API_BASE_URL missing or local — skipping webhook registration');
+        return;
+    }
+    const url = publicBase.replace(/\/+$/, '') + '/api/telegram/webhook';
+    const secret = process.env.TELEGRAM_WEBHOOK_SECRET || undefined;
+    try {
+        const info = await bot.api.getWebhookInfo();
+        if (info.url === url) {
+            console.log('[telegram] webhook already up to date:', url);
+            return;
+        }
+        await bot.api.setWebhook(url, { secret_token: secret, allowed_updates: ['message'] });
+        console.log('[telegram] webhook registered:', url);
+    } catch (e) {
+        console.error('[telegram] setWebhook failed:', e);
     }
 }
 
