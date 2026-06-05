@@ -36,22 +36,30 @@ const LABELS: Record<Lang, Record<string, string>> = {
 };
 
 /**
- * Main inline menu — shown after binding and on /menu.
- * web_app buttons open the SPA inside Telegram WebView (auto-login via
- * initData); url buttons open in the user's external browser.
+ * Main inline menu. Uses plain `url` buttons (always render and open in
+ * the user's preferred browser) — switching to web_app requires the Mini
+ * App URL to be configured in BotFather, otherwise Telegram silently
+ * drops the entire reply_markup.
+ *
+ * For unbound users we hide patient-only rows (Bronlarim, Savat, Profil,
+ * Bildirishnomalar, Sozlamalar) since opening them prompts a login.
  */
-function mainMenu(lang: Lang): InlineKeyboard {
+function mainMenu(lang: Lang, linked: boolean): InlineKeyboard {
     const L = LABELS[lang];
-    return new InlineKeyboard()
-        .webApp(L.services, `${PUBLIC_BASE}/xizmatlar`)
-        .webApp(L.clinics, `${PUBLIC_BASE}/klinikalar`).row()
-        .webApp(L.doctors, `${PUBLIC_BASE}/doktorlar`)
-        .webApp(L.bookings, `${PUBLIC_BASE}/user/appointments`).row()
-        .webApp(L.skory, `${PUBLIC_BASE}/skory`)
-        .webApp(L.cart, `${PUBLIC_BASE}/user/cart`).row()
-        .webApp(L.notifs, `${PUBLIC_BASE}/user/notifications`)
-        .webApp(L.profile, `${PUBLIC_BASE}/user/profile`).row()
-        .webApp(L.settings, `${PUBLIC_BASE}/user/notification-settings`);
+    const kb = new InlineKeyboard()
+        .url(L.services, `${PUBLIC_BASE}/xizmatlar`)
+        .url(L.clinics, `${PUBLIC_BASE}/klinikalar`).row()
+        .url(L.doctors, `${PUBLIC_BASE}/doktorlar`)
+        .url(L.skory, `${PUBLIC_BASE}/skory`).row();
+
+    if (linked) {
+        kb.url(L.bookings, `${PUBLIC_BASE}/user/appointments`)
+          .url(L.cart, `${PUBLIC_BASE}/user/cart`).row()
+          .url(L.notifs, `${PUBLIC_BASE}/user/notifications`)
+          .url(L.profile, `${PUBLIC_BASE}/user/profile`).row()
+          .url(L.settings, `${PUBLIC_BASE}/user/notification-settings`);
+    }
+    return kb;
 }
 
 async function lookupLang(chatId: number): Promise<Lang> {
@@ -105,13 +113,22 @@ function registerHandlers(bot: Bot) {
         if (!tgUser || !chatId) return;
 
         if (!token) {
-            await ctx.reply(
-                'Salom! Banisa botiga xush kelibsiz.\n\n' +
-                'Bot bildirishnomalar va qulay kirish uchun. Botni hisobingizga bog\'lash uchun:\n' +
-                `1. Saytda kiring: ${PUBLIC_BASE || 'banisa.uz'}\n` +
-                '2. "Telegram bog\'lash" tugmasini bosing\n' +
-                '3. Sizga maxsus havola beriladi va bot avtomatik bog\'lanadi',
-            );
+            const existing = await (prisma as any).telegramAccount.findUnique({
+                where: { chatId: BigInt(chatId) },
+                select: { language: true, userId: true },
+            });
+            const lang: Lang = existing?.language === 'ru'
+                ? 'ru'
+                : (tgUser.language_code === 'ru' ? 'ru' : 'uz');
+            const linked = Boolean(existing?.userId);
+            const intro = linked
+                ? (lang === 'ru'
+                    ? 'С возвращением! Меню ниже 👇'
+                    : 'Qaytib kelganingiz uchun rahmat! Menyu pastda 👇')
+                : (lang === 'ru'
+                    ? `Привет! Это Banisa бот.\n\nЧтобы привязать аккаунт:\n1. Войдите на ${PUBLIC_BASE}\n2. Настройки уведомлений → Telegram → Привязать\n\nА пока — открытые разделы:`
+                    : `Salom! Banisa botiga xush kelibsiz.\n\nHisobingizni bog'lash uchun:\n1. Saytga kiring: ${PUBLIC_BASE}\n2. Bildirishnoma sozlamalari → Telegram → Bog'lash\n\nShu paytgacha ochiq bo'limlar:`);
+            await ctx.reply(intro, { reply_markup: mainMenu(lang, linked) });
             return;
         }
 
@@ -155,7 +172,7 @@ function registerHandlers(bot: Bot) {
                     ? '✅ Аккаунт привязан!\n\nТеперь брони, оплаты и напоминания будут приходить сюда.'
                     : '✅ Hisobingiz bog\'landi!\n\nEndi bron, to\'lov va eslatma xabarlarini shu yerda olasiz.',
             );
-            await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang) });
+            await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
         } catch (e: any) {
             const reason = e?.message;
             if (reason === 'not_found') {
@@ -174,6 +191,9 @@ function registerHandlers(bot: Bot) {
     bot.command('help', async (ctx) => {
         const chatId = ctx.chat?.id;
         const lang = chatId ? await lookupLang(chatId) : 'uz';
+        const linked = chatId ? Boolean(await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { userId: true },
+        })) : false;
         const text = lang === 'ru'
             ? 'Banisa bot — ваш Telegram помощник.\n\n' +
               '• /start — начать\n' +
@@ -189,7 +209,7 @@ function registerHandlers(bot: Bot) {
               '• /lang — tilni tanlash (UZ / RU)\n' +
               '• /unlink — botni hisobdan uzish\n\n' +
               'Savol bo\'lsa banisa.uz saytidan murojaat qiling.';
-        await ctx.reply(text, { reply_markup: mainMenu(lang) });
+        await ctx.reply(text, { reply_markup: mainMenu(lang, linked) });
     });
 
     bot.command('menu', async (ctx) => {
@@ -200,11 +220,8 @@ function registerHandlers(bot: Bot) {
             select: { language: true, userId: true },
         });
         const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
-        if (!acc?.userId) {
-            await ctx.reply(LABELS[lang].notLinkedHint);
-            return;
-        }
-        await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang) });
+        const linked = Boolean(acc?.userId);
+        await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, linked) });
     });
 
     bot.command('lang', async (ctx) => {
@@ -270,8 +287,12 @@ function registerHandlers(bot: Bot) {
     bot.on('message', async (ctx) => {
         if (ctx.message.text?.startsWith('/')) return; // handled above
         const chatId = ctx.chat?.id;
-        const lang = chatId ? await lookupLang(chatId) : 'uz';
-        await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang) });
+        if (!chatId) return;
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, Boolean(acc?.userId)) });
     });
 
     bot.catch((err) => {
