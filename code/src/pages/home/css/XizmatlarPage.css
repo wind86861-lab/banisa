@@ -3277,12 +3277,14 @@
 }
 
 @media (max-width: 900px) {
-  .xp-page > .cm-topbar,
-  .xp-page > .cm-nav {
+  /* Keep main .cm-nav visible on mobile — gives users the logo + hamburger
+     drawer. Only hide the verbose top-bar (phone/email row) and the
+     redundant in-page back/cart strip. */
+  .xp-page > .cm-topbar {
     display: none !important;
   }
   .xp-page .xp-mobile-header {
-    display: flex !important;
+    display: none !important;
   }
 }
 
@@ -3290,7 +3292,17 @@
 .xp-top-controls {
   display: flex;
   align-items: stretch;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .xp-top-controls .xp-mobile-filter-btn-top {
+    flex: 1 1 100%;
+  }
+  .xp-top-controls .xp-map-cta {
+    flex: 1 1 auto;
+  }
 }
 
 .xp-top-controls .xp-mobile-filter-btn-top {
