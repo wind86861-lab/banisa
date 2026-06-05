@@ -74,9 +74,11 @@
   display: none;
   align-items: center;
   gap: 2px;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
-@media(min-width:1024px) {
+@media(min-width:1180px) {
   .cm-nav-links {
     display: flex
   }
@@ -87,11 +89,19 @@
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
-  padding: 10px 16px;
+  padding: 10px 14px;
   border-radius: 8px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+@media(max-width:1300px) {
+  .cm-nav-link {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
 }
 
 .cm-nav-link::after {
@@ -177,7 +187,7 @@
   flex-shrink: 0;
 }
 
-@media(min-width:1024px) {
+@media(min-width:1180px) {
   .cm-nav-hamburger {
     display: none;
   }
@@ -613,8 +623,8 @@
    NAVIGATION RESPONSIVE — down to 300px
 ══════════════════════════════════════════ */
 
-/* ── < 1024px: hamburger zone ── */
-@media (max-width: 1023px) {
+/* ── < 1180px: hamburger zone ── */
+@media (max-width: 1179px) {
   .cm-nav-inner {
     height: 64px;
   }
