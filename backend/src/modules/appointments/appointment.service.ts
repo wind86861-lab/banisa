@@ -7,7 +7,7 @@ import {
     computePricing,
     logAppointmentEvent,
 } from './appointment.utils';
-import { notifyClinicAdmins, notifyUser } from '../notifications/notifications.service';
+import { dispatch as dispatchNotification } from '../notifications/notification.dispatcher';
 
 /**
  * AppointmentService
@@ -703,23 +703,16 @@ export class AppointmentService {
             const isCash = (updated as any).paymentMethod === 'CASH' || (updated as any).paymentStatus === 'UNPAID';
             const formattedPrice = Number(finalPrice).toLocaleString('en-US').replace(/,/g, ' ');
 
-            await notifyClinicAdmins({
+            await dispatchNotification({
+                type: 'clinic_patient_checked_in',
                 clinicId: clinic.id,
-                type: 'CHECK_IN',
-                title: isCash
-                    ? '💵 Naqd to\'lov kutilmoqda'
-                    : '✅ Bemor keldi',
-                body: isCash
-                    ? `${fullName} — ${serviceName} — ${formattedPrice} so'm`
-                    : `${fullName} — ${serviceName} (onlayn to'langan)`,
+                appointmentId: appt.id,
+                bookingNumber: (updated as any).bookingNumber,
+                patientName: fullName,
+                serviceName,
+                finalPrice,
+                paymentMethod: (updated as any).paymentMethod,
                 priority: isCash ? 'HIGH' : 'NORMAL',
-                data: {
-                    appointmentId: appt.id,
-                    bookingNumber: (updated as any).bookingNumber,
-                    finalPrice,
-                    paymentMethod: (updated as any).paymentMethod,
-                    paymentStatus: (updated as any).paymentStatus,
-                },
                 link: `/clinic/bookings?focus=${appt.id}`,
             });
         } catch (e) {
@@ -867,14 +860,12 @@ export class AppointmentService {
 
         // Notify patient that payment was received (best-effort).
         try {
-            const formatted = Number(payload.amount).toLocaleString('en-US').replace(/,/g, ' ');
-            await notifyUser({
+            await dispatchNotification({
+                type: 'payment_received',
                 userId: appt.patientId,
-                type: 'PAYMENT_RECEIVED',
-                title: '✅ To\'lovingiz qabul qilindi',
-                body: `${formatted} so'm naqd to'lov tasdiqlandi`,
+                appointmentId,
+                amount: payload.amount,
                 priority: 'HIGH',
-                data: { appointmentId, amount: payload.amount },
                 link: `/user/appointments/${appointmentId}`,
             });
         } catch (e) {

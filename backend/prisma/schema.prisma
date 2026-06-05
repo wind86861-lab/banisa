@@ -30,6 +30,8 @@ model User {
   notifications      Notification[]      @relation("UserNotifications")
   favorites          UserFavorite[]
   doctorReviews      DoctorReview[]
+  notificationPreference NotificationPreference?
+  notificationLogs      NotificationLog[]
 
   @@index([phone])
   @@index([status])
@@ -1085,6 +1087,42 @@ model Notification {
   @@index([recipientUserId, isRead, createdAt])
   @@index([recipientClinicId, createdAt])
   @@index([type])
+}
+
+/// Per-user notification channel preferences. Channels JSON shape:
+/// { [eventType]: ["inapp" | "sms" | "telegram"] }
+/// Unknown events fall back to defaults defined in code (see notification_defaults.ts).
+model NotificationPreference {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  channels   Json     @default("{}")
+  smsConsent Boolean  @default(true)
+  tgConsent  Boolean  @default(false)
+  language   String   @default("uz")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Delivery log — one row per channel attempt, including skipped ones.
+/// Used to debug delivery, enforce per-user SMS rate limits, and feed analytics.
+model NotificationLog {
+  id           String   @id @default(uuid())
+  userId       String?
+  clinicId     String?
+  eventType    String
+  channel      String
+  status       String
+  errorMessage String?
+  externalId   String?
+  createdAt    DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([channel, createdAt])
+  @@index([eventType, createdAt])
 }
 
 enum ClinicStatus {

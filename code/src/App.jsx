@@ -77,6 +77,7 @@ import ClinicCashierQueue from './clinic/pages/ClinicCashierQueue';
 import CheckInFab from './user/components/CheckInFab';
 import UserFavoritesPage from './user/pages/UserFavoritesPage';
 import UserNotificationsPage from './user/pages/UserNotificationsPage';
+import UserNotificationSettings from './user/pages/UserNotificationSettings';
 import PatientCheckInPage from './pages/checkin/PatientCheckInPage';
 import ScanCheckInPage from './user/pages/ScanCheckInPage';
 import PaymePage from './pages/payment/PaymePage';
@@ -154,6 +155,7 @@ function App() {
                                     <Route path="/user/profile" element={<UserGuard><UserProfilePage /></UserGuard>} />
                                     <Route path="/user/favorites" element={<UserGuard><UserFavoritesPage /></UserGuard>} />
                                     <Route path="/user/notifications" element={<UserGuard><UserNotificationsPage /></UserGuard>} />
+                                    <Route path="/user/notification-settings" element={<UserGuard><UserNotificationSettings /></UserGuard>} />
                                     <Route path="/user/appointments" element={<UserGuard><UserAppointments /></UserGuard>} />
                                     <Route path="/user/appointments/:id" element={<UserGuard><AppointmentDetailPage /></UserGuard>} />
                                     <Route path="/user/cart" element={<UserGuard><CartPage /></UserGuard>} />

@@ -1,5 +1,5 @@
 import prisma from '../../config/database';
-import { notifyClinicAdmins } from '../notifications/notifications.service';
+import { dispatch as dispatchNotification } from '../notifications/notification.dispatcher';
 
 // Bookings >2h past scheduledAt that never checked in → NO_SHOW.
 const NO_SHOW_AFTER_MS = 2 * 60 * 60 * 1000;
@@ -69,15 +69,17 @@ async function runCashRenotify() {
             const fullName = [a.patient?.firstName, a.patient?.lastName].filter(Boolean).join(' ') || a.patient?.phone || 'Bemor';
             const serviceName = a.diagnosticService?.nameUz || a.surgicalService?.nameUz || 'Xizmat';
             const finalPrice = a.finalPrice || a.price || 0;
-            const formattedPrice = Number(finalPrice).toLocaleString('en-US').replace(/,/g, ' ');
             const waitMin = a.checkedInAt ? Math.round((now - a.checkedInAt.getTime()) / 60000) : 0;
-            await notifyClinicAdmins({
+            await dispatchNotification({
+                type: 'clinic_cash_pending',
                 clinicId: a.clinicId,
-                type: 'CHECK_IN',
-                title: '⏰ Naqd to\'lov hali tasdiqlanmagan',
-                body: `${fullName} — ${serviceName} — ${formattedPrice} so'm — ${waitMin} daq kutmoqda`,
+                appointmentId: a.id,
+                bookingNumber: a.bookingNumber,
+                patientName: fullName,
+                serviceName,
+                finalPrice,
+                waitMinutes: waitMin,
                 priority: 'HIGH',
-                data: { appointmentId: a.id, bookingNumber: a.bookingNumber, finalPrice, waitMinutes: waitMin },
                 link: `/clinic/cashier?focus=${a.id}`,
             });
         } catch (e) {

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { User, Calendar, Heart, Grid, Clock, Star, ArrowRight, LogOut } from 'lucide-react';
+import { User, Calendar, Heart, Grid, Clock, Star, ArrowRight, LogOut, Bell } from 'lucide-react';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import api from '../../shared/api/axios';
 import TopBar from '../../pages/home/TopBar';
@@ -44,6 +44,7 @@ export default function UserDashboard() {
         { title: 'Uchrashuvlarim', subtitle: 'Navbat va uchrashuvlar tarixi', icon: Calendar, to: '/user/appointments', bgColor: '#F0FDF4', iconColor: '#16A34A' },
         { title: 'Sevimlilar', subtitle: 'Saqlangan xizmatlar', icon: Heart, to: '/user/favorites', bgColor: '#FFF1F2', iconColor: '#E11D48' },
         { title: 'Xizmatlar', subtitle: 'Xizmatlarni ko\'rish', icon: Grid, to: '/xizmatlar', bgColor: '#FFF7ED', iconColor: '#EA580C' },
+        { title: 'Bildirishnomalar', subtitle: 'SMS / Telegram / Saytda kanallarni tanlash', icon: Bell, to: '/user/notification-settings', bgColor: '#ECFEFF', iconColor: '#0891B2' },
     ];
 
     const recentAppointments = appointments.slice(0, 3);

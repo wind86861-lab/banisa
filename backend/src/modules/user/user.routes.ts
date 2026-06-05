@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { userController } from './user.controller';
 import { getHomeSummary } from './user-home-summary.controller';
 import { favoritesController, toggleFavoriteSchema } from './favorites.controller';
+import { getPreferences, updatePreferences } from '../notifications/preferences.controller';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
 import { validate } from '../../middleware/validate.middleware';
 import { updateProfileSchema, createReviewSchema, createAppointmentSchema } from './user.validation';
@@ -33,5 +34,9 @@ router.get('/favorites', requireRole(['PATIENT']), favoritesController.list);
 router.get('/favorites/ids', requireRole(['PATIENT']), favoritesController.ids);
 router.post('/favorites/toggle', requireRole(['PATIENT']), validate(toggleFavoriteSchema), favoritesController.toggle);
 router.delete('/favorites/:id', requireRole(['PATIENT']), favoritesController.remove);
+
+// Notification preferences — channel toggles per event
+router.get('/notification-preferences', ANY_OWNER, getPreferences);
+router.put('/notification-preferences', ANY_OWNER, updatePreferences);
 
 export default router;
