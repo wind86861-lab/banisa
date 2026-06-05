@@ -1,8 +1,68 @@
-import { Bot } from 'grammy';
+import { Bot, InlineKeyboard } from 'grammy';
 import prisma from '../../config/database';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const PUBLIC_BASE = process.env.PUBLIC_API_BASE_URL || '';
+const PUBLIC_BASE = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').replace(/\/+$/, '');
+
+type Lang = 'uz' | 'ru';
+
+const LABELS: Record<Lang, Record<string, string>> = {
+    uz: {
+        services: '🩺 Xizmatlar',
+        clinics: '🏥 Klinikalar',
+        doctors: '👨‍⚕️ Doktorlar',
+        bookings: '📅 Bronlarim',
+        skory: '🆘 Tez yordam',
+        settings: '⚙️ Sozlamalar',
+        notifs: '🔔 Bildirishnomalar',
+        profile: '👤 Profil',
+        cart: '🛒 Savat',
+        menuTitle: '👇 Asosiy menyu',
+        notLinkedHint: 'Botni hisobingizga bog\'lash kerak. Saytda → Bildirishnoma sozlamalari → Telegram bog\'lash.',
+    },
+    ru: {
+        services: '🩺 Услуги',
+        clinics: '🏥 Клиники',
+        doctors: '👨‍⚕️ Врачи',
+        bookings: '📅 Мои брони',
+        skory: '🆘 Скорая помощь',
+        settings: '⚙️ Настройки',
+        notifs: '🔔 Уведомления',
+        profile: '👤 Профиль',
+        cart: '🛒 Корзина',
+        menuTitle: '👇 Главное меню',
+        notLinkedHint: 'Сначала привяжите бот к аккаунту. На сайте → Настройки уведомлений → Привязать Telegram.',
+    },
+};
+
+/**
+ * Main inline menu — shown after binding and on /menu.
+ * web_app buttons open the SPA inside Telegram WebView (auto-login via
+ * initData); url buttons open in the user's external browser.
+ */
+function mainMenu(lang: Lang): InlineKeyboard {
+    const L = LABELS[lang];
+    return new InlineKeyboard()
+        .webApp(L.services, `${PUBLIC_BASE}/xizmatlar`)
+        .webApp(L.clinics, `${PUBLIC_BASE}/klinikalar`).row()
+        .webApp(L.doctors, `${PUBLIC_BASE}/doktorlar`)
+        .webApp(L.bookings, `${PUBLIC_BASE}/user/appointments`).row()
+        .webApp(L.skory, `${PUBLIC_BASE}/skory`)
+        .webApp(L.cart, `${PUBLIC_BASE}/user/cart`).row()
+        .webApp(L.notifs, `${PUBLIC_BASE}/user/notifications`)
+        .webApp(L.profile, `${PUBLIC_BASE}/user/profile`).row()
+        .webApp(L.settings, `${PUBLIC_BASE}/user/notification-settings`);
+}
+
+async function lookupLang(chatId: number): Promise<Lang> {
+    try {
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) },
+            select: { language: true },
+        });
+        return acc?.language === 'ru' ? 'ru' : 'uz';
+    } catch { return 'uz'; }
+}
 
 /**
  * Singleton bot instance. Lazy because we want startup to succeed even
@@ -89,11 +149,13 @@ function registerHandlers(bot: Bot) {
                 });
             });
 
+            const lang: Lang = tgUser.language_code === 'ru' ? 'ru' : 'uz';
             await ctx.reply(
-                '✅ Hisobingiz bog\'landi!\n\n' +
-                'Endi siz bron, to\'lov va eslatma xabarlarini shu yerda olasiz. ' +
-                'Sozlamalarni saytda /user/notification-settings sahifasida o\'zgartirishingiz mumkin.',
+                lang === 'ru'
+                    ? '✅ Аккаунт привязан!\n\nТеперь брони, оплаты и напоминания будут приходить сюда.'
+                    : '✅ Hisobingiz bog\'landi!\n\nEndi bron, to\'lov va eslatma xabarlarini shu yerda olasiz.',
             );
+            await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang) });
         } catch (e: any) {
             const reason = e?.message;
             if (reason === 'not_found') {
@@ -110,14 +172,39 @@ function registerHandlers(bot: Bot) {
     });
 
     bot.command('help', async (ctx) => {
-        await ctx.reply(
-            'Banisa bot — sizning Telegram yordamchingiz.\n\n' +
-            '• /start — botni boshlash\n' +
-            '• /status — bog\'langan hisob holati\n' +
-            '• /lang — tilni tanlash (UZ / RU)\n' +
-            '• /unlink — botni hisobdan uzish\n\n' +
-            'Savol bo\'lsa banisa.uz saytidan murojaat qiling.',
-        );
+        const chatId = ctx.chat?.id;
+        const lang = chatId ? await lookupLang(chatId) : 'uz';
+        const text = lang === 'ru'
+            ? 'Banisa bot — ваш Telegram помощник.\n\n' +
+              '• /start — начать\n' +
+              '• /menu — главное меню\n' +
+              '• /status — состояние привязки\n' +
+              '• /lang — выбрать язык\n' +
+              '• /unlink — отвязать бот\n\n' +
+              'Вопросы — banisa.uz'
+            : 'Banisa bot — sizning Telegram yordamchingiz.\n\n' +
+              '• /start — botni boshlash\n' +
+              '• /menu — asosiy menyu\n' +
+              '• /status — bog\'langan hisob holati\n' +
+              '• /lang — tilni tanlash (UZ / RU)\n' +
+              '• /unlink — botni hisobdan uzish\n\n' +
+              'Savol bo\'lsa banisa.uz saytidan murojaat qiling.';
+        await ctx.reply(text, { reply_markup: mainMenu(lang) });
+    });
+
+    bot.command('menu', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) },
+            select: { language: true, userId: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        if (!acc?.userId) {
+            await ctx.reply(LABELS[lang].notLinkedHint);
+            return;
+        }
+        await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang) });
     });
 
     bot.command('lang', async (ctx) => {
@@ -179,10 +266,12 @@ function registerHandlers(bot: Bot) {
         }
     });
 
-    // Generic message → polite hint
+    // Generic message → friendly nudge with the main menu
     bot.on('message', async (ctx) => {
         if (ctx.message.text?.startsWith('/')) return; // handled above
-        await ctx.reply('Iltimos, /help orqali mavjud komandalarni ko\'ring.');
+        const chatId = ctx.chat?.id;
+        const lang = chatId ? await lookupLang(chatId) : 'uz';
+        await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang) });
     });
 
     bot.catch((err) => {
