@@ -13,7 +13,7 @@ const NAV_LINKS = [
     { href: '/xizmatlar', label: 'Xizmatlar', isAnchor: false },
     { href: '/klinikalar', label: 'Klinikalar', isAnchor: false },
     { href: '/doktorlar', label: 'Doktorlar', isAnchor: false },
-    { href: '/skory', label: 'Tez yordam', isAnchor: false, emphasis: 'urgent' },
+    { href: '/skory', label: 'Tez yordam', isAnchor: false },
     { href: '#how', label: 'Qanday ishlaydi', isAnchor: true },
     { href: '#contact', label: 'Aloqa', isAnchor: true },
 ];

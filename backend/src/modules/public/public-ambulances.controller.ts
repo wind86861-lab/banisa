@@ -26,12 +26,14 @@ export const listPublicAmbulances = async (req: Request, res: Response) => {
     // Status filter — default AVAILABLE only, but user can request all by status=all.
     const statusParam = String(req.query.status || 'AVAILABLE');
     const region = req.query.region ? String(req.query.region) : null;
+    const maxBaseFee = parseInt(String(req.query.maxBaseFee || '0'), 10) || 0;
 
     const where: any = { isActive: true };
     if (statusParam !== 'all') where.status = statusParam;
     if (type && AMBULANCE_TYPES.includes(type)) where.type = type;
     if (minCapacity > 0) where.capacity = { gte: minCapacity };
     if (region) where.clinic = { region };
+    if (maxBaseFee > 0) where.OR = [{ baseFee: null }, { baseFee: { lte: maxBaseFee } }];
 
     const rows = await prisma.ambulance.findMany({
         where,

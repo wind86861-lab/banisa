@@ -5,9 +5,9 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Ambulance, Phone, MapPin, Filter, X, AlertTriangle,
+    Ambulance, Phone, MapPin, X, AlertTriangle,
     Activity, CheckCircle2, Wrench, Power, Users, Heart, Baby,
-    Sparkles, Navigation as NavIcon, Search,
+    Sparkles, Navigation as NavIcon, Wallet,
 } from 'lucide-react';
 import api from '../../shared/api/axios';
 import TopBar from './TopBar';
@@ -75,19 +75,6 @@ function FitBounds({ items, userCoords }) {
     return null;
 }
 
-const REGIONS = [
-    'Toshkent', 'Samarqand', 'Buxoro', 'Namangan', 'Andijon',
-    "Farg'ona", 'Navoiy', 'Qarshi', 'Nukus', 'Urganch',
-];
-const TYPES = Object.keys(TYPE_META);
-const EQUIPMENT = [
-    { key: 'defibrillator', label: 'Defibrillator' },
-    { key: 'ventilator',    label: 'Ventilyator' },
-    { key: 'monitor',       label: 'Monitor' },
-    { key: 'ekg',           label: 'EKG' },
-    { key: 'oxygen',        label: 'Kislorod' },
-    { key: 'incubator',     label: 'Inkubator' },
-];
 
 function AmbulanceDetailModal({ amb, onClose }) {
     if (!amb) return null;
@@ -218,12 +205,8 @@ function AmbulanceDetailModal({ amb, onClose }) {
 export default function SkoryPage() {
     const [userCoords, setUserCoords] = useState(null);
     const [geoDenied, setGeoDenied] = useState(false);
-    const [type, setType] = useState('');
-    const [minCapacity, setMinCapacity] = useState(0);
-    const [equipment, setEquipment] = useState([]);
-    const [region, setRegion] = useState('');
-    const [statusFilter, setStatusFilter] = useState('AVAILABLE'); // 'all' or specific
-    const [showFilters, setShowFilters] = useState(false);
+    const [radius, setRadius] = useState(0);          // km, 0 = no limit
+    const [maxBaseFee, setMaxBaseFee] = useState(0);  // som, 0 = no limit
     const [selected, setSelected] = useState(null);
 
     useEffect(() => {
@@ -244,13 +227,10 @@ export default function SkoryPage() {
             p.lat = userCoords.lat;
             p.lng = userCoords.lng;
         }
-        if (type) p.type = type;
-        if (minCapacity > 0) p.minCapacity = minCapacity;
-        if (equipment.length > 0) p.equipment = equipment.join(',');
-        if (region) p.region = region;
-        if (statusFilter !== 'AVAILABLE') p.status = statusFilter;
+        if (radius > 0) p.radius = radius;
+        if (maxBaseFee > 0) p.maxBaseFee = maxBaseFee;
         return p;
-    }, [userCoords, type, minCapacity, equipment, region, statusFilter]);
+    }, [userCoords, radius, maxBaseFee]);
 
     const { data, isLoading } = useQuery({
         queryKey: ['public', 'ambulances', queryParams],
@@ -259,21 +239,8 @@ export default function SkoryPage() {
 
     const items = data?.items || [];
     const validForMap = items.filter((a) => a.latitude && a.longitude);
-    const activeFilters = [
-        type && TYPE_META[type]?.label,
-        minCapacity > 0 && `${minCapacity}+ bemor`,
-        equipment.length > 0 && `${equipment.length} jihoz`,
-        region,
-        statusFilter !== 'AVAILABLE' && (statusFilter === 'all' ? 'Barchasi' : STATUS_META[statusFilter]?.label),
-    ].filter(Boolean);
-
-    const clearAll = () => {
-        setType('');
-        setMinCapacity(0);
-        setEquipment([]);
-        setRegion('');
-        setStatusFilter('AVAILABLE');
-    };
+    const hasFilters = radius > 0 || maxBaseFee > 0;
+    const clearAll = () => { setRadius(0); setMaxBaseFee(0); };
 
     return (
         <div className="sky-page-wrap">
@@ -326,106 +293,59 @@ export default function SkoryPage() {
                     </div>
                 </motion.header>
 
-                <div className="sky-toolbar">
-                    <button
-                        className={`sky-filter-btn ${showFilters ? 'sky-filter-btn--on' : ''}`}
-                        onClick={() => setShowFilters((s) => !s)}
-                    >
-                        <Filter size={14} /> Filterlar
-                        {activeFilters.length > 0 && <span className="sky-filter-badge">{activeFilters.length}</span>}
-                    </button>
-                    <select className="sky-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                        <option value="AVAILABLE">Faqat bo'sh</option>
-                        <option value="all">Barchasi</option>
-                        <option value="BUSY">Bandda</option>
-                        <option value="MAINTENANCE">Tex. xizmatda</option>
-                    </select>
-                    {geoDenied && (
-                        <div className="sky-geo-warn">
-                            <AlertTriangle size={12} /> Joylashuv yoqilmagan — masofa ko'rsatilmaydi
+                <div className="sky-filters">
+                    <div className="sky-filters__group">
+                        <div className="sky-filters__label">
+                            <NavIcon size={11} /> Masofa
                         </div>
+                        <div className="sky-chips">
+                            <button className={`sky-chip ${radius === 0 ? 'sky-chip--on' : ''}`} onClick={() => setRadius(0)}>
+                                Cheklovsiz
+                            </button>
+                            {[3, 5, 10, 20].map((r) => (
+                                <button
+                                    key={r}
+                                    className={`sky-chip ${radius === r ? 'sky-chip--on' : ''}`}
+                                    onClick={() => setRadius(r)}
+                                    disabled={!userCoords}
+                                >
+                                    {r} km
+                                </button>
+                            ))}
+                        </div>
+                        {!userCoords && (
+                            <div className="sky-filters__hint">
+                                Masofa filteri uchun joylashuvni yoqing
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="sky-filters__group">
+                        <div className="sky-filters__label">
+                            <Wallet size={11} /> Maksimal chaqiruv narxi
+                        </div>
+                        <div className="sky-chips">
+                            <button className={`sky-chip ${maxBaseFee === 0 ? 'sky-chip--on' : ''}`} onClick={() => setMaxBaseFee(0)}>
+                                Cheklovsiz
+                            </button>
+                            {[50000, 100000, 200000, 500000].map((p) => (
+                                <button
+                                    key={p}
+                                    className={`sky-chip ${maxBaseFee === p ? 'sky-chip--on' : ''}`}
+                                    onClick={() => setMaxBaseFee(p)}
+                                >
+                                    {(p / 1000)}K so'm
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {hasFilters && (
+                        <button className="sky-clear" onClick={clearAll}>
+                            <X size={12} /> Tozalash
+                        </button>
                     )}
                 </div>
-
-                <AnimatePresence>
-                    {showFilters && (
-                        <motion.div
-                            className="sky-filters"
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                        >
-                            <div className="sky-filters__group">
-                                <div className="sky-filters__label">Tur</div>
-                                <div className="sky-chips">
-                                    <button className={`sky-chip ${!type ? 'sky-chip--on' : ''}`} onClick={() => setType('')}>Barchasi</button>
-                                    {TYPES.map((t) => (
-                                        <button
-                                            key={t}
-                                            className={`sky-chip ${type === t ? 'sky-chip--on' : ''}`}
-                                            onClick={() => setType(t)}
-                                            style={type === t ? { background: TYPE_META[t].color, borderColor: TYPE_META[t].color } : undefined}
-                                        >
-                                            {TYPE_META[t].label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="sky-filters__group">
-                                <div className="sky-filters__label">Sig'im (kamida)</div>
-                                <div className="sky-chips">
-                                    {[0, 1, 2, 4].map((c) => (
-                                        <button
-                                            key={c}
-                                            className={`sky-chip ${minCapacity === c ? 'sky-chip--on' : ''}`}
-                                            onClick={() => setMinCapacity(c)}
-                                        >
-                                            {c === 0 ? 'Barchasi' : `${c}+ bemor`}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="sky-filters__group">
-                                <div className="sky-filters__label">Jihozlar (hammasi shart)</div>
-                                <div className="sky-chips">
-                                    {EQUIPMENT.map((e) => (
-                                        <button
-                                            key={e.key}
-                                            className={`sky-chip ${equipment.includes(e.key) ? 'sky-chip--on' : ''}`}
-                                            onClick={() => setEquipment((cur) =>
-                                                cur.includes(e.key) ? cur.filter((k) => k !== e.key) : [...cur, e.key]
-                                            )}
-                                        >
-                                            {e.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="sky-filters__group">
-                                <div className="sky-filters__label">Hudud</div>
-                                <div className="sky-chips">
-                                    <button className={`sky-chip ${!region ? 'sky-chip--on' : ''}`} onClick={() => setRegion('')}>Barchasi</button>
-                                    {REGIONS.map((r) => (
-                                        <button
-                                            key={r}
-                                            className={`sky-chip ${region === r ? 'sky-chip--on' : ''}`}
-                                            onClick={() => setRegion(r)}
-                                        >{r}</button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {activeFilters.length > 0 && (
-                                <button className="sky-clear" onClick={clearAll}>
-                                    <X size={12} /> Tozalash
-                                </button>
-                            )}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
 
                 <div className="sky-grid">
                     <div className="sky-map-wrap">
