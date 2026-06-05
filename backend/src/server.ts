@@ -3,6 +3,7 @@ import { env } from './config/env';
 import prisma from './config/database';
 import { startCheckInScheduler } from './modules/appointments/check-in.scheduler';
 import { startReminderScheduler } from './modules/appointments/reminder.scheduler';
+import { startDailySummaryScheduler } from './modules/appointments/daily-summary.scheduler';
 import { getBot, isTelegramConfigured } from './modules/telegram/telegram.bot';
 
 const PORT = env.PORT || 5000;
@@ -20,6 +21,7 @@ async function bootstrap() {
             if (instanceId === '0') {
                 startCheckInScheduler();
                 startReminderScheduler();
+                startDailySummaryScheduler();
                 setupTelegramWebhook().catch((e) => console.error('[telegram] webhook setup failed:', e));
             } else {
                 console.log(`[scheduler] skipped on instance ${instanceId}`);
@@ -61,14 +63,18 @@ async function setupTelegramWebhook() {
     }
     const url = publicBase.replace(/\/+$/, '') + '/api/telegram/webhook';
     const secret = process.env.TELEGRAM_WEBHOOK_SECRET || undefined;
+    const desiredUpdates = ['message', 'callback_query'];
     try {
         const info = await bot.api.getWebhookInfo();
-        if (info.url === url) {
+        const currentUpdates = info.allowed_updates || [];
+        const updatesMatch = desiredUpdates.length === currentUpdates.length
+            && desiredUpdates.every(u => currentUpdates.includes(u as any));
+        if (info.url === url && updatesMatch) {
             console.log('[telegram] webhook already up to date:', url);
             return;
         }
-        await bot.api.setWebhook(url, { secret_token: secret, allowed_updates: ['message'] });
-        console.log('[telegram] webhook registered:', url);
+        await bot.api.setWebhook(url, { secret_token: secret, allowed_updates: desiredUpdates as any });
+        console.log('[telegram] webhook registered:', url, 'updates:', desiredUpdates);
     } catch (e) {
         console.error('[telegram] setWebhook failed:', e);
     }

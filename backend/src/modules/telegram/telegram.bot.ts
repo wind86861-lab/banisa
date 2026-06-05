@@ -114,8 +114,40 @@ function registerHandlers(bot: Bot) {
             'Banisa bot — sizning Telegram yordamchingiz.\n\n' +
             '• /start — botni boshlash\n' +
             '• /status — bog\'langan hisob holati\n' +
+            '• /lang — tilni tanlash (UZ / RU)\n' +
             '• /unlink — botni hisobdan uzish\n\n' +
             'Savol bo\'lsa banisa.uz saytidan murojaat qiling.',
+        );
+    });
+
+    bot.command('lang', async (ctx) => {
+        await ctx.reply('Tilni tanlang / Выберите язык:', {
+            reply_markup: {
+                inline_keyboard: [[
+                    { text: "🇺🇿 O'zbekcha", callback_data: 'lang:uz' },
+                    { text: '🇷🇺 Русский', callback_data: 'lang:ru' },
+                ]],
+            },
+        });
+    });
+
+    bot.callbackQuery(/^lang:(uz|ru)$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        const lang = ctx.match[1] as 'uz' | 'ru';
+        if (!chatId) return;
+        const updated = await (prisma as any).telegramAccount.updateMany({
+            where: { chatId: BigInt(chatId) },
+            data: { language: lang },
+        });
+        await ctx.answerCallbackQuery();
+        if (updated.count === 0) {
+            await ctx.editMessageText('Avval botni hisobingizga bog\'lang / Сначала привяжите бот к аккаунту.');
+            return;
+        }
+        await ctx.editMessageText(
+            lang === 'ru'
+                ? '✅ Язык установлен: Русский. Все уведомления будут приходить на русском.'
+                : "✅ Til o'rnatildi: O'zbekcha. Barcha xabarlar shu tilda keladi.",
         );
     });
 

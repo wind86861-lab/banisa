@@ -18,18 +18,16 @@ export const telegramChannel: NotificationChannel = {
         }
 
         try {
-            const tpl = renderTemplate(event);
-            const text = (tpl.telegram || `*${tpl.title}*\n${tpl.body}`).slice(0, 4000);
-
-            // Collect recipient chat ids.
-            const chatIds: bigint[] = [];
+            // Collect (chatId, language) pairs so each recipient gets their own
+            // localised text. We render lazily inside the per-chat sender.
+            const targets: { chatId: bigint; language: 'uz' | 'ru' }[] = [];
 
             if (event.userId) {
                 const acc = await (prisma as any).telegramAccount.findUnique({
                     where: { userId: event.userId },
-                    select: { chatId: true, isBlocked: true },
+                    select: { chatId: true, isBlocked: true, language: true },
                 });
-                if (acc && !acc.isBlocked) chatIds.push(acc.chatId);
+                if (acc && !acc.isBlocked) targets.push({ chatId: acc.chatId, language: acc.language === 'ru' ? 'ru' : 'uz' });
             }
 
             if (event.clinicId) {
@@ -45,19 +43,23 @@ export const telegramChannel: NotificationChannel = {
                     const adminIds = admins.map(a => a.id);
                     const accs = await (prisma as any).telegramAccount.findMany({
                         where: { userId: { in: adminIds }, isBlocked: false },
-                        select: { chatId: true },
+                        select: { chatId: true, language: true },
                     });
-                    for (const a of accs) chatIds.push(a.chatId);
+                    for (const a of accs) targets.push({ chatId: a.chatId, language: a.language === 'ru' ? 'ru' : 'uz' });
                 }
             }
 
-            if (chatIds.length === 0) {
+            if (targets.length === 0) {
                 return { ok: false, skipped: true, error: 'no telegram binding' };
             }
 
             // Best-effort fan out. Aggregate result: ok if at least one succeeded.
             const results = await Promise.allSettled(
-                chatIds.map(id => sendMessage(id, text, event.link)),
+                targets.map(({ chatId, language }) => {
+                    const tpl = renderTemplate(event, language);
+                    const text = (tpl.telegram || `*${tpl.title}*\n${tpl.body}`).slice(0, 4000);
+                    return sendMessage(chatId, text, event.link);
+                }),
             );
             const anyOk = results.some(r => r.status === 'fulfilled' && (r.value as any).ok);
             if (anyOk) {

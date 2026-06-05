@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { createLinkToken, getLinkStatus, unlink } from './telegram.service';
 import { isTelegramConfigured } from './telegram.bot';
 import { miniAppLogin } from './miniapp.auth';
+import { widgetLogin, WidgetPayload } from './widget.auth';
 
 interface AuthedRequest extends Request {
     user?: { userId: string };
@@ -58,6 +59,46 @@ export const miniAppLoginHandler = async (req: Request, res: Response) => {
             : result.code === 'config_error' ? 503
             : 401;
         return res.status(status).json({ success: false, code: result.code });
+    }
+
+    res.cookie('user_refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/api/user/auth',
+    });
+
+    return res.json({
+        success: true,
+        data: {
+            user: result.user,
+            accessToken: result.accessToken,
+        },
+    });
+};
+
+/**
+ * Telegram Login Widget callback handler.
+ * Body: { id, first_name, last_name?, username?, photo_url?, auth_date, hash }
+ * — exactly the shape Telegram posts to data-auth-url / onTelegramAuth.
+ */
+export const widgetLoginHandler = async (req: Request, res: Response) => {
+    const payload = req.body as WidgetPayload;
+    const result = await widgetLogin(payload);
+    if (!result.success) {
+        const status = result.code === 'not_bound' ? 404
+            : result.code === 'expired' ? 401
+            : result.code === 'config_error' ? 503
+            : 401;
+        return res.status(status).json({
+            success: false,
+            code: result.code,
+            // Echo the Telegram user id so the SPA can prefill signup with it.
+            telegramUserId: payload?.id,
+            firstName: payload?.first_name,
+            username: payload?.username,
+        });
     }
 
     res.cookie('user_refreshToken', result.refreshToken, {

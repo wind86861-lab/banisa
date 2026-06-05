@@ -1,0 +1,112 @@
+.mab-page {
+    min-height: 100vh;
+    background: linear-gradient(180deg, #f0f9ff 0%, #ecfeff 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    padding-top: calc(20px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+}
+
+.mab-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 28px 22px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.06);
+    text-align: center;
+}
+
+.mab-icon {
+    width: 56px; height: 56px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 14px;
+    box-shadow: 0 6px 16px rgba(14, 165, 233, 0.3);
+}
+
+.mab-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 8px;
+    letter-spacing: -0.2px;
+}
+.mab-sub {
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0 0 20px;
+}
+
+.mab-steps {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 22px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.mab-steps li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #0f172a;
+}
+.mab-num {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.mab-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.mab-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+}
+.mab-btn:active { transform: translateY(1px); }
+.mab-btn--ghost {
+    background: #fff;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    box-shadow: none;
+}
+
+.mab-foot {
+    margin: 0;
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.4;
+}

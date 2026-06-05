@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-do
 import { Phone, Lock, Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Building2 } from 'lucide-react';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import BanisaLoader from '../../shared/components/BanisaLoader';
+import TelegramLoginButton from '../../shared/components/TelegramLoginButton';
 import './css/UserAuth.css';
 
 // Only allow internal redirects to prevent open-redirect via ?redirect=https://...
@@ -16,7 +17,7 @@ export default function UserLoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams] = useSearchParams();
-    const { login } = useUserAuth();
+    const { login, loginViaTelegramWidget } = useUserAuth();
     const [form, setForm] = useState({ phone: '', password: '' });
     const [showPass, setShowPass] = useState(false);
     const [error, setError] = useState('');
@@ -28,6 +29,25 @@ export default function UserLoginPage() {
     const justRegistered = location.state?.registered === true;
 
     const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setError(''); };
+
+    const handleTelegramAuth = async (widgetUser) => {
+        setError('');
+        setLoading(true);
+        try {
+            await loginViaTelegramWidget(widgetUser);
+            navigate(from, { replace: true });
+        } catch (err) {
+            const status = err?.response?.status;
+            if (status === 404) {
+                // Not bound — push the user toward phone signup + post-signup bind.
+                setError("Telegram hisobingiz tizimga bog'lanmagan. Avval telefon orqali ro'yxatdan o'ting, keyin sozlamalarda Telegram'ni bog'lang.");
+            } else if (status === 401) {
+                setError("Telegram tasdig'i bekor — qaytadan urinib ko'ring.");
+            } else {
+                setError("Telegram orqali kirishda xato yuz berdi.");
+            }
+        } finally { setLoading(false); }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -145,6 +165,13 @@ export default function UserLoginPage() {
                         </div>
 
                         <div className="auth-divider">yoki</div>
+
+                        <div className="auth-tg-wrap">
+                            <TelegramLoginButton onAuth={handleTelegramAuth} size="large" />
+                            <div className="auth-tg-hint">
+                                Telegram orqali kirish — avval saytda telefon bilan ro'yxatdan o'tib, sozlamalarda botni bog'lang
+                            </div>
+                        </div>
 
                         <Link to="/login" className="auth-clinic-link">
                             <Building2 size={16} /> Klinika admin sifatida kirish

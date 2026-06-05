@@ -63,6 +63,7 @@ import DoctorsPage from './pages/home/DoctorsPage';
 import DoctorProfilePage from './pages/home/DoctorProfilePage';
 import DoctorBookingPage from './pages/home/DoctorBookingPage';
 import SkoryPage from './pages/home/SkoryPage';
+import MiniAppBindFirst from './pages/MiniAppBindFirst';
 import ClinicDetailPage from './pages/home/ClinicDetailPage';
 import UserLoginPage from './pages/user/UserLoginPage';
 import UserSignupPage from './pages/user/UserSignupPage';
@@ -145,6 +146,7 @@ function App() {
                                     <Route path="/doktorlar/:id" element={<DoctorProfilePage />} />
                                     <Route path="/doktorlar/:id/band/:clinicId" element={<DoctorBookingPage />} />
                                     <Route path="/skory" element={<SkoryPage />} />
+                                    <Route path="/mini-app-bind" element={<MiniAppBindFirst />} />
 
                                     {/* ─── USER AUTH ROUTES (PATIENT) ──────────────── */}
                                     <Route path="/user/login" element={<UserPublicOnlyGuard><UserLoginPage /></UserPublicOnlyGuard>} />

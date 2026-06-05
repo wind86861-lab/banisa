@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
-import { getStatus, generateLink, removeLink, miniAppLoginHandler } from './telegram.controller';
+import { getStatus, generateLink, removeLink, miniAppLoginHandler, widgetLoginHandler } from './telegram.controller';
 
 const router = Router();
 
-// Public — initData itself is the credential.
+// Public — initData/widget payload itself is the credential.
 export const telegramPublicRouter = Router();
 telegramPublicRouter.post('/miniapp-login', miniAppLoginHandler);
+telegramPublicRouter.post('/widget-login', widgetLoginHandler);
 
 router.use(requireAuth);
 const ANY_OWNER = requireRole(['PATIENT', 'CLINIC_ADMIN', 'SUPER_ADMIN']);

@@ -174,12 +174,17 @@ export const UserAuthProvider = ({ children }) => {
               return;
             }
           } catch (e) {
-            // 404 not_bound → user opened Mini App without binding via web.
-            // Fall through to normal session restore so the unbound flow can
-            // show "please bind from web first" UX without breaking the app.
-            if (e?.response?.status !== 404) {
-              console.warn('[miniapp] login failed:', e?.response?.data || e?.message);
+            // 404 not_bound → push the user to a friendly bind-first screen.
+            // We only redirect when actually inside Telegram WebView so the
+            // public site is never affected.
+            if (e?.response?.status === 404) {
+              if (!window.location.pathname.startsWith('/mini-app-bind')) {
+                window.location.replace('/mini-app-bind');
+              }
+              setIsLoading(false);
+              return;
             }
+            console.warn('[miniapp] login failed:', e?.response?.data || e?.message);
           }
         }
 
@@ -256,6 +261,23 @@ export const UserAuthProvider = ({ children }) => {
     return userData;
   };
 
+  // ── Telegram Login Widget ───────────────────────────────────────────────
+  const loginViaTelegramWidget = async (widgetPayload) => {
+    const { data } = await axiosInstance.post('/user/auth/telegram/widget-login', widgetPayload);
+    const token = data.data?.accessToken ?? data.accessToken;
+    const userData = data.data?.user ?? data.user;
+    if (!token || !userData) throw new Error('Telegram login muvaffaqiyatsiz');
+    if (userData.role !== 'PATIENT') throw new Error('Bu login faqat foydalanuvchilar uchun');
+
+    setAccessToken(token);
+    setIsPatientSession(true);
+    userTokenStorage.setUser(userData);
+    localStorage.setItem(HAD_SESSION_KEY, '1');
+    setUser(userData);
+    userRestorePromise = null;
+    return userData;
+  };
+
   // ── Register ────────────────────────────────────────────────────────────
   const register = async (userData) => {
     const { data } = await axiosInstance.post('/user/auth/register', userData);
@@ -287,6 +309,7 @@ export const UserAuthProvider = ({ children }) => {
       loading: isLoading,
       isLoggedIn: !!user,
       login,
+      loginViaTelegramWidget,
       register,
       logout,
       updateUserState,
