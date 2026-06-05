@@ -151,6 +151,38 @@ export const UserAuthProvider = ({ children }) => {
           return;
         }
 
+        // ── Telegram Mini App auto-login ─────────────────────────────────────
+        // When loaded inside Telegram WebView, window.Telegram.WebApp is
+        // present. initData is signed by Telegram with the bot token — the
+        // backend verifies it and returns a patient session.
+        const tg = typeof window !== 'undefined' ? window.Telegram?.WebApp : null;
+        const initData = tg?.initData;
+        if (tg && initData) {
+          try {
+            tg.ready();
+            tg.expand?.();
+            const { data } = await axiosInstance.post('/user/auth/telegram/miniapp-login', { initData });
+            const token = data?.data?.accessToken ?? data?.accessToken;
+            const userData = data?.data?.user ?? data?.user;
+            if (token && userData && userData.role === 'PATIENT') {
+              setAccessToken(token);
+              setIsPatientSession(true);
+              userTokenStorage.setUser(userData);
+              localStorage.setItem(HAD_SESSION_KEY, '1');
+              setUser(userData);
+              setIsLoading(false);
+              return;
+            }
+          } catch (e) {
+            // 404 not_bound → user opened Mini App without binding via web.
+            // Fall through to normal session restore so the unbound flow can
+            // show "please bind from web first" UX without breaking the app.
+            if (e?.response?.status !== 404) {
+              console.warn('[miniapp] login failed:', e?.response?.data || e?.message);
+            }
+          }
+        }
+
         // Only attempt silent refresh if this browser previously had a patient
         // session — avoids 401-spam for first-time visitors.
         const hadSession = localStorage.getItem(HAD_SESSION_KEY);

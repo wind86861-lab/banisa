@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../shared/api/axios';
 import CashConfirmModal from '../components/CashConfirmModal';
 import BanisaLoader from '../../shared/components/BanisaLoader';
+import TelegramBindCard from '../../shared/components/TelegramBindCard';
 import './clinic-admin.css';
 
 /* ─── helpers ─── */
@@ -318,6 +319,10 @@ export default function ClinicNotifications() {
                     {/* Settings panel hidden until the backend endpoint exists —
                         previously this opened a panel whose Save button hit a 404. */}
                 </div>
+            </div>
+
+            <div style={{ marginTop: 20 }}>
+                <TelegramBindCard variant="clinic" />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: view === 'settings' ? '1fr 380px' : '1fr', gap: 20, marginTop: 20, alignItems: 'start' }}>

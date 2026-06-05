@@ -472,6 +472,8 @@ model Appointment {
   cashAdjustmentNote    String?
   ofertaVersionId       String?
   ofertaAcceptedAt      DateTime?
+  reminder24hSentAt     DateTime?
+  reminder1hSentAt      DateTime?
   clinic                Clinic                 @relation(fields: [clinicId], references: [id])
   diagnosticService     DiagnosticService?     @relation("DiagnosticServiceAppointments", fields: [diagnosticServiceId], references: [id])
   doctor                Doctor?                @relation(fields: [doctorId], references: [id])

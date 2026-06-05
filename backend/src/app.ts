@@ -40,7 +40,7 @@ import {
     clinicAppointmentRouter,
 } from './modules/appointments/appointment.routes';
 import notificationsRoutes, { patientNotificationsRouter } from './modules/notifications/notifications.routes';
-import telegramRoutes from './modules/telegram/telegram.routes';
+import telegramRoutes, { telegramPublicRouter } from './modules/telegram/telegram.routes';
 import { telegramWebhookRouter } from './modules/telegram/telegram.webhook';
 import metadataTemplateRoutes from './modules/metadata/metadata-template.routes';
 import appointmentMetadataRoutes from './modules/metadata/appointment-metadata.routes';
@@ -150,6 +150,7 @@ app.use('/api/user/notifications', patientNotificationsRouter);
 // needs req.body (express.json must run first). Our pipeline already parses JSON
 // for the entire /api tree, so this is fine.
 app.use('/api/telegram', telegramWebhookRouter);
+app.use('/api/user/auth/telegram', telegramPublicRouter);
 app.use('/api/user/telegram', telegramRoutes);
 
 // ─── Metadata System ──────────────────────────────────────────────────────────
