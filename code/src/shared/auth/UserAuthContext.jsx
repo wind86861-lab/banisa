@@ -155,12 +155,24 @@ export const UserAuthProvider = ({ children }) => {
         // When loaded inside Telegram WebView, window.Telegram.WebApp is
         // present. initData is signed by Telegram with the bot token — the
         // backend verifies it and returns a patient session.
+        //
+        // Guard: we try the auto-login AT MOST ONCE per Mini App session.
+        // Without this, any post-login navigation (e.g. a hard redirect or
+        // a soft route change that remounts the provider) would re-run the
+        // detection and could create a refresh loop when the backend keeps
+        // returning the same not_bound state.
         const tg = typeof window !== 'undefined' ? window.Telegram?.WebApp : null;
         const initData = tg?.initData;
-        if (tg && initData) {
+        const MINIAPP_TRIED_KEY = 'banisa_miniapp_tried';
+        const alreadyTried = (() => {
+          try { return sessionStorage.getItem(MINIAPP_TRIED_KEY) === '1'; }
+          catch { return false; }
+        })();
+        if (tg && initData && !alreadyTried) {
+          try { sessionStorage.setItem(MINIAPP_TRIED_KEY, '1'); } catch { /* ignore */ }
           try {
-            tg.ready();
-            tg.expand?.();
+            try { tg.ready(); } catch { /* ignore */ }
+            try { tg.expand?.(); } catch { /* ignore */ }
             const { data } = await axiosInstance.post('/user/auth/telegram/miniapp-login', { initData });
             const token = data?.data?.accessToken ?? data?.accessToken;
             const userData = data?.data?.user ?? data?.user;
@@ -174,12 +186,19 @@ export const UserAuthProvider = ({ children }) => {
               return;
             }
           } catch (e) {
-            // 404 not_bound → push the user to a friendly bind-first screen.
-            // We only redirect when actually inside Telegram WebView so the
-            // public site is never affected.
+            // 404 not_bound → render the bind-first screen IN PLACE rather
+            // than triggering a hard window.location.replace. The hard
+            // redirect was causing repeated reloads in some Telegram clients
+            // that retry the Mini App on navigation events.
             if (e?.response?.status === 404) {
-              if (!window.location.pathname.startsWith('/mini-app-bind')) {
-                window.location.replace('/mini-app-bind');
+              if (window.location.pathname !== '/mini-app-bind') {
+                // Soft-replace via history API — no reload, no second login attempt.
+                try {
+                  window.history.replaceState({}, '', '/mini-app-bind');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                } catch {
+                  window.location.replace('/mini-app-bind');
+                }
               }
               setIsLoading(false);
               return;

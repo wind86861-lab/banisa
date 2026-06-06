@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard } from 'grammy';
+import { Bot, InlineKeyboard, Keyboard } from 'grammy';
 import prisma from '../../config/database';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
@@ -19,6 +19,9 @@ const LABELS: Record<Lang, Record<string, string>> = {
         cart: '🛒 Savat',
         menuTitle: '👇 Asosiy menyu',
         notLinkedHint: 'Botni hisobingizga bog\'lash kerak. Saytda → Bildirishnoma sozlamalari → Telegram bog\'lash.',
+        menuBtnLabel: '🏥 Banisa',
+        open: 'Ochish',
+        replyHint: 'Pastdagi tugmalar — tez kirish uchun. Bo\'limni tanlang 👇',
     },
     ru: {
         services: '🩺 Услуги',
@@ -32,6 +35,9 @@ const LABELS: Record<Lang, Record<string, string>> = {
         cart: '🛒 Корзина',
         menuTitle: '👇 Главное меню',
         notLinkedHint: 'Сначала привяжите бот к аккаунту. На сайте → Настройки уведомлений → Привязать Telegram.',
+        menuBtnLabel: '🏥 Banisa',
+        open: 'Открыть',
+        replyHint: 'Кнопки снизу — для быстрого доступа. Выберите раздел 👇',
     },
 };
 
@@ -62,6 +68,48 @@ function mainMenu(lang: Lang, linked: boolean): InlineKeyboard {
     return kb;
 }
 
+/**
+ * Persistent reply keyboard (lives at the bottom of the chat). Text-only
+ * so it renders without BotFather Mini App registration. When the user
+ * taps one, the bot replies with an inline url button to the section.
+ */
+function replyKeyboard(lang: Lang, linked: boolean): Keyboard {
+    const L = LABELS[lang];
+    const kb = new Keyboard()
+        .text(L.services).text(L.clinics).row()
+        .text(L.doctors).text(L.skory).row();
+    if (linked) {
+        kb.text(L.bookings).text(L.cart).row()
+          .text(L.notifs).text(L.profile).row();
+    }
+    return kb.resized().persistent();
+}
+
+/** Routes a tapped reply-keyboard label to the right section URL. */
+function routeReplyLabel(lang: Lang, text: string): { path: string; label: string } | null {
+    const L = LABELS[lang];
+    // Match in both langs so the keyboard still works after language toggle
+    const map: Record<string, { path: string; label: string }> = {
+        [LABELS.uz.services]:  { path: '/xizmatlar',                   label: L.services },
+        [LABELS.ru.services]:  { path: '/xizmatlar',                   label: L.services },
+        [LABELS.uz.clinics]:   { path: '/klinikalar',                  label: L.clinics },
+        [LABELS.ru.clinics]:   { path: '/klinikalar',                  label: L.clinics },
+        [LABELS.uz.doctors]:   { path: '/doktorlar',                   label: L.doctors },
+        [LABELS.ru.doctors]:   { path: '/doktorlar',                   label: L.doctors },
+        [LABELS.uz.skory]:     { path: '/skory',                       label: L.skory },
+        [LABELS.ru.skory]:     { path: '/skory',                       label: L.skory },
+        [LABELS.uz.bookings]:  { path: '/user/appointments',           label: L.bookings },
+        [LABELS.ru.bookings]:  { path: '/user/appointments',           label: L.bookings },
+        [LABELS.uz.cart]:      { path: '/user/cart',                   label: L.cart },
+        [LABELS.ru.cart]:      { path: '/user/cart',                   label: L.cart },
+        [LABELS.uz.notifs]:    { path: '/user/notifications',          label: L.notifs },
+        [LABELS.ru.notifs]:    { path: '/user/notifications',          label: L.notifs },
+        [LABELS.uz.profile]:   { path: '/user/profile',                label: L.profile },
+        [LABELS.ru.profile]:   { path: '/user/profile',                label: L.profile },
+    };
+    return map[text] || null;
+}
+
 async function lookupLang(chatId: number): Promise<Lang> {
     try {
         const acc = await (prisma as any).telegramAccount.findUnique({
@@ -89,6 +137,53 @@ export function getBot(): Bot | null {
     _bot = new Bot(TOKEN);
     registerHandlers(_bot);
     return _bot;
+}
+
+/**
+ * Set the default chat menu button (next to the text input) to open the
+ * Banisa Mini App. Persists on Telegram's side — only needs to run once
+ * per bot, but we call it on every boot to be safe (it's idempotent).
+ *
+ * `web_app.url` does NOT require BotFather Mini App registration; it just
+ * needs to be HTTPS. Falls back to a plain commands button if it fails.
+ */
+export async function setupChatMenuButton(): Promise<void> {
+    const bot = getBot();
+    if (!bot) return;
+    try {
+        await bot.api.setChatMenuButton({
+            menu_button: {
+                type: 'web_app',
+                text: LABELS.uz.menuBtnLabel,
+                web_app: { url: PUBLIC_BASE },
+            } as any,
+        });
+        console.log('[telegram] menu button set → web_app:', PUBLIC_BASE);
+    } catch (e) {
+        console.error('[telegram] setChatMenuButton failed:', e);
+    }
+}
+
+/**
+ * Register the bot's command list (shown in Telegram's command popup).
+ * Idempotent — re-runs on every boot are fine.
+ */
+export async function setupBotCommands(): Promise<void> {
+    const bot = getBot();
+    if (!bot) return;
+    try {
+        await bot.api.setMyCommands([
+            { command: 'start', description: 'Botni boshlash / Запустить' },
+            { command: 'menu', description: 'Asosiy menyu / Главное меню' },
+            { command: 'lang', description: 'Til / Язык' },
+            { command: 'status', description: 'Bog\'lanish holati / Статус' },
+            { command: 'help', description: 'Yordam / Помощь' },
+            { command: 'unlink', description: 'Botni uzish / Отвязать' },
+        ]);
+        console.log('[telegram] bot commands registered');
+    } catch (e) {
+        console.error('[telegram] setMyCommands failed:', e);
+    }
 }
 
 export async function getBotUsername(): Promise<string | null> {
@@ -128,7 +223,8 @@ function registerHandlers(bot: Bot) {
                 : (lang === 'ru'
                     ? `Привет! Это Banisa бот.\n\nЧтобы привязать аккаунт:\n1. Войдите на ${PUBLIC_BASE}\n2. Настройки уведомлений → Telegram → Привязать\n\nА пока — открытые разделы:`
                     : `Salom! Banisa botiga xush kelibsiz.\n\nHisobingizni bog'lash uchun:\n1. Saytga kiring: ${PUBLIC_BASE}\n2. Bildirishnoma sozlamalari → Telegram → Bog'lash\n\nShu paytgacha ochiq bo'limlar:`);
-            await ctx.reply(intro, { reply_markup: mainMenu(lang, linked) });
+            await ctx.reply(intro, { reply_markup: replyKeyboard(lang, linked) });
+            await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, linked) });
             return;
         }
 
@@ -172,6 +268,7 @@ function registerHandlers(bot: Bot) {
                     ? '✅ Аккаунт привязан!\n\nТеперь брони, оплаты и напоминания будут приходить сюда.'
                     : '✅ Hisobingiz bog\'landi!\n\nEndi bron, to\'lov va eslatma xabarlarini shu yerda olasiz.',
             );
+            await ctx.reply(LABELS[lang].replyHint, { reply_markup: replyKeyboard(lang, true) });
             await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
         } catch (e: any) {
             const reason = e?.message;
@@ -221,6 +318,7 @@ function registerHandlers(bot: Bot) {
         });
         const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
         const linked = Boolean(acc?.userId);
+        await ctx.reply(LABELS[lang].replyHint, { reply_markup: replyKeyboard(lang, linked) });
         await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, linked) });
     });
 
@@ -283,16 +381,28 @@ function registerHandlers(bot: Bot) {
         }
     });
 
-    // Generic message → friendly nudge with the main menu
+    // Generic message → if it matches a reply-keyboard label, send a quick
+    // inline "Open" button to the right section. Otherwise nudge with menu.
     bot.on('message', async (ctx) => {
-        if (ctx.message.text?.startsWith('/')) return; // handled above
+        const text = ctx.message.text || '';
+        if (text.startsWith('/')) return; // commands handled above
         const chatId = ctx.chat?.id;
         if (!chatId) return;
         const acc = await (prisma as any).telegramAccount.findUnique({
             where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
         });
         const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
-        await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, Boolean(acc?.userId)) });
+        const linked = Boolean(acc?.userId);
+
+        const route = routeReplyLabel(lang, text);
+        if (route) {
+            const url = `${PUBLIC_BASE}${route.path}`;
+            const kb = new InlineKeyboard().url(`${LABELS[lang].open} ${route.label}`, url);
+            await ctx.reply(`${route.label}\n${url}`, { reply_markup: kb });
+            return;
+        }
+
+        await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, linked) });
     });
 
     bot.catch((err) => {

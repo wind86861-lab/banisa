@@ -4,7 +4,7 @@ import prisma from './config/database';
 import { startCheckInScheduler } from './modules/appointments/check-in.scheduler';
 import { startReminderScheduler } from './modules/appointments/reminder.scheduler';
 import { startDailySummaryScheduler } from './modules/appointments/daily-summary.scheduler';
-import { getBot, isTelegramConfigured } from './modules/telegram/telegram.bot';
+import { getBot, isTelegramConfigured, setupChatMenuButton, setupBotCommands } from './modules/telegram/telegram.bot';
 
 const PORT = env.PORT || 5000;
 
@@ -78,6 +78,10 @@ async function setupTelegramWebhook() {
     } catch (e) {
         console.error('[telegram] setWebhook failed:', e);
     }
+
+    // Persistent chat menu button (next to text input) + command popup list.
+    await setupChatMenuButton();
+    await setupBotCommands();
 }
 
 bootstrap();
