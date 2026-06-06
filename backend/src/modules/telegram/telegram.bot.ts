@@ -1,5 +1,6 @@
 import { Bot, InlineKeyboard, Keyboard } from 'grammy';
 import prisma from '../../config/database';
+import { registerOrLoginViaContact } from './telegram.register';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const PUBLIC_BASE = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').replace(/\/+$/, '');
@@ -22,6 +23,17 @@ const LABELS: Record<Lang, Record<string, string>> = {
         menuBtnLabel: '🏥 Banisa',
         open: 'Ochish',
         replyHint: 'Pastdagi tugmalar — tez kirish uchun. Bo\'limni tanlang 👇',
+        sharePhoneBtn: '📱 Telefon raqamni yuborish',
+        sharePhoneTitle: 'Banisa\'ga xush kelibsiz! 🎉',
+        sharePhoneBody:
+            'Botdan to\'liq foydalanish uchun ro\'yxatdan o\'tasiz.\n\n' +
+            'Pastdagi *Telefon raqamni yuborish* tugmasini bosing — siz Banisa bemori sifatida ro\'yxatdan o\'tasiz va shu yerda avtomatik kirasiz.\n\n' +
+            'Telefon raqamingiz faqat Banisa\'da saqlanadi. Boshqa joyga uzatilmaydi.',
+        registerSuccess: '✅ Ro\'yxatdan o\'tdingiz! Endi bron qilish va bildirishnomalarni shu yerda olasiz.',
+        loginSuccess: '✅ Xush kelibsiz! Hisobingiz Telegram bilan bog\'landi.',
+        contactInvalid: '❌ Telefon raqami noto\'g\'ri. Iltimos, qaytadan urinib ko\'ring.',
+        contactNotOwn: '❌ Iltimos, faqat *o\'zingizning* kontaktingizni yuboring. "Telefon raqamni yuborish" tugmasidan foydalaning.',
+        contactError: '❌ Xato yuz berdi. Birozdan keyin urinib ko\'ring.',
     },
     ru: {
         services: '🩺 Услуги',
@@ -38,6 +50,17 @@ const LABELS: Record<Lang, Record<string, string>> = {
         menuBtnLabel: '🏥 Banisa',
         open: 'Открыть',
         replyHint: 'Кнопки снизу — для быстрого доступа. Выберите раздел 👇',
+        sharePhoneBtn: '📱 Отправить номер телефона',
+        sharePhoneTitle: 'Добро пожаловать в Banisa! 🎉',
+        sharePhoneBody:
+            'Чтобы пользоваться ботом полностью, нужно зарегистрироваться.\n\n' +
+            'Нажмите кнопку *Отправить номер телефона* — вы будете зарегистрированы как пациент Banisa и автоматически войдёте.\n\n' +
+            'Ваш номер хранится только в Banisa и никуда не передаётся.',
+        registerSuccess: '✅ Регистрация прошла! Брони и уведомления теперь приходят сюда.',
+        loginSuccess: '✅ С возвращением! Аккаунт привязан к Telegram.',
+        contactInvalid: '❌ Неверный номер телефона. Попробуйте снова.',
+        contactNotOwn: '❌ Пожалуйста, отправьте только *свой собственный* контакт через кнопку "Отправить номер телефона".',
+        contactError: '❌ Произошла ошибка. Попробуйте чуть позже.',
     },
 };
 
@@ -66,6 +89,20 @@ function mainMenu(lang: Lang, linked: boolean): InlineKeyboard {
           .url(L.settings, `${PUBLIC_BASE}/user/notification-settings`);
     }
     return kb;
+}
+
+/**
+ * One-tap "share my phone" reply keyboard. The single button has
+ * `request_contact: true` so Telegram itself prompts the user and sends a
+ * native contact message to the bot when accepted.
+ *
+ * Shown only when /start has no token and the chat is not yet linked.
+ */
+function sharePhoneKeyboard(lang: Lang): Keyboard {
+    return new Keyboard()
+        .requestContact(LABELS[lang].sharePhoneBtn).row()
+        .resized()
+        .oneTime();
 }
 
 /**
@@ -216,15 +253,23 @@ function registerHandlers(bot: Bot) {
                 ? 'ru'
                 : (tgUser.language_code === 'ru' ? 'ru' : 'uz');
             const linked = Boolean(existing?.userId);
-            const intro = linked
-                ? (lang === 'ru'
+
+            if (linked) {
+                const intro = lang === 'ru'
                     ? 'С возвращением! Меню ниже 👇'
-                    : 'Qaytib kelganingiz uchun rahmat! Menyu pastda 👇')
-                : (lang === 'ru'
-                    ? `Привет! Это Banisa бот.\n\nЧтобы привязать аккаунт:\n1. Войдите на ${PUBLIC_BASE}\n2. Настройки уведомлений → Telegram → Привязать\n\nА пока — открытые разделы:`
-                    : `Salom! Banisa botiga xush kelibsiz.\n\nHisobingizni bog'lash uchun:\n1. Saytga kiring: ${PUBLIC_BASE}\n2. Bildirishnoma sozlamalari → Telegram → Bog'lash\n\nShu paytgacha ochiq bo'limlar:`);
-            await ctx.reply(intro, { reply_markup: replyKeyboard(lang, linked) });
-            await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, linked) });
+                    : 'Qaytib kelganingiz uchun rahmat! Menyu pastda 👇';
+                await ctx.reply(intro, { reply_markup: replyKeyboard(lang, true) });
+                await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
+                return;
+            }
+
+            // Not bound — kick off in-bot register/login by asking for the
+            // user's phone via Telegram's native contact-share dialog.
+            await ctx.reply(LABELS[lang].sharePhoneTitle, { parse_mode: 'Markdown' });
+            await ctx.reply(LABELS[lang].sharePhoneBody, {
+                parse_mode: 'Markdown',
+                reply_markup: sharePhoneKeyboard(lang),
+            });
             return;
         }
 
@@ -381,11 +426,68 @@ function registerHandlers(bot: Bot) {
         }
     });
 
+    /**
+     * Contact-share handler — the core of in-Telegram register/login.
+     *
+     * Triggered when the user taps the request_contact button (sent by /start
+     * or by the Mini App's requestContact() call). We validate that the
+     * shared contact actually belongs to the sender — otherwise someone
+     * could share a friend's contact and hijack their account.
+     */
+    bot.on('message:contact', async (ctx) => {
+        const tgUser = ctx.from;
+        const chatId = ctx.chat?.id;
+        const contact = ctx.message.contact;
+        if (!tgUser || !chatId || !contact) return;
+
+        const lang: Lang = tgUser.language_code === 'ru' ? 'ru' : 'uz';
+
+        // Anti-spoofing: the contact's user_id must match the sender.
+        // Telegram only sets `user_id` for contacts shared via request_contact,
+        // not for hand-picked phonebook contacts.
+        if (!contact.user_id || contact.user_id !== tgUser.id) {
+            await ctx.reply(LABELS[lang].contactNotOwn, {
+                parse_mode: 'Markdown',
+                reply_markup: sharePhoneKeyboard(lang),
+            });
+            return;
+        }
+
+        if (!contact.phone_number) {
+            await ctx.reply(LABELS[lang].contactInvalid, { reply_markup: sharePhoneKeyboard(lang) });
+            return;
+        }
+
+        const result = await registerOrLoginViaContact({
+            telegramUserId: BigInt(tgUser.id),
+            chatId: BigInt(chatId),
+            phone: contact.phone_number,
+            firstName: contact.first_name || tgUser.first_name || null,
+            lastName: contact.last_name || tgUser.last_name || null,
+            username: tgUser.username || null,
+            language: lang,
+        });
+
+        if (!result.success) {
+            const errMsg = result.code === 'invalid_phone'
+                ? LABELS[lang].contactInvalid
+                : LABELS[lang].contactError;
+            await ctx.reply(errMsg, { reply_markup: sharePhoneKeyboard(lang) });
+            return;
+        }
+
+        const welcome = result.created ? LABELS[lang].registerSuccess : LABELS[lang].loginSuccess;
+        // Replace the share-phone keyboard with the persistent main keyboard.
+        await ctx.reply(welcome, { reply_markup: replyKeyboard(lang, true) });
+        await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
+    });
+
     // Generic message → if it matches a reply-keyboard label, send a quick
     // inline "Open" button to the right section. Otherwise nudge with menu.
     bot.on('message', async (ctx) => {
         const text = ctx.message.text || '';
         if (text.startsWith('/')) return; // commands handled above
+        if (ctx.message.contact) return;  // handled by message:contact above
         const chatId = ctx.chat?.id;
         if (!chatId) return;
         const acc = await (prisma as any).telegramAccount.findUnique({

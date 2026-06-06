@@ -280,6 +280,24 @@ export const UserAuthProvider = ({ children }) => {
     return userData;
   };
 
+  // ── Telegram Mini App finalize (called from /mini-app-bind once the
+  //    bot has processed the user's contact-share) ─────────────────────────
+  const loginViaTelegramMiniApp = async (initData) => {
+    const { data } = await axiosInstance.post('/user/auth/telegram/miniapp-login', { initData });
+    const token = data.data?.accessToken ?? data.accessToken;
+    const userData = data.data?.user ?? data.user;
+    if (!token || !userData) throw new Error('miniapp_login_failed');
+    if (userData.role !== 'PATIENT') throw new Error('not_patient');
+
+    setAccessToken(token);
+    setIsPatientSession(true);
+    userTokenStorage.setUser(userData);
+    localStorage.setItem(HAD_SESSION_KEY, '1');
+    setUser(userData);
+    userRestorePromise = null;
+    return userData;
+  };
+
   // ── Telegram Login Widget ───────────────────────────────────────────────
   const loginViaTelegramWidget = async (widgetPayload) => {
     const { data } = await axiosInstance.post('/user/auth/telegram/widget-login', widgetPayload);
@@ -329,6 +347,7 @@ export const UserAuthProvider = ({ children }) => {
       isLoggedIn: !!user,
       login,
       loginViaTelegramWidget,
+      loginViaTelegramMiniApp,
       register,
       logout,
       updateUserState,
