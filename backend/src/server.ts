@@ -71,15 +71,16 @@ async function setupTelegramWebhook() {
             && desiredUpdates.every(u => currentUpdates.includes(u as any));
         if (info.url === url && updatesMatch) {
             console.log('[telegram] webhook already up to date:', url);
-            return;
+        } else {
+            await bot.api.setWebhook(url, { secret_token: secret, allowed_updates: desiredUpdates as any });
+            console.log('[telegram] webhook registered:', url, 'updates:', desiredUpdates);
         }
-        await bot.api.setWebhook(url, { secret_token: secret, allowed_updates: desiredUpdates as any });
-        console.log('[telegram] webhook registered:', url, 'updates:', desiredUpdates);
     } catch (e) {
         console.error('[telegram] setWebhook failed:', e);
     }
 
     // Persistent chat menu button (next to text input) + command popup list.
+    // Runs on every boot — idempotent on Telegram's side.
     await setupChatMenuButton();
     await setupBotCommands();
 }
