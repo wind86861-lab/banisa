@@ -43,14 +43,30 @@ export default function ClinicCheckupPackages() {
         }
     });
 
+    // Seed the per-item price map from admin's defaults (servicePrice) so the
+    // clinic sees something to start tweaking instead of blank inputs.
+    const seedItemPrices = (items, existingMap) => {
+        const out = {};
+        for (const it of items || []) {
+            const fromExisting = existingMap?.[it.id];
+            out[it.id] = typeof fromExisting === 'number'
+                ? fromExisting
+                : Number(it.servicePrice || 0);
+        }
+        return out;
+    };
+
     const handleActivateClick = (pkg) => {
-        setActivationForm({ pkg, clinicPrice: pkg.recommendedPrice, customNotes: '' });
+        const itemPrices = seedItemPrices(pkg.items, null);
+        setActivationForm({ pkg, itemPrices, customNotes: '' });
     };
 
     const handleEditClick = (activatedPkg) => {
+        const items = activatedPkg.package?.items || [];
+        const itemPrices = seedItemPrices(items, activatedPkg.itemPrices || null);
         setActivationForm({
             pkg: activatedPkg.package,
-            clinicPrice: activatedPkg.clinicPrice,
+            itemPrices,
             customNotes: activatedPkg.customNotes || '',
             isEdit: true,
             id: activatedPkg.id
@@ -63,27 +79,52 @@ export default function ClinicCheckupPackages() {
         }
     };
 
+    // Derived total — sum(price × qty) over every item the clinic priced.
+    const computeTotal = (form) => {
+        if (!form) return 0;
+        const items = form.pkg?.items || [];
+        let sum = 0;
+        for (const it of items) {
+            const p = Number(form.itemPrices?.[it.id] ?? 0);
+            const q = it.quantity || 1;
+            if (Number.isFinite(p) && p > 0) sum += p * q;
+        }
+        return sum;
+    };
+
     const submitActivation = () => {
-        if (!activationForm.clinicPrice || Number(activationForm.clinicPrice) <= 0) {
-            alert('Narx kiritilishi shart');
+        const items = activationForm.pkg?.items || [];
+        if (!items.length) {
+            alert('Paketda xizmatlar topilmadi');
             return;
         }
+        const missing = items.filter(it => {
+            const p = Number(activationForm.itemPrices?.[it.id] ?? 0);
+            return !p || p <= 0;
+        });
+        if (missing.length > 0) {
+            alert(`Iltimos, har bir xizmat uchun narx kiriting (${missing.length} ta xizmat narxsiz)`);
+            return;
+        }
+
+        const itemPrices = {};
+        for (const it of items) {
+            itemPrices[it.id] = Number(activationForm.itemPrices[it.id]);
+        }
+        const clinicPrice = computeTotal(activationForm);
+
+        const payload = { itemPrices, clinicPrice, customNotes: activationForm.customNotes };
 
         if (activationForm.isEdit) {
             updateMutation.mutate({
                 id: activationForm.id,
-                data: { clinicPrice: activationForm.clinicPrice, customNotes: activationForm.customNotes }
-            }, {
-                onSuccess: () => setActivationForm(null)
-            });
+                data: payload
+            }, { onSuccess: () => setActivationForm(null) });
         } else {
             activateMutation.mutate({
                 packageId: activationForm.pkg.id,
-                clinicPrice: activationForm.clinicPrice,
-                customNotes: activationForm.customNotes
-            }, {
-                onSuccess: () => setActivationForm(null)
-            });
+                ...payload
+            }, { onSuccess: () => setActivationForm(null) });
         }
     };
 
@@ -177,27 +218,108 @@ export default function ClinicCheckupPackages() {
             </div>
 
             {/* Activation Form Modal */}
-            <Dialog open={!!activationForm} onClose={() => setActivationForm(null)} maxWidth="sm" fullWidth>
+            <Dialog open={!!activationForm} onClose={() => setActivationForm(null)} maxWidth="md" fullWidth>
                 {activationForm && (
                     <>
                         <DialogTitle>Paketni {activationForm.isEdit ? "Tahrirlash" : "Faollashtirish"}</DialogTitle>
                         <DialogContent>
                             <Box sx={{ p: 2, bgcolor: '#f8fafc', mb: 3, borderRadius: 1 }}>
                                 <Typography variant="subtitle1" fontWeight={600}>{activationForm.pkg.nameUz}</Typography>
-                                <Typography variant="body2" color="text.secondary">Tavsiya etilgan narx: <b>{activationForm.pkg.recommendedPrice?.toLocaleString()} UZS</b></Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Admin tavsiya narxi: <b>{activationForm.pkg.recommendedPrice?.toLocaleString()} UZS</b>
+                                </Typography>
                                 <Typography variant="body2" color="warning.main">
-                                    Narx chegarasi: {activationForm.pkg.priceMin?.toLocaleString()} UZS dan {activationForm.pkg.priceMax?.toLocaleString()} UZS gacha
+                                    Narx chegarasi: {activationForm.pkg.priceMin?.toLocaleString()} – {activationForm.pkg.priceMax?.toLocaleString()} UZS
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                                    Har bir xizmat uchun o'zingizning narxingizni kiriting. Umumiy narx avtomatik hisoblanadi.
                                 </Typography>
                             </Box>
 
-                            <TextField
-                                fullWidth
-                                label="Klinika Narxi (UZS)"
-                                type="number"
-                                sx={{ mb: 2 }}
-                                value={activationForm.clinicPrice}
-                                onChange={(e) => setActivationForm({ ...activationForm, clinicPrice: Number(e.target.value) })}
-                            />
+                            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                                Xizmatlar va narxlar ({activationForm.pkg.items?.length || 0} ta)
+                            </Typography>
+
+                            <Box sx={{
+                                border: '1px solid #e2e8f0',
+                                borderRadius: 2,
+                                overflow: 'hidden',
+                                mb: 2,
+                            }}>
+                                <Box sx={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 70px 180px',
+                                    gap: 1,
+                                    px: 2, py: 1.25,
+                                    bgcolor: '#f8fafc',
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    color: '#475569',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: 0.4,
+                                }}>
+                                    <span>Xizmat</span>
+                                    <span style={{ textAlign: 'center' }}>Soni</span>
+                                    <span style={{ textAlign: 'right' }}>Klinika narxi (UZS)</span>
+                                </Box>
+                                {(activationForm.pkg.items || []).map((item) => {
+                                    const price = activationForm.itemPrices?.[item.id] ?? '';
+                                    return (
+                                        <Box key={item.id} sx={{
+                                            display: 'grid',
+                                            gridTemplateColumns: '1fr 70px 180px',
+                                            gap: 1,
+                                            alignItems: 'center',
+                                            px: 2, py: 1.25,
+                                            borderTop: '1px solid #e2e8f0',
+                                        }}>
+                                            <Box sx={{ minWidth: 0 }}>
+                                                <Typography variant="body2" fontWeight={500} sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {item.serviceName}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    Admin narxi: {Number(item.servicePrice || 0).toLocaleString()} UZS
+                                                </Typography>
+                                            </Box>
+                                            <Typography variant="body2" sx={{ textAlign: 'center', color: '#475569' }}>
+                                                ×{item.quantity || 1}
+                                            </Typography>
+                                            <TextField
+                                                size="small"
+                                                type="number"
+                                                value={price}
+                                                onChange={(e) => setActivationForm({
+                                                    ...activationForm,
+                                                    itemPrices: {
+                                                        ...(activationForm.itemPrices || {}),
+                                                        [item.id]: e.target.value === '' ? '' : Number(e.target.value),
+                                                    },
+                                                })}
+                                                inputProps={{ min: 0, style: { textAlign: 'right' } }}
+                                                sx={{ '& input': { fontWeight: 600 } }}
+                                            />
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+
+                            <Box sx={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                p: 2,
+                                bgcolor: '#ecfdf5',
+                                borderRadius: 2,
+                                mb: 2,
+                                border: '1px solid #a7f3d0',
+                            }}>
+                                <Typography variant="body2" fontWeight={600} color="#065f46">
+                                    Jami klinika narxi (avtomatik):
+                                </Typography>
+                                <Typography variant="h6" fontWeight={800} color="#10b981">
+                                    {computeTotal(activationForm).toLocaleString()} UZS
+                                </Typography>
+                            </Box>
 
                             <TextField
                                 fullWidth

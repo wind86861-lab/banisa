@@ -200,21 +200,29 @@ export class CheckupPackagesService {
     // --- CLINIC ADMIN ---
 
     async getClinicAvailablePackages(clinicId: string) {
-        // Find all packages NOT activated by this clinic
-        const activeIds = await prisma.clinicCheckupPackage.findMany({
-            where: { clinicId },
-            select: { packageId: true }
-        }).then(res => res.map(r => r.packageId));
+        // Return ALL active super-admin packages, plus the clinic's per-package
+        // ClinicCheckupPackage row (if any) attached as `clinicPackage`. This
+        // lets the UI render both "not yet activated" and "activated, editable"
+        // states from a single list. Without this, activated rows disappear
+        // and clinics can never adjust per-item prices after activation.
+        const [packages, clinicRows] = await Promise.all([
+            prisma.checkupPackage.findMany({
+                where: { isActive: true },
+                include: {
+                    items: { orderBy: { sortOrder: 'asc' } },
+                    _count: { select: { items: true } },
+                },
+            }),
+            prisma.clinicCheckupPackage.findMany({
+                where: { clinicId },
+            }),
+        ]);
 
-        return await prisma.checkupPackage.findMany({
-            where: {
-                isActive: true,
-                id: { notIn: activeIds }
-            },
-            include: {
-                _count: { select: { items: true } }
-            }
-        });
+        const cpByPackageId = new Map(clinicRows.map(r => [r.packageId, r]));
+        return packages.map(p => ({
+            ...p,
+            clinicPackage: cpByPackageId.get(p.id) ?? null,
+        }));
     }
 
     async activateClinicPackage(clinicId: string, data: ActivateClinicCheckupPackageDto) {

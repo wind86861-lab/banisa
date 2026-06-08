@@ -368,6 +368,9 @@ export default function CheckupPackageDrawer({
             setSaving(false);
             return;
         }
+        // On activate, open straight to "Narxlar" so the clinic sees the
+        // per-item price inputs immediately instead of a 0 UZS warning on Asosiy.
+        setActiveTab(activateMode ? 2 : 0);
         // Seed itemPrices: prefer clinic's existing values, else scale super-admin's to match clinicPrice, else use super-admin's raw values.
         let seededItemPrices = {};
         const existingMap = pkg?.clinicPackage?.itemPrices;

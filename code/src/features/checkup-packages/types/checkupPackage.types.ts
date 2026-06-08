@@ -43,6 +43,7 @@ export interface ClinicCheckupPackage {
     packageId: string;
     package: CheckupPackage;
     clinicPrice: number;
+    itemPrices?: Record<string, number> | null;
     customNotes?: string;
     isActive: boolean;
     bookingCount: number;

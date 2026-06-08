@@ -57,12 +57,21 @@ export const checkupPackagesApi = {
         return data.data;
     },
 
-    activateForClinic: async (payload: { packageId: string; clinicPrice: number; customNotes?: string }): Promise<ClinicCheckupPackage> => {
+    activateForClinic: async (payload: {
+        packageId: string;
+        clinicPrice?: number;
+        itemPrices?: Record<string, number>;
+        customNotes?: string;
+    }): Promise<ClinicCheckupPackage> => {
         const { data } = await api.post('/clinic/checkup-packages/activate', payload);
         return data.data;
     },
 
-    updateClinicPackage: async (id: string, payload: { clinicPrice?: number; customNotes?: string }): Promise<ClinicCheckupPackage> => {
+    updateClinicPackage: async (id: string, payload: {
+        clinicPrice?: number;
+        itemPrices?: Record<string, number>;
+        customNotes?: string;
+    }): Promise<ClinicCheckupPackage> => {
         const { data } = await api.patch(`/clinic/checkup-packages/${id}`, payload);
         return data.data;
     },
