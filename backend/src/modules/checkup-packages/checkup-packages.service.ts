@@ -205,7 +205,12 @@ export class CheckupPackagesService {
         // lets the UI render both "not yet activated" and "activated, editable"
         // states from a single list. Without this, activated rows disappear
         // and clinics can never adjust per-item prices after activation.
-        const [packages, clinicRows] = await Promise.all([
+        //
+        // Each item is enriched with `clinicServicePrice` — the clinic's own
+        // price for that diagnostic service (from ServiceCustomization), so
+        // the activation drawer can seed per-item inputs with what the clinic
+        // already charges, not the super-admin's recommended price.
+        const [packages, clinicRows, clinicDiagLinks] = await Promise.all([
             prisma.checkupPackage.findMany({
                 where: { isActive: true },
                 include: {
@@ -216,11 +221,30 @@ export class CheckupPackagesService {
             prisma.clinicCheckupPackage.findMany({
                 where: { clinicId },
             }),
+            prisma.clinicDiagnosticService.findMany({
+                where: { clinicId, isActive: true },
+                select: {
+                    diagnosticServiceId: true,
+                    customization: { select: { customPrice: true } },
+                },
+            }),
         ]);
 
         const cpByPackageId = new Map(clinicRows.map(r => [r.packageId, r]));
+        const clinicPriceByDiagId = new Map<string, number>();
+        for (const l of clinicDiagLinks) {
+            const p = l.customization?.customPrice;
+            if (typeof p === 'number' && p > 0) {
+                clinicPriceByDiagId.set(l.diagnosticServiceId, p);
+            }
+        }
+
         return packages.map(p => ({
             ...p,
+            items: p.items.map((i: any) => ({
+                ...i,
+                clinicServicePrice: clinicPriceByDiagId.get(i.diagnosticServiceId) ?? null,
+            })),
             clinicPackage: cpByPackageId.get(p.id) ?? null,
         }));
     }

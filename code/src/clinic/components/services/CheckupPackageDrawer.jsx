@@ -385,8 +385,14 @@ export default function CheckupPackageDrawer({
                 seededItemPrices[it.id] = Math.round((it.servicePrice || 0) * ratio);
             }
         } else if (activateMode) {
+            // Prefer the clinic's own price for this diagnostic service
+            // (what they already charge elsewhere). Fall back to super-admin's
+            // recommended price only when the clinic hasn't priced it yet.
             for (const it of items) {
-                seededItemPrices[it.id] = Math.max(0, Math.round(it.servicePrice || 0));
+                const clinicOwn = typeof it.clinicServicePrice === 'number' && it.clinicServicePrice > 0
+                    ? it.clinicServicePrice
+                    : null;
+                seededItemPrices[it.id] = clinicOwn ?? Math.max(0, Math.round(it.servicePrice || 0));
             }
         }
 

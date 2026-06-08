@@ -666,16 +666,49 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
             const c = checkupLink.clinic;
             const cust = (checkupLink.customizationData as any) || {};
 
-            // Per-item prices: clinic's own values from itemPrices map. If clinic hasn't
-            // set them (legacy rows), fall back to super-admin's servicePrice scaled so
-            // the sum equals clinicPrice — same contract from the patient's perspective.
+            // Per-item price resolution (patient view), in priority order:
+            //   1. itemPrices map (clinic explicitly priced this item inside the package)
+            //   2. ClinicDiagnosticService.customization.customPrice (clinic's own
+            //      price for that diagnostic service elsewhere)
+            //   3. ratio-scaled super-admin servicePrice (legacy rows where the
+            //      clinic only set a package total)
+            // The user must never see the super-admin's recommended price as-is.
             const itemPricesMap = (checkupLink.itemPrices as Record<string, number> | null) || null;
+            const diagIds = p.items
+                .map((i: any) => i.diagnosticServiceId)
+                .filter((x: any): x is string => !!x);
+            const clinicDiagLinks = diagIds.length
+                ? await prisma.clinicDiagnosticService.findMany({
+                    where: {
+                        clinicId: c.id,
+                        diagnosticServiceId: { in: diagIds },
+                        isActive: true,
+                    },
+                    select: {
+                        diagnosticServiceId: true,
+                        customization: { select: { customPrice: true } },
+                    },
+                })
+                : [];
+            const clinicPriceByDiagId = new Map<string, number>();
+            for (const l of clinicDiagLinks) {
+                const cp = l.customization?.customPrice;
+                if (typeof cp === 'number' && cp > 0) {
+                    clinicPriceByDiagId.set(l.diagnosticServiceId, cp);
+                }
+            }
             const baseSum = p.items.reduce((s: number, i: any) => s + (i.servicePrice || 0) * (i.quantity || 1), 0);
             const ratio = baseSum > 0 ? checkupLink.clinicPrice / baseSum : 1;
-            const scaledItems = p.items.map((i: any) => ({
-                ...i,
-                servicePrice: itemPricesMap?.[i.id] ?? Math.round((i.servicePrice || 0) * ratio),
-            }));
+            const scaledItems = p.items.map((i: any) => {
+                const fromMap = itemPricesMap?.[i.id];
+                const fromClinic = clinicPriceByDiagId.get(i.diagnosticServiceId);
+                const price = typeof fromMap === 'number'
+                    ? fromMap
+                    : typeof fromClinic === 'number'
+                        ? fromClinic
+                        : Math.round((i.servicePrice || 0) * ratio);
+                return { ...i, servicePrice: price };
+            });
             const scaledDiscount = 0;
 
             return res.json({
