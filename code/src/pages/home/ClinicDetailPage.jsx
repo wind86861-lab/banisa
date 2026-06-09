@@ -151,7 +151,7 @@ function StarPicker({ rating, onRate, size = 28 }) {
 export default function ClinicDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { user } = useUserAuth();
+    const { user, waitForUser } = useUserAuth();
     const { data: clinic, isLoading, error } = usePublicClinicDetail(id);
     const [activeTab, setActiveTab] = useState('overview');
     const [showAuthModal, setShowAuthModal] = useState(false);
@@ -169,8 +169,9 @@ export default function ClinicDetailPage() {
     const [cartFeedback, setCartFeedback] = useState({}); // { [serviceId]: 'added' | 'error' }
     const { addToCart, cartItemCount } = useCart() || {};
 
-    const handleBook = (service, serviceType) => {
-        if (!user) { setPendingBooking({ service, serviceType }); setShowAuthModal(true); return; }
+    const handleBook = async (service, serviceType) => {
+        const resolved = await waitForUser();
+        if (!resolved) { setPendingBooking({ service, serviceType }); setShowAuthModal(true); return; }
         navigate(`/xizmatlar/${service.id}`);
     };
 
@@ -180,7 +181,8 @@ export default function ClinicDetailPage() {
 
     const handleAddToCart = async (e, svc, serviceType) => {
         e.stopPropagation();
-        if (!user) { setPendingBooking({ service: svc, serviceType, action: 'cart' }); setShowAuthModal(true); return; }
+        const resolved = await waitForUser();
+        if (!resolved) { setPendingBooking({ service: svc, serviceType, action: 'cart' }); setShowAuthModal(true); return; }
         const typeMap = { diagnostic: 'DIAGNOSTIC', surgical: 'SURGICAL', checkup: 'CHECKUP', sanatorium: 'SANATORIUM' };
         const result = await addToCart?.(clinic.id, typeMap[serviceType] || 'DIAGNOSTIC', svc.id, 1);
         setCartFeedback((p) => ({ ...p, [svc.id]: result?.success ? 'added' : 'error' }));

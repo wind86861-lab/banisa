@@ -520,7 +520,7 @@ const TABS = [
 
 export default function ClinicDetailDrawer({ clinicId, onClose }) {
     const { data: clinic, isLoading } = usePublicClinicDetail(clinicId);
-    const { user } = useUserAuth();
+    const { user, waitForUser } = useUserAuth();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('info');
     const [showAuthModal, setShowAuthModal] = useState(false);
@@ -537,8 +537,9 @@ export default function ClinicDetailDrawer({ clinicId, onClose }) {
         return () => document.removeEventListener('keydown', handler);
     }, [onClose]);
 
-    const handleBookService = (service, serviceType) => {
-        if (!user) {
+    const handleBookService = async (service, serviceType) => {
+        const resolved = await waitForUser();
+        if (!resolved) {
             setPendingBooking({ service, serviceType });
             setShowAuthModal(true);
             return;

@@ -51,8 +51,13 @@ export const CartProvider = ({ children }) => {
 
     // ─── ADD TO CART ──────────────────────────────────────────────────
     // Dead simple: POST to backend, then fetch fresh cart. No optimistic nonsense.
+    //
+    // userRef (not closure-captured `user`) so a Mini App auth that just
+    // resolved INSIDE the click handler is visible here — without this the
+    // caller's await waitForUser() would set the user, but addToCart would
+    // still see the stale null from the render that bound this function.
     const addToCart = async (clinicId, serviceType, serviceId, quantity = 1) => {
-        if (!user) {
+        if (!userRef.current) {
             return { success: false, message: 'Iltimos, tizimga kiring' };
         }
         if (addingToCart) {

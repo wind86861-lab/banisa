@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useUserAuth } from './UserAuthContext';
@@ -102,11 +102,30 @@ export const StatusGuard = ({ children }) => {
 };
 
 // ─── USER (PATIENT) GUARD ─────────────────────────────────────────────────
-// Protects /user/* routes — only authenticated PATIENT can enter
+// Protects /user/* routes — only authenticated PATIENT can enter.
+//
+// Mini App safety: when isLoading flips false with user=null, the auth
+// context may still be able to recover via window.Telegram.WebApp.initData.
+// We give waitForUser() one shot before bouncing to /user/login so a
+// Mini App user landing on /user/cart directly (e.g. after add-to-cart)
+// isn't kicked back to login during the cold-start moment.
 export const UserGuard = ({ children }) => {
-  const { user, isLoading } = useUserAuth();
+  const { user, isLoading, waitForUser } = useUserAuth();
   const location = useLocation();
+  const [reauthChecked, setReauthChecked] = useState(false);
+
+  useEffect(() => {
+    if (isLoading || user) { setReauthChecked(false); return; }
+    let cancelled = false;
+    (async () => {
+      try { if (waitForUser) await waitForUser(); } catch { /* ignore */ }
+      if (!cancelled) setReauthChecked(true);
+    })();
+    return () => { cancelled = true; };
+  }, [isLoading, user, waitForUser]);
+
   if (isLoading) return <AuthLoading />;
+  if (!user && !reauthChecked) return <AuthLoading />;
   if (!user) return <Navigate to="/user/login" state={{ from: location.pathname }} replace />;
   if (user.role !== 'PATIENT') return <Navigate to="/403" replace />;
   return children;
