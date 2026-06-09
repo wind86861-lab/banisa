@@ -105,6 +105,13 @@ api.interceptors.response.use(
       // instantly on reload.
       if (_isPatientSession && refreshedUser) {
         localStorage.setItem('user_data', JSON.stringify(refreshedUser));
+      } else if (!_isPatientSession) {
+        // Clinic/admin sessions keep the access token in sessionStorage so the
+        // watchdog (AuthContext) and route guards read a current value instead
+        // of the stale one — otherwise the next 30-second tick would see an
+        // "expired" token and log the user out mid-task.
+        tokenStorage.setToken(newToken);
+        if (refreshedUser) tokenStorage.setUser(refreshedUser);
       }
       processQueue(null, newToken);
       original.headers.Authorization = `Bearer ${newToken}`;

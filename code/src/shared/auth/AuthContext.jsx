@@ -23,22 +23,75 @@ const isTokenExpired = (token) => {
   }
 };
 
+const tokenMsLeft = (token) => {
+  if (!token) return -1;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000 - Date.now();
+  } catch { return -1; }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ─── Periodic token expiry check — auto-logout when token expires ──────
+  // ─── Silent auto-refresh watchdog — matches patient flow ──────────────────
+  // The access token expires in 15 min (prod). The HttpOnly refresh cookie is
+  // good for 7 days. While the user is active, refresh in the background so
+  // they're never kicked out mid-task. SUPER_ADMIN has no refresh cookie, so
+  // we skip the silent refresh for that role and let the token simply expire.
   useEffect(() => {
     if (!user) return;
-    const interval = setInterval(() => {
+    if (user.role === 'SUPER_ADMIN') return; // no refresh cookie — natural expiry only
+
+    let refreshing = false;
+    let failedOnce = false;
+
+    const trySilentRefresh = async () => {
+      if (refreshing) return false;
+      refreshing = true;
+      try {
+        const { data } = await axiosInstance.post('/auth/refresh');
+        const newToken = data?.data?.accessToken ?? data?.accessToken;
+        if (newToken) {
+          setAccessToken(newToken);
+          tokenStorage.setToken(newToken);
+          failedOnce = false;
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      } finally {
+        refreshing = false;
+      }
+    };
+
+    const tick = async () => {
       const token = tokenStorage.getToken();
-      if (isTokenExpired(token)) {
+      if (!token) return;
+      const msLeft = tokenMsLeft(token);
+
+      // Already expired — one last refresh attempt before logging out.
+      if (msLeft <= 0) {
+        const ok = await trySilentRefresh();
+        if (ok) return;
         clearAccessToken();
         setIsPatientSession(false);
         tokenStorage.clear();
         setUser(null);
+        return;
       }
-    }, 30_000); // check every 30 seconds
+
+      // Under 2 minutes left → refresh silently in the background.
+      if (msLeft < 120_000 && !failedOnce) {
+        const ok = await trySilentRefresh();
+        if (!ok) failedOnce = true;
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 30_000);
     return () => clearInterval(interval);
   }, [user]);
 
