@@ -34,12 +34,12 @@ const LABELS: Record<Lang, Record<string, string>> = {
         sharePhoneTitle: 'Banisa\'ga xush kelibsiz! 🎉',
         sharePhoneBody:
             'Botdan to\'liq foydalanish uchun ro\'yxatdan o\'tasiz.\n\n' +
-            'Pastdagi *Telefon raqamni yuborish* tugmasini bosing — siz Banisa bemori sifatida ro\'yxatdan o\'tasiz va shu yerda avtomatik kirasiz.\n\n' +
+            'Pastdagi <b>Telefon raqamni yuborish</b> tugmasini bosing — siz Banisa bemori sifatida ro\'yxatdan o\'tasiz va shu yerda avtomatik kirasiz.\n\n' +
             'Telefon raqamingiz faqat Banisa\'da saqlanadi. Boshqa joyga uzatilmaydi.',
         registerSuccess: '✅ Ro\'yxatdan o\'tdingiz! Endi bron qilish va bildirishnomalarni shu yerda olasiz.',
         loginSuccess: '✅ Xush kelibsiz! Hisobingiz Telegram bilan bog\'landi.',
         contactInvalid: '❌ Telefon raqami noto\'g\'ri. Iltimos, qaytadan urinib ko\'ring.',
-        contactNotOwn: '❌ Iltimos, faqat *o\'zingizning* kontaktingizni yuboring. "Telefon raqamni yuborish" tugmasidan foydalaning.',
+        contactNotOwn: '❌ Iltimos, faqat <b>o\'zingizning</b> kontaktingizni yuboring. "Telefon raqamni yuborish" tugmasidan foydalaning.',
         contactError: '❌ Xato yuz berdi. Birozdan keyin urinib ko\'ring.',
     },
     ru: {
@@ -61,12 +61,12 @@ const LABELS: Record<Lang, Record<string, string>> = {
         sharePhoneTitle: 'Добро пожаловать в Banisa! 🎉',
         sharePhoneBody:
             'Чтобы пользоваться ботом полностью, нужно зарегистрироваться.\n\n' +
-            'Нажмите кнопку *Отправить номер телефона* — вы будете зарегистрированы как пациент Banisa и автоматически войдёте.\n\n' +
+            'Нажмите кнопку <b>Отправить номер телефона</b> — вы будете зарегистрированы как пациент Banisa и автоматически войдёте.\n\n' +
             'Ваш номер хранится только в Banisa и никуда не передаётся.',
         registerSuccess: '✅ Регистрация прошла! Брони и уведомления теперь приходят сюда.',
         loginSuccess: '✅ С возвращением! Аккаунт привязан к Telegram.',
         contactInvalid: '❌ Неверный номер телефона. Попробуйте снова.',
-        contactNotOwn: '❌ Пожалуйста, отправьте только *свой собственный* контакт через кнопку "Отправить номер телефона".',
+        contactNotOwn: '❌ Пожалуйста, отправьте только <b>свой собственный</b> контакт через кнопку "Отправить номер телефона".',
         contactError: '❌ Произошла ошибка. Попробуйте чуть позже.',
     },
 };
@@ -310,9 +310,9 @@ function registerHandlers(bot: Bot) {
 
             // Not bound — kick off in-bot register/login by asking for the
             // user's phone via Telegram's native contact-share dialog.
-            await ctx.reply(LABELS[lang].sharePhoneTitle, { parse_mode: 'Markdown' });
+            await ctx.reply(LABELS[lang].sharePhoneTitle, { parse_mode: 'HTML' });
             await ctx.reply(LABELS[lang].sharePhoneBody, {
-                parse_mode: 'Markdown',
+                parse_mode: 'HTML',
                 reply_markup: sharePhoneKeyboard(lang),
             });
             return;
@@ -512,7 +512,7 @@ function registerHandlers(bot: Bot) {
         // not for hand-picked phonebook contacts.
         if (!contact.user_id || contact.user_id !== tgUser.id) {
             await ctx.reply(LABELS[lang].contactNotOwn, {
-                parse_mode: 'Markdown',
+                parse_mode: 'HTML',
                 reply_markup: sharePhoneKeyboard(lang),
             });
             return;
@@ -565,12 +565,12 @@ function registerHandlers(bot: Bot) {
 
     const safeEdit = async (ctx: any, text: string, keyboard: any) => {
         try {
-            await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard });
+            await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
         } catch {
             // Editing fails if the message is too old or content identical.
             // Fall back to sending a fresh message so the user always sees the
             // result of their action.
-            try { await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard }); } catch { /* ignore */ }
+            try { await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard }); } catch { /* ignore */ }
         }
     };
 
@@ -703,7 +703,7 @@ function registerHandlers(bot: Bot) {
         const rendered = await renderCart(acc.userId, lang);
         try {
             await ctx.editMessageText(rendered.text, {
-                parse_mode: 'Markdown',
+                parse_mode: 'HTML',
                 reply_markup: rendered.keyboard,
             });
         } catch { /* ignore */ }
@@ -809,13 +809,13 @@ function registerHandlers(bot: Bot) {
         try {
             if (route.view === 'bookings') {
                 const r = await renderMyAppointments(acc.userId, lang);
-                await ctx.reply(r.text, { parse_mode: 'Markdown', reply_markup: r.keyboard });
+                await ctx.reply(r.text, { parse_mode: 'HTML', reply_markup: r.keyboard });
             } else if (route.view === 'cart') {
                 const r = await renderCart(acc.userId, lang);
-                await ctx.reply(r.text, { parse_mode: 'Markdown', reply_markup: r.keyboard });
+                await ctx.reply(r.text, { parse_mode: 'HTML', reply_markup: r.keyboard });
             } else if (route.view === 'profile') {
                 const r = await renderProfile(acc.userId, lang);
-                await ctx.reply(r.text, { parse_mode: 'Markdown', reply_markup: r.keyboard });
+                await ctx.reply(r.text, { parse_mode: 'HTML', reply_markup: r.keyboard });
             } else if (route.view === 'notifs') {
                 const url = `${PUBLIC_BASE}/user/notifications`;
                 const kb = new InlineKeyboard().url(`${LABELS[lang].open} ${route.label}`, url);
@@ -837,7 +837,7 @@ function registerHandlers(bot: Bot) {
         const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
         if (!acc?.userId) { await ctx.reply(LABELS[lang].notLinkedHint); return; }
         const r = await renderMyAppointments(acc.userId, lang);
-        await ctx.reply(r.text, { parse_mode: 'Markdown', reply_markup: r.keyboard });
+        await ctx.reply(r.text, { parse_mode: 'HTML', reply_markup: r.keyboard });
     });
 
     bot.command('cart', async (ctx) => {
@@ -849,7 +849,7 @@ function registerHandlers(bot: Bot) {
         const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
         if (!acc?.userId) { await ctx.reply(LABELS[lang].notLinkedHint); return; }
         const r = await renderCart(acc.userId, lang);
-        await ctx.reply(r.text, { parse_mode: 'Markdown', reply_markup: r.keyboard });
+        await ctx.reply(r.text, { parse_mode: 'HTML', reply_markup: r.keyboard });
     });
 
     bot.command('profile', async (ctx) => {
@@ -861,7 +861,7 @@ function registerHandlers(bot: Bot) {
         const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
         if (!acc?.userId) { await ctx.reply(LABELS[lang].notLinkedHint); return; }
         const r = await renderProfile(acc.userId, lang);
-        await ctx.reply(r.text, { parse_mode: 'Markdown', reply_markup: r.keyboard });
+        await ctx.reply(r.text, { parse_mode: 'HTML', reply_markup: r.keyboard });
     });
 
     bot.catch((err) => {

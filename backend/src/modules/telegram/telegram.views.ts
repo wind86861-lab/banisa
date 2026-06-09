@@ -50,10 +50,19 @@ function fmtMoney(n: number | null | undefined): string {
     return Number(n || 0).toLocaleString('uz-UZ');
 }
 
-/** Escape Markdown special characters that would otherwise break parsing. */
-function escMd(s: string | null | undefined): string {
+/** Escape HTML special characters. Telegram's HTML mode only needs <, >, &
+ *  escaped — far less fragile than Markdown's apostrophe / underscore /
+ *  parenthesis traps, which made Bronlarim silently fail with 400 errors. */
+function escHtml(s: string | null | undefined): string {
     if (!s) return '';
-    return String(s).replace(/[_*`[\]]/g, m => '\\' + m);
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+// Alias so older call sites still compile. New code should prefer escHtml.
+function escMd(s: string | null | undefined): string {
+    return escHtml(s);
 }
 
 /** Trim a label so the button stays well under Telegram's 64-byte cap. */
@@ -83,8 +92,8 @@ export async function renderMyAppointments(userId: string, lang: Lang, limit = 1
 
     if (items.length === 0) {
         const empty = lang === 'ru'
-            ? '📅 *Мои брони*\n\nУ вас пока нет броней.'
-            : '📅 *Bronlarim*\n\nHozircha bronlaringiz yo\'q.';
+            ? '📅 <b>Мои брони</b>\n\nУ вас пока нет броней.'
+            : '📅 <b>Bronlarim</b>\n\nHozircha bronlaringiz yo\'q.';
         const kb = new InlineKeyboard().url(
             lang === 'ru' ? '🩺 Услуги' : '🩺 Xizmatlar',
             `${PUBLIC_BASE}/xizmatlar`,
@@ -93,8 +102,8 @@ export async function renderMyAppointments(userId: string, lang: Lang, limit = 1
     }
 
     const header = lang === 'ru'
-        ? `📅 *Мои брони* (${items.length})\n_Тапните бронь чтобы открыть детали._`
-        : `📅 *Bronlarim* (${items.length})\n_Tafsilotlar uchun bronni bosing._`;
+        ? `📅 <b>Мои брони</b> (${items.length})\n👇 Тапните бронь для деталей`
+        : `📅 <b>Bronlarim</b> (${items.length})\n👇 Tafsilot uchun bronni bosing`;
 
     const kb = new InlineKeyboard();
     items.forEach((appt) => {
@@ -133,20 +142,20 @@ export async function renderAppointmentDetail(userId: string, appointmentId: str
     const status = STATUS_LABEL[appt.status]?.[lang] || appt.status;
     const phones = (appt.clinic?.phones as string[] | null)?.filter(Boolean) || [];
 
-    const headerLabel = lang === 'ru' ? '🩺 *Бронь*' : '🩺 *Bron*';
+    const headerLabel = lang === 'ru' ? '🩺 <b>Бронь</b>' : '🩺 <b>Bron</b>';
     const body = [
         headerLabel,
         '',
-        `*${escMd(svcName)}*`,
+        `<b>${escHtml(svcName)}</b>`,
         '',
-        `🏥 ${escMd(clinicName)}`,
-        address ? `📍 ${escMd(address)}` : '',
-        phones.length ? `📞 ${phones.map(escMd).join(', ')}` : '',
-        `📆 ${fmtDate(appt.scheduledAt, lang)}`,
+        `🏥 ${escHtml(clinicName)}`,
+        address ? `📍 ${escHtml(address)}` : '',
+        phones.length ? `📞 ${phones.map(escHtml).join(', ')}` : '',
+        `📆 ${escHtml(fmtDate(appt.scheduledAt, lang))}`,
         `💰 ${fmtMoney(appt.price)} UZS`,
-        `${status}`,
-        `№ \`${appt.bookingNumber || appt.id.slice(0, 8)}\``,
-        appt.notes ? `\n💬 ${escMd(appt.notes)}` : '',
+        `${escHtml(status)}`,
+        `№ <code>${escHtml(appt.bookingNumber || appt.id.slice(0, 8))}</code>`,
+        appt.notes ? `\n💬 ${escHtml(appt.notes)}` : '',
     ].filter(Boolean).join('\n');
 
     const kb = new InlineKeyboard();
@@ -216,8 +225,8 @@ export async function renderCart(userId: string, lang: Lang): Promise<RenderResu
 
     if (items.length === 0) {
         const text = lang === 'ru'
-            ? '🛒 *Корзина*\n\nКорзина пуста.'
-            : '🛒 *Savat*\n\nSavat bo\'sh.';
+            ? '🛒 <b>Корзина</b>\n\nКорзина пуста.'
+            : '🛒 <b>Savat</b>\n\nSavat bo\'sh.';
         const kb = new InlineKeyboard().url(
             lang === 'ru' ? '🩺 Услуги' : '🩺 Xizmatlar',
             `${PUBLIC_BASE}/xizmatlar`,
@@ -242,8 +251,8 @@ export async function renderCart(userId: string, lang: Lang): Promise<RenderResu
     });
 
     const header = lang === 'ru'
-        ? `🛒 *Корзина* — ${totalItems} позиц.\n💰 *Итого: ${fmtMoney(totalPrice)} UZS*\n_Тапните позицию чтобы открыть детали._`
-        : `🛒 *Savat* — ${totalItems} ta xizmat\n💰 *Jami: ${fmtMoney(totalPrice)} UZS*\n_Tafsilot uchun xizmatni bosing._`;
+        ? `🛒 <b>Корзина</b> — ${totalItems} позиц.\n💰 <b>Итого: ${fmtMoney(totalPrice)} UZS</b>\n👇 Тапните позицию для деталей`
+        : `🛒 <b>Savat</b> — ${totalItems} ta xizmat\n💰 <b>Jami: ${fmtMoney(totalPrice)} UZS</b>\n👇 Tafsilot uchun xizmatni bosing`;
 
     kb.url(
         lang === 'ru' ? '💳 К оплате' : '💳 To\'lash',
@@ -276,15 +285,15 @@ export async function renderCartItemDetail(userId: string, cartItemId: string, l
     const tlabel = typeLabel[item.serviceType]?.[lang] || item.serviceType;
 
     const body = [
-        lang === 'ru' ? '🛒 *Позиция корзины*' : '🛒 *Savat xizmati*',
+        lang === 'ru' ? '🛒 <b>Позиция корзины</b>' : '🛒 <b>Savat xizmati</b>',
         '',
-        `*${escMd(svcName)}*`,
+        `<b>${escHtml(svcName)}</b>`,
         '',
         tlabel,
-        `🏥 ${escMd(clinicName)}`,
+        `🏥 ${escHtml(clinicName)}`,
         `📦 ${lang === 'ru' ? 'Количество' : 'Miqdor'}: ${item.quantity}`,
-        `💰 ${fmtMoney(unit)} × ${item.quantity} = *${fmtMoney(subtotal)} UZS*`,
-        `📆 ${fmtDate(item.createdAt, lang)}`,
+        `💰 ${fmtMoney(unit)} × ${item.quantity} = <b>${fmtMoney(subtotal)} UZS</b>`,
+        `📆 ${escHtml(fmtDate(item.createdAt, lang))}`,
     ].join('\n');
 
     const kb = new InlineKeyboard();
@@ -355,8 +364,8 @@ export async function renderProfile(userId: string, lang: Lang): Promise<RenderR
     const joinDate = user.createdAt ? fmtDate(user.createdAt, lang).slice(0, 6) : '—';
 
     const text = lang === 'ru'
-        ? `👤 *Профиль*\n\n*Имя:* ${escMd(fullName)}\n*Телефон:* ${escMd(user.phone)}\n*Email:* ${escMd(user.email || '—')}\n*Язык:* Русский\n*С нами с:* ${joinDate}`
-        : `👤 *Profil*\n\n*Ism:* ${escMd(fullName)}\n*Telefon:* ${escMd(user.phone)}\n*Email:* ${escMd(user.email || '—')}\n*Til:* O'zbekcha\n*Bizda:* ${joinDate} dan`;
+        ? `👤 <b>Профиль</b>\n\n<b>Имя:</b> ${escHtml(fullName)}\n<b>Телефон:</b> ${escHtml(user.phone)}\n<b>Email:</b> ${escHtml(user.email || '—')}\n<b>Язык:</b> Русский\n<b>С нами с:</b> ${escHtml(joinDate)}`
+        : `👤 <b>Profil</b>\n\n<b>Ism:</b> ${escHtml(fullName)}\n<b>Telefon:</b> ${escHtml(user.phone)}\n<b>Email:</b> ${escHtml(user.email || '—')}\n<b>Til:</b> O'zbekcha\n<b>Bizda:</b> ${escHtml(joinDate)} dan`;
 
     const kb = new InlineKeyboard()
         .url(lang === 'ru' ? '✏️ Редактировать' : '✏️ Tahrirlash', `${PUBLIC_BASE}/user/profile`).row()
