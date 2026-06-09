@@ -267,13 +267,17 @@ export class CheckupPackagesService {
 
         const { itemPrices, clinicPrice } = this.normalizePrices(pkg.items, data.itemPrices, data.clinicPrice);
 
+        // Auto-link any underlying diagnostic services the clinic hasn't activated
+        // yet — selling them inside a checkup means they're sold individually too.
+        // Uses the price the clinic entered in the drawer.
+        await this.ensureClinicDiagnosticsForItems(clinicId, pkg.items, itemPrices);
+
         const existing = await prisma.clinicCheckupPackage.findUnique({
             where: { clinicId_packageId: { clinicId, packageId: data.packageId } }
         });
 
         if (existing) {
             if (existing.isActive) throw new AppError('Ushbu paket allaqachon faollashtirilgan', 400, ErrorCodes.DUPLICATE_ERROR);
-            // Re-activate
             return await prisma.clinicCheckupPackage.update({
                 where: { id: existing.id },
                 data: {
@@ -296,6 +300,65 @@ export class CheckupPackagesService {
                 customizationData: data.customizationData,
             }
         });
+    }
+
+    /**
+     * For each item, ensure the clinic has an active ClinicDiagnosticService row.
+     * - If missing: create the link + a ServiceCustomization with the clinic's price
+     * - If present but customPrice is null/0: backfill customPrice from itemPrices
+     * Never overrides a price the clinic already set.
+     */
+    private async ensureClinicDiagnosticsForItems(
+        clinicId: string,
+        items: Array<{ id: string; diagnosticServiceId: string }>,
+        itemPrices: Record<string, number> | null,
+    ) {
+        if (!itemPrices) return;
+        const diagIds = items.map(i => i.diagnosticServiceId);
+        const existingLinks = await prisma.clinicDiagnosticService.findMany({
+            where: { clinicId, diagnosticServiceId: { in: diagIds } },
+            select: {
+                id: true,
+                diagnosticServiceId: true,
+                isActive: true,
+                customization: { select: { id: true, customPrice: true } },
+            },
+        });
+        const linkByDiag = new Map(existingLinks.map(l => [l.diagnosticServiceId, l]));
+
+        for (const it of items) {
+            const price = itemPrices[it.id];
+            if (typeof price !== 'number' || price <= 0) continue;
+            const link = linkByDiag.get(it.diagnosticServiceId);
+
+            if (!link) {
+                await prisma.clinicDiagnosticService.create({
+                    data: {
+                        clinicId,
+                        diagnosticServiceId: it.diagnosticServiceId,
+                        isActive: true,
+                        customization: { create: { customPrice: price } },
+                    },
+                });
+                continue;
+            }
+            if (!link.isActive) {
+                await prisma.clinicDiagnosticService.update({
+                    where: { id: link.id },
+                    data: { isActive: true },
+                });
+            }
+            if (!link.customization) {
+                await prisma.serviceCustomization.create({
+                    data: { clinicServiceId: link.id, customPrice: price },
+                });
+            } else if (link.customization.customPrice == null || link.customization.customPrice <= 0) {
+                await prisma.serviceCustomization.update({
+                    where: { id: link.customization.id },
+                    data: { customPrice: price },
+                });
+            }
+        }
     }
 
     /**

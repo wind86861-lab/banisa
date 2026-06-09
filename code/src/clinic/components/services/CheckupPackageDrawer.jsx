@@ -301,7 +301,6 @@ function PricesTab({ items, form, setForm, totalPrice }) {
                     const value = form.itemPrices?.[id];
                     const clinicPrice = item.clinicServicePrice;
                     const hasClinicPrice = typeof clinicPrice === 'number' && clinicPrice > 0;
-                    const missing = !item.clinicHasService;
 
                     let sanity = null;
                     if (typeof value === 'number' && hasClinicPrice) {
@@ -313,9 +312,9 @@ function PricesTab({ items, form, setForm, totalPrice }) {
                     return (
                         <div key={id || idx} style={{
                             padding: '10px 12px',
-                            background: missing ? 'rgba(245,158,11,0.04)' : 'var(--bg-main)',
+                            background: 'var(--bg-main)',
                             borderRadius: 8,
-                            border: `1px solid ${sanity || missing ? 'rgba(245,158,11,0.4)' : 'var(--border-color)'}`,
+                            border: `1px solid ${sanity ? 'rgba(245,158,11,0.4)' : 'var(--border-color)'}`,
                             display: 'grid',
                             gridTemplateColumns: '1fr 160px',
                             gap: 10,
@@ -329,20 +328,11 @@ function PricesTab({ items, form, setForm, totalPrice }) {
                                 {item.notes && (
                                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{item.notes}</div>
                                 )}
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                                    {missing ? (
-                                        <span style={{
-                                            ...pillStyle('#f59e0b'),
-                                            display: 'inline-flex', alignItems: 'center', gap: 4,
-                                        }}>
-                                            <AlertTriangle size={10} /> klinikangizda bu xizmat aktiv emas — narxni qo'lda kiriting
-                                        </span>
-                                    ) : hasClinicPrice ? (
+                                {hasClinicPrice && (
+                                    <div style={{ marginTop: 4 }}>
                                         <span style={pillStyle('#059669')}>klinika narxim: {fmt(clinicPrice)} so'm</span>
-                                    ) : (
-                                        <span style={pillStyle('#6366f1')}>klinika narxi belgilanmagan</span>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
                                 {sanity && (
                                     <div style={{
                                         marginTop: 6, fontSize: 11, color: '#b45309',
