@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Phone, Lock, Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Building2 } from 'lucide-react';
+import { Phone, Lock, Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Building2, Send } from 'lucide-react';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import BanisaLoader from '../../shared/components/BanisaLoader';
 import TelegramLoginButton from '../../shared/components/TelegramLoginButton';
@@ -13,11 +13,24 @@ function safeRedirect(target, fallback = '/user/dashboard') {
     return target;
 }
 
+// Telegram Mini App detection. When the page loads inside Telegram, the
+// WebApp object is present AND has a non-empty initData string. We use
+// this to switch the page into "auto-authenticating" mode instead of
+// showing a phone+password form they can't use (the Mini App account is
+// passwordless), and to hide the Telegram Login Widget that can't work
+// inside Telegram itself.
+const isInsideMiniApp = () => {
+    if (typeof window === 'undefined') return false;
+    return Boolean(window.Telegram?.WebApp?.initData);
+};
+
 export default function UserLoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams] = useSearchParams();
-    const { login, loginViaTelegramWidget } = useUserAuth();
+    const { login, loginViaTelegramWidget, ensurePatientAuth } = useUserAuth();
+    const [inMiniApp] = useState(isInsideMiniApp);
+    const [autoLoginPhase, setAutoLoginPhase] = useState(inMiniApp ? 'auto' : 'idle');
     const [form, setForm] = useState({ phone: '', password: '' });
     const [showPass, setShowPass] = useState(false);
     const [error, setError] = useState('');
@@ -29,6 +42,26 @@ export default function UserLoginPage() {
     const justRegistered = location.state?.registered === true;
 
     const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setError(''); };
+
+    // Mini App auto-login. When this page renders inside Telegram we should
+    // never show the manual login form — instead drive the same single
+    // resolver every other call site uses. Success → navigate home. Failure
+    // (e.g., not_bound) → ensurePatientAuth already soft-redirects to
+    // /mini-app-bind, so we surface a static "please share contact" CTA.
+    useEffect(() => {
+        if (!inMiniApp || !ensurePatientAuth) return;
+        let cancelled = false;
+        (async () => {
+            const u = await ensurePatientAuth();
+            if (cancelled) return;
+            if (u) {
+                navigate(from, { replace: true });
+            } else {
+                setAutoLoginPhase('needs_bind');
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [inMiniApp, ensurePatientAuth, from, navigate]);
 
     const handleTelegramAuth = async (widgetUser) => {
         setError('');
@@ -71,6 +104,38 @@ export default function UserLoginPage() {
 
     if (loading) {
         return <BanisaLoader message="Kirish..." />;
+    }
+
+    // Mini App: show a focused screen instead of the broken widget +
+    // unusable password form. Auto-login is in flight; on failure the
+    // resolver already routed to /mini-app-bind, so we only end up here
+    // when initData was missing or rejected entirely.
+    if (inMiniApp) {
+        return (
+            <div className="auth-page">
+                <div className="auth-form-panel" style={{ maxWidth: 460, margin: '40px auto', padding: 24 }}>
+                    <div className="auth-form-box" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <Send size={36} style={{ alignSelf: 'center', color: '#229ED9' }} />
+                        <h1 className="auth-form-title">Telegram Mini App</h1>
+                        {autoLoginPhase === 'auto' ? (
+                            <>
+                                <p className="auth-form-sub">Telegram orqali avtomatik kirilmoqda...</p>
+                                <Loader2 size={24} className="auth-spin" style={{ alignSelf: 'center' }} />
+                            </>
+                        ) : (
+                            <>
+                                <p className="auth-form-sub">
+                                    Avtomatik kirish ishlamadi. Mini App'ni to'liq yopib qaytadan oching yoki bog'lash sahifasiga o'ting.
+                                </p>
+                                <Link to="/mini-app-bind" className="auth-submit" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                    <Phone size={16} /> Telefonni ulash
+                                </Link>
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (
