@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { tokenStorage } from '../auth/tokenStorage';
+import { callEnsurePatientAuth } from '../auth/patientAuthBridge';
 
 // VULN-03: access token stored in module memory — not localStorage (XSS-safe)
 let _accessToken = null;
@@ -15,7 +16,7 @@ const api = axios.create({
   withCredentials: true, // send HttpOnly refresh-token cookie automatically
 });
 
-// ─── Request interceptor — attach access token to every request ───────────────
+// ─── Request interceptor — attach access token to every request ───────────
 api.interceptors.request.use((config) => {
   if (_accessToken) {
     config.headers.Authorization = `Bearer ${_accessToken}`;
@@ -23,9 +24,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ─── Response interceptor — auto-refresh on 401 and retry once ───────────────
+// ─── Response interceptor — auto-refresh on 401 and retry once ────────────
+//
+// Two distinct flows:
+//
+//   PATIENT — delegates to the single resolver in UserAuthContext
+//   (via patientAuthBridge). That function decides between Mini App
+//   initData and the HttpOnly refresh cookie, and uses a module-level
+//   promise so simultaneous 401s collapse into ONE auth attempt.
+//
+//   CLINIC/ADMIN — keeps the inline cookie-refresh path. Super admins are
+//   redirected straight to /admin/login because they don't carry a
+//   refresh cookie at all.
 let _isRefreshing = false;
-let _refreshQueue = []; // callbacks waiting while a refresh is in progress
+let _refreshQueue = [];
 
 const processQueue = (error, token = null) => {
   _refreshQueue.forEach(({ resolve, reject }) => {
@@ -35,19 +47,40 @@ const processQueue = (error, token = null) => {
   _refreshQueue = [];
 };
 
+const readStoredUser = () => tokenStorage.getUser() || (() => {
+  try { return JSON.parse(localStorage.getItem('user_data')); } catch { return null; }
+})();
+
+const redirectToLogin = (storedUser) => {
+  if (typeof window === 'undefined') return;
+  let loginUrl = '/';
+  if (storedUser?.role === 'CLINIC_ADMIN' || storedUser?.role === 'PENDING_CLINIC') {
+    loginUrl = '/login';
+  } else if (storedUser?.role === 'PATIENT') {
+    loginUrl = '/user/login';
+  }
+  tokenStorage.clear();
+  localStorage.removeItem('user_data');
+  localStorage.removeItem('user_had_session');
+  window.location.href = loginUrl;
+};
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config;
 
-    // Never intercept the refresh endpoint itself — would cause infinite loop
-    const isRefreshCall = original.url?.includes('/auth/refresh') || original.url?.includes('/user/auth/refresh');
-    if (error.response?.status !== 401 || original._retry || isRefreshCall) {
+    // Never intercept the refresh endpoints themselves — would loop.
+    const url = original?.url || '';
+    const isAuthEndpoint = url.includes('/auth/refresh')
+      || url.includes('/auth/telegram/miniapp-login')
+      || url.includes('/auth/login');
+    if (error.response?.status !== 401 || original._retry || isAuthEndpoint) {
       return Promise.reject(error);
     }
 
     if (_isRefreshing) {
-      // Queue subsequent 401s while refresh is pending
+      // Queue while a refresh is already in flight.
       return new Promise((resolve, reject) => {
         _refreshQueue.push({ resolve, reject });
       }).then((token) => {
@@ -56,19 +89,13 @@ api.interceptors.response.use(
       });
     }
 
-    // SECURITY: SUPER_ADMIN never has a refresh cookie.
-    // If we attempt refresh, a leftover CLINIC_ADMIN cookie could return the wrong token,
-    // causing the admin panel to use a CLINIC_ADMIN token → 403 on all admin endpoints.
-    // Skip refresh and redirect to admin login immediately.
-    const storedUserBeforeRefresh = tokenStorage.getUser() || (() => {
-      try { return JSON.parse(localStorage.getItem('user_data')); } catch { return null; }
-    })();
-    if (storedUserBeforeRefresh?.role === 'SUPER_ADMIN') {
+    const storedUser = readStoredUser();
+
+    // SUPER_ADMIN has no refresh cookie — straight to login.
+    if (storedUser?.role === 'SUPER_ADMIN') {
       clearAccessToken();
       tokenStorage.clear();
-      if (typeof window !== 'undefined') {
-        window.location.href = '/admin/login';
-      }
+      if (typeof window !== 'undefined') window.location.href = '/admin/login';
       return Promise.reject(error);
     }
 
@@ -76,101 +103,59 @@ api.interceptors.response.use(
     _isRefreshing = true;
 
     try {
-      const refreshUrl = _isPatientSession ? '/api/user/auth/refresh' : '/api/auth/refresh';
+      // ── PATIENT path ────────────────────────────────────────────────
+      if (_isPatientSession) {
+        const recoveredUser = await callEnsurePatientAuth();
+        const newToken = _accessToken; // resolver wrote it into module mem
+        if (recoveredUser && newToken) {
+          processQueue(null, newToken);
+          original.headers.Authorization = `Bearer ${newToken}`;
+          return api(original);
+        }
+        // Resolver returned null — session is genuinely dead.
+        processQueue(error, null);
+        clearAccessToken();
+        redirectToLogin(storedUser);
+        return Promise.reject(error);
+      }
+
+      // ── CLINIC/ADMIN path (cookie refresh) ──────────────────────────
       const { data } = await axios.post(
-        refreshUrl,
+        '/api/auth/refresh',
         {},
-        { withCredentials: true }
+        { withCredentials: true },
       );
-      const newToken = data.data?.accessToken;
+      const newToken = data.data?.accessToken ?? data.accessToken;
       const refreshedUser = data.data?.user ?? data.user;
 
-      // Guard: if refresh returned a token for a different role than what was stored,
-      // discard it — prevents cross-session token pollution.
-      if (refreshedUser && storedUserBeforeRefresh &&
-        refreshedUser.role !== storedUserBeforeRefresh.role) {
+      if (refreshedUser && storedUser
+        && refreshedUser.role !== storedUser.role) {
+        // Cross-role token pollution — discard.
         clearAccessToken();
         tokenStorage.clear();
         processQueue(new Error('Role mismatch after refresh'), null);
-        if (typeof window !== 'undefined') {
-          window.location.href = '/';
-        }
+        if (typeof window !== 'undefined') window.location.href = '/';
         return Promise.reject(new Error('Role mismatch after refresh'));
       }
 
       setAccessToken(newToken);
-      // Patient access token stays in memory only (XSS-hardened). The
-      // HttpOnly refresh cookie is what persists the session across reloads.
-      // We still cache the non-secret user profile so the navbar can paint
-      // instantly on reload.
-      if (_isPatientSession && refreshedUser) {
-        localStorage.setItem('user_data', JSON.stringify(refreshedUser));
-      } else if (!_isPatientSession) {
-        // Clinic/admin sessions keep the access token in sessionStorage so the
-        // watchdog (AuthContext) and route guards read a current value instead
-        // of the stale one — otherwise the next 30-second tick would see an
-        // "expired" token and log the user out mid-task.
-        tokenStorage.setToken(newToken);
-        if (refreshedUser) tokenStorage.setUser(refreshedUser);
-      }
+      tokenStorage.setToken(newToken);
+      if (refreshedUser) tokenStorage.setUser(refreshedUser);
       processQueue(null, newToken);
       original.headers.Authorization = `Bearer ${newToken}`;
       return api(original);
     } catch (refreshError) {
-      // Cookie refresh failed. If we're inside the Telegram Mini App, the
-      // refresh cookie may be blocked by the embedded WebView context — try
-      // re-authenticating once via the still-valid initData (24h TTL) before
-      // giving up. Keeps the Mini App session alive without forcing the user
-      // back to the bind screen.
-      if (_isPatientSession && typeof window !== 'undefined') {
-        const tg = window.Telegram?.WebApp;
-        const initData = tg?.initData;
-        if (initData) {
-          try {
-            const { data: miniData } = await axios.post(
-              '/api/user/auth/telegram/miniapp-login',
-              { initData },
-              { withCredentials: true },
-            );
-            const miniToken = miniData?.data?.accessToken ?? miniData?.accessToken;
-            const miniUser = miniData?.data?.user ?? miniData?.user;
-            if (miniToken && miniUser?.role === 'PATIENT') {
-              setAccessToken(miniToken);
-              localStorage.setItem('user_data', JSON.stringify(miniUser));
-              processQueue(null, miniToken);
-              original.headers.Authorization = `Bearer ${miniToken}`;
-              return api(original);
-            }
-          } catch { /* fall through to logout */ }
-        }
-      }
       processQueue(refreshError, null);
       clearAccessToken();
-      // Only hard-redirect if refresh returned 401 (truly not authenticated)
-      // Don't redirect on 429 (rate limit) — that would wrongly kick logged-in users
+      // Only redirect on a real 401 — rate-limit (429) shouldn't kick out
+      // active users.
       const refreshStatus = refreshError?.response?.status;
-      if (typeof window !== 'undefined' && refreshStatus === 401) {
-        const storedUser = tokenStorage.getUser() || (() => {
-          try { return JSON.parse(localStorage.getItem('user_data')); } catch { return null; }
-        })();
-        let loginUrl = '/';
-        if (storedUser?.role === 'CLINIC_ADMIN' || storedUser?.role === 'PENDING_CLINIC') {
-          loginUrl = '/login';
-        } else if (storedUser?.role === 'PATIENT') {
-          loginUrl = '/user/login';
-        }
-        tokenStorage.clear();
-        // No `user_access_token` to clear anymore — patient access token is
-        // memory-only since the XSS hardening pass. Only profile hints remain.
-        localStorage.removeItem('user_data');
-        localStorage.removeItem('user_had_session');
-        window.location.href = loginUrl;
-      }
+      if (refreshStatus === 401) redirectToLogin(storedUser);
       return Promise.reject(refreshError);
     } finally {
       _isRefreshing = false;
     }
-  }
+  },
 );
 
 export default api;

@@ -102,30 +102,27 @@ export const StatusGuard = ({ children }) => {
 };
 
 // ─── USER (PATIENT) GUARD ─────────────────────────────────────────────────
-// Protects /user/* routes — only authenticated PATIENT can enter.
-//
-// Mini App safety: when isLoading flips false with user=null, the auth
-// context may still be able to recover via window.Telegram.WebApp.initData.
-// We give waitForUser() one shot before bouncing to /user/login so a
-// Mini App user landing on /user/cart directly (e.g. after add-to-cart)
-// isn't kicked back to login during the cold-start moment.
+// Protects /user/* routes. Reads from the same single auth resolver every
+// other call site uses, so a Mini App visitor landing directly on
+// /user/cart isn't kicked to login while the initial miniapp-login
+// roundtrip is still in flight.
 export const UserGuard = ({ children }) => {
-  const { user, isLoading, waitForUser } = useUserAuth();
+  const { user, isLoading, ensurePatientAuth } = useUserAuth();
   const location = useLocation();
-  const [reauthChecked, setReauthChecked] = useState(false);
+  const [reauthSettled, setReauthSettled] = useState(false);
 
   useEffect(() => {
-    if (isLoading || user) { setReauthChecked(false); return; }
+    if (isLoading || user || !ensurePatientAuth) { setReauthSettled(false); return; }
     let cancelled = false;
     (async () => {
-      try { if (waitForUser) await waitForUser(); } catch { /* ignore */ }
-      if (!cancelled) setReauthChecked(true);
+      try { await ensurePatientAuth(); } catch { /* swallow */ }
+      if (!cancelled) setReauthSettled(true);
     })();
     return () => { cancelled = true; };
-  }, [isLoading, user, waitForUser]);
+  }, [isLoading, user, ensurePatientAuth]);
 
   if (isLoading) return <AuthLoading />;
-  if (!user && !reauthChecked) return <AuthLoading />;
+  if (!user && !reauthSettled) return <AuthLoading />;
   if (!user) return <Navigate to="/user/login" state={{ from: location.pathname }} replace />;
   if (user.role !== 'PATIENT') return <Navigate to="/403" replace />;
   return children;
