@@ -494,7 +494,7 @@ export default function MapSearchPage() {
     const { data: allServices = [], isLoading: servicesLoading } = usePublicServices();
     const { status, coords, error, request } = useGeolocation();
     const { addToCart } = useCart();
-    const { user } = useUserAuth();
+    const { user, waitForUser } = useUserAuth();
 
     const [activeClinicId, setActiveClinicId] = useState(null);
     const [listOpen, setListOpen] = useState(true);
@@ -648,7 +648,8 @@ export default function MapSearchPage() {
     }, [activeClinicId]);
 
     const handleAddToCart = async (c) => {
-        if (!user) {
+        const resolved = await waitForUser();
+        if (!resolved) {
             navigate('/user/login', { state: { from: '/xarita' } });
             return;
         }

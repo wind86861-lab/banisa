@@ -113,7 +113,7 @@ export default function XizmatlarCategoryPage() {
     const { category } = useParams();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { user } = useUserAuth();
+    const { user, waitForUser } = useUserAuth();
     const { addToCart } = useCart();
 
     const meta = CATEGORY_META[category];
@@ -186,7 +186,8 @@ export default function XizmatlarCategoryPage() {
     }, [categoryPool, selectedSub, searchQuery, sortBy, minRating, selectedRegions]);
 
     const handleAddToCart = async (service) => {
-        if (!user) { navigate('/user/login'); return; }
+        const resolved = await waitForUser();
+        if (!resolved) { navigate('/user/login'); return; }
         let serviceType = 'DIAGNOSTIC';
         if (service.category === 'operatsiya') serviceType = 'SURGICAL';
         else if (service.category === 'sanatoriya') serviceType = 'SANATORIUM';

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { setAccessToken, getAccessToken, clearAccessToken, setIsPatientSession } from '../api/axios';
 import axiosInstance from '../api/axios';
 
@@ -61,6 +61,13 @@ export const UserAuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [expiringSoon, setExpiringSoon] = useState(false);
+
+  // Refs that always hold the latest values — needed for waitForUser's
+  // polling loop, which can't see state updates through its closure.
+  const userRef = useRef(user);
+  const loadingRef = useRef(isLoading);
+  useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => { loadingRef.current = isLoading; }, [isLoading]);
 
   // ── Silent auto-refresh + expiry watchdog ─────────────────────────────────
   // Strategy: while logged in, refresh the access token in the background as
@@ -400,6 +407,49 @@ export const UserAuthProvider = ({ children }) => {
     setUser(updated);
   };
 
+  // ── Click-handler helper: wait for auth restore to finish ─────────────
+  // Components like "Add to cart" and "Book" used to read `user` immediately
+  // and redirect to /user/login on null — but during the first 1-3 seconds of
+  // a Mini App launch the auth restore is still mid-flight. Callers do
+  // `const u = await waitForUser(); if (!u) { redirect } else { proceed }`.
+  // Returns the resolved user (or null) — never throws.
+  const tryMiniAppLogin = async () => {
+    const tg = typeof window !== 'undefined' ? window.Telegram?.WebApp : null;
+    const initData = tg?.initData;
+    if (!initData) return null;
+    try {
+      const { data } = await axiosInstance.post(
+        '/user/auth/telegram/miniapp-login',
+        { initData },
+      );
+      const t = data?.data?.accessToken ?? data?.accessToken;
+      const u = data?.data?.user ?? data?.user;
+      if (t && u?.role === 'PATIENT') {
+        setAccessToken(t);
+        setIsPatientSession(true);
+        userTokenStorage.setUser(u);
+        localStorage.setItem(HAD_SESSION_KEY, '1');
+        setUser(u);
+        return u;
+      }
+    } catch { /* swallow */ }
+    return null;
+  };
+
+  const waitForUser = async (timeoutMs = 3000) => {
+    if (userRef.current) return userRef.current;
+    // Poll until loading flips or timeout.
+    const start = Date.now();
+    while (loadingRef.current && Date.now() - start < timeoutMs) {
+      await new Promise(r => setTimeout(r, 100));
+      if (userRef.current) return userRef.current;
+    }
+    if (userRef.current) return userRef.current;
+    // Last-ditch: inside Telegram, re-auth with initData before giving up.
+    const recovered = await tryMiniAppLogin();
+    return recovered || userRef.current || null;
+  };
+
   return (
     <UserAuthContext.Provider value={{
       user,
@@ -414,6 +464,7 @@ export const UserAuthProvider = ({ children }) => {
       updateUserState,
       expiringSoon,
       extendSession,
+      waitForUser,
     }}>
       {children}
       {expiringSoon && user && (

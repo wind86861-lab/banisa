@@ -560,7 +560,7 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
 export default function XizmatlarPage() {
     const location = useLocation();
     const navigate = useNavigate();
-    const { user } = useUserAuth();
+    const { user, waitForUser } = useUserAuth();
     const { set: favoriteIds } = useFavoriteIds();
     const toggleFavMut = useToggleFavorite();
     const { addToCart } = useCart();
@@ -584,7 +584,8 @@ export default function XizmatlarPage() {
 
     // Handle add to cart
     const handleAddToCart = async (service) => {
-        if (!user) {
+        const resolved = await waitForUser();
+        if (!resolved) {
             navigate('/user/login', { state: { from: location.pathname } });
             return;
         }

@@ -36,7 +36,7 @@ export default function XizmatDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
-    const { user } = useUserAuth();
+    const { user, waitForUser } = useUserAuth();
     const { addToCart } = useCart();
     const [svc, setSvc] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -50,7 +50,9 @@ export default function XizmatDetailPage() {
     const handleBooking = async (clinic = null) => {
         const selectedClinic = (clinic && typeof clinic === 'object' && clinic.id) ? clinic : activeClinic;
 
-        if (!user) {
+        // Wait for in-flight auth restore (Mini App boot can take 1-2 s).
+        const resolved = await waitForUser();
+        if (!resolved) {
             setShowAuthModal(true);
             return;
         }
@@ -61,7 +63,8 @@ export default function XizmatDetailPage() {
     };
 
     const handleAddToCart = async () => {
-        if (!user) {
+        const resolved = await waitForUser();
+        if (!resolved) {
             navigate('/user/login', { state: { from: location.pathname } });
             return false;
         }
