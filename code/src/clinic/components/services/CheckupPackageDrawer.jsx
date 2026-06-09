@@ -17,8 +17,8 @@ const TABS = [
 ];
 
 const MAX_IMAGES = 5;
-const SANITY_HIGH = 5;   // price > 5x admin → flag
-const SANITY_LOW = 0.2;  // price < 0.2x admin → flag
+const SANITY_HIGH = 5;   // input > 5x clinic's own price → flag
+const SANITY_LOW = 0.2;  // input < 0.2x clinic's own price → flag
 
 const EMPTY_FORM = {
     customNameUz: '',
@@ -184,7 +184,7 @@ function DescriptionTab({ form, setForm, basePackage }) {
 }
 
 // ───────────────────────────── Tab: Narxlar ─────────────────────────────
-function PricesTab({ items, form, setForm, totalPrice, adminTotal }) {
+function PricesTab({ items, form, setForm, totalPrice }) {
     const [search, setSearch] = useState('');
 
     if (!items || items.length === 0) {
@@ -206,18 +206,11 @@ function PricesTab({ items, form, setForm, totalPrice, adminTotal }) {
     const fillFromClinic = () => {
         const next = {};
         for (const it of items) {
-            const own = typeof it.clinicServicePrice === 'number' && it.clinicServicePrice > 0
-                ? it.clinicServicePrice
-                : Math.max(0, Math.round(it.servicePrice || 0));
-            next[it.id] = own;
-        }
-        setForm({ ...form, itemPrices: next });
-    };
-
-    const fillFromAdmin = () => {
-        const next = {};
-        for (const it of items) {
-            next[it.id] = Math.max(0, Math.round(it.servicePrice || 0));
+            // If clinic hasn't activated this diagnostic service, leave it blank —
+            // we don't fall back to admin's price (clinic must enter it manually).
+            if (typeof it.clinicServicePrice === 'number' && it.clinicServicePrice > 0) {
+                next[it.id] = it.clinicServicePrice;
+            }
         }
         setForm({ ...form, itemPrices: next });
     };
@@ -225,9 +218,9 @@ function PricesTab({ items, form, setForm, totalPrice, adminTotal }) {
     const bulkAdjust = (pct) => {
         const next = { ...(form.itemPrices || {}) };
         for (const it of items) {
-            const current = next[it.id] ?? (it.clinicServicePrice || it.servicePrice || 0);
+            const current = next[it.id];
+            if (typeof current !== 'number' || current <= 0) continue;
             const adjusted = Math.max(0, Math.round(current * (1 + pct / 100)));
-            // round to nearest 1000 for cleanliness
             next[it.id] = Math.round(adjusted / 1000) * 1000;
         }
         setForm({ ...form, itemPrices: next });
@@ -237,9 +230,6 @@ function PricesTab({ items, form, setForm, totalPrice, adminTotal }) {
         ? items.filter(it => (it.serviceName || '').toLowerCase().includes(search.trim().toLowerCase()))
         : items;
 
-    const diffFromAdmin = adminTotal > 0 ? ((totalPrice - adminTotal) / adminTotal) * 100 : 0;
-    const diffSign = diffFromAdmin > 0 ? '+' : '';
-
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* Quick-fill + bulk adjust */}
@@ -248,17 +238,9 @@ function PricesTab({ items, form, setForm, totalPrice, adminTotal }) {
                     type="button"
                     onClick={fillFromClinic}
                     style={quickBtnStyle('#059669')}
-                    title="Klinikangiz xizmat narxlaridan to'ldirish"
+                    title="Klinika xizmat narxlaridan qayta to'ldirish"
                 >
-                    <Wand2 size={13} /> Klinika narxlarim
-                </button>
-                <button
-                    type="button"
-                    onClick={fillFromAdmin}
-                    style={quickBtnStyle('#6366f1')}
-                    title="Admin tavsiyalaridan to'ldirish"
-                >
-                    <Wand2 size={13} /> Admin tavsiyalari
+                    <Wand2 size={13} /> Klinika narxlarim bilan to'ldirish
                 </button>
                 <div style={{ width: 1, background: 'var(--border-color)', margin: '0 4px' }} />
                 <button type="button" onClick={() => bulkAdjust(-10)} style={quickBtnStyle('#ef4444')}>−10%</button>
@@ -297,20 +279,9 @@ function PricesTab({ items, form, setForm, totalPrice, adminTotal }) {
                 borderRadius: 10, fontSize: 13,
             }}>
                 <span><strong>{items.length}</strong> ta analiz</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {adminTotal > 0 && Math.abs(diffFromAdmin) > 0.5 && (
-                        <span style={{
-                            padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 700,
-                            color: diffFromAdmin > 0 ? '#059669' : '#ef4444',
-                            background: diffFromAdmin > 0 ? 'rgba(5,150,105,0.1)' : 'rgba(239,68,68,0.1)',
-                        }}>
-                            {diffSign}{diffFromAdmin.toFixed(1)}% vs admin
-                        </span>
-                    )}
-                    <span style={{ fontWeight: 700, color: '#059669' }}>
-                        Jami: {fmt(totalPrice)} UZS
-                    </span>
-                </div>
+                <span style={{ fontWeight: 700, color: '#059669' }}>
+                    Jami: {fmt(totalPrice)} UZS
+                </span>
             </div>
 
             {/* Items */}
@@ -318,23 +289,23 @@ function PricesTab({ items, form, setForm, totalPrice, adminTotal }) {
                 {filteredItems.map((item, idx) => {
                     const id = item.id;
                     const value = form.itemPrices?.[id];
-                    const adminPrice = item.servicePrice || 0;
                     const clinicPrice = item.clinicServicePrice;
-                    const hasClinic = typeof clinicPrice === 'number' && clinicPrice > 0;
+                    const hasClinicPrice = typeof clinicPrice === 'number' && clinicPrice > 0;
+                    const missing = !item.clinicHasService;
 
                     let sanity = null;
-                    if (typeof value === 'number' && adminPrice > 0) {
-                        const ratio = value / adminPrice;
-                        if (ratio > SANITY_HIGH) sanity = { msg: `Admin narxidan ${ratio.toFixed(1)}x baland — xato bo'lishi mumkin`, kind: 'high' };
-                        else if (ratio < SANITY_LOW && value > 0) sanity = { msg: `Admin narxidan ${ratio.toFixed(2)}x past — xato bo'lishi mumkin`, kind: 'low' };
+                    if (typeof value === 'number' && hasClinicPrice) {
+                        const ratio = value / clinicPrice;
+                        if (ratio > SANITY_HIGH) sanity = { msg: `Klinika narxidan ${ratio.toFixed(1)}x baland — xato bo'lishi mumkin` };
+                        else if (ratio < SANITY_LOW && value > 0) sanity = { msg: `Klinika narxidan ${ratio.toFixed(2)}x past — xato bo'lishi mumkin` };
                     }
 
                     return (
                         <div key={id || idx} style={{
                             padding: '10px 12px',
-                            background: 'var(--bg-main)',
+                            background: missing ? 'rgba(245,158,11,0.04)' : 'var(--bg-main)',
                             borderRadius: 8,
-                            border: `1px solid ${sanity ? 'rgba(245,158,11,0.4)' : 'var(--border-color)'}`,
+                            border: `1px solid ${sanity || missing ? 'rgba(245,158,11,0.4)' : 'var(--border-color)'}`,
                             display: 'grid',
                             gridTemplateColumns: '1fr 160px',
                             gap: 10,
@@ -349,20 +320,17 @@ function PricesTab({ items, form, setForm, totalPrice, adminTotal }) {
                                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{item.notes}</div>
                                 )}
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                                    {item.clinicHasService ? (
-                                        hasClinic
-                                            ? <span style={pillStyle('#059669')}>siz: {fmt(clinicPrice)}</span>
-                                            : <span style={pillStyle('#059669')}>siz: bazaviy</span>
-                                    ) : (
+                                    {missing ? (
                                         <span style={{
                                             ...pillStyle('#f59e0b'),
                                             display: 'inline-flex', alignItems: 'center', gap: 4,
                                         }}>
-                                            <AlertTriangle size={10} /> klinikada bu xizmat yo'q
+                                            <AlertTriangle size={10} /> klinikangizda bu xizmat aktiv emas — narxni qo'lda kiriting
                                         </span>
-                                    )}
-                                    {adminPrice > 0 && (
-                                        <span style={pillStyle('#6366f1')}>admin: {fmt(adminPrice)}</span>
+                                    ) : hasClinicPrice ? (
+                                        <span style={pillStyle('#059669')}>klinika narxim: {fmt(clinicPrice)} so'm</span>
+                                    ) : (
+                                        <span style={pillStyle('#6366f1')}>klinika narxi belgilanmagan</span>
                                     )}
                                 </div>
                                 {sanity && (
@@ -377,7 +345,7 @@ function PricesTab({ items, form, setForm, totalPrice, adminTotal }) {
                             <PriceInput
                                 value={value}
                                 onChange={v => setItemPrice(id, v)}
-                                placeholder={String(clinicPrice || adminPrice || 0)}
+                                placeholder={hasClinicPrice ? String(clinicPrice) : '0'}
                                 danger={!!sanity}
                             />
                         </div>
@@ -646,11 +614,6 @@ export default function CheckupPackageDrawer({
         return total;
     }, [form.itemPrices, items]);
 
-    const adminTotal = useMemo(
-        () => items.reduce((s, i) => s + (i.servicePrice || 0) * (i.quantity || 1), 0),
-        [items],
-    );
-
     // Per-tab status — for badges on the tab strip
     const tabStatus = useMemo(() => {
         const pricesFilled = items.length > 0 && items.every(it => {
@@ -700,11 +663,13 @@ export default function CheckupPackageDrawer({
                 seededItemPrices[it.id] = Math.round((it.servicePrice || 0) * ratio);
             }
         } else if (activateMode) {
+            // Only seed items the clinic actually has activated, using their
+            // own price. Items the clinic doesn't sell stay blank — they must
+            // be entered manually before activation can proceed.
             for (const it of items) {
-                const clinicOwn = typeof it.clinicServicePrice === 'number' && it.clinicServicePrice > 0
-                    ? it.clinicServicePrice
-                    : null;
-                seededItemPrices[it.id] = clinicOwn ?? Math.max(0, Math.round(it.servicePrice || 0));
+                if (typeof it.clinicServicePrice === 'number' && it.clinicServicePrice > 0) {
+                    seededItemPrices[it.id] = it.clinicServicePrice;
+                }
             }
         }
 
@@ -842,7 +807,7 @@ export default function CheckupPackageDrawer({
                         <div className="ca-drawer-body" style={{ flex: 1, overflowY: 'auto' }}>
                             {activeTab === 0 && <BasicTab form={form} setForm={setForm} basePackage={basePackage} />}
                             {activeTab === 1 && <DescriptionTab form={form} setForm={setForm} basePackage={basePackage} />}
-                            {activeTab === 2 && <PricesTab items={items} form={form} setForm={setForm} totalPrice={totalPrice} adminTotal={adminTotal} />}
+                            {activeTab === 2 && <PricesTab items={items} form={form} setForm={setForm} totalPrice={totalPrice} />}
                             {activeTab === 3 && <ImagesTab form={form} setForm={setForm} basePackage={basePackage} />}
                             {activeTab === 4 && <PreviewTab form={form} items={items} totalPrice={totalPrice} basePackage={basePackage} />}
                         </div>

@@ -77,14 +77,13 @@ export default function PackageCard({ package: pkg }) {
                             <ChevronDown size={13} style={{ transform: itemsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.18s' }} />
                         </button>
 
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                            Diapazon: <strong>{fmt(pkg.priceMin)} – {fmt(pkg.priceMax)}</strong> UZS
-                            &nbsp;·&nbsp; Tavsiya: <strong style={{ color: 'var(--color-primary)' }}>{fmt(pkg.recommendedPrice)}</strong>
-                        </span>
-
-                        {isActivated && (
+                        {isActivated ? (
                             <span style={{ fontSize: 12, fontWeight: 700, color: '#10b981' }}>
                                 Klinika narxi: {fmt(pkg.clinicPackage?.clinicPrice)} UZS
+                            </span>
+                        ) : (
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                Narxni klinika belgilaydi
                             </span>
                         )}
                     </div>
@@ -92,12 +91,17 @@ export default function PackageCard({ package: pkg }) {
                     {/* Services list */}
                     {itemsOpen && (
                         <div style={{ marginTop: 8, paddingLeft: 10, borderLeft: '2px solid var(--border-color)' }}>
-                            {(pkg.items || []).map(item => (
-                                <div key={item.id} style={{ fontSize: 12, color: 'var(--text-main)', padding: '2px 0', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                                    <span>✓ {item.serviceName}{item.quantity > 1 ? ` ×${item.quantity}` : ''}</span>
-                                    {item.servicePrice > 0 && <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{fmt(item.servicePrice)} UZS</span>}
-                                </div>
-                            ))}
+                            {(pkg.items || []).map(item => {
+                                const clinicItemPrice = pkg.clinicPackage?.itemPrices?.[item.id];
+                                return (
+                                    <div key={item.id} style={{ fontSize: 12, color: 'var(--text-main)', padding: '2px 0', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                                        <span>✓ {item.serviceName}{item.quantity > 1 ? ` ×${item.quantity}` : ''}</span>
+                                        {isActivated && typeof clinicItemPrice === 'number' && clinicItemPrice > 0 && (
+                                            <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{fmt(clinicItemPrice)} UZS</span>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
