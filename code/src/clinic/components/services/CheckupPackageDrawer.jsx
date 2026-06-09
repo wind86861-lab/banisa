@@ -349,8 +349,10 @@ function PricesTab({ items, form, setForm, totalPrice, adminTotal }) {
                                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{item.notes}</div>
                                 )}
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                                    {hasClinic ? (
-                                        <span style={pillStyle('#059669')}>siz: {fmt(clinicPrice)}</span>
+                                    {item.clinicHasService ? (
+                                        hasClinic
+                                            ? <span style={pillStyle('#059669')}>siz: {fmt(clinicPrice)}</span>
+                                            : <span style={pillStyle('#059669')}>siz: bazaviy</span>
                                     ) : (
                                         <span style={{
                                             ...pillStyle('#f59e0b'),

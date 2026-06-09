@@ -206,10 +206,12 @@ export class CheckupPackagesService {
         // states from a single list. Without this, activated rows disappear
         // and clinics can never adjust per-item prices after activation.
         //
-        // Each item is enriched with `clinicServicePrice` — the clinic's own
-        // price for that diagnostic service (from ServiceCustomization), so
-        // the activation drawer can seed per-item inputs with what the clinic
-        // already charges, not the super-admin's recommended price.
+        // Each item is enriched with:
+        //   - `clinicServicePrice`: the clinic's effective price for that diagnostic
+        //      service — their `customPrice` if set, otherwise the admin's
+        //      `priceRecommended` (since accepting the default = selling at admin's price).
+        //   - `clinicHasService`: whether the clinic activated this diagnostic at all.
+        //      If false, the activation drawer warns "klinikada bu xizmat yo'q".
         const [packages, clinicRows, clinicDiagLinks] = await Promise.all([
             prisma.checkupPackage.findMany({
                 where: { isActive: true },
@@ -225,6 +227,7 @@ export class CheckupPackagesService {
                 where: { clinicId, isActive: true },
                 select: {
                     diagnosticServiceId: true,
+                    diagnosticService: { select: { priceRecommended: true } },
                     customization: { select: { customPrice: true } },
                 },
             }),
@@ -232,11 +235,15 @@ export class CheckupPackagesService {
 
         const cpByPackageId = new Map(clinicRows.map(r => [r.packageId, r]));
         const clinicPriceByDiagId = new Map<string, number>();
+        const clinicHasDiagId = new Set<string>();
         for (const l of clinicDiagLinks) {
-            const p = l.customization?.customPrice;
-            if (typeof p === 'number' && p > 0) {
-                clinicPriceByDiagId.set(l.diagnosticServiceId, p);
-            }
+            clinicHasDiagId.add(l.diagnosticServiceId);
+            const custom = l.customization?.customPrice;
+            const fallback = l.diagnosticService?.priceRecommended;
+            const effective = (typeof custom === 'number' && custom > 0)
+                ? custom
+                : (typeof fallback === 'number' && fallback > 0 ? fallback : null);
+            if (effective !== null) clinicPriceByDiagId.set(l.diagnosticServiceId, effective);
         }
 
         return packages.map(p => ({
@@ -244,6 +251,7 @@ export class CheckupPackagesService {
             items: p.items.map((i: any) => ({
                 ...i,
                 clinicServicePrice: clinicPriceByDiagId.get(i.diagnosticServiceId) ?? null,
+                clinicHasService: clinicHasDiagId.has(i.diagnosticServiceId),
             })),
             clinicPackage: cpByPackageId.get(p.id) ?? null,
         }));
