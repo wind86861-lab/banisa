@@ -214,13 +214,19 @@ function PricesTab({ items, form, setForm, totalPrice }) {
     };
 
     const fillFromClinic = () => {
+        // Fill every item so the clinic isn't left with empty inputs:
+        //   1. Clinic's own price for that diagnostic (when activated)
+        //   2. Catalog's recommended price as a starting suggestion (editable)
+        //   3. 0 only when neither exists
+        // Admin's price is used only as a starting value the clinic can change —
+        // it's never shown as a label or persisted as "admin's price".
         const next = {};
         for (const it of items) {
-            // If clinic hasn't activated this diagnostic service, leave it blank —
-            // we don't fall back to admin's price (clinic must enter it manually).
-            if (typeof it.clinicServicePrice === 'number' && it.clinicServicePrice > 0) {
-                next[it.id] = it.clinicServicePrice;
-            }
+            const own = typeof it.clinicServicePrice === 'number' && it.clinicServicePrice > 0
+                ? it.clinicServicePrice
+                : null;
+            const fallback = Math.max(0, Math.round(it.servicePrice || 0));
+            next[it.id] = own ?? fallback;
         }
         setForm({ ...form, itemPrices: next });
     };
@@ -663,13 +669,16 @@ export default function CheckupPackageDrawer({
                 seededItemPrices[it.id] = Math.round((it.servicePrice || 0) * ratio);
             }
         } else if (activateMode) {
-            // Only seed items the clinic actually has activated, using their
-            // own price. Items the clinic doesn't sell stay blank — they must
-            // be entered manually before activation can proceed.
+            // Seed every item so activation never starts with empty inputs:
+            //   1. Clinic's own price for that diagnostic (when activated)
+            //   2. Catalog's recommended price as a starting suggestion
+            // Clinic can edit any value before saving; once saved, the underlying
+            // diagnostic service gets auto-activated server-side at their chosen price.
             for (const it of items) {
-                if (typeof it.clinicServicePrice === 'number' && it.clinicServicePrice > 0) {
-                    seededItemPrices[it.id] = it.clinicServicePrice;
-                }
+                const own = typeof it.clinicServicePrice === 'number' && it.clinicServicePrice > 0
+                    ? it.clinicServicePrice
+                    : null;
+                seededItemPrices[it.id] = own ?? Math.max(0, Math.round(it.servicePrice || 0));
             }
         }
 
