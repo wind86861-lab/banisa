@@ -6,11 +6,10 @@ const PUBLIC_BASE = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').rep
 
 export type Lang = 'uz' | 'ru';
 
-/** Status labels visible to the patient. */
 const STATUS_LABEL: Record<string, Record<Lang, string>> = {
     PENDING:            { uz: '⏳ Kutilmoqda',         ru: '⏳ Ожидает' },
     OPERATOR_CONFIRMED: { uz: '✅ Operator tasdiqladi', ru: '✅ Оператор подтвердил' },
-    SENT_TO_CLINIC:     { uz: '📤 Klinikaga yuborilgan', ru: '📤 Отправлено в клинику' },
+    SENT_TO_CLINIC:     { uz: '📤 Klinikaga yuborildi', ru: '📤 Отправлено в клинику' },
     CLINIC_ACCEPTED:    { uz: '✅ Klinika qabul qildi', ru: '✅ Клиника приняла' },
     AWAITING_PAYMENT:   { uz: '💳 To\'lov kutilmoqda',  ru: '💳 Ожидает оплаты' },
     PAID:               { uz: '💰 To\'langan',          ru: '💰 Оплачено' },
@@ -22,11 +21,20 @@ const STATUS_LABEL: Record<string, Record<Lang, string>> = {
     RESCHEDULED:        { uz: '🔁 Ko\'chirilgan',      ru: '🔁 Перенесено' },
 };
 
+// Statuses where the booking is "live" and the patient should be able to
+// walk into the clinic and scan the QR.
+const CHECKINABLE_STATUSES = new Set([
+    'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED',
+    'AWAITING_PAYMENT', 'PAID',
+]);
+
+// Statuses where the patient can still cancel themselves (no money moved yet).
 const CANCELLABLE_STATUSES = new Set([
     'PENDING', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED',
 ]);
 
-function fmtDate(d: Date | string, lang: Lang): string {
+function fmtDate(d: Date | string | null | undefined, lang: Lang): string {
+    if (!d) return '—';
     const date = typeof d === 'string' ? new Date(d) : d;
     const locale = lang === 'ru' ? 'ru-RU' : 'uz-UZ';
     try {
@@ -42,19 +50,26 @@ function fmtMoney(n: number | null | undefined): string {
     return Number(n || 0).toLocaleString('uz-UZ');
 }
 
-/** Escape characters that have special meaning in Telegram Markdown. */
+/** Escape Markdown special characters that would otherwise break parsing. */
 function escMd(s: string | null | undefined): string {
     if (!s) return '';
-    return s.replace(/[_*`[\]]/g, m => '\\' + m);
+    return String(s).replace(/[_*`[\]]/g, m => '\\' + m);
 }
 
-// ─── Bronlarim (My Appointments) ────────────────────────────────────────────
+/** Trim a label so the button stays well under Telegram's 64-byte cap. */
+function clip(s: string, max = 35): string {
+    if (!s) return '';
+    return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+
 export interface RenderResult {
     text: string;
     keyboard: InlineKeyboard;
 }
 
-export async function renderMyAppointments(userId: string, lang: Lang, limit = 5): Promise<RenderResult> {
+// ─── Bronlarim: list + detail ───────────────────────────────────────────────
+
+export async function renderMyAppointments(userId: string, lang: Lang, limit = 10): Promise<RenderResult> {
     const items = await prisma.appointment.findMany({
         where: { patientId: userId },
         orderBy: { scheduledAt: 'desc' },
@@ -78,151 +93,92 @@ export async function renderMyAppointments(userId: string, lang: Lang, limit = 5
     }
 
     const header = lang === 'ru'
-        ? `📅 *Мои брони* — последние ${items.length}\n\n`
-        : `📅 *Bronlarim* — oxirgi ${items.length} ta\n\n`;
+        ? `📅 *Мои брони* (${items.length})\n_Тапните бронь чтобы открыть детали._`
+        : `📅 *Bronlarim* (${items.length})\n_Tafsilotlar uchun bronni bosing._`;
 
-    const lines: string[] = [];
     const kb = new InlineKeyboard();
-
-    items.forEach((appt, i) => {
-        const clinicName = (lang === 'ru' ? appt.clinic?.nameRu : appt.clinic?.nameUz) || appt.clinic?.nameUz || '';
-        const svcName =
-            (lang === 'ru' ? appt.diagnosticService?.nameRu : appt.diagnosticService?.nameUz)
+    items.forEach((appt) => {
+        const svcName = (lang === 'ru' ? appt.diagnosticService?.nameRu : appt.diagnosticService?.nameUz)
             ?? (lang === 'ru' ? appt.surgicalService?.nameRu : appt.surgicalService?.nameUz)
             ?? (lang === 'ru' ? 'Услуга' : 'Xizmat');
-        const status = STATUS_LABEL[appt.status]?.[lang] || appt.status;
-        const when = appt.scheduledAt ? fmtDate(appt.scheduledAt, lang) : '—';
-
-        lines.push(
-            `*${i + 1}.* ${escMd(svcName)}\n` +
-            `🏥 ${escMd(clinicName)}\n` +
-            `📆 ${when} · ${status}\n` +
-            `💰 ${fmtMoney(appt.price)} UZS\n` +
-            `№ \`${appt.bookingNumber || appt.id.slice(0, 8)}\``,
-        );
-
-        const detailLabel = lang === 'ru' ? `📋 #${i + 1}` : `📋 #${i + 1}`;
-        kb.url(detailLabel, `${PUBLIC_BASE}/user/appointments/${appt.id}`);
-        if (CANCELLABLE_STATUSES.has(appt.status)) {
-            kb.text(
-                lang === 'ru' ? `❌ Отменить #${i + 1}` : `❌ Bekor qil #${i + 1}`,
-                `appt:cancel:${appt.id}`,
-            );
-        }
-        kb.row();
+        const status = STATUS_LABEL[appt.status]?.[lang]?.split(' ')[0] || '';
+        const when = fmtDate(appt.scheduledAt, lang);
+        // "🟢 09 iyun 14:30 — ALAT (jigar)"
+        kb.text(clip(`${status} ${when} — ${svcName}`, 60), `appt:show:${appt.id}`).row();
     });
 
     kb.url(
         lang === 'ru' ? '🌐 Все брони на сайте' : '🌐 Saytda hammasi',
         `${PUBLIC_BASE}/user/appointments`,
     );
-
-    return { text: header + lines.join('\n\n'), keyboard: kb };
+    return { text: header, keyboard: kb };
 }
 
-// ─── Cart ───────────────────────────────────────────────────────────────────
-export async function renderCart(userId: string, lang: Lang): Promise<RenderResult> {
-    // Reuse the existing service so pricing, discounts and clinic customization
-    // stay identical to the website. Returns groups by clinic.
-    const groups = await cartService.getCart(userId) as Array<any>;
-
-    if (!groups || groups.length === 0) {
-        const text = lang === 'ru'
-            ? '🛒 *Корзина*\n\nКорзина пуста.'
-            : '🛒 *Savat*\n\nSavat bo\'sh.';
-        const kb = new InlineKeyboard().url(
-            lang === 'ru' ? '🩺 Услуги' : '🩺 Xizmatlar',
-            `${PUBLIC_BASE}/xizmatlar`,
-        );
-        return { text, keyboard: kb };
-    }
-
-    let totalItems = 0;
-    let totalPrice = 0;
-    const sections: string[] = [];
-
-    for (const group of groups) {
-        const clinicName = (lang === 'ru' ? group.clinic?.nameRu : group.clinic?.nameUz)
-            || group.clinic?.nameUz || '';
-        const lines = group.items.map((it: any, i: number) => {
-            const svcName = (lang === 'ru' ? it.service?.nameRu : it.service?.nameUz)
-                || it.service?.nameUz || it.serviceType;
-            const qty = it.quantity > 1 ? ` ×${it.quantity}` : '';
-            const lineTotal = (it.service?.priceRecommended || 0) * (it.quantity || 1);
-            totalItems += it.quantity || 1;
-            totalPrice += lineTotal;
-            return `  ${i + 1}. ${escMd(svcName)}${qty} — ${fmtMoney(lineTotal)}`;
-        });
-        sections.push(`🏥 *${escMd(clinicName)}*\n${lines.join('\n')}`);
-    }
-
-    const header = lang === 'ru'
-        ? `🛒 *Корзина* — ${totalItems} позиций\n\n`
-        : `🛒 *Savat* — ${totalItems} ta xizmat\n\n`;
-    const totalLine = lang === 'ru'
-        ? `\n\n*Итого: ${fmtMoney(totalPrice)} UZS*`
-        : `\n\n*Jami: ${fmtMoney(totalPrice)} UZS*`;
-
-    const kb = new InlineKeyboard()
-        .url(lang === 'ru' ? '💳 К оплате' : '💳 To\'lash', `${PUBLIC_BASE}/user/cart/checkout`).row()
-        .text(lang === 'ru' ? '🗑 Очистить' : '🗑 Tozalash', 'cart:clear:confirm');
-
-    return { text: header + sections.join('\n\n') + totalLine, keyboard: kb };
-}
-
-export async function getCartCount(userId: string): Promise<number> {
-    const items = await prisma.cartItem.findMany({
-        where: { userId }, select: { quantity: true },
+export async function renderAppointmentDetail(userId: string, appointmentId: string, lang: Lang): Promise<RenderResult | null> {
+    const appt = await prisma.appointment.findFirst({
+        where: { id: appointmentId, patientId: userId },
+        include: {
+            clinic: { select: { id: true, nameUz: true, nameRu: true, region: true, district: true, street: true, phones: true } },
+            diagnosticService: { select: { nameUz: true, nameRu: true } },
+            surgicalService: { select: { nameUz: true, nameRu: true } },
+        },
     });
-    return items.reduce((sum, it) => sum + (it.quantity || 1), 0);
-}
+    if (!appt) return null;
 
-// ─── Profile ────────────────────────────────────────────────────────────────
-export async function renderProfile(userId: string, lang: Lang): Promise<RenderResult> {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { firstName: true, lastName: true, phone: true, email: true, createdAt: true },
-    });
-    if (!user) {
-        return {
-            text: lang === 'ru' ? '❌ Профиль не найден' : '❌ Profil topilmadi',
-            keyboard: new InlineKeyboard(),
-        };
+    const svcName = (lang === 'ru' ? appt.diagnosticService?.nameRu : appt.diagnosticService?.nameUz)
+        ?? (lang === 'ru' ? appt.surgicalService?.nameRu : appt.surgicalService?.nameUz)
+        ?? (lang === 'ru' ? 'Услуга' : 'Xizmat');
+    const clinicName = (lang === 'ru' ? appt.clinic?.nameRu : appt.clinic?.nameUz) || appt.clinic?.nameUz || '';
+    const address = [appt.clinic?.region, appt.clinic?.district, appt.clinic?.street].filter(Boolean).join(', ');
+    const status = STATUS_LABEL[appt.status]?.[lang] || appt.status;
+    const phones = (appt.clinic?.phones as string[] | null)?.filter(Boolean) || [];
+
+    const headerLabel = lang === 'ru' ? '🩺 *Бронь*' : '🩺 *Bron*';
+    const body = [
+        headerLabel,
+        '',
+        `*${escMd(svcName)}*`,
+        '',
+        `🏥 ${escMd(clinicName)}`,
+        address ? `📍 ${escMd(address)}` : '',
+        phones.length ? `📞 ${phones.map(escMd).join(', ')}` : '',
+        `📆 ${fmtDate(appt.scheduledAt, lang)}`,
+        `💰 ${fmtMoney(appt.price)} UZS`,
+        `${status}`,
+        `№ \`${appt.bookingNumber || appt.id.slice(0, 8)}\``,
+        appt.notes ? `\n💬 ${escMd(appt.notes)}` : '',
+    ].filter(Boolean).join('\n');
+
+    const kb = new InlineKeyboard();
+    if (CHECKINABLE_STATUSES.has(appt.status)) {
+        kb.url(
+            lang === 'ru' ? '📍 Check-in (отсканировать QR)' : '📍 Check-in (QR skanlash)',
+            `${PUBLIC_BASE}/user/scan-checkin`,
+        ).row();
     }
-
-    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || '—';
-    const joinDate = user.createdAt ? fmtDate(user.createdAt, lang).slice(0, 6) : '—';
-
-    const text = lang === 'ru'
-        ? `👤 *Профиль*\n\n` +
-          `*Имя:* ${escMd(fullName)}\n` +
-          `*Телефон:* ${escMd(user.phone)}\n` +
-          `*Email:* ${escMd(user.email || '—')}\n` +
-          `*Язык:* Русский\n` +
-          `*С нами с:* ${joinDate}`
-        : `👤 *Profil*\n\n` +
-          `*Ism:* ${escMd(fullName)}\n` +
-          `*Telefon:* ${escMd(user.phone)}\n` +
-          `*Email:* ${escMd(user.email || '—')}\n` +
-          `*Til:* O'zbekcha\n` +
-          `*Bizda:* ${joinDate} dan`;
-
-    const kb = new InlineKeyboard()
-        .url(lang === 'ru' ? '✏️ Редактировать' : '✏️ Tahrirlash', `${PUBLIC_BASE}/user/profile`).row()
-        .text(lang === 'ru' ? '🌐 Сменить язык' : '🌐 Tilni o\'zgartirish', 'lang:menu').row()
-        .text(lang === 'ru' ? '🚪 Отвязать бот' : '🚪 Botni uzish', 'profile:unlink:confirm');
-
-    return { text, keyboard: kb };
+    if (CANCELLABLE_STATUSES.has(appt.status)) {
+        kb.text(
+            lang === 'ru' ? '❌ Отменить бронь' : '❌ Bronni bekor qilish',
+            `appt:cancel:${appt.id}`,
+        ).row();
+    }
+    kb.url(
+        lang === 'ru' ? '🌐 Саит — детали' : '🌐 Saytda batafsil',
+        `${PUBLIC_BASE}/user/appointments/${appt.id}`,
+    ).row();
+    kb.text(
+        lang === 'ru' ? '⬅️ К списку броней' : '⬅️ Bronlar ro\'yxati',
+        'appt:list',
+    );
+    return { text: body, keyboard: kb };
 }
 
-// ─── Cancellation logic ────────────────────────────────────────────────────
 export async function tryCancelAppointment(userId: string, appointmentId: string): Promise<{ ok: boolean; error?: string }> {
     const appt = await prisma.appointment.findFirst({
         where: { id: appointmentId, patientId: userId },
     });
     if (!appt) return { ok: false, error: 'not_found' };
     if (!CANCELLABLE_STATUSES.has(appt.status)) return { ok: false, error: 'not_cancellable' };
-
     await prisma.appointment.update({
         where: { id: appointmentId },
         data: {
@@ -235,7 +191,177 @@ export async function tryCancelAppointment(userId: string, appointmentId: string
     return { ok: true };
 }
 
+// ─── Savat: list + detail ───────────────────────────────────────────────────
+
+interface FlatCartItem {
+    id: string;
+    quantity: number;
+    serviceType: string;
+    clinic: { id: string; nameUz?: string | null; nameRu?: string | null };
+    service: { id: string; nameUz: string; nameRu?: string | null; priceRecommended: number; imageUrl?: string | null } | null;
+    createdAt: Date;
+}
+
+async function fetchFlatCart(userId: string): Promise<FlatCartItem[]> {
+    const groups = await cartService.getCart(userId) as Array<any>;
+    const flat: FlatCartItem[] = [];
+    for (const g of groups || []) {
+        for (const it of g.items || []) flat.push({ ...it, clinic: g.clinic });
+    }
+    return flat;
+}
+
+export async function renderCart(userId: string, lang: Lang): Promise<RenderResult> {
+    const items = await fetchFlatCart(userId);
+
+    if (items.length === 0) {
+        const text = lang === 'ru'
+            ? '🛒 *Корзина*\n\nКорзина пуста.'
+            : '🛒 *Savat*\n\nSavat bo\'sh.';
+        const kb = new InlineKeyboard().url(
+            lang === 'ru' ? '🩺 Услуги' : '🩺 Xizmatlar',
+            `${PUBLIC_BASE}/xizmatlar`,
+        );
+        return { text, keyboard: kb };
+    }
+
+    let totalItems = 0;
+    let totalPrice = 0;
+    const kb = new InlineKeyboard();
+
+    items.forEach((it) => {
+        const svcName = (lang === 'ru' ? it.service?.nameRu : it.service?.nameUz) || it.service?.nameUz || it.serviceType;
+        const clinicName = (lang === 'ru' ? it.clinic?.nameRu : it.clinic?.nameUz) || it.clinic?.nameUz || '';
+        const price = (it.service?.priceRecommended || 0) * (it.quantity || 1);
+        totalItems += it.quantity || 1;
+        totalPrice += price;
+        const qty = it.quantity > 1 ? ` ×${it.quantity}` : '';
+        // "💊 ALAT ×2 — Medilux  (110k)"
+        const label = `${svcName}${qty} · ${clinicName} · ${fmtMoney(price)}`;
+        kb.text(clip(label, 60), `cart:item:${it.id}`).row();
+    });
+
+    const header = lang === 'ru'
+        ? `🛒 *Корзина* — ${totalItems} позиц.\n💰 *Итого: ${fmtMoney(totalPrice)} UZS*\n_Тапните позицию чтобы открыть детали._`
+        : `🛒 *Savat* — ${totalItems} ta xizmat\n💰 *Jami: ${fmtMoney(totalPrice)} UZS*\n_Tafsilot uchun xizmatni bosing._`;
+
+    kb.url(
+        lang === 'ru' ? '💳 К оплате' : '💳 To\'lash',
+        `${PUBLIC_BASE}/user/cart/checkout`,
+    ).row();
+    kb.text(
+        lang === 'ru' ? '🗑 Очистить корзину' : '🗑 Savatni tozalash',
+        'cart:clear:confirm',
+    );
+
+    return { text: header, keyboard: kb };
+}
+
+export async function renderCartItemDetail(userId: string, cartItemId: string, lang: Lang): Promise<RenderResult | null> {
+    const items = await fetchFlatCart(userId);
+    const item = items.find(i => i.id === cartItemId);
+    if (!item) return null;
+
+    const svcName = (lang === 'ru' ? item.service?.nameRu : item.service?.nameUz) || item.service?.nameUz || item.serviceType;
+    const clinicName = (lang === 'ru' ? item.clinic?.nameRu : item.clinic?.nameUz) || item.clinic?.nameUz || '';
+    const unit = item.service?.priceRecommended || 0;
+    const subtotal = unit * (item.quantity || 1);
+
+    const typeLabel: Record<string, Record<Lang, string>> = {
+        DIAGNOSTIC: { uz: '🩺 Diagnostika', ru: '🩺 Диагностика' },
+        SURGICAL:   { uz: '🔪 Operatsiya',   ru: '🔪 Операция' },
+        CHECKUP:    { uz: '📋 Checkup',      ru: '📋 Чекап' },
+        SANATORIUM: { uz: '🏔 Sanatoriya',   ru: '🏔 Санаторий' },
+    };
+    const tlabel = typeLabel[item.serviceType]?.[lang] || item.serviceType;
+
+    const body = [
+        lang === 'ru' ? '🛒 *Позиция корзины*' : '🛒 *Savat xizmati*',
+        '',
+        `*${escMd(svcName)}*`,
+        '',
+        tlabel,
+        `🏥 ${escMd(clinicName)}`,
+        `📦 ${lang === 'ru' ? 'Количество' : 'Miqdor'}: ${item.quantity}`,
+        `💰 ${fmtMoney(unit)} × ${item.quantity} = *${fmtMoney(subtotal)} UZS*`,
+        `📆 ${fmtDate(item.createdAt, lang)}`,
+    ].join('\n');
+
+    const kb = new InlineKeyboard();
+    if (item.quantity > 1) {
+        kb.text('➖', `cart:qty:${item.id}:down`);
+    }
+    kb.text(`× ${item.quantity}`, 'cart:qty:noop');
+    kb.text('➕', `cart:qty:${item.id}:up`).row();
+
+    kb.text(
+        lang === 'ru' ? '🗑 Удалить из корзины' : '🗑 Savatdan o\'chirish',
+        `cart:remove:${item.id}`,
+    ).row();
+    kb.text(
+        lang === 'ru' ? '⬅️ К корзине' : '⬅️ Savatga qaytish',
+        'cart:list',
+    );
+
+    return { text: body, keyboard: kb };
+}
+
+export async function getCartCount(userId: string): Promise<number> {
+    const items = await prisma.cartItem.findMany({
+        where: { userId }, select: { quantity: true },
+    });
+    return items.reduce((sum, it) => sum + (it.quantity || 1), 0);
+}
+
 export async function clearUserCart(userId: string): Promise<number> {
     const result = await prisma.cartItem.deleteMany({ where: { userId } });
     return result.count;
+}
+
+export async function changeCartItemQty(userId: string, cartItemId: string, delta: number): Promise<{ ok: boolean; deleted?: boolean; newQty?: number }> {
+    const item = await prisma.cartItem.findFirst({ where: { id: cartItemId, userId } });
+    if (!item) return { ok: false };
+    const next = item.quantity + delta;
+    if (next <= 0) {
+        await prisma.cartItem.delete({ where: { id: cartItemId } });
+        return { ok: true, deleted: true };
+    }
+    if (next > 99) return { ok: false };
+    await prisma.cartItem.update({ where: { id: cartItemId }, data: { quantity: next } });
+    return { ok: true, newQty: next };
+}
+
+export async function removeCartItem(userId: string, cartItemId: string): Promise<boolean> {
+    const item = await prisma.cartItem.findFirst({ where: { id: cartItemId, userId } });
+    if (!item) return false;
+    await prisma.cartItem.delete({ where: { id: cartItemId } });
+    return true;
+}
+
+// ─── Profile (unchanged from before, kept here for one-stop ownership) ──────
+
+export async function renderProfile(userId: string, lang: Lang): Promise<RenderResult> {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { firstName: true, lastName: true, phone: true, email: true, createdAt: true },
+    });
+    if (!user) {
+        return {
+            text: lang === 'ru' ? '❌ Профиль не найден' : '❌ Profil topilmadi',
+            keyboard: new InlineKeyboard(),
+        };
+    }
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || '—';
+    const joinDate = user.createdAt ? fmtDate(user.createdAt, lang).slice(0, 6) : '—';
+
+    const text = lang === 'ru'
+        ? `👤 *Профиль*\n\n*Имя:* ${escMd(fullName)}\n*Телефон:* ${escMd(user.phone)}\n*Email:* ${escMd(user.email || '—')}\n*Язык:* Русский\n*С нами с:* ${joinDate}`
+        : `👤 *Profil*\n\n*Ism:* ${escMd(fullName)}\n*Telefon:* ${escMd(user.phone)}\n*Email:* ${escMd(user.email || '—')}\n*Til:* O'zbekcha\n*Bizda:* ${joinDate} dan`;
+
+    const kb = new InlineKeyboard()
+        .url(lang === 'ru' ? '✏️ Редактировать' : '✏️ Tahrirlash', `${PUBLIC_BASE}/user/profile`).row()
+        .text(lang === 'ru' ? '🌐 Сменить язык' : '🌐 Tilni o\'zgartirish', 'lang:menu').row()
+        .text(lang === 'ru' ? '🚪 Отвязать бот' : '🚪 Botni uzish', 'profile:unlink:confirm');
+
+    return { text, keyboard: kb };
 }

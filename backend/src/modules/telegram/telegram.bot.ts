@@ -2,8 +2,11 @@ import { Bot, InlineKeyboard, Keyboard } from 'grammy';
 import prisma from '../../config/database';
 import { registerOrLoginViaContact } from './telegram.register';
 import {
-    renderMyAppointments, renderCart, renderProfile,
+    renderMyAppointments, renderAppointmentDetail,
+    renderCart, renderCartItemDetail,
+    renderProfile,
     getCartCount, tryCancelAppointment, clearUserCart,
+    changeCartItemQty, removeCartItem,
 } from './telegram.views';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
@@ -545,35 +548,127 @@ function registerHandlers(bot: Bot) {
         await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
     });
 
-    // ─── Inline callback queries (Bekor qil / Tozalash / Unlink etc) ──────
-    bot.callbackQuery(/^appt:cancel:(.+)$/, async (ctx) => {
+    // ─── Helper: resolve linked account or short-circuit ──────────────────
+    const resolveLinked = async (ctx: any): Promise<{ userId: string; lang: Lang } | null> => {
         const chatId = ctx.chat?.id;
-        const appointmentId = ctx.match[1];
-        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        if (!chatId) { await ctx.answerCallbackQuery(); return null; }
         const acc = await (prisma as any).telegramAccount.findUnique({
             where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
         });
         const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
         if (!acc?.userId) {
             await ctx.answerCallbackQuery({ text: LABELS[lang].notLinkedHint, show_alert: true });
+            return null;
+        }
+        return { userId: acc.userId, lang };
+    };
+
+    const safeEdit = async (ctx: any, text: string, keyboard: any) => {
+        try {
+            await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: keyboard });
+        } catch {
+            // Editing fails if the message is too old or content identical.
+            // Fall back to sending a fresh message so the user always sees the
+            // result of their action.
+            try { await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard }); } catch { /* ignore */ }
+        }
+    };
+
+    // ─── Appointment: open detail ──────────────────────────────────────────
+    bot.callbackQuery(/^appt:show:(.+)$/, async (ctx) => {
+        const r = await resolveLinked(ctx); if (!r) return;
+        const id = ctx.match[1];
+        await ctx.answerCallbackQuery();
+        const detail = await renderAppointmentDetail(r.userId, id, r.lang);
+        if (!detail) {
+            await ctx.reply(r.lang === 'ru' ? 'Бронь не найдена.' : 'Bron topilmadi.');
             return;
         }
-        const result = await tryCancelAppointment(acc.userId, appointmentId);
+        await safeEdit(ctx, detail.text, detail.keyboard);
+    });
+
+    // ─── Appointment: back to list ─────────────────────────────────────────
+    bot.callbackQuery(/^appt:list$/, async (ctx) => {
+        const r = await resolveLinked(ctx); if (!r) return;
+        await ctx.answerCallbackQuery();
+        const list = await renderMyAppointments(r.userId, r.lang);
+        await safeEdit(ctx, list.text, list.keyboard);
+    });
+
+    // ─── Appointment: cancel ───────────────────────────────────────────────
+    bot.callbackQuery(/^appt:cancel:(.+)$/, async (ctx) => {
+        const r = await resolveLinked(ctx); if (!r) return;
+        const id = ctx.match[1];
+        const result = await tryCancelAppointment(r.userId, id);
         if (!result.ok) {
             const msg = result.error === 'not_cancellable'
-                ? (lang === 'ru' ? 'Эту бронь нельзя отменить.' : 'Bu bronni bekor qilib bo\'lmaydi.')
-                : (lang === 'ru' ? 'Бронь не найдена.' : 'Bron topilmadi.');
+                ? (r.lang === 'ru' ? 'Эту бронь нельзя отменить.' : 'Bu bronni bekor qilib bo\'lmaydi.')
+                : (r.lang === 'ru' ? 'Бронь не найдена.' : 'Bron topilmadi.');
             await ctx.answerCallbackQuery({ text: msg, show_alert: true });
             return;
         }
-        await ctx.answerCallbackQuery({ text: lang === 'ru' ? '✅ Отменено' : '✅ Bekor qilindi' });
-        const rendered = await renderMyAppointments(acc.userId, lang);
-        try {
-            await ctx.editMessageText(rendered.text, {
-                parse_mode: 'Markdown',
-                reply_markup: rendered.keyboard,
+        await ctx.answerCallbackQuery({ text: r.lang === 'ru' ? '✅ Отменено' : '✅ Bekor qilindi' });
+        const list = await renderMyAppointments(r.userId, r.lang);
+        await safeEdit(ctx, list.text, list.keyboard);
+    });
+
+    // ─── Cart: open item detail ────────────────────────────────────────────
+    bot.callbackQuery(/^cart:item:(.+)$/, async (ctx) => {
+        const r = await resolveLinked(ctx); if (!r) return;
+        const id = ctx.match[1];
+        await ctx.answerCallbackQuery();
+        const detail = await renderCartItemDetail(r.userId, id, r.lang);
+        if (!detail) {
+            await ctx.reply(r.lang === 'ru' ? 'Позиция не найдена.' : 'Xizmat topilmadi.');
+            return;
+        }
+        await safeEdit(ctx, detail.text, detail.keyboard);
+    });
+
+    // ─── Cart: back to list ────────────────────────────────────────────────
+    bot.callbackQuery(/^cart:list$/, async (ctx) => {
+        const r = await resolveLinked(ctx); if (!r) return;
+        await ctx.answerCallbackQuery();
+        const list = await renderCart(r.userId, r.lang);
+        await safeEdit(ctx, list.text, list.keyboard);
+    });
+
+    // ─── Cart: qty up/down ─────────────────────────────────────────────────
+    bot.callbackQuery(/^cart:qty:noop$/, async (ctx) => { await ctx.answerCallbackQuery(); });
+    bot.callbackQuery(/^cart:qty:(.+):(up|down)$/, async (ctx) => {
+        const r = await resolveLinked(ctx); if (!r) return;
+        const [, id, dir] = ctx.match;
+        const delta = dir === 'up' ? 1 : -1;
+        const result = await changeCartItemQty(r.userId, id, delta);
+        if (!result.ok) {
+            await ctx.answerCallbackQuery({
+                text: r.lang === 'ru' ? 'Не удалось обновить.' : 'O\'zgartirib bo\'lmadi.',
+                show_alert: false,
             });
-        } catch { /* original message may be too old to edit */ }
+            return;
+        }
+        await ctx.answerCallbackQuery();
+        if (result.deleted) {
+            const list = await renderCart(r.userId, r.lang);
+            await safeEdit(ctx, list.text, list.keyboard);
+        } else {
+            const detail = await renderCartItemDetail(r.userId, id, r.lang);
+            if (detail) await safeEdit(ctx, detail.text, detail.keyboard);
+        }
+    });
+
+    // ─── Cart: remove single item ──────────────────────────────────────────
+    bot.callbackQuery(/^cart:remove:(.+)$/, async (ctx) => {
+        const r = await resolveLinked(ctx); if (!r) return;
+        const id = ctx.match[1];
+        const ok = await removeCartItem(r.userId, id);
+        await ctx.answerCallbackQuery({
+            text: ok
+                ? (r.lang === 'ru' ? '🗑 Удалено' : '🗑 O\'chirildi')
+                : (r.lang === 'ru' ? 'Не найдено' : 'Topilmadi'),
+        });
+        const list = await renderCart(r.userId, r.lang);
+        await safeEdit(ctx, list.text, list.keyboard);
     });
 
     bot.callbackQuery(/^cart:clear:confirm$/, async (ctx) => {
