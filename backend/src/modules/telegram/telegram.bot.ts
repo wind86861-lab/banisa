@@ -1,6 +1,10 @@
 import { Bot, InlineKeyboard, Keyboard } from 'grammy';
 import prisma from '../../config/database';
 import { registerOrLoginViaContact } from './telegram.register';
+import {
+    renderMyAppointments, renderCart, renderProfile,
+    getCartCount, tryCancelAppointment, clearUserCart,
+} from './telegram.views';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const PUBLIC_BASE = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').replace(/\/+$/, '');
@@ -108,43 +112,77 @@ function sharePhoneKeyboard(lang: Lang): Keyboard {
 /**
  * Persistent reply keyboard (lives at the bottom of the chat). Text-only
  * so it renders without BotFather Mini App registration. When the user
- * taps one, the bot replies with an inline url button to the section.
+ * taps one, the bot replies natively (bookings/cart/profile) or with an
+ * inline url button (services/clinics/etc).
+ *
+ * `cartCount` adds a small (N) badge to the Savat button so the user sees
+ * pending items at a glance without opening it.
  */
-function replyKeyboard(lang: Lang, linked: boolean): Keyboard {
+function replyKeyboard(lang: Lang, linked: boolean, cartCount = 0): Keyboard {
     const L = LABELS[lang];
     const kb = new Keyboard()
         .text(L.services).text(L.clinics).row()
         .text(L.doctors).text(L.skory).row();
     if (linked) {
-        kb.text(L.bookings).text(L.cart).row()
+        const cartLabel = cartCount > 0 ? `${L.cart} (${cartCount})` : L.cart;
+        kb.text(L.bookings).text(cartLabel).row()
           .text(L.notifs).text(L.profile).row();
     }
     return kb.resized().persistent();
 }
 
-/** Routes a tapped reply-keyboard label to the right section URL. */
-function routeReplyLabel(lang: Lang, text: string): { path: string; label: string } | null {
+/**
+ * Render the reply keyboard with a fresh cart count (if linked). Quietly
+ * falls back to 0 on any DB error — the keyboard should never block the bot.
+ */
+async function freshReplyKeyboard(userId: string | null, lang: Lang, linked: boolean): Promise<Keyboard> {
+    if (!linked || !userId) return replyKeyboard(lang, linked, 0);
+    try {
+        const count = await getCartCount(userId);
+        return replyKeyboard(lang, linked, count);
+    } catch {
+        return replyKeyboard(lang, linked, 0);
+    }
+}
+
+/**
+ * Routes a tapped reply-keyboard label. Returns either:
+ *   - { kind: 'url' } — public/browse section that opens in the user's browser
+ *   - { kind: 'view' } — patient-private content rendered natively in the bot
+ *
+ * Native views (bookings/cart/profile) keep the user inside Telegram — they
+ * read live data instead of just sending a URL.
+ */
+type ReplyRoute =
+    | { kind: 'url'; path: string; label: string }
+    | { kind: 'view'; view: 'bookings' | 'cart' | 'profile' | 'notifs'; label: string };
+
+function routeReplyLabel(lang: Lang, text: string): ReplyRoute | null {
     const L = LABELS[lang];
-    // Match in both langs so the keyboard still works after language toggle
-    const map: Record<string, { path: string; label: string }> = {
-        [LABELS.uz.services]:  { path: '/xizmatlar',                   label: L.services },
-        [LABELS.ru.services]:  { path: '/xizmatlar',                   label: L.services },
-        [LABELS.uz.clinics]:   { path: '/klinikalar',                  label: L.clinics },
-        [LABELS.ru.clinics]:   { path: '/klinikalar',                  label: L.clinics },
-        [LABELS.uz.doctors]:   { path: '/doktorlar',                   label: L.doctors },
-        [LABELS.ru.doctors]:   { path: '/doktorlar',                   label: L.doctors },
-        [LABELS.uz.skory]:     { path: '/skory',                       label: L.skory },
-        [LABELS.ru.skory]:     { path: '/skory',                       label: L.skory },
-        [LABELS.uz.bookings]:  { path: '/user/appointments',           label: L.bookings },
-        [LABELS.ru.bookings]:  { path: '/user/appointments',           label: L.bookings },
-        [LABELS.uz.cart]:      { path: '/user/cart',                   label: L.cart },
-        [LABELS.ru.cart]:      { path: '/user/cart',                   label: L.cart },
-        [LABELS.uz.notifs]:    { path: '/user/notifications',          label: L.notifs },
-        [LABELS.ru.notifs]:    { path: '/user/notifications',          label: L.notifs },
-        [LABELS.uz.profile]:   { path: '/user/profile',                label: L.profile },
-        [LABELS.ru.profile]:   { path: '/user/profile',                label: L.profile },
+    const urls: Record<string, { path: string; label: string }> = {
+        [LABELS.uz.services]: { path: '/xizmatlar',   label: L.services },
+        [LABELS.ru.services]: { path: '/xizmatlar',   label: L.services },
+        [LABELS.uz.clinics]:  { path: '/klinikalar',  label: L.clinics },
+        [LABELS.ru.clinics]:  { path: '/klinikalar',  label: L.clinics },
+        [LABELS.uz.doctors]:  { path: '/doktorlar',   label: L.doctors },
+        [LABELS.ru.doctors]:  { path: '/doktorlar',   label: L.doctors },
+        [LABELS.uz.skory]:    { path: '/skory',       label: L.skory },
+        [LABELS.ru.skory]:    { path: '/skory',       label: L.skory },
     };
-    return map[text] || null;
+    if (urls[text]) return { kind: 'url', ...urls[text] };
+
+    const views: Record<string, { view: 'bookings' | 'cart' | 'profile' | 'notifs'; label: string }> = {
+        [LABELS.uz.bookings]: { view: 'bookings', label: L.bookings },
+        [LABELS.ru.bookings]: { view: 'bookings', label: L.bookings },
+        [LABELS.uz.cart]:     { view: 'cart',     label: L.cart },
+        [LABELS.ru.cart]:     { view: 'cart',     label: L.cart },
+        [LABELS.uz.profile]:  { view: 'profile',  label: L.profile },
+        [LABELS.ru.profile]:  { view: 'profile',  label: L.profile },
+        [LABELS.uz.notifs]:   { view: 'notifs',   label: L.notifs },
+        [LABELS.ru.notifs]:   { view: 'notifs',   label: L.notifs },
+    };
+    if (views[text]) return { kind: 'view', ...views[text] };
+    return null;
 }
 
 async function lookupLang(chatId: number): Promise<Lang> {
@@ -212,6 +250,9 @@ export async function setupBotCommands(): Promise<void> {
         await bot.api.setMyCommands([
             { command: 'start', description: 'Botni boshlash / Запустить' },
             { command: 'menu', description: 'Asosiy menyu / Главное меню' },
+            { command: 'myappointments', description: 'Bronlarim / Мои брони' },
+            { command: 'cart', description: 'Savat / Корзина' },
+            { command: 'profile', description: 'Profil / Профиль' },
             { command: 'lang', description: 'Til / Язык' },
             { command: 'status', description: 'Bog\'lanish holati / Статус' },
             { command: 'help', description: 'Yordam / Помощь' },
@@ -258,7 +299,8 @@ function registerHandlers(bot: Bot) {
                 const intro = lang === 'ru'
                     ? 'С возвращением! Меню ниже 👇'
                     : 'Qaytib kelganingiz uchun rahmat! Menyu pastda 👇';
-                await ctx.reply(intro, { reply_markup: replyKeyboard(lang, true) });
+                const kb = await freshReplyKeyboard(existing!.userId!, lang, true);
+                await ctx.reply(intro, { reply_markup: kb });
                 await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
                 return;
             }
@@ -308,12 +350,16 @@ function registerHandlers(bot: Bot) {
             });
 
             const lang: Lang = tgUser.language_code === 'ru' ? 'ru' : 'uz';
+            const justLinked = await (prisma as any).telegramAccount.findUnique({
+                where: { chatId: BigInt(chatId) }, select: { userId: true },
+            });
             await ctx.reply(
                 lang === 'ru'
                     ? '✅ Аккаунт привязан!\n\nТеперь брони, оплаты и напоминания будут приходить сюда.'
                     : '✅ Hisobingiz bog\'landi!\n\nEndi bron, to\'lov va eslatma xabarlarini shu yerda olasiz.',
             );
-            await ctx.reply(LABELS[lang].replyHint, { reply_markup: replyKeyboard(lang, true) });
+            const kb = await freshReplyKeyboard(justLinked?.userId ?? null, lang, true);
+            await ctx.reply(LABELS[lang].replyHint, { reply_markup: kb });
             await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
         } catch (e: any) {
             const reason = e?.message;
@@ -363,7 +409,8 @@ function registerHandlers(bot: Bot) {
         });
         const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
         const linked = Boolean(acc?.userId);
-        await ctx.reply(LABELS[lang].replyHint, { reply_markup: replyKeyboard(lang, linked) });
+        const kb = await freshReplyKeyboard(acc?.userId ?? null, lang, linked);
+        await ctx.reply(LABELS[lang].replyHint, { reply_markup: kb });
         await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, linked) });
     });
 
@@ -390,6 +437,21 @@ function registerHandlers(bot: Bot) {
         if (updated.count === 0) {
             await ctx.editMessageText('Avval botni hisobingizga bog\'lang / Сначала привяжите бот к аккаунту.');
             return;
+        }
+        // Per-chat menu button — Telegram supports a chat-scoped override so
+        // the user's chosen language drives the localized "🏥 Banisa" /
+        // "🏥 Баниса" label next to the text input.
+        try {
+            await bot.api.setChatMenuButton({
+                chat_id: chatId,
+                menu_button: {
+                    type: 'web_app',
+                    text: lang === 'ru' ? '🏥 Баниса' : LABELS.uz.menuBtnLabel,
+                    web_app: { url: PUBLIC_BASE },
+                } as any,
+            });
+        } catch (e) {
+            console.error('[telegram] per-chat menu button failed:', e);
         }
         await ctx.editMessageText(
             lang === 'ru'
@@ -478,16 +540,151 @@ function registerHandlers(bot: Bot) {
 
         const welcome = result.created ? LABELS[lang].registerSuccess : LABELS[lang].loginSuccess;
         // Replace the share-phone keyboard with the persistent main keyboard.
-        await ctx.reply(welcome, { reply_markup: replyKeyboard(lang, true) });
+        const kb = await freshReplyKeyboard(result.user?.id ?? null, lang, true);
+        await ctx.reply(welcome, { reply_markup: kb });
         await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
     });
 
-    // Generic message → if it matches a reply-keyboard label, send a quick
-    // inline "Open" button to the right section. Otherwise nudge with menu.
+    // ─── Inline callback queries (Bekor qil / Tozalash / Unlink etc) ──────
+    bot.callbackQuery(/^appt:cancel:(.+)$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        const appointmentId = ctx.match[1];
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        if (!acc?.userId) {
+            await ctx.answerCallbackQuery({ text: LABELS[lang].notLinkedHint, show_alert: true });
+            return;
+        }
+        const result = await tryCancelAppointment(acc.userId, appointmentId);
+        if (!result.ok) {
+            const msg = result.error === 'not_cancellable'
+                ? (lang === 'ru' ? 'Эту бронь нельзя отменить.' : 'Bu bronni bekor qilib bo\'lmaydi.')
+                : (lang === 'ru' ? 'Бронь не найдена.' : 'Bron topilmadi.');
+            await ctx.answerCallbackQuery({ text: msg, show_alert: true });
+            return;
+        }
+        await ctx.answerCallbackQuery({ text: lang === 'ru' ? '✅ Отменено' : '✅ Bekor qilindi' });
+        const rendered = await renderMyAppointments(acc.userId, lang);
+        try {
+            await ctx.editMessageText(rendered.text, {
+                parse_mode: 'Markdown',
+                reply_markup: rendered.keyboard,
+            });
+        } catch { /* original message may be too old to edit */ }
+    });
+
+    bot.callbackQuery(/^cart:clear:confirm$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        if (!acc?.userId) { await ctx.answerCallbackQuery(); return; }
+        await ctx.answerCallbackQuery();
+        const kb = new InlineKeyboard()
+            .text(lang === 'ru' ? '✅ Да, очистить' : '✅ Ha, tozalash', 'cart:clear:do')
+            .text(lang === 'ru' ? '↩️ Отмена' : '↩️ Bekor', 'cart:cancel');
+        try {
+            await ctx.editMessageReplyMarkup({ reply_markup: kb });
+        } catch { /* ignore */ }
+    });
+
+    bot.callbackQuery(/^cart:clear:do$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        if (!acc?.userId) { await ctx.answerCallbackQuery(); return; }
+        const removed = await clearUserCart(acc.userId);
+        await ctx.answerCallbackQuery({
+            text: lang === 'ru' ? `🗑 Удалено: ${removed}` : `🗑 O'chirildi: ${removed}`,
+        });
+        const rendered = await renderCart(acc.userId, lang);
+        try {
+            await ctx.editMessageText(rendered.text, {
+                parse_mode: 'Markdown',
+                reply_markup: rendered.keyboard,
+            });
+        } catch { /* ignore */ }
+    });
+
+    bot.callbackQuery(/^cart:cancel$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        if (!acc?.userId) { await ctx.answerCallbackQuery(); return; }
+        await ctx.answerCallbackQuery();
+        const rendered = await renderCart(acc.userId, lang);
+        try {
+            await ctx.editMessageReplyMarkup({ reply_markup: rendered.keyboard });
+        } catch { /* ignore */ }
+    });
+
+    bot.callbackQuery(/^profile:unlink:confirm$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const lang: Lang = await lookupLang(chatId);
+        await ctx.answerCallbackQuery();
+        const kb = new InlineKeyboard()
+            .text(lang === 'ru' ? '✅ Да, отвязать' : '✅ Ha, uzish', 'profile:unlink:do')
+            .text(lang === 'ru' ? '↩️ Отмена' : '↩️ Bekor', 'profile:cancel');
+        try { await ctx.editMessageReplyMarkup({ reply_markup: kb }); } catch { /* ignore */ }
+    });
+
+    bot.callbackQuery(/^profile:unlink:do$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const lang: Lang = await lookupLang(chatId);
+        await (prisma as any).telegramAccount.deleteMany({ where: { chatId: BigInt(chatId) } });
+        await ctx.answerCallbackQuery();
+        try {
+            await ctx.editMessageText(
+                lang === 'ru'
+                    ? '🚪 Бот отвязан от аккаунта. Перепривяжите через сайт.'
+                    : '🚪 Bot hisobdan uzildi. Saytda qaytadan bog\'lang.',
+            );
+        } catch { /* ignore */ }
+    });
+
+    bot.callbackQuery(/^profile:cancel$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        if (!acc?.userId) { await ctx.answerCallbackQuery(); return; }
+        await ctx.answerCallbackQuery();
+        const rendered = await renderProfile(acc.userId, lang);
+        try { await ctx.editMessageReplyMarkup({ reply_markup: rendered.keyboard }); } catch {}
+    });
+
+    bot.callbackQuery(/^lang:menu$/, async (ctx) => {
+        await ctx.answerCallbackQuery();
+        await ctx.reply('Tilni tanlang / Выберите язык:', {
+            reply_markup: {
+                inline_keyboard: [[
+                    { text: "🇺🇿 O'zbekcha", callback_data: 'lang:uz' },
+                    { text: '🇷🇺 Русский', callback_data: 'lang:ru' },
+                ]],
+            },
+        });
+    });
+
+    // ─── Reply keyboard text → native render or URL ──────────────────────
     bot.on('message', async (ctx) => {
         const text = ctx.message.text || '';
-        if (text.startsWith('/')) return; // commands handled above
-        if (ctx.message.contact) return;  // handled by message:contact above
+        if (text.startsWith('/')) return;
+        if (ctx.message.contact) return;
         const chatId = ctx.chat?.id;
         if (!chatId) return;
         const acc = await (prisma as any).telegramAccount.findUnique({
@@ -497,14 +694,79 @@ function registerHandlers(bot: Bot) {
         const linked = Boolean(acc?.userId);
 
         const route = routeReplyLabel(lang, text);
-        if (route) {
+        if (!route) {
+            await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, linked) });
+            return;
+        }
+
+        if (route.kind === 'url') {
             const url = `${PUBLIC_BASE}${route.path}`;
             const kb = new InlineKeyboard().url(`${LABELS[lang].open} ${route.label}`, url);
             await ctx.reply(`${route.label}\n${url}`, { reply_markup: kb });
             return;
         }
 
-        await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, linked) });
+        // route.kind === 'view'
+        if (!acc?.userId) {
+            await ctx.reply(LABELS[lang].notLinkedHint);
+            return;
+        }
+        try {
+            if (route.view === 'bookings') {
+                const r = await renderMyAppointments(acc.userId, lang);
+                await ctx.reply(r.text, { parse_mode: 'Markdown', reply_markup: r.keyboard });
+            } else if (route.view === 'cart') {
+                const r = await renderCart(acc.userId, lang);
+                await ctx.reply(r.text, { parse_mode: 'Markdown', reply_markup: r.keyboard });
+            } else if (route.view === 'profile') {
+                const r = await renderProfile(acc.userId, lang);
+                await ctx.reply(r.text, { parse_mode: 'Markdown', reply_markup: r.keyboard });
+            } else if (route.view === 'notifs') {
+                const url = `${PUBLIC_BASE}/user/notifications`;
+                const kb = new InlineKeyboard().url(`${LABELS[lang].open} ${route.label}`, url);
+                await ctx.reply(`${route.label}\n${url}`, { reply_markup: kb });
+            }
+        } catch (e) {
+            console.error('[telegram] view render failed:', e);
+            await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, linked) });
+        }
+    });
+
+    // ─── Convenience commands for native views ───────────────────────────
+    bot.command('myappointments', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        if (!acc?.userId) { await ctx.reply(LABELS[lang].notLinkedHint); return; }
+        const r = await renderMyAppointments(acc.userId, lang);
+        await ctx.reply(r.text, { parse_mode: 'Markdown', reply_markup: r.keyboard });
+    });
+
+    bot.command('cart', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        if (!acc?.userId) { await ctx.reply(LABELS[lang].notLinkedHint); return; }
+        const r = await renderCart(acc.userId, lang);
+        await ctx.reply(r.text, { parse_mode: 'Markdown', reply_markup: r.keyboard });
+    });
+
+    bot.command('profile', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        if (!acc?.userId) { await ctx.reply(LABELS[lang].notLinkedHint); return; }
+        const r = await renderProfile(acc.userId, lang);
+        await ctx.reply(r.text, { parse_mode: 'Markdown', reply_markup: r.keyboard });
     });
 
     bot.catch((err) => {
