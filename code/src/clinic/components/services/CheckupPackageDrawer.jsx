@@ -118,66 +118,76 @@ function BasicTab({ form, setForm, basePackage }) {
 }
 
 // ───────────────────────────── Tab: Tavsif ─────────────────────────────
-function DescriptionTab({ form, setForm, basePackage }) {
-    const copyFromAdmin = (field, value) => {
-        if (!value) return;
-        setForm({ ...form, [field]: value });
+// Field is defined at module scope (not inside DescriptionTab) so React doesn't
+// remount the input on every keystroke — that previously caused focus loss
+// and could swallow input events on slow renders.
+function DescriptionField({ label, field, multiline, rows = 3, adminValue, form, setForm }) {
+    const copyFromAdmin = () => {
+        if (!adminValue) return;
+        setForm(prev => ({ ...prev, [field]: adminValue }));
     };
-
-    const Field = ({ label, field, multiline, rows = 3, adminValue }) => (
+    return (
         <div className="ca-form-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                 <label style={{ margin: 0 }}>{label}</label>
                 {adminValue && (
                     <button
                         type="button"
-                        onClick={() => copyFromAdmin(field, adminValue)}
+                        onClick={copyFromAdmin}
                         style={{
                             display: 'inline-flex', alignItems: 'center', gap: 4,
                             background: 'none', border: 'none', cursor: 'pointer',
                             fontSize: 11, color: 'var(--color-primary)', fontWeight: 600, padding: 0,
                         }}
                     >
-                        <Copy size={11} /> Admin tavsifidan ko'chirish
+                        <Copy size={11} /> Standart tavsifdan ko'chirish
                     </button>
                 )}
             </div>
             {multiline ? (
                 <textarea
-                    value={form[field]}
-                    onChange={e => setForm({ ...form, [field]: e.target.value })}
+                    value={form[field] || ''}
+                    onChange={e => setForm(prev => ({ ...prev, [field]: e.target.value }))}
                     placeholder={adminValue || ''}
                     rows={rows}
                 />
             ) : (
                 <input
                     type="text"
-                    value={form[field]}
-                    onChange={e => setForm({ ...form, [field]: e.target.value })}
+                    value={form[field] || ''}
+                    onChange={e => setForm(prev => ({ ...prev, [field]: e.target.value }))}
                     placeholder={adminValue || ''}
                 />
             )}
         </div>
     );
+}
 
+function DescriptionTab({ form, setForm, basePackage }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Field
+            <DescriptionField
                 label="Qisqacha tavsif"
                 field="customShortDescription"
                 multiline rows={3}
                 adminValue={basePackage.shortDescription}
+                form={form}
+                setForm={setForm}
             />
-            <Field
+            <DescriptionField
                 label="To'liq tavsif"
                 field="customFullDescription"
                 multiline rows={8}
                 adminValue={basePackage.fullDescription}
+                form={form}
+                setForm={setForm}
             />
-            <Field
+            <DescriptionField
                 label="Maqsadli auditoriya"
                 field="customTargetAudience"
                 adminValue={basePackage.targetAudience}
+                form={form}
+                setForm={setForm}
             />
         </div>
     );
