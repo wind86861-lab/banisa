@@ -4,12 +4,17 @@ import { isTelegramConfigured } from './telegram.bot';
 import { miniAppLogin } from './miniapp.auth';
 import { widgetLogin, WidgetPayload } from './widget.auth';
 
+// auth.middleware.ts puts the authenticated user on req.user as
+// { id, role }. The earlier signature on this file said `userId` — that
+// silently produced undefined and made every Prisma write below fail with
+// "Argument `user` is missing", so the link-token + status + unlink
+// endpoints never worked for any signed-in user.
 interface AuthedRequest extends Request {
-    user?: { userId: string };
+    user?: { id: string; role: string };
 }
 
 export const getStatus = async (req: AuthedRequest, res: Response) => {
-    const userId = req.user!.userId;
+    const userId = req.user!.id;
     const status = await getLinkStatus(userId);
     return res.json({
         success: true,
@@ -21,7 +26,7 @@ export const generateLink = async (req: AuthedRequest, res: Response) => {
     if (!isTelegramConfigured()) {
         return res.status(503).json({ success: false, message: 'Telegram bot not configured' });
     }
-    const userId = req.user!.userId;
+    const userId = req.user!.id;
     const ip = req.ip;
     const info = await createLinkToken(userId, ip);
     if (!info) {
@@ -37,7 +42,7 @@ export const generateLink = async (req: AuthedRequest, res: Response) => {
 };
 
 export const removeLink = async (req: AuthedRequest, res: Response) => {
-    const userId = req.user!.userId;
+    const userId = req.user!.id;
     const removed = await unlink(userId);
     return res.json({ success: true, data: { removed } });
 };

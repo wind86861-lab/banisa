@@ -110,6 +110,11 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user/auth', userAuthRoutes);
+// Public Telegram auth endpoints MUST be registered BEFORE the broad
+// /api/user mount — that mount applies requireAuth to every nested path,
+// so without this earlier registration Express would 401 the public
+// miniapp-login + widget-login routes before they could ever run.
+app.use('/api/user/auth/telegram', telegramPublicRouter);
 app.use('/api/user/appointments', patientAppointmentRouter);
 app.use('/api/user', userRoutes);
 app.use('/api/categories', categoryRoutes);
@@ -150,7 +155,8 @@ app.use('/api/user/notifications', patientNotificationsRouter);
 // needs req.body (express.json must run first). Our pipeline already parses JSON
 // for the entire /api tree, so this is fine.
 app.use('/api/telegram', telegramWebhookRouter);
-app.use('/api/user/auth/telegram', telegramPublicRouter);
+// /api/user/auth/telegram is mounted earlier (before /api/user) so the
+// broad requireAuth on userRoutes doesn't shadow it. Duplicate removed.
 app.use('/api/user/telegram', telegramRoutes);
 
 // ─── Metadata System ──────────────────────────────────────────────────────────
