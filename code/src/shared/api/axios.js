@@ -117,6 +117,33 @@ api.interceptors.response.use(
       original.headers.Authorization = `Bearer ${newToken}`;
       return api(original);
     } catch (refreshError) {
+      // Cookie refresh failed. If we're inside the Telegram Mini App, the
+      // refresh cookie may be blocked by the embedded WebView context — try
+      // re-authenticating once via the still-valid initData (24h TTL) before
+      // giving up. Keeps the Mini App session alive without forcing the user
+      // back to the bind screen.
+      if (_isPatientSession && typeof window !== 'undefined') {
+        const tg = window.Telegram?.WebApp;
+        const initData = tg?.initData;
+        if (initData) {
+          try {
+            const { data: miniData } = await axios.post(
+              '/api/user/auth/telegram/miniapp-login',
+              { initData },
+              { withCredentials: true },
+            );
+            const miniToken = miniData?.data?.accessToken ?? miniData?.accessToken;
+            const miniUser = miniData?.data?.user ?? miniData?.user;
+            if (miniToken && miniUser?.role === 'PATIENT') {
+              setAccessToken(miniToken);
+              localStorage.setItem('user_data', JSON.stringify(miniUser));
+              processQueue(null, miniToken);
+              original.headers.Authorization = `Bearer ${miniToken}`;
+              return api(original);
+            }
+          } catch { /* fall through to logout */ }
+        }
+      }
       processQueue(refreshError, null);
       clearAccessToken();
       // Only hard-redirect if refresh returned 401 (truly not authenticated)

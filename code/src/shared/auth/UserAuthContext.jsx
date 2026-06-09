@@ -68,10 +68,42 @@ export const UserAuthProvider = ({ children }) => {
   // valid for 7 days, so this is invisible to the user. Only if a refresh
   // attempt actually FAILS do we fall back to the warning toast and, after
   // that, log the user out.
+  //
+  // Mini App fallback: inside Telegram, the refresh cookie can be blocked
+  // by the embedded WebView's third-party cookie rules. When that happens
+  // we re-authenticate with the user's still-valid initData (good for 24h
+  // from auth_date) so the session survives any cookie hiccup.
   useEffect(() => {
     if (!user) return;
     let refreshing = false;
     let failedOnce = false;
+
+    const tryMiniAppFallback = async () => {
+      const tg = typeof window !== 'undefined' ? window.Telegram?.WebApp : null;
+      const initData = tg?.initData;
+      if (!initData) return false;
+      try {
+        const { data } = await axiosInstance.post(
+          '/user/auth/telegram/miniapp-login',
+          { initData },
+        );
+        const newToken = data?.data?.accessToken ?? data?.accessToken;
+        const userData = data?.data?.user ?? data?.user;
+        if (newToken && userData?.role === 'PATIENT') {
+          setAccessToken(newToken);
+          setIsPatientSession(true);
+          userTokenStorage.setUser(userData);
+          localStorage.setItem(HAD_SESSION_KEY, '1');
+          setUser(userData);
+          setExpiringSoon(false);
+          failedOnce = false;
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    };
 
     const trySilentRefresh = async () => {
       if (refreshing) return false;
@@ -87,7 +119,9 @@ export const UserAuthProvider = ({ children }) => {
         }
         return false;
       } catch {
-        return false;
+        // Cookie refresh failed — if we're in Telegram Mini App, try
+        // re-authenticating with the still-valid initData before giving up.
+        return await tryMiniAppFallback();
       } finally {
         refreshing = false;
       }
@@ -245,7 +279,34 @@ export const UserAuthProvider = ({ children }) => {
           }
         }
 
-        // Refresh failed or returned non-patient — clear everything.
+        // Cookie refresh failed. Inside Telegram Mini App, the cookie may be
+        // blocked by the WebView context — fall back to re-authenticating
+        // with the still-valid initData (good for 24h from auth_date).
+        const tgFallback = typeof window !== 'undefined' ? window.Telegram?.WebApp : null;
+        const fallbackInitData = tgFallback?.initData;
+        if (fallbackInitData) {
+          try {
+            const { data: miniData } = await axiosInstance.post(
+              '/user/auth/telegram/miniapp-login',
+              { initData: fallbackInitData },
+            );
+            const miniToken = miniData?.data?.accessToken ?? miniData?.accessToken;
+            const miniUser = miniData?.data?.user ?? miniData?.user;
+            if (miniToken && miniUser?.role === 'PATIENT') {
+              setAccessToken(miniToken);
+              setIsPatientSession(true);
+              userTokenStorage.setUser(miniUser);
+              localStorage.setItem(HAD_SESSION_KEY, '1');
+              setUser(miniUser);
+              setIsLoading(false);
+              return;
+            }
+          } catch (e) {
+            console.warn('[miniapp] fallback after refresh failed:', e?.response?.status || e?.message);
+          }
+        }
+
+        // No valid session and no fallback succeeded — clear everything.
         userTokenStorage.clear();
         setIsPatientSession(false);
         setUser(null);
