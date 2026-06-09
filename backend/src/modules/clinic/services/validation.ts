@@ -64,8 +64,10 @@ export const activateSanatoriumServiceSchema = z.object({
 export const activatePackageSchema = z.object({
     body: z.object({
         packageId: z.string().min(1, 'packageId majburiy'),
-        clinicPrice: z.number().int().min(0),
-        customNotes: z.string().max(500).optional(),
+        itemPrices: z.record(z.string(), z.number().int().min(0)).optional(),
+        clinicPrice: z.number().int().min(0).optional(),
+        customNotes: z.string().max(2000).optional(),
+        customizationData: z.any().optional(),
     }),
 });
 
@@ -74,9 +76,11 @@ export const updatePackageSchema = z.object({
         id: z.string().min(1),
     }),
     body: z.object({
+        itemPrices: z.record(z.string(), z.number().int().min(0)).optional(),
         clinicPrice: z.number().int().min(0).optional(),
         isActive: z.boolean().optional(),
-        customNotes: z.string().max(500).optional(),
+        customNotes: z.string().max(2000).optional(),
+        customizationData: z.any().optional(),
     }),
 });
 
