@@ -3,6 +3,23 @@ import prisma from '../../config/database';
 import { cartService } from '../cart/cart.service';
 
 const PUBLIC_BASE = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').replace(/\/+$/, '');
+const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME || 'banisauzbot';
+
+/**
+ * Build a Telegram deep link that re-opens the Mini App with a `start_param`.
+ * Telegram dispatches this through its official deep-link handler — so the
+ * Mini App is always launched at its configured root URL with a fresh
+ * initData, regardless of which client the user is on. The Mini App reads
+ * window.Telegram.WebApp.initDataUnsafe.start_param and routes itself.
+ *
+ * Plain web_app inline buttons that pointed at /user/scan-checkin worked on
+ * desktop Telegram but reloaded back to the root on some mobile builds,
+ * stranding the patient on the home services screen. The startapp deep
+ * link avoids that quirk entirely.
+ */
+function startAppLink(param: string): string {
+    return `https://t.me/${BOT_USERNAME}?startapp=${encodeURIComponent(param)}`;
+}
 
 export type Lang = 'uz' | 'ru';
 
@@ -116,9 +133,9 @@ export async function renderMyAppointments(userId: string, lang: Lang, limit = 1
         kb.text(clip(`${status} ${when} — ${svcName}`, 60), `appt:show:${appt.id}`).row();
     });
 
-    kb.webApp(
+    kb.url(
         lang === 'ru' ? '🌐 Все брони' : '🌐 Hammasini ochish',
-        `${PUBLIC_BASE}/user/appointments`,
+        startAppLink('appointments'),
     );
     return { text: header, keyboard: kb };
 }
@@ -165,9 +182,9 @@ export async function renderAppointmentDetail(userId: string, appointmentId: str
     // → token recovery fails → the page bounces the user to /user/login.
     const kb = new InlineKeyboard();
     if (CHECKINABLE_STATUSES.has(appt.status)) {
-        kb.webApp(
+        kb.url(
             lang === 'ru' ? '📍 Check-in (отсканировать QR)' : '📍 Check-in (QR skanlash)',
-            `${PUBLIC_BASE}/user/scan-checkin`,
+            startAppLink('scan-checkin'),
         ).row();
     }
     if (CANCELLABLE_STATUSES.has(appt.status)) {
@@ -176,9 +193,9 @@ export async function renderAppointmentDetail(userId: string, appointmentId: str
             `appt:cancel:${appt.id}`,
         ).row();
     }
-    kb.webApp(
+    kb.url(
         lang === 'ru' ? '🌐 Открыть в Mini App' : '🌐 Mini App\'da ochish',
-        `${PUBLIC_BASE}/user/appointments/${appt.id}`,
+        startAppLink(`appt-${appt.id}`),
     ).row();
     kb.text(
         lang === 'ru' ? '⬅️ К списку броней' : '⬅️ Bronlar ro\'yxati',
@@ -259,9 +276,9 @@ export async function renderCart(userId: string, lang: Lang): Promise<RenderResu
         ? `🛒 <b>Корзина</b> — ${totalItems} позиц.\n💰 <b>Итого: ${fmtMoney(totalPrice)} UZS</b>\n👇 Тапните позицию для деталей`
         : `🛒 <b>Savat</b> — ${totalItems} ta xizmat\n💰 <b>Jami: ${fmtMoney(totalPrice)} UZS</b>\n👇 Tafsilot uchun xizmatni bosing`;
 
-    kb.webApp(
+    kb.url(
         lang === 'ru' ? '💳 К оплате' : '💳 To\'lash',
-        `${PUBLIC_BASE}/user/cart/checkout`,
+        startAppLink('checkout'),
     ).row();
     kb.text(
         lang === 'ru' ? '🗑 Очистить корзину' : '🗑 Savatni tozalash',
@@ -373,7 +390,7 @@ export async function renderProfile(userId: string, lang: Lang): Promise<RenderR
         : `👤 <b>Profil</b>\n\n<b>Ism:</b> ${escHtml(fullName)}\n<b>Telefon:</b> ${escHtml(user.phone)}\n<b>Email:</b> ${escHtml(user.email || '—')}\n<b>Til:</b> O'zbekcha\n<b>Bizda:</b> ${escHtml(joinDate)} dan`;
 
     const kb = new InlineKeyboard()
-        .webApp(lang === 'ru' ? '✏️ Редактировать' : '✏️ Tahrirlash', `${PUBLIC_BASE}/user/profile`).row()
+        .url(lang === 'ru' ? '✏️ Редактировать' : '✏️ Tahrirlash', startAppLink('profile')).row()
         .text(lang === 'ru' ? '🌐 Сменить язык' : '🌐 Tilni o\'zgartirish', 'lang:menu').row()
         .text(lang === 'ru' ? '🚪 Отвязать бот' : '🚪 Botni uzish', 'profile:unlink:confirm');
 

@@ -226,6 +226,34 @@ export const UserAuthProvider = ({ children }) => {
         if (cached?.role === 'PATIENT') setUser(cached);
 
         await ensurePatientAuth();
+
+        // Mini App startapp param routing — the bot's inline buttons use
+        // t.me/<bot>?startapp=<X> deep links instead of direct web_app URLs
+        // because mobile Telegram clients sometimes reload web_app URLs back
+        // to the Mini App root, dropping the patient on /xizmatlar instead
+        // of the intended screen. The deep link always lands on the root;
+        // we read start_param and navigate ourselves once auth is settled.
+        if (typeof window !== 'undefined') {
+          const tg = window.Telegram?.WebApp;
+          const param = tg?.initDataUnsafe?.start_param;
+          const onRoot = ['/', '/xizmatlar'].includes(window.location.pathname);
+          if (param && onRoot) {
+            let target = null;
+            if (param === 'scan-checkin')   target = '/user/scan-checkin';
+            else if (param === 'appointments') target = '/user/appointments';
+            else if (param === 'checkout')  target = '/user/cart/checkout';
+            else if (param === 'profile')   target = '/user/profile';
+            else if (param.startsWith('appt-')) target = `/user/appointments/${param.slice(5)}`;
+            if (target) {
+              try {
+                window.history.replaceState({}, '', target);
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              } catch {
+                window.location.replace(target);
+              }
+            }
+          }
+        }
       } catch (e) {
         console.error('[auth] restore failed:', e);
       } finally {
