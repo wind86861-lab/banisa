@@ -127,7 +127,7 @@ export class AppointmentService {
                     clinicId: data.clinicId,
                     scheduledAt: { gte: dayStart, lte: dayEnd },
                     status: {
-                        notIn: ['CANCELLED', 'NO_SHOW', 'COMPLETED', 'RESCHEDULED'],
+                        notIn: ['CANCELLED', 'NO_SHOW', 'COMPLETED'],
                     },
                 },
                 include: INCLUDE_FULL,
@@ -182,9 +182,9 @@ export class AppointmentService {
             where: { id: appointmentId, patientId },
         });
         if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
-        assertStatus(appt.status, [
-            'PENDING', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED',
-        ], 'To\'lov qilingan bronni bekor qilib bo\'lmaydi');
+        // Patient may cancel only while the booking is still pre-arrival.
+        // Once paymentStatus is PAID the cash refund flow takes over.
+        assertStatus(appt.status, ['PENDING', 'CONFIRMED'], 'To\'lov qilingan bronni bekor qilib bo\'lmaydi');
 
         const updated = await prisma.appointment.update({
             where: { id: appointmentId },
@@ -209,8 +209,10 @@ export class AppointmentService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // OPERATOR: Confirm booking after phone call
-    // PENDING → OPERATOR_CONFIRMED → auto SENT_TO_CLINIC
+    // OPERATOR: Confirm booking after phone call (PENDING → CONFIRMED)
+    // In the simplified status world the operator acts as a clinic
+    // proxy — same target state as clinicAccept, but the audit log
+    // captures that the operator was the actor.
     // ─────────────────────────────────────────────────────────────
     async operatorConfirm(
         actor: Actor,
@@ -219,7 +221,7 @@ export class AppointmentService {
     ) {
         const appt = await prisma.appointment.findUnique({ where: { id: appointmentId } });
         if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
-        assertStatus(appt.status, ['PENDING', 'PENDING_ARRIVAL'], 'Faqat yangi bronni tasdiqlash mumkin');
+        assertStatus(appt.status, ['PENDING'], 'Faqat yangi bronni tasdiqlash mumkin');
 
         // Optional discount override
         const discountPct = typeof payload.discountPercent === 'number'
@@ -230,7 +232,7 @@ export class AppointmentService {
         const updated = await prisma.appointment.update({
             where: { id: appointmentId },
             data: {
-                status: 'SENT_TO_CLINIC',
+                status: 'CONFIRMED',
                 confirmedByOperatorId: actor.userId,
                 operatorConfirmedAt: new Date(),
                 operatorCallNote: payload.callNote ?? null,
@@ -245,7 +247,7 @@ export class AppointmentService {
             appointmentId,
             action: 'OPERATOR_CONFIRMED',
             oldStatus: appt.status,
-            newStatus: 'SENT_TO_CLINIC',
+            newStatus: 'CONFIRMED',
             userId: actor.userId,
             userRole: 'OPERATOR',
             userName: actor.name,
@@ -261,10 +263,8 @@ export class AppointmentService {
     async operatorCancel(actor: Actor, appointmentId: string, reason: string) {
         const appt = await prisma.appointment.findUnique({ where: { id: appointmentId } });
         if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
-        assertStatus(appt.status, [
-            'PENDING', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED',
-            'PENDING_ARRIVAL', 'PAID',
-        ]);
+        // Operator may cancel up until the patient checks in.
+        assertStatus(appt.status, ['PENDING', 'CONFIRMED']);
 
         const updated = await prisma.appointment.update({
             where: { id: appointmentId },
@@ -290,20 +290,20 @@ export class AppointmentService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // CLINIC: Accept booking (SENT_TO_CLINIC → CLINIC_ACCEPTED)
-    // No rejection allowed — only accept or reschedule
+    // CLINIC: Accept booking (PENDING → CONFIRMED)
+    // No rejection allowed — only accept or reschedule.
     // ─────────────────────────────────────────────────────────────
     async clinicAccept(actor: Actor, clinicId: string, appointmentId: string, notes?: string) {
         const appt = await prisma.appointment.findFirst({
             where: { id: appointmentId, clinicId },
         });
         if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
-        assertStatus(appt.status, ['SENT_TO_CLINIC'], 'Faqat yuborilgan bronlarni qabul qilish mumkin');
+        assertStatus(appt.status, ['PENDING'], 'Faqat yangi bronlarni qabul qilish mumkin');
 
         const updated = await prisma.appointment.update({
             where: { id: appointmentId },
             data: {
-                status: 'CLINIC_ACCEPTED',
+                status: 'CONFIRMED',
                 clinicRespondedAt: new Date(),
                 clinicRespondedById: actor.userId,
                 clinicNotes: notes ?? null,
@@ -314,7 +314,7 @@ export class AppointmentService {
             appointmentId,
             action: 'CLINIC_ACCEPTED',
             oldStatus: appt.status,
-            newStatus: 'CLINIC_ACCEPTED',
+            newStatus: 'CONFIRMED',
             userId: actor.userId,
             userRole: 'CLINIC',
             userName: actor.name,
@@ -337,12 +337,16 @@ export class AppointmentService {
             where: { id: appointmentId, clinicId },
         });
         if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
-        assertStatus(appt.status, ['SENT_TO_CLINIC', 'CLINIC_ACCEPTED']);
+        assertStatus(appt.status, ['PENDING', 'CONFIRMED']);
 
+        // Reschedule keeps the same row but bumps the time and resets the
+        // lifecycle to PENDING so the clinic re-accepts at the new slot.
+        // (RESCHEDULED is no longer a status — it's an action recorded in
+        // the audit log only.)
         const updated = await prisma.appointment.update({
             where: { id: appointmentId },
             data: {
-                status: 'RESCHEDULED',
+                status: 'PENDING',
                 scheduledAt: new Date(newScheduledAt),
                 clinicRespondedAt: new Date(),
                 clinicRespondedById: actor.userId,
@@ -354,7 +358,7 @@ export class AppointmentService {
             appointmentId,
             action: 'RESCHEDULED',
             oldStatus: appt.status,
-            newStatus: 'RESCHEDULED',
+            newStatus: 'PENDING',
             userId: actor.userId,
             userRole: 'CLINIC',
             userName: actor.name,
@@ -366,7 +370,8 @@ export class AppointmentService {
 
     // ─────────────────────────────────────────────────────────────
     // PAYMENT: Mark paid (called by Payme webhook or cash at clinic)
-    // CLINIC_ACCEPTED → PAID (QR becomes active)
+    // Only paymentStatus changes — the lifecycle status (PENDING /
+    // CONFIRMED / CHECKED_IN / …) is independent of money state.
     // ─────────────────────────────────────────────────────────────
     async markPaid(
         appointmentId: string,
@@ -380,8 +385,8 @@ export class AppointmentService {
         const appt = await prisma.appointment.findUnique({ where: { id: appointmentId } });
         if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
 
-        // Accept payment from CLINIC_ACCEPTED or OPERATOR_CONFIRMED/SENT_TO_CLINIC (pre-pay)
-        if (!['CLINIC_ACCEPTED', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC'].includes(appt.status)) {
+        // Allow pre-arrival payment (online) and at-clinic payment (cash).
+        if (!['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'].includes(appt.status)) {
             throw new AppError('Bu bronga to\'lov qabul qilib bo\'lmaydi', 400, ErrorCodes.VALIDATION_ERROR);
         }
         if (appt.paymentStatus === 'PAID') {
@@ -391,7 +396,6 @@ export class AppointmentService {
         const updated = await prisma.appointment.update({
             where: { id: appointmentId },
             data: {
-                status: 'PAID',
                 paymentStatus: 'PAID',
                 paymentMethod: payload.method,
                 paidAmount: payload.amount,
@@ -405,7 +409,7 @@ export class AppointmentService {
             appointmentId,
             action: 'PAID',
             oldStatus: appt.status,
-            newStatus: 'PAID',
+            newStatus: appt.status,
             userId: payload.actor?.userId,
             userRole: payload.actor?.role,
             metadata: { method: payload.method, amount: payload.amount },
@@ -599,7 +603,7 @@ export class AppointmentService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // PATIENT: Scan clinic QR → check in  (PENDING_ARRIVAL → CHECKED_IN)
+    // PATIENT: Scan clinic QR → check in  (CONFIRMED → CHECKED_IN)
     // ─────────────────────────────────────────────────────────────
     async patientCheckIn(
         patientId: string,
@@ -622,11 +626,10 @@ export class AppointmentService {
         if (['CANCELLED', 'NO_SHOW'].includes(appt.status)) {
             throw new AppError('Bu bron faol emas', 400, ErrorCodes.VALIDATION_ERROR);
         }
-        // Accept any active "expecting-arrival" status:
-        //   - Cash: PENDING_ARRIVAL (operator pre-confirmed cash flow)
-        //   - Online paid: CLINIC_ACCEPTED / OPERATOR_CONFIRMED / SENT_TO_CLINIC / PAID / PENDING_ARRIVAL
-        const allowed = ['PENDING_ARRIVAL', 'CLINIC_ACCEPTED', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'PAID'];
-        if (!allowed.includes(appt.status)) {
+        // Only a CONFIRMED booking can be checked in. Payment state is
+        // tracked separately in paymentStatus, so cash and online flows
+        // share the same lifecycle gate here.
+        if (appt.status !== 'CONFIRMED') {
             throw new AppError('Bu bron hozir check-in qilinishi mumkin emas', 400, ErrorCodes.VALIDATION_ERROR);
         }
 
@@ -725,7 +728,7 @@ export class AppointmentService {
     // ─────────────────────────────────────────────────────────────
     // PATIENT: One-shot QR check-in
     //   secret → clinic → patient's eligible booking at that clinic
-    //   - 1 eligible PENDING_ARRIVAL → check in (delegates to patientCheckIn for notify+audit)
+    //   - 1 eligible CONFIRMED → check in (delegates to patientCheckIn)
     //   - 1 already CHECKED_IN/IN_PROGRESS/COMPLETED → idempotent return
     //   - >1 eligible → caller picks
     //   - 0 → tell caller no booking
@@ -742,14 +745,14 @@ export class AppointmentService {
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
 
-        // Consider any active "expecting-arrival" status — cash (PENDING_ARRIVAL)
-        // OR online-paid (CLINIC_ACCEPTED / OPERATOR_CONFIRMED / SENT_TO_CLINIC / PAID).
+        // Only CONFIRMED bookings are eligible to check in. Payment is a
+        // separate axis (paymentStatus) and doesn't gate arrival.
         const pending = await prisma.appointment.findMany({
             where: {
                 patientId,
                 clinicId: clinic.id,
                 scheduledAt: { gte: todayStart },
-                status: { in: ['PENDING_ARRIVAL', 'CLINIC_ACCEPTED', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'PAID'] },
+                status: 'CONFIRMED',
             },
             orderBy: { scheduledAt: 'asc' },
             include: INCLUDE_FULL,

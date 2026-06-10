@@ -15,30 +15,23 @@ import './clinic-admin.css';
 
 const STATUS_OPTS = [
     { value: 'ALL', label: 'Barchasi' },
-    { value: 'SENT_TO_CLINIC', label: 'Yangi' },
-    { value: 'CLINIC_ACCEPTED', label: 'Qabul qilingan' },
-    { value: 'PAID', label: "To'langan" },
+    { value: 'PENDING', label: 'Yangi' },
+    { value: 'CONFIRMED', label: 'Qabul qilingan' },
     { value: 'CHECKED_IN', label: 'Keldi' },
     { value: 'IN_PROGRESS', label: 'Jarayonda' },
     { value: 'COMPLETED', label: 'Yakunlangan' },
     { value: 'NO_SHOW', label: 'Kelmadi' },
-    { value: 'RESCHEDULED', label: "O'zgartirilgan" },
     { value: 'CANCELLED', label: 'Bekor' },
 ];
 
 const STATUS_MAP = {
-    PENDING: { label: 'Operatorda', cls: 'pending' },
-    OPERATOR_CONFIRMED: { label: 'Tasdiqlangan', cls: 'confirmed' },
-    SENT_TO_CLINIC: { label: 'Yangi', cls: 'pending' },
-    CLINIC_ACCEPTED: { label: 'Qabul qilingan', cls: 'confirmed' },
-    PAID: { label: "To'langan", cls: 'confirmed' },
-    CHECKED_IN: { label: 'Keldi', cls: 'confirmed' },
-    IN_PROGRESS: { label: 'Jarayonda', cls: 'confirmed' },
-    CONFIRMED: { label: 'Tasdiqlangan', cls: 'confirmed' },
-    COMPLETED: { label: 'Yakunlangan', cls: 'completed' },
-    CANCELLED: { label: 'Bekor qilingan', cls: 'cancelled' },
-    NO_SHOW: { label: 'Kelmadi', cls: 'inactive' },
-    RESCHEDULED: { label: "O'zgartirilgan", cls: 'pending' },
+    PENDING:     { label: 'Yangi',           cls: 'pending'   },
+    CONFIRMED:   { label: 'Qabul qilingan',  cls: 'confirmed' },
+    CHECKED_IN:  { label: 'Keldi',           cls: 'confirmed' },
+    IN_PROGRESS: { label: 'Jarayonda',       cls: 'confirmed' },
+    COMPLETED:   { label: 'Yakunlangan',     cls: 'completed' },
+    CANCELLED:   { label: 'Bekor qilingan',  cls: 'cancelled' },
+    NO_SHOW:     { label: 'Kelmadi',         cls: 'inactive'  },
 };
 
 const SERVICE_TYPE_MAP = {
@@ -219,9 +212,9 @@ function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash }) {
                 </div>
 
                 {/* Footer actions */}
-                {['SENT_TO_CLINIC', 'CHECKED_IN', 'IN_PROGRESS'].includes(booking.status) && (
+                {['PENDING', 'CHECKED_IN', 'IN_PROGRESS'].includes(booking.status) && (
                     <div className="ca-drawer-footer">
-                        {booking.status === 'SENT_TO_CLINIC' && (
+                        {booking.status === 'PENDING' && (
                             <button className="ca-btn-primary" onClick={() => onConfirm(booking)}>
                                 <CheckCircle2 size={15} /> Qabul qilish
                             </button>
@@ -303,11 +296,11 @@ export default function ClinicBookings() {
 
     const executeAction = async () => {
         if (!dialog) return;
-        // Clinic can only: accept (SENT_TO_CLINIC → CLINIC_ACCEPTED),
+        // Clinic can only: accept (PENDING → CONFIRMED),
         // start (CHECKED_IN → IN_PROGRESS), complete (→ COMPLETED), or no-show.
         // Clinic CANNOT reject bookings — only operator/patient can cancel.
         const newStatus =
-            dialog.action === 'confirm' ? 'CLINIC_ACCEPTED' :
+            dialog.action === 'confirm' ? 'CONFIRMED' :
                 dialog.action === 'start' ? 'IN_PROGRESS' :
                     dialog.action === 'complete' ? 'COMPLETED' :
                         dialog.action === 'no_show' ? 'NO_SHOW' :
@@ -414,7 +407,7 @@ export default function ClinicBookings() {
                                             <button className="ca-icon-btn" title="Ko'rish" onClick={() => setDrawer(b)}>
                                                 <Eye size={15} />
                                             </button>
-                                            {b.status === 'SENT_TO_CLINIC' && (
+                                            {b.status === 'PENDING' && (
                                                 <button className="ca-icon-btn success" title="Qabul qilish" onClick={() => handleConfirm(b)}>
                                                     <CheckCircle2 size={15} />
                                                 </button>
@@ -490,7 +483,7 @@ export default function ClinicBookings() {
                             </div>
                             <div className="ca-card-actions" onClick={e => e.stopPropagation()}>
                                 <button className="ca-icon-btn" title="Ko'rish" onClick={() => setDrawer(b)}><Eye size={15} /></button>
-                                {b.status === 'SENT_TO_CLINIC' && (
+                                {b.status === 'PENDING' && (
                                     <button className="ca-icon-btn success" title="Qabul qilish" onClick={() => handleConfirm(b)}>
                                         <CheckCircle2 size={15} />
                                     </button>

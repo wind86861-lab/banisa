@@ -15,7 +15,7 @@ import Footer from '../../pages/home/Footer';
 import BanisaLoader from '../../shared/components/BanisaLoader';
 import './css/UserAppointments.css';
 
-const ACTIVE_STATUSES = ['PENDING', 'PENDING_ARRIVAL', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED', 'CHECKED_IN', 'IN_PROGRESS', 'PAID'];
+const ACTIVE_STATUSES = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'];
 const PAST_STATUSES = ['COMPLETED', 'CANCELLED', 'NO_SHOW'];
 
 const UZ_WEEKDAYS_SHORT = ['Yak', 'Du', 'Se', 'Cho', 'Pay', 'Ju', 'Sha'];

@@ -58,7 +58,7 @@ export const createDoctorBooking = async (req: AuthRequest, res: Response) => {
                 where: {
                     doctorId,
                     scheduledAt: scheduledDate,
-                    status: { notIn: ['CANCELLED', 'NO_SHOW', 'RESCHEDULED'] },
+                    status: { notIn: ['CANCELLED', 'NO_SHOW'] },
                 },
                 select: { id: true, clinicId: true },
             });
@@ -72,7 +72,7 @@ export const createDoctorBooking = async (req: AuthRequest, res: Response) => {
                     patientId,
                     doctorId,
                     scheduledAt: scheduledDate,
-                    status: { notIn: ['CANCELLED', 'NO_SHOW', 'RESCHEDULED'] },
+                    status: { notIn: ['CANCELLED', 'NO_SHOW'] },
                 },
             });
             if (myDuplicate) return myDuplicate;

@@ -19,17 +19,7 @@ export const getHomeSummary = async (req: AuthRequest, res: Response, next: Next
                 where: {
                     patientId: userId,
                     scheduledAt: { gte: now },
-                    status: {
-                        in: [
-                            'PENDING',
-                            'OPERATOR_CONFIRMED',
-                            'SENT_TO_CLINIC',
-                            'CLINIC_ACCEPTED',
-                            'PENDING_ARRIVAL',
-                            'PAID',
-                            'CHECKED_IN',
-                        ],
-                    },
+                    status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
                 },
                 orderBy: { scheduledAt: 'asc' },
                 select: {

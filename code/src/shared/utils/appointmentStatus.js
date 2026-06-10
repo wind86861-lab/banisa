@@ -1,50 +1,38 @@
 // Single source of truth for patient-facing appointment status labels & flags.
-// Keep clinic/admin pages free to define their own — they speak a different
-// dialect (e.g. "Naqd — kelishi kutilmoqda"). This file is patient-side only.
+// The new simplified status set has 7 values — see backend enum
+// AppointmentStatus. Payment state is tracked separately in `paymentStatus`
+// so this file never reads `status === 'PAID'`.
 
 export const STATUS_LABELS = {
-    PENDING: { text: 'Operator kutmoqda', color: '#D97706', bg: '#FEF3C7' },
-    PENDING_ARRIVAL: { text: 'Klinikaga keling', color: '#EA580C', bg: '#FFEDD5' },
-    OPERATOR_CONFIRMED: { text: 'Tasdiqlandi', color: '#2563EB', bg: '#DBEAFE' },
-    SENT_TO_CLINIC: { text: 'Klinikada ko\'rilmoqda', color: '#2563EB', bg: '#DBEAFE' },
-    CLINIC_ACCEPTED: { text: 'Klinika qabul qildi', color: '#059669', bg: '#D1FAE5' },
-    PAID: { text: 'To\'langan', color: '#059669', bg: '#D1FAE5' },
-    CHECKED_IN: { text: 'Check-in qilindi', color: '#7C3AED', bg: '#EDE9FE' },
+    PENDING:     { text: 'Klinika tasdiqi kutilmoqda', color: '#D97706', bg: '#FEF3C7' },
+    CONFIRMED:   { text: 'Tasdiqlandi — kelishingiz mumkin', color: '#059669', bg: '#D1FAE5' },
+    CHECKED_IN:  { text: 'Check-in qilindi', color: '#7C3AED', bg: '#EDE9FE' },
     IN_PROGRESS: { text: 'Xizmat jarayonda', color: '#7C3AED', bg: '#EDE9FE' },
-    COMPLETED: { text: 'Yakunlandi', color: '#065F46', bg: '#D1FAE5' },
-    CANCELLED: { text: 'Bekor qilindi', color: '#991B1B', bg: '#FEE2E2' },
-    NO_SHOW: { text: 'Kelmadi', color: '#991B1B', bg: '#FEE2E2' },
-    RESCHEDULED: { text: 'Vaqt o\'zgartirildi', color: '#D97706', bg: '#FEF3C7' },
+    COMPLETED:   { text: 'Yakunlandi', color: '#065F46', bg: '#D1FAE5' },
+    CANCELLED:   { text: 'Bekor qilindi', color: '#991B1B', bg: '#FEE2E2' },
+    NO_SHOW:     { text: 'Kelmadi', color: '#991B1B', bg: '#FEE2E2' },
 };
 
 export const statusLabel = (status) => STATUS_LABELS[status] || STATUS_LABELS.PENDING;
 
-// Statuses that allow patient-initiated cancellation.
-export const CANCELLABLE = new Set([
-    'PENDING', 'PENDING_ARRIVAL', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED'
-]);
+// Statuses that allow patient-initiated cancellation (no money moved yet,
+// or paid online but clinic hasn't seen them).
+export const CANCELLABLE = new Set(['PENDING', 'CONFIRMED']);
 
 export const canCancel = (a) => !!a && CANCELLABLE.has(a.status);
 
-// Patient is ready to scan the clinic wall QR to check in.
-// Cash flow: PENDING_ARRIVAL after operator confirms.
-// Online flow: any confirmed/paid state where the patient hasn't checked in yet.
-export const canCheckIn = (a) => {
-    if (!a) return false;
-    if (['CHECKED_IN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(a.status)) return false;
-    // Cash: clinic must be expecting them
-    if (a.paymentMethod === 'CASH') return a.status === 'PENDING_ARRIVAL';
-    // Online: only after payment + clinic acceptance
-    return a.paymentStatus === 'PAID' && ['CLINIC_ACCEPTED', 'PAID', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'PENDING_ARRIVAL'].includes(a.status);
-};
+// Patient is ready to scan the clinic wall QR. Only CONFIRMED bookings
+// can check in — payment state is independent (cash flow pays after
+// arrival; online flow pays before).
+export const canCheckIn = (a) => !!a && a.status === 'CONFIRMED';
 
 export const needsCheckIn = canCheckIn;
 
-// Patient is at the clinic, waiting for cashier confirmation (cash only).
+// Patient is at the clinic, waiting for cashier to confirm cash payment.
 export const awaitingCashier = (a) =>
     !!a && a.paymentMethod === 'CASH' && a.status === 'CHECKED_IN' && a.paymentStatus !== 'PAID';
 
-// Patient has paid and should proceed to service.
+// Patient has paid (or is in IN_PROGRESS/COMPLETED) — proceed to service.
 export const isReadyForService = (a) =>
     !!a && (a.paymentStatus === 'PAID' || a.status === 'COMPLETED' || a.status === 'IN_PROGRESS');
 
@@ -52,7 +40,7 @@ export const isReadyForService = (a) =>
 export function nextActionFor(a) {
     if (!a) return null;
     if (a.status === 'CANCELLED') return { title: 'Bron bekor qilingan', body: 'Yangi bron yaratish uchun xizmatlarga qayting.', tone: 'error' };
-    if (a.status === 'NO_SHOW') return { title: 'Tashrif qayd etilmadi', body: 'Bu bronni vaqtida foydalanmagansiz.', tone: 'error' };
+    if (a.status === 'NO_SHOW')   return { title: 'Tashrif qayd etilmadi', body: 'Bu bronni vaqtida foydalanmagansiz.', tone: 'error' };
     if (a.status === 'COMPLETED') return { title: 'Xizmat yakunlandi', body: 'Tashrifingizdan minnatdormiz!', tone: 'ok' };
     if (a.status === 'IN_PROGRESS') return { title: 'Xizmat jarayonda', body: 'Xizmat xonasida bo\'lganingiz uchun rahmat.', tone: 'ok' };
 
@@ -73,12 +61,11 @@ export function nextActionFor(a) {
         body: 'Sizni shifokor kutmoqda. Bron raqamingizni administratorga ayting.',
         tone: 'ok',
     };
-    // PENDING / OPERATOR_CONFIRMED / SENT_TO_CLINIC / CLINIC_ACCEPTED (non-cash) — waiting for clinic
-    if (a.paymentMethod !== 'CASH' && a.paymentStatus !== 'PAID' &&
-        ['CLINIC_ACCEPTED', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC'].includes(a.status)) {
+    // CONFIRMED but online-pay still UNPAID → nudge to pay.
+    if (a.status === 'CONFIRMED' && a.paymentMethod !== 'CASH' && a.paymentStatus !== 'PAID') {
         return { title: 'To\'lov kutilmoqda', body: 'Onlayn to\'lovni amalga oshiring.', tone: 'info', cta: 'pay' };
     }
-    return { title: 'Operator tasdiqlashini kuting', body: 'Operator siz bilan tez orada bog\'lanadi.', tone: 'info' };
+    return { title: 'Klinika tasdiqlashini kuting', body: 'Klinika qisqa vaqt ichida bronni qabul qiladi.', tone: 'info' };
 }
 
 // "Bekor qilish qoidasi" — shown beside cancel button.

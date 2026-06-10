@@ -1205,19 +1205,13 @@ enum ClinicType {
 }
 
 enum AppointmentStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED
-  COMPLETED
-  OPERATOR_CONFIRMED
-  SENT_TO_CLINIC
-  CLINIC_ACCEPTED
-  PAID
-  CHECKED_IN
-  IN_PROGRESS
-  NO_SHOW
-  RESCHEDULED
-  PENDING_ARRIVAL
+  PENDING       // patient booked, clinic must accept
+  CONFIRMED     // clinic accepted, waiting for patient to arrive
+  CHECKED_IN    // patient scanned the clinic QR
+  IN_PROGRESS   // doctor called them in
+  COMPLETED     // visit finished
+  CANCELLED     // by either side (also used for reschedules — original row becomes CANCELLED, a new PENDING is created)
+  NO_SHOW       // patient didn't arrive
 }
 
 enum PaymentStatus {

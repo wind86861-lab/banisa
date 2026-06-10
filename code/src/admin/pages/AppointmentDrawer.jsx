@@ -10,22 +10,17 @@ import api from '../../shared/api/axios';
 const fmt = (n) => n ? Number(n).toLocaleString('uz-UZ') : '0';
 
 const STATUS_STYLES = {
-    PENDING: { color: '#B45309', bg: '#FEF3C7', label: 'Yangi — tasdiqlash kerak' },
-    PENDING_ARRIVAL: { color: '#C2410C', bg: '#FFEDD5', label: 'Naqd — kelishi kutilmoqda' },
-    OPERATOR_CONFIRMED: { color: '#1D4ED8', bg: '#DBEAFE', label: 'Operator tasdiqladi' },
-    SENT_TO_CLINIC: { color: '#1D4ED8', bg: '#DBEAFE', label: 'Klinikaga yuborildi' },
-    CLINIC_ACCEPTED: { color: '#047857', bg: '#D1FAE5', label: 'Klinika qabul qildi' },
-    PAID: { color: '#047857', bg: '#D1FAE5', label: "To'langan" },
-    CHECKED_IN: { color: '#6D28D9', bg: '#EDE9FE', label: 'Keldi' },
+    PENDING:     { color: '#B45309', bg: '#FEF3C7', label: 'Yangi — tasdiqlash kerak' },
+    CONFIRMED:   { color: '#047857', bg: '#D1FAE5', label: 'Tasdiqlandi' },
+    CHECKED_IN:  { color: '#6D28D9', bg: '#EDE9FE', label: 'Keldi' },
     IN_PROGRESS: { color: '#6D28D9', bg: '#EDE9FE', label: 'Jarayonda' },
-    COMPLETED: { color: '#065F46', bg: '#D1FAE5', label: 'Yakunlangan' },
-    CANCELLED: { color: '#991B1B', bg: '#FEE2E2', label: 'Bekor qilindi' },
-    NO_SHOW: { color: '#991B1B', bg: '#FEE2E2', label: 'Kelmadi' },
-    RESCHEDULED: { color: '#B45309', bg: '#FEF3C7', label: "O'zgartirildi" },
+    COMPLETED:   { color: '#065F46', bg: '#D1FAE5', label: 'Yakunlangan' },
+    CANCELLED:   { color: '#991B1B', bg: '#FEE2E2', label: 'Bekor qilindi' },
+    NO_SHOW:     { color: '#991B1B', bg: '#FEE2E2', label: 'Kelmadi' },
 };
 
-const CANCELLABLE = ['PENDING', 'PENDING_ARRIVAL', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED', 'PAID'];
-const CONFIRMABLE = ['PENDING', 'PENDING_ARRIVAL'];
+const CANCELLABLE = ['PENDING', 'CONFIRMED'];
+const CONFIRMABLE = ['PENDING'];
 
 export default function AppointmentDrawer({ appointmentId, onClose, onDone }) {
     const qc = useQueryClient();
@@ -185,7 +180,7 @@ export default function AppointmentDrawer({ appointmentId, onClose, onDone }) {
                                     <div className="adr-info-row">
                                         <CreditCard size={15} />
                                         <span>
-                                            {appt.status === 'PENDING_ARRIVAL'
+                                            {appt.paymentMethod === 'CASH'
                                                 ? "Naqd (klinikada to'lov)"
                                                 : appt.paymentStatus === 'PAID' ? "To'langan" : "To'lanmagan"}
                                         </span>
@@ -203,15 +198,15 @@ export default function AppointmentDrawer({ appointmentId, onClose, onDone }) {
                                 </section>
                             )}
 
-                            {/* CONFIRM ACTION (PENDING or PENDING_ARRIVAL) */}
+                            {/* CONFIRM ACTION (PENDING) */}
                             {isConfirmable && (
                                 <section className="adr-section adr-action-confirm">
                                     <h4 className="adr-section-title adr-confirm-title">
                                         <CheckCheck size={16} />
-                                        {appt.status === 'PENDING_ARRIVAL' ? 'Naqd bronni tasdiqlash' : 'Bronni tasdiqlash'}
+                                        {appt.paymentMethod === 'CASH' ? 'Naqd bronni tasdiqlash' : 'Bronni tasdiqlash'}
                                     </h4>
                                     <p className="adr-hint-text">
-                                        {appt.status === 'PENDING_ARRIVAL'
+                                        {appt.paymentMethod === 'CASH'
                                             ? "Bemorga telefon qiling, kelishini tasdiqlang va natijani yozing. Bemor klinikada naqd to'laydi."
                                             : "Bemorga telefon qiling, ma'lumotlarni tasdiqlang va natijani yozing."}
                                     </p>
@@ -246,7 +241,7 @@ export default function AppointmentDrawer({ appointmentId, onClose, onDone }) {
                                                 rows={3}
                                                 value={callNote}
                                                 onChange={(e) => setCallNote(e.target.value)}
-                                                placeholder={appt.status === 'PENDING_ARRIVAL'
+                                                placeholder={appt.paymentMethod === 'CASH'
                                                     ? "Masalan: Bemorga qo'ng'iroq qildim, klinikaga kelishini tasdiqladi..."
                                                     : "Masalan: Bemor bilan gaplashdim, tasdiqladi..."}
                                                 className="adr-textarea"

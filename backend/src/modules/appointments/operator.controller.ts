@@ -82,7 +82,7 @@ export const operatorAppointmentController = {
                 await Promise.all([
                     prisma.appointment.count(),
                     prisma.appointment.count({ where: { status: 'PENDING' } }),
-                    prisma.appointment.count({ where: { status: 'OPERATOR_CONFIRMED' } }),
+                    prisma.appointment.count({ where: { status: 'CONFIRMED' } }),
                     prisma.appointment.count({ where: { status: 'COMPLETED' } }),
                     prisma.appointment.count({ where: { status: 'CANCELLED' } }),
                     prisma.appointment.count({

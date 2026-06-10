@@ -423,7 +423,10 @@ export class CartService {
                 price: totalPrice,
                 finalPrice: totalPrice,
                 notes: data.notes || `Savat orqali buyurtma: ${items.length} ta xizmat`,
-                status: isCash ? 'PENDING_ARRIVAL' : 'PENDING',
+                // Both cash and online flows start as PENDING — the clinic
+                // accepts before the booking becomes CONFIRMED. Payment
+                // mode is tracked separately in paymentMethod.
+                status: 'PENDING',
                 paymentMethod: isCash ? 'CASH' : undefined,
                 bookingNumber,
                 qrToken,

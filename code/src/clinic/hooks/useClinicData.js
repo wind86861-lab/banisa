@@ -117,7 +117,6 @@ export const useUpdateBookingStatus = () => {
             let endpoint;
             switch (status) {
                 case 'CONFIRMED':
-                case 'CLINIC_ACCEPTED':
                     endpoint = `/clinic/appointments/${id}/accept`; break;
                 case 'IN_PROGRESS':
                     endpoint = `/clinic/appointments/${id}/start`; break;

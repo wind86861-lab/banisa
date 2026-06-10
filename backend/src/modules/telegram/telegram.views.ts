@@ -24,31 +24,21 @@ function startAppLink(param: string): string {
 export type Lang = 'uz' | 'ru';
 
 const STATUS_LABEL: Record<string, Record<Lang, string>> = {
-    PENDING:            { uz: '⏳ Kutilmoqda',         ru: '⏳ Ожидает' },
-    OPERATOR_CONFIRMED: { uz: '✅ Operator tasdiqladi', ru: '✅ Оператор подтвердил' },
-    SENT_TO_CLINIC:     { uz: '📤 Klinikaga yuborildi', ru: '📤 Отправлено в клинику' },
-    CLINIC_ACCEPTED:    { uz: '✅ Klinika qabul qildi', ru: '✅ Клиника приняла' },
-    AWAITING_PAYMENT:   { uz: '💳 To\'lov kutilmoqda',  ru: '💳 Ожидает оплаты' },
-    PAID:               { uz: '💰 To\'langan',          ru: '💰 Оплачено' },
-    CHECKED_IN:         { uz: '🟢 Klinikada',           ru: '🟢 В клинике' },
-    IN_PROGRESS:        { uz: '🔄 Bajarilmoqda',        ru: '🔄 Выполняется' },
-    COMPLETED:          { uz: '✔️ Yakunlangan',        ru: '✔️ Завершено' },
-    CANCELLED:          { uz: '❌ Bekor qilingan',     ru: '❌ Отменено' },
-    NO_SHOW:            { uz: '🚫 Kelmagan',           ru: '🚫 Не явился' },
-    RESCHEDULED:        { uz: '🔁 Ko\'chirilgan',      ru: '🔁 Перенесено' },
+    PENDING:     { uz: '⏳ Kutilmoqda',      ru: '⏳ Ожидает' },
+    CONFIRMED:   { uz: '✅ Tasdiqlandi',     ru: '✅ Подтверждено' },
+    CHECKED_IN:  { uz: '🟢 Klinikada',       ru: '🟢 В клинике' },
+    IN_PROGRESS: { uz: '🔄 Bajarilmoqda',    ru: '🔄 Выполняется' },
+    COMPLETED:   { uz: '✔️ Yakunlangan',    ru: '✔️ Завершено' },
+    CANCELLED:   { uz: '❌ Bekor qilingan', ru: '❌ Отменено' },
+    NO_SHOW:     { uz: '🚫 Kelmagan',       ru: '🚫 Не явился' },
 };
 
 // Statuses where the booking is "live" and the patient should be able to
 // walk into the clinic and scan the QR.
-const CHECKINABLE_STATUSES = new Set([
-    'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED',
-    'AWAITING_PAYMENT', 'PAID',
-]);
+const CHECKINABLE_STATUSES = new Set(['CONFIRMED']);
 
 // Statuses where the patient can still cancel themselves (no money moved yet).
-const CANCELLABLE_STATUSES = new Set([
-    'PENDING', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED',
-]);
+const CANCELLABLE_STATUSES = new Set(['PENDING', 'CONFIRMED']);
 
 // Server-side renders MUST pin the timezone to Asia/Tashkent — the prod
 // Linux box runs UTC, and toLocaleString without timeZone would emit UTC

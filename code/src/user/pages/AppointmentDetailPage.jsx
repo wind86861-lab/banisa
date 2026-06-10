@@ -38,7 +38,7 @@ export default function AppointmentDetailPage() {
         refetchInterval: (q) => {
             const a = q.state.data;
             if (!a) return false;
-            const live = ['PENDING_ARRIVAL', 'CHECKED_IN', 'CLINIC_ACCEPTED', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC'];
+            const live = ['CONFIRMED', 'CHECKED_IN'];
             return live.includes(a.status) && a.paymentStatus !== 'PAID' ? POLL_MS : false;
         },
         refetchOnWindowFocus: true,
@@ -122,7 +122,7 @@ export default function AppointmentDetailPage() {
             data.checkupPackage?.nameUz ||
             'Xizmat';
     const showCancel = canCancelFn(data);
-    const canPay = ['CLINIC_ACCEPTED', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC'].includes(data.status)
+    const canPay = ['PENDING', 'CONFIRMED'].includes(data.status)
         && data.paymentStatus !== 'PAID'
         && data.paymentMethod !== 'CASH';
     const mapsUrl = mapsDirectionsUrl(data.clinic);

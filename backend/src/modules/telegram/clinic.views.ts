@@ -19,18 +19,13 @@ export interface ClinicCtx {
 }
 
 const STATUS_LABEL: Record<string, Record<Lang, string>> = {
-    PENDING:            { uz: '⏳ Kutilmoqda',            ru: '⏳ Ожидает' },
-    OPERATOR_CONFIRMED: { uz: '✅ Operator tasdiqladi',   ru: '✅ Оператор подтвердил' },
-    SENT_TO_CLINIC:     { uz: '📤 Yuborilgan',            ru: '📤 Отправлено' },
-    CLINIC_ACCEPTED:    { uz: '✅ Qabul qilindi',         ru: '✅ Принято' },
-    AWAITING_PAYMENT:   { uz: '💳 To\'lov kutilmoqda',    ru: '💳 Ожидает оплаты' },
-    PAID:               { uz: '💰 To\'langan',            ru: '💰 Оплачено' },
-    CHECKED_IN:         { uz: '🟢 Klinikada',             ru: '🟢 В клинике' },
-    IN_PROGRESS:        { uz: '🔄 Bajarilmoqda',          ru: '🔄 Выполняется' },
-    COMPLETED:          { uz: '✔️ Yakunlangan',          ru: '✔️ Завершено' },
-    CANCELLED:          { uz: '❌ Bekor qilingan',       ru: '❌ Отменено' },
-    NO_SHOW:            { uz: '🚫 Kelmagan',             ru: '🚫 Не явился' },
-    RESCHEDULED:        { uz: '🔁 Ko\'chirilgan',        ru: '🔁 Перенесено' },
+    PENDING:     { uz: '⏳ Kutilmoqda',      ru: '⏳ Ожидает' },
+    CONFIRMED:   { uz: '✅ Qabul qilindi',  ru: '✅ Принято' },
+    CHECKED_IN:  { uz: '🟢 Klinikada',       ru: '🟢 В клинике' },
+    IN_PROGRESS: { uz: '🔄 Bajarilmoqda',    ru: '🔄 Выполняется' },
+    COMPLETED:   { uz: '✔️ Yakunlangan',    ru: '✔️ Завершено' },
+    CANCELLED:   { uz: '❌ Bekor qilingan', ru: '❌ Отменено' },
+    NO_SHOW:     { uz: '🚫 Kelmagan',       ru: '🚫 Не явился' },
 };
 
 function fmtTime(d: Date | string | null | undefined, lang: Lang): string {
@@ -91,7 +86,7 @@ export async function renderClinicToday(ctx: ClinicCtx): Promise<RenderResult> {
         where: {
             clinicId: ctx.clinicId,
             scheduledAt: { gte, lt },
-            status: { notIn: ['CANCELLED', 'NO_SHOW', 'RESCHEDULED'] as any },
+            status: { notIn: ['CANCELLED', 'NO_SHOW'] as any },
         },
         orderBy: { scheduledAt: 'asc' },
         take: 30,
@@ -126,10 +121,10 @@ export async function renderClinicToday(ctx: ClinicCtx): Promise<RenderResult> {
     return { text: header, keyboard: kb };
 }
 
-// ─── Kutilayotgan bronlar (SENT_TO_CLINIC) ─────────────────────────────────
+// ─── Kutilayotgan bronlar (PENDING) ─────────────────────────────────
 export async function renderClinicPending(ctx: ClinicCtx): Promise<RenderResult> {
     const items = await prisma.appointment.findMany({
-        where: { clinicId: ctx.clinicId, status: 'SENT_TO_CLINIC' as any },
+        where: { clinicId: ctx.clinicId, status: 'PENDING' as any },
         orderBy: { scheduledAt: 'asc' },
         take: 30,
         include: {
@@ -199,15 +194,15 @@ export async function renderClinicBookingDetail(ctx: ClinicCtx, appointmentId: s
     if ((appt as any).clinicNotes) lines.push(`\n📝 ${esc((appt as any).clinicNotes)}`);
 
     const kb = new InlineKeyboard();
-    // Accept / Reschedule for SENT_TO_CLINIC
-    if (appt.status === 'SENT_TO_CLINIC' && permsHave(ctx, ClinicPermission.BOOKING_ACCEPT)) {
+    // Accept / Reschedule for PENDING
+    if (appt.status === 'PENDING' && permsHave(ctx, ClinicPermission.BOOKING_ACCEPT)) {
         kb.text(ctx.lang === 'ru' ? '✅ Принять' : '✅ Qabul qilish', `clinic:accept:${appt.id}`);
     }
-    if (['SENT_TO_CLINIC', 'CLINIC_ACCEPTED'].includes(appt.status as any)
+    if (['PENDING', 'CONFIRMED'].includes(appt.status as any)
         && permsHave(ctx, ClinicPermission.BOOKING_RESCHEDULE)) {
         kb.text(ctx.lang === 'ru' ? '🔁 Перенести' : '🔁 Ko\'chirish', `clinic:resched:${appt.id}`);
     }
-    if (appt.status === 'SENT_TO_CLINIC' && permsHave(ctx, ClinicPermission.BOOKING_REJECT)) {
+    if (appt.status === 'PENDING' && permsHave(ctx, ClinicPermission.BOOKING_REJECT)) {
         kb.text(ctx.lang === 'ru' ? '❌ Отклонить' : '❌ Rad qilish', `clinic:reject:${appt.id}`);
     }
     if (kb.inline_keyboard.length > 0) kb.row();
@@ -279,7 +274,7 @@ export async function renderClinicReport(ctx: ClinicCtx): Promise<RenderResult> 
             _sum: { paidAmount: true, price: true },
             _count: true,
         }),
-        prisma.appointment.count({ where: { clinicId: ctx.clinicId, status: 'SENT_TO_CLINIC' as any } }),
+        prisma.appointment.count({ where: { clinicId: ctx.clinicId, status: 'PENDING' as any } }),
     ]);
 
     const revenue = (paidAgg as any)._sum?.paidAmount ?? (paidAgg as any)._sum?.price ?? 0;
@@ -361,7 +356,7 @@ export async function tryClinicReject(ctx: ClinicCtx, appointmentId: string, rea
             where: { id: appointmentId, clinicId: ctx.clinicId },
         });
         if (!appt) return { ok: false, error: 'not_found' };
-        if (appt.status !== 'SENT_TO_CLINIC') return { ok: false, error: 'wrong_status' };
+        if (appt.status !== 'PENDING') return { ok: false, error: 'wrong_status' };
         await prisma.appointment.update({
             where: { id: appointmentId },
             data: {

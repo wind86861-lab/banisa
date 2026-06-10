@@ -2,26 +2,25 @@ import { CheckCircle2, Circle, Clock, XCircle } from 'lucide-react';
 import './ProgressTimeline.css';
 
 const TIMELINE_STEPS = [
-    { key: 'created', label: 'Yaratildi', statuses: ['PENDING', 'OPERATOR_CONFIRMED'] },
-    { key: 'confirmed', label: 'Tasdiqlandi', statuses: ['SENT_TO_CLINIC', 'CLINIC_ACCEPTED'] },
-    { key: 'checkin', label: 'Check-in', statuses: ['PENDING_ARRIVAL', 'CHECKED_IN'] },
-    { key: 'paid', label: 'To\'landi', statuses: ['PAID', 'IN_PROGRESS'] },
-    { key: 'completed', label: 'Yakunlandi', statuses: ['COMPLETED'] },
+    { key: 'created',   label: 'Yaratildi',   statuses: ['PENDING'] },
+    { key: 'confirmed', label: 'Tasdiqlandi', statuses: ['CONFIRMED'] },
+    { key: 'checkin',   label: 'Check-in',    statuses: ['CHECKED_IN'] },
+    { key: 'service',   label: 'Xizmatda',    statuses: ['IN_PROGRESS'] },
+    { key: 'completed', label: 'Yakunlandi',  statuses: ['COMPLETED'] },
 ];
 
 export default function ProgressTimeline({ appointment }) {
     if (!appointment) return null;
 
     const currentStatus = appointment.status;
-    const paymentStatus = appointment.paymentStatus;
     const isCancelled = currentStatus === 'CANCELLED' || currentStatus === 'NO_SHOW';
 
     const getCurrentStep = () => {
         if (isCancelled) return -1;
-        if (currentStatus === 'COMPLETED') return 4;
-        if (paymentStatus === 'PAID' || currentStatus === 'IN_PROGRESS') return 3;
-        if (currentStatus === 'CHECKED_IN' || currentStatus === 'PENDING_ARRIVAL') return 2;
-        if (currentStatus === 'CLINIC_ACCEPTED' || currentStatus === 'SENT_TO_CLINIC') return 1;
+        if (currentStatus === 'COMPLETED')   return 4;
+        if (currentStatus === 'IN_PROGRESS') return 3;
+        if (currentStatus === 'CHECKED_IN')  return 2;
+        if (currentStatus === 'CONFIRMED')   return 1;
         return 0;
     };
 

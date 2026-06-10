@@ -10,32 +10,24 @@ import AppointmentDrawer from './AppointmentDrawer';
 import './AppointmentsPage.css';
 
 const STATUS_FILTERS = [
-    { value: 'ALL', label: 'Barchasi' },
-    { value: 'PENDING', label: 'Yangi', urgent: true },
-    { value: 'PENDING_ARRIVAL', label: 'Naqd (kelishi)' },
-    { value: 'OPERATOR_CONFIRMED', label: 'Tasdiqlangan' },
-    { value: 'SENT_TO_CLINIC', label: 'Klinikada' },
-    { value: 'CLINIC_ACCEPTED', label: 'Qabul qilingan' },
-    { value: 'PAID', label: 'To\'langan' },
-    { value: 'CHECKED_IN', label: 'Keldi' },
-    { value: 'COMPLETED', label: 'Yakunlangan' },
-    { value: 'CANCELLED', label: 'Bekor' },
-    { value: 'NO_SHOW', label: 'Kelmadi' },
+    { value: 'ALL',         label: 'Barchasi' },
+    { value: 'PENDING',     label: 'Yangi', urgent: true },
+    { value: 'CONFIRMED',   label: 'Tasdiqlangan' },
+    { value: 'CHECKED_IN',  label: 'Keldi' },
+    { value: 'IN_PROGRESS', label: 'Jarayonda' },
+    { value: 'COMPLETED',   label: 'Yakunlangan' },
+    { value: 'CANCELLED',   label: 'Bekor' },
+    { value: 'NO_SHOW',     label: 'Kelmadi' },
 ];
 
 const STATUS_STYLES = {
-    PENDING: { color: '#D97706', bg: '#FEF3C7', label: 'Yangi' },
-    PENDING_ARRIVAL: { color: '#EA580C', bg: '#FFEDD5', label: 'Naqd — kutilmoqda' },
-    OPERATOR_CONFIRMED: { color: '#2563EB', bg: '#DBEAFE', label: 'Tasdiqlandi' },
-    SENT_TO_CLINIC: { color: '#2563EB', bg: '#DBEAFE', label: 'Klinikada' },
-    CLINIC_ACCEPTED: { color: '#059669', bg: '#D1FAE5', label: 'Qabul qilindi' },
-    PAID: { color: '#059669', bg: '#D1FAE5', label: 'To\'landi' },
-    CHECKED_IN: { color: '#7C3AED', bg: '#EDE9FE', label: 'Keldi' },
+    PENDING:     { color: '#D97706', bg: '#FEF3C7', label: 'Yangi' },
+    CONFIRMED:   { color: '#059669', bg: '#D1FAE5', label: 'Tasdiqlandi' },
+    CHECKED_IN:  { color: '#7C3AED', bg: '#EDE9FE', label: 'Keldi' },
     IN_PROGRESS: { color: '#7C3AED', bg: '#EDE9FE', label: 'Jarayonda' },
-    COMPLETED: { color: '#065F46', bg: '#D1FAE5', label: 'Yakunlangan' },
-    CANCELLED: { color: '#991B1B', bg: '#FEE2E2', label: 'Bekor' },
-    NO_SHOW: { color: '#991B1B', bg: '#FEE2E2', label: 'Kelmadi' },
-    RESCHEDULED: { color: '#D97706', bg: '#FEF3C7', label: 'O\'zgartirildi' },
+    COMPLETED:   { color: '#065F46', bg: '#D1FAE5', label: 'Yakunlangan' },
+    CANCELLED:   { color: '#991B1B', bg: '#FEE2E2', label: 'Bekor' },
+    NO_SHOW:     { color: '#991B1B', bg: '#FEE2E2', label: 'Kelmadi' },
 };
 
 const fmt = (n) => n ? Number(n).toLocaleString('uz-UZ') : '0';

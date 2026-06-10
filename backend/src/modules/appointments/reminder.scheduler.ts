@@ -14,7 +14,7 @@ const WINDOW_1H_AFTER_MS = 90 * 60 * 1000;                        // 90m
 
 // Statuses that still count as "the appointment will happen" — we don't
 // remind for CANCELLED, NO_SHOW, COMPLETED, etc.
-const LIVE_STATUSES = ['PENDING', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED', 'PENDING_ARRIVAL', 'PAID'] as const;
+const LIVE_STATUSES = ['PENDING', 'CONFIRMED'] as const;
 
 interface ReminderConfig {
     type: 'booking_reminder_24h' | 'booking_reminder_1h';

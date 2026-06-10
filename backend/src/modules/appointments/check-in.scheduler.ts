@@ -15,7 +15,7 @@ async function runAutoNoShow() {
     const stale = await prisma.appointment.findMany({
         where: {
             scheduledAt: { lt: cutoff },
-            status: { in: ['PENDING_ARRIVAL', 'CLINIC_ACCEPTED', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'PAID'] },
+            status: 'CONFIRMED',
         },
         select: { id: true, status: true },
         take: 100,

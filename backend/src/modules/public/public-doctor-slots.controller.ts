@@ -68,7 +68,7 @@ export const getDoctorSlots = async (req: Request, res: Response) => {
         where: {
             doctorId,
             scheduledAt: { gte: dayStart, lte: dayEnd },
-            status: { notIn: ['CANCELLED', 'NO_SHOW', 'RESCHEDULED'] },
+            status: { notIn: ['CANCELLED', 'NO_SHOW'] },
         },
         select: { scheduledAt: true, clinicId: true },
     });
