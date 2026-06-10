@@ -102,28 +102,41 @@ export const StatusGuard = ({ children }) => {
 };
 
 // ─── USER (PATIENT) GUARD ─────────────────────────────────────────────────
-// Protects /user/* routes. Reads from the same single auth resolver every
-// other call site uses, so a Mini App visitor landing directly on
-// /user/cart isn't kicked to login while the initial miniapp-login
+// Protects /user/* routes. Reads from the single auth resolver every other
+// call site uses, so a Mini App visitor landing directly on /user/cart or
+// /user/scan-checkin isn't kicked to login while the initial miniapp-login
 // roundtrip is still in flight.
+//
+// Decision is driven by the resolver's *return value*, not the React
+// `user` state. The state update can lag behind the resolver finishing
+// by one render — relying on it produced a brief "user=null, reauthSettled
+// =true → Navigate" flash that bounced Mini App entries through
+// /user/login and then to /xizmatlar (UserLoginPage's default landing).
 export const UserGuard = ({ children }) => {
   const { user, isLoading, ensurePatientAuth } = useUserAuth();
   const location = useLocation();
-  const [reauthSettled, setReauthSettled] = useState(false);
+  // null = still deciding, false = resolver returned null, true = resolved.
+  const [resolved, setResolved] = useState(null);
 
   useEffect(() => {
-    if (isLoading || user || !ensurePatientAuth) { setReauthSettled(false); return; }
+    if (user) { setResolved(true); return; }
+    if (isLoading || !ensurePatientAuth) return;
     let cancelled = false;
     (async () => {
-      try { await ensurePatientAuth(); } catch { /* swallow */ }
-      if (!cancelled) setReauthSettled(true);
+      let u = null;
+      try { u = await ensurePatientAuth(); } catch { /* swallow */ }
+      if (cancelled) return;
+      setResolved(u ? true : false);
     })();
     return () => { cancelled = true; };
   }, [isLoading, user, ensurePatientAuth]);
 
   if (isLoading) return <AuthLoading />;
-  if (!user && !reauthSettled) return <AuthLoading />;
-  if (!user) return <Navigate to="/user/login" state={{ from: location.pathname }} replace />;
+  if (resolved === null) return <AuthLoading />;
+  if (resolved === false && !user) {
+    return <Navigate to="/user/login" state={{ from: location.pathname }} replace />;
+  }
+  if (!user) return <AuthLoading />;
   if (user.role !== 'PATIENT') return <Navigate to="/403" replace />;
   return children;
 };
