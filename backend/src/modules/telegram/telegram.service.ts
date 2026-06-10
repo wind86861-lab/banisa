@@ -56,8 +56,12 @@ export async function sendMessage(chatId: bigint, text: string, link?: string): 
     const bot = getBot();
     if (!bot) return { ok: false, error: 'bot not configured' };
     try {
+        // web_app buttons open the URL as a Mini App with initData populated.
+        // A plain `url` button opens Telegram's in-app browser instead — that
+        // context has no initData and the strict refresh cookie is dropped,
+        // so any /user/* destination bounces the patient to /user/login.
         const reply_markup = link
-            ? { inline_keyboard: [[{ text: 'Ochish', url: absoluteLink(link) }]] }
+            ? { inline_keyboard: [[{ text: 'Ochish', web_app: { url: absoluteLink(link) } }]] }
             : undefined;
         const msg = await bot.api.sendMessage(Number(chatId), text, {
             parse_mode: 'Markdown',
