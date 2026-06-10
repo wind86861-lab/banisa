@@ -273,11 +273,11 @@ export const performTransaction = async (params: { id: string }, ctx: PaymeConte
         },
     });
 
-    // Mark appointment as PAID
+    // Mark the appointment paid. Lifecycle status is not touched — payment
+    // is a separate axis in the simplified status model.
     await prisma.appointment.update({
         where: { id: transaction.orderId },
         data: {
-            status: 'PAID',
             paymentStatus: 'PAID',
             paymentMethod: 'PAYME',
             paidAt: new Date(),
