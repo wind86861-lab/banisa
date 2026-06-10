@@ -52,16 +52,52 @@ export async function unlink(userId: string): Promise<boolean> {
  * Send a markdown message to a single chat. Marks isBlocked=true if the user
  * blocked the bot (Telegram error 403). Never throws.
  */
+/**
+ * Map a destination path coming from the notification dispatcher into a
+ * t.me/<bot>?startapp=<param> deep link. Plain web_app inline buttons would
+ * also open the Mini App, but on at least one mobile Telegram client they
+ * reload back to the configured root URL — the patient lands on the home
+ * services page instead of the booking/profile/notifications screen the
+ * notification was about. The deep-link path goes through Telegram's
+ * official Mini-App handler so the patient reliably ends up where intended.
+ *
+ * Unknown paths fall back to a plain web_app button (still safer than a
+ * url button — which opens the in-app browser with no initData / no cookie).
+ */
+function destinationButton(link: string): any {
+    const path = link.startsWith('http')
+        ? new URL(link).pathname + new URL(link).search
+        : link.startsWith('/') ? link : '/' + link;
+
+    const botUsername = process.env.TELEGRAM_BOT_USERNAME || 'banisauzbot';
+    const deep = (p: string) => ({ text: 'Ochish', url: `https://t.me/${botUsername}?startapp=${encodeURIComponent(p)}` });
+
+    if (path === '/user/appointments') return deep('appointments');
+    if (path === '/user/cart' || path === '/user/cart/checkout') return deep(path.endsWith('checkout') ? 'checkout' : 'cart');
+    if (path === '/user/notifications') return deep('notifications');
+    if (path === '/user/profile') return deep('profile');
+    if (path === '/user/notification-settings') return deep('notification-settings');
+    if (path === '/user/scan-checkin') return deep('scan-checkin');
+    if (path === '/xizmatlar') return deep('services');
+    if (path === '/klinikalar') return deep('clinics');
+    if (path === '/doktorlar') return deep('doctors');
+    if (path === '/skory') return deep('skory');
+    const apptMatch = path.match(/^\/user\/appointments\/([^/?]+)/);
+    if (apptMatch) return deep(`appt-${apptMatch[1]}`);
+    const clinicCashier = path.match(/^\/clinic\/cashier/);
+    if (clinicCashier) return { text: 'Ochish', web_app: { url: absoluteLink(link) } };
+    // Default for unknown user-side paths: also a deep link so it opens
+    // the Mini App at root rather than the browser.
+    if (path.startsWith('/user/')) return deep(path.slice(1).replace(/\//g, '-'));
+    return { text: 'Ochish', web_app: { url: absoluteLink(link) } };
+}
+
 export async function sendMessage(chatId: bigint, text: string, link?: string): Promise<{ ok: boolean; messageId?: number; error?: string }> {
     const bot = getBot();
     if (!bot) return { ok: false, error: 'bot not configured' };
     try {
-        // web_app buttons open the URL as a Mini App with initData populated.
-        // A plain `url` button opens Telegram's in-app browser instead — that
-        // context has no initData and the strict refresh cookie is dropped,
-        // so any /user/* destination bounces the patient to /user/login.
         const reply_markup = link
-            ? { inline_keyboard: [[{ text: 'Ochish', web_app: { url: absoluteLink(link) } }]] }
+            ? { inline_keyboard: [[destinationButton(link)]] }
             : undefined;
         const msg = await bot.api.sendMessage(Number(chatId), text, {
             parse_mode: 'Markdown',

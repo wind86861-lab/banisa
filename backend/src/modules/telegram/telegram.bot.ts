@@ -11,6 +11,20 @@ import {
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const PUBLIC_BASE = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').replace(/\/+$/, '');
+const BOT_USERNAME_ENV = process.env.TELEGRAM_BOT_USERNAME || 'banisauzbot';
+
+/**
+ * Build a t.me/<bot>?startapp=<param> deep link.
+ *
+ * Every patient destination the bot offers is a deep link, not a plain URL.
+ * Plain URLs open in Telegram's in-app browser — no initData, no refresh
+ * cookie, the patient can't be detected. Deep links open the Mini App at
+ * the configured root URL with start_param attached; main.jsx rewrites the
+ * URL to the target screen before React mounts.
+ */
+function startApp(param: string): string {
+    return `https://t.me/${BOT_USERNAME_ENV}?startapp=${encodeURIComponent(param)}`;
+}
 
 type Lang = 'uz' | 'ru';
 
@@ -83,17 +97,17 @@ const LABELS: Record<Lang, Record<string, string>> = {
 function mainMenu(lang: Lang, linked: boolean): InlineKeyboard {
     const L = LABELS[lang];
     const kb = new InlineKeyboard()
-        .url(L.services, `${PUBLIC_BASE}/xizmatlar`)
-        .url(L.clinics, `${PUBLIC_BASE}/klinikalar`).row()
-        .url(L.doctors, `${PUBLIC_BASE}/doktorlar`)
-        .url(L.skory, `${PUBLIC_BASE}/skory`).row();
+        .url(L.services, startApp('services'))
+        .url(L.clinics,  startApp('clinics')).row()
+        .url(L.doctors,  startApp('doctors'))
+        .url(L.skory,    startApp('skory')).row();
 
     if (linked) {
-        kb.url(L.bookings, `${PUBLIC_BASE}/user/appointments`)
-          .url(L.cart, `${PUBLIC_BASE}/user/cart`).row()
-          .url(L.notifs, `${PUBLIC_BASE}/user/notifications`)
-          .url(L.profile, `${PUBLIC_BASE}/user/profile`).row()
-          .url(L.settings, `${PUBLIC_BASE}/user/notification-settings`);
+        kb.url(L.bookings, startApp('appointments'))
+          .url(L.cart,     startApp('cart')).row()
+          .url(L.notifs,   startApp('notifications'))
+          .url(L.profile,  startApp('profile')).row()
+          .url(L.settings, startApp('notification-settings'));
     }
     return kb;
 }
@@ -157,20 +171,23 @@ async function freshReplyKeyboard(userId: string | null, lang: Lang, linked: boo
  * read live data instead of just sending a URL.
  */
 type ReplyRoute =
-    | { kind: 'url'; path: string; label: string }
+    | { kind: 'url'; param: string; label: string }
     | { kind: 'view'; view: 'bookings' | 'cart' | 'profile' | 'notifs'; label: string };
 
 function routeReplyLabel(lang: Lang, text: string): ReplyRoute | null {
     const L = LABELS[lang];
-    const urls: Record<string, { path: string; label: string }> = {
-        [LABELS.uz.services]: { path: '/xizmatlar',   label: L.services },
-        [LABELS.ru.services]: { path: '/xizmatlar',   label: L.services },
-        [LABELS.uz.clinics]:  { path: '/klinikalar',  label: L.clinics },
-        [LABELS.ru.clinics]:  { path: '/klinikalar',  label: L.clinics },
-        [LABELS.uz.doctors]:  { path: '/doktorlar',   label: L.doctors },
-        [LABELS.ru.doctors]:  { path: '/doktorlar',   label: L.doctors },
-        [LABELS.uz.skory]:    { path: '/skory',       label: L.skory },
-        [LABELS.ru.skory]:    { path: '/skory',       label: L.skory },
+    // url kind: shipped as t.me deep links downstream so they open in the
+    // Mini App, not Telegram's in-app browser (browser has no initData →
+    // patient can't be detected).
+    const urls: Record<string, { param: string; label: string }> = {
+        [LABELS.uz.services]: { param: 'services', label: L.services },
+        [LABELS.ru.services]: { param: 'services', label: L.services },
+        [LABELS.uz.clinics]:  { param: 'clinics',  label: L.clinics },
+        [LABELS.ru.clinics]:  { param: 'clinics',  label: L.clinics },
+        [LABELS.uz.doctors]:  { param: 'doctors',  label: L.doctors },
+        [LABELS.ru.doctors]:  { param: 'doctors',  label: L.doctors },
+        [LABELS.uz.skory]:    { param: 'skory',    label: L.skory },
+        [LABELS.ru.skory]:    { param: 'skory',    label: L.skory },
     };
     if (urls[text]) return { kind: 'url', ...urls[text] };
 
@@ -795,9 +812,11 @@ function registerHandlers(bot: Bot) {
         }
 
         if (route.kind === 'url') {
-            const url = `${PUBLIC_BASE}${route.path}`;
-            const kb = new InlineKeyboard().url(`${LABELS[lang].open} ${route.label}`, url);
-            await ctx.reply(`${route.label}\n${url}`, { reply_markup: kb });
+            const kb = new InlineKeyboard().url(
+                `${LABELS[lang].open} ${route.label}`,
+                startApp(route.param),
+            );
+            await ctx.reply(route.label, { reply_markup: kb });
             return;
         }
 
@@ -817,9 +836,11 @@ function registerHandlers(bot: Bot) {
                 const r = await renderProfile(acc.userId, lang);
                 await ctx.reply(r.text, { parse_mode: 'HTML', reply_markup: r.keyboard });
             } else if (route.view === 'notifs') {
-                const url = `${PUBLIC_BASE}/user/notifications`;
-                const kb = new InlineKeyboard().url(`${LABELS[lang].open} ${route.label}`, url);
-                await ctx.reply(`${route.label}\n${url}`, { reply_markup: kb });
+                const kb = new InlineKeyboard().url(
+                    `${LABELS[lang].open} ${route.label}`,
+                    startApp('notifications'),
+                );
+                await ctx.reply(route.label, { reply_markup: kb });
             }
         } catch (e) {
             console.error('[telegram] view render failed:', e);

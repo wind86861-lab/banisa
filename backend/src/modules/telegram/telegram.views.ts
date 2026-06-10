@@ -113,7 +113,7 @@ export async function renderMyAppointments(userId: string, lang: Lang, limit = 1
             : '📅 <b>Bronlarim</b>\n\nHozircha bronlaringiz yo\'q.';
         const kb = new InlineKeyboard().url(
             lang === 'ru' ? '🩺 Услуги' : '🩺 Xizmatlar',
-            `${PUBLIC_BASE}/xizmatlar`,
+            startAppLink('services'),
         );
         return { text: empty, keyboard: kb };
     }
@@ -251,7 +251,7 @@ export async function renderCart(userId: string, lang: Lang): Promise<RenderResu
             : '🛒 <b>Savat</b>\n\nSavat bo\'sh.';
         const kb = new InlineKeyboard().url(
             lang === 'ru' ? '🩺 Услуги' : '🩺 Xizmatlar',
-            `${PUBLIC_BASE}/xizmatlar`,
+            startAppLink('services'),
         );
         return { text, keyboard: kb };
     }
