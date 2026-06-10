@@ -17,7 +17,10 @@ model User {
   role               Role                @default(PATIENT)
   status             UserStatus          @default(PENDING)
   isActive           Boolean             @default(true)
-  clinicId           String?             @unique
+  // Default / "primary" clinic for backwards compatibility with code that
+  // still reads User.clinicId directly. The authoritative membership list is
+  // ClinicMembership; this column is the first one created in that table.
+  clinicId           String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   appointments       Appointment[]
@@ -34,6 +37,9 @@ model User {
   notificationLogs      NotificationLog[]
   telegramAccount       TelegramAccount?
   telegramLoginTokens   TelegramLoginToken[]
+  clinicMemberships     ClinicMembership[]
+  clinicMembershipsInvited ClinicMembership[] @relation("InvitedBy")
+  clinicAuditEntries    ClinicAuditLog[]   @relation("ClinicAuditActor")
 
   @@index([phone])
   @@index([status])
@@ -276,6 +282,9 @@ model Clinic {
   paymeTransactions      PaymeTransaction[]
   doctorClinics          DoctorClinic[]
   ambulances             Ambulance[]
+  memberships            ClinicMembership[]
+  roles                  ClinicRole[]
+  auditLog               ClinicAuditLog[]
 
   @@index([status])
   @@index([source])
@@ -1437,4 +1446,128 @@ enum AmbulanceStatus {
   BUSY        // chaqiruvda
   MAINTENANCE // texnik xizmat
   OFFLINE     // smenadan tashqari
+}
+
+// ─── Clinic team / RBAC ──────────────────────────────────────────────────────
+// Granular permissions so every clinic action can be governed by which
+// role(s) hold the matching permission. Default roles (OWNER / MANAGER /
+// RECEPTIONIST / CASHIER / DOCTOR / ACCOUNTANT) are seeded as `isSystem` rows
+// on clinic creation; owners can also define custom roles per clinic by
+// picking from this enum.
+enum ClinicPermission {
+  // Bookings
+  BOOKING_VIEW
+  BOOKING_VIEW_OWN          // doctors: only their own bookings
+  BOOKING_ACCEPT
+  BOOKING_REJECT
+  BOOKING_RESCHEDULE
+  BOOKING_CANCEL
+  BOOKING_DELETE
+
+  // Patients
+  PATIENT_VIEW
+  PATIENT_CONTACT           // phone / e-mail (PII)
+  PATIENT_MEDICAL_HISTORY
+
+  // Payments
+  PAYMENT_VIEW
+  PAYMENT_CONFIRM_CASH
+  PAYMENT_REFUND
+  PAYMENT_REPORTS
+
+  // Services / pricing
+  SERVICE_VIEW
+  SERVICE_PRICE_UPDATE
+  SERVICE_ACTIVATE
+
+  // Team
+  TEAM_VIEW
+  TEAM_INVITE
+  TEAM_REMOVE
+  TEAM_ROLE_CHANGE
+
+  // Clinic profile
+  CLINIC_PROFILE_EDIT
+  CLINIC_SCHEDULE_EDIT
+  CLINIC_DELETE
+
+  // Reports
+  REPORTS_DAILY
+  REPORTS_MONTHLY
+  REPORTS_FINANCIAL
+  REPORTS_EXPORT
+
+  // Doctors
+  DOCTOR_MANAGE
+  DOCTOR_SCHEDULE_EDIT
+
+  // Audit trail
+  AUDIT_VIEW
+}
+
+/// Per-clinic role definition. Default system roles are seeded automatically
+/// (see seedClinicRoles in the migration). isSystem rows can't be renamed or
+/// deleted via the team API.
+model ClinicRole {
+  id          String             @id @default(uuid())
+  clinicId    String
+  name        String
+  description String?
+  permissions ClinicPermission[]
+  isSystem    Boolean            @default(false)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  clinic      Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  memberships ClinicMembership[]
+
+  @@unique([clinicId, name])
+  @@index([clinicId])
+}
+
+/// Links a User to a Clinic with a role. A single user may be a member of
+/// many clinics (multi-clinic switching is supported); a clinic has many
+/// members. The legacy User.clinicId column is kept as the user's "default"
+/// clinic for backwards compatibility with code that still reads it; new
+/// queries should resolve membership via this table.
+model ClinicMembership {
+  id         String   @id @default(uuid())
+  clinicId   String
+  userId     String
+  roleId     String
+  invitedBy  String?
+  joinedAt   DateTime @default(now())
+  lastSeenAt DateTime?
+  isActive   Boolean  @default(true)
+
+  clinic     Clinic     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       ClinicRole @relation(fields: [roleId], references: [id])
+  invitedByUser User?   @relation("InvitedBy", fields: [invitedBy], references: [id])
+
+  @@unique([clinicId, userId])
+  @@index([clinicId])
+  @@index([userId])
+  @@index([isActive])
+}
+
+/// Append-only history of significant clinic actions. Used by /audit view
+/// (AUDIT_VIEW permission) so owners can trace who confirmed a payment,
+/// changed a role, removed a member, etc.
+model ClinicAuditLog {
+  id        String   @id @default(uuid())
+  clinicId  String
+  actorId   String?
+  action    String   // e.g. "booking.accept", "team.invite", "payment.confirm_cash"
+  targetType String? // e.g. "appointment", "user", "service"
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  clinic    Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  actor     User?  @relation("ClinicAuditActor", fields: [actorId], references: [id])
+
+  @@index([clinicId, createdAt])
+  @@index([actorId])
+  @@index([action])
 }
