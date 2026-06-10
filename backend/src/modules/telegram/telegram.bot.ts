@@ -8,6 +8,13 @@ import {
     getCartCount, tryCancelAppointment, clearUserCart,
     changeCartItemQty, removeCartItem,
 } from './telegram.views';
+import {
+    renderClinicToday, renderClinicPending, renderClinicBookingDetail,
+    renderCashierQueue, renderClinicReport, renderClinicTeam,
+    tryClinicAccept, tryClinicReject, tryClinicCashConfirm,
+    ClinicCtx,
+} from './clinic.views';
+import { ClinicPermission } from '@prisma/client';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const PUBLIC_BASE = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').replace(/\/+$/, '');
@@ -55,6 +62,13 @@ const LABELS: Record<Lang, Record<string, string>> = {
         contactInvalid: '❌ Telefon raqami noto\'g\'ri. Iltimos, qaytadan urinib ko\'ring.',
         contactNotOwn: '❌ Iltimos, faqat <b>o\'zingizning</b> kontaktingizni yuboring. "Telefon raqamni yuborish" tugmasidan foydalaning.',
         contactError: '❌ Xato yuz berdi. Birozdan keyin urinib ko\'ring.',
+        // ─ Clinic-side
+        clinicToday: '📋 Bugungi',
+        clinicPending: '⏳ Kutilayotgan',
+        clinicCashier: '💵 Kassa',
+        clinicReport: '📊 Hisobot',
+        clinicTeam: '👥 Jamoa',
+        clinicSwitch: '🔄 Klinikani almashtirish',
     },
     ru: {
         services: '🩺 Услуги',
@@ -82,6 +96,13 @@ const LABELS: Record<Lang, Record<string, string>> = {
         contactInvalid: '❌ Неверный номер телефона. Попробуйте снова.',
         contactNotOwn: '❌ Пожалуйста, отправьте только <b>свой собственный</b> контакт через кнопку "Отправить номер телефона".',
         contactError: '❌ Произошла ошибка. Попробуйте чуть позже.',
+        // ─ Clinic-side
+        clinicToday: '📋 Сегодня',
+        clinicPending: '⏳ Ожидающие',
+        clinicCashier: '💵 Касса',
+        clinicReport: '📊 Отчёт',
+        clinicTeam: '👥 Команда',
+        clinicSwitch: '🔄 Сменить клинику',
     },
 };
 
@@ -163,6 +184,81 @@ async function freshReplyKeyboard(userId: string | null, lang: Lang, linked: boo
 }
 
 /**
+ * Clinic-side persistent keyboard. Only shown to users with at least one
+ * active clinic membership; the patient keyboard remains underneath as a
+ * second row pair so a member can still browse the consumer side without
+ * switching context.
+ */
+function clinicReplyKeyboard(lang: Lang): Keyboard {
+    const L = LABELS[lang];
+    return new Keyboard()
+        .text(L.clinicToday).text(L.clinicPending).row()
+        .text(L.clinicCashier).text(L.clinicReport).row()
+        .text(L.clinicTeam).text(L.clinicSwitch).row()
+        .resized().persistent();
+}
+
+/**
+ * Resolve the bot user's active ClinicCtx — which clinic they're acting
+ * against, their role, permissions. Returns null when the user has no
+ * active membership (the patient keyboard alone is shown then).
+ *
+ * Multi-clinic users get the first active membership by default. /switch_clinic
+ * sets `activeClinicId` on the TelegramAccount row so subsequent ticks pick
+ * that one up.
+ */
+async function loadClinicCtx(chatId: number): Promise<ClinicCtx | null> {
+    try {
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) },
+            select: { userId: true, language: true, activeClinicId: true },
+        });
+        if (!acc?.userId) return null;
+        const memberships = await prisma.clinicMembership.findMany({
+            where: { userId: acc.userId, isActive: true },
+            include: { role: { select: { id: true, name: true, permissions: true } } },
+            orderBy: { joinedAt: 'asc' },
+        });
+        if (memberships.length === 0) return null;
+        const chosen = memberships.find(m => m.clinicId === acc.activeClinicId) ?? memberships[0];
+        return {
+            userId: acc.userId,
+            clinicId: chosen.clinicId,
+            membershipId: chosen.id,
+            roleName: chosen.role.name,
+            permissions: chosen.role.permissions,
+            lang: acc.language === 'ru' ? 'ru' : 'uz',
+        };
+    } catch (e) {
+        console.error('[bot] loadClinicCtx failed:', e);
+        return null;
+    }
+}
+
+/** Patient + (optionally) clinic keyboard stacked together. */
+async function smartKeyboard(userId: string | null, lang: Lang, linked: boolean, chatId: number): Promise<Keyboard> {
+    if (!linked || !userId) return replyKeyboard(lang, linked, 0);
+    const [count, ctx] = await Promise.all([
+        getCartCount(userId).catch(() => 0),
+        loadClinicCtx(chatId),
+    ]);
+    const L = LABELS[lang];
+    const kb = new Keyboard();
+    if (ctx) {
+        // Clinic rows first — that's the operational context for members
+        kb.text(L.clinicToday).text(L.clinicPending).row()
+          .text(L.clinicCashier).text(L.clinicReport).row()
+          .text(L.clinicTeam).text(L.profile).row();
+    } else {
+        kb.text(L.services).text(L.clinics).row()
+          .text(L.doctors).text(L.skory).row()
+          .text(L.bookings).text(count > 0 ? `${L.cart} (${count})` : L.cart).row()
+          .text(L.notifs).text(L.profile).row();
+    }
+    return kb.resized().persistent();
+}
+
+/**
  * Routes a tapped reply-keyboard label. Returns either:
  *   - { kind: 'url' } — public/browse section that opens in the user's browser
  *   - { kind: 'view' } — patient-private content rendered natively in the bot
@@ -203,6 +299,82 @@ function routeReplyLabel(lang: Lang, text: string): ReplyRoute | null {
     };
     if (views[text]) return { kind: 'view', ...views[text] };
     return null;
+}
+
+type ClinicView = 'today' | 'pending' | 'cashier' | 'report' | 'team' | 'switch';
+
+function routeClinicLabel(lang: Lang, text: string): ClinicView | null {
+    const map: Record<string, ClinicView> = {
+        [LABELS.uz.clinicToday]: 'today',  [LABELS.ru.clinicToday]: 'today',
+        [LABELS.uz.clinicPending]: 'pending', [LABELS.ru.clinicPending]: 'pending',
+        [LABELS.uz.clinicCashier]: 'cashier', [LABELS.ru.clinicCashier]: 'cashier',
+        [LABELS.uz.clinicReport]: 'report',   [LABELS.ru.clinicReport]: 'report',
+        [LABELS.uz.clinicTeam]: 'team',       [LABELS.ru.clinicTeam]: 'team',
+        [LABELS.uz.clinicSwitch]: 'switch',   [LABELS.ru.clinicSwitch]: 'switch',
+    };
+    return map[text] || null;
+}
+
+async function handleClinicReply(ctx: any, ctxCl: ClinicCtx, view: ClinicView): Promise<void> {
+    const reply = async (text: string, keyboard: any) =>
+        ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+
+    if (view === 'today') {
+        if (!ctxCl.permissions.includes(ClinicPermission.BOOKING_VIEW)
+            && !ctxCl.permissions.includes(ClinicPermission.BOOKING_VIEW_OWN)) {
+            await ctx.reply('Ruxsat yo\'q'); return;
+        }
+        const r = await renderClinicToday(ctxCl); await reply(r.text, r.keyboard); return;
+    }
+    if (view === 'pending') {
+        if (!ctxCl.permissions.includes(ClinicPermission.BOOKING_VIEW)) {
+            await ctx.reply('Ruxsat yo\'q'); return;
+        }
+        const r = await renderClinicPending(ctxCl); await reply(r.text, r.keyboard); return;
+    }
+    if (view === 'cashier') {
+        if (!ctxCl.permissions.includes(ClinicPermission.PAYMENT_VIEW)
+            && !ctxCl.permissions.includes(ClinicPermission.PAYMENT_CONFIRM_CASH)) {
+            await ctx.reply('Ruxsat yo\'q'); return;
+        }
+        const r = await renderCashierQueue(ctxCl); await reply(r.text, r.keyboard); return;
+    }
+    if (view === 'report') {
+        if (!ctxCl.permissions.includes(ClinicPermission.REPORTS_DAILY)) {
+            await ctx.reply('Ruxsat yo\'q'); return;
+        }
+        const r = await renderClinicReport(ctxCl); await reply(r.text, r.keyboard); return;
+    }
+    if (view === 'team') {
+        if (!ctxCl.permissions.includes(ClinicPermission.TEAM_VIEW)) {
+            await ctx.reply('Ruxsat yo\'q'); return;
+        }
+        const r = await renderClinicTeam(ctxCl); await reply(r.text, r.keyboard); return;
+    }
+    if (view === 'switch') {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const memberships = await prisma.clinicMembership.findMany({
+            where: { userId: ctxCl.userId, isActive: true },
+            include: { clinic: { select: { id: true, nameUz: true } }, role: { select: { name: true } } },
+        });
+        if (memberships.length < 2) {
+            await ctx.reply(ctxCl.lang === 'ru'
+                ? 'Вы состоите только в одной клинике.'
+                : 'Siz faqat bitta klinika a\'zosisiz.');
+            return;
+        }
+        const kb = new InlineKeyboard();
+        for (const m of memberships) {
+            const tag = m.clinicId === ctxCl.clinicId ? ' ✓' : '';
+            kb.text(`${m.clinic.nameUz} (${m.role.name})${tag}`, `clinic:switch:${m.clinicId}`).row();
+        }
+        await ctx.reply(
+            ctxCl.lang === 'ru' ? 'Выберите клинику:' : 'Klinikani tanlang:',
+            { reply_markup: kb },
+        );
+        return;
+    }
 }
 
 async function lookupLang(chatId: number): Promise<Lang> {
@@ -319,7 +491,7 @@ function registerHandlers(bot: Bot) {
                 const intro = lang === 'ru'
                     ? 'С возвращением! Меню ниже 👇'
                     : 'Qaytib kelganingiz uchun rahmat! Menyu pastda 👇';
-                const kb = await freshReplyKeyboard(existing!.userId!, lang, true);
+                const kb = await smartKeyboard(existing!.userId!, lang, true, chatId);
                 await ctx.reply(intro, { reply_markup: kb });
                 await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
                 return;
@@ -378,7 +550,7 @@ function registerHandlers(bot: Bot) {
                     ? '✅ Аккаунт привязан!\n\nТеперь брони, оплаты и напоминания будут приходить сюда.'
                     : '✅ Hisobingiz bog\'landi!\n\nEndi bron, to\'lov va eslatma xabarlarini shu yerda olasiz.',
             );
-            const kb = await freshReplyKeyboard(justLinked?.userId ?? null, lang, true);
+            const kb = await smartKeyboard(justLinked?.userId ?? null, lang, true, chatId);
             await ctx.reply(LABELS[lang].replyHint, { reply_markup: kb });
             await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
         } catch (e: any) {
@@ -429,7 +601,7 @@ function registerHandlers(bot: Bot) {
         });
         const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
         const linked = Boolean(acc?.userId);
-        const kb = await freshReplyKeyboard(acc?.userId ?? null, lang, linked);
+        const kb = await smartKeyboard(acc?.userId ?? null, lang, linked, chatId);
         await ctx.reply(LABELS[lang].replyHint, { reply_markup: kb });
         await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, linked) });
     });
@@ -560,7 +732,7 @@ function registerHandlers(bot: Bot) {
 
         const welcome = result.created ? LABELS[lang].registerSuccess : LABELS[lang].loginSuccess;
         // Replace the share-phone keyboard with the persistent main keyboard.
-        const kb = await freshReplyKeyboard(result.user?.id ?? null, lang, true);
+        const kb = await smartKeyboard(result.user?.id ?? null, lang, true, chatId);
         await ctx.reply(welcome, { reply_markup: kb });
         await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
     });
@@ -688,6 +860,144 @@ function registerHandlers(bot: Bot) {
         await safeEdit(ctx, list.text, list.keyboard);
     });
 
+    // ─── Clinic callbacks ──────────────────────────────────────────────────
+    const resolveClinic = async (cbCtx: any): Promise<ClinicCtx | null> => {
+        const chatId = cbCtx.chat?.id;
+        if (!chatId) { await cbCtx.answerCallbackQuery(); return null; }
+        const cl = await loadClinicCtx(chatId);
+        if (!cl) {
+            await cbCtx.answerCallbackQuery({
+                text: 'Klinikada a\'zoligingiz topilmadi',
+                show_alert: true,
+            });
+            return null;
+        }
+        return cl;
+    };
+
+    bot.callbackQuery(/^clinic:today$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        await ctx.answerCallbackQuery();
+        const r = await renderClinicToday(cl);
+        await safeEdit(ctx, r.text, r.keyboard);
+    });
+
+    bot.callbackQuery(/^clinic:pending$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        await ctx.answerCallbackQuery();
+        const r = await renderClinicPending(cl);
+        await safeEdit(ctx, r.text, r.keyboard);
+    });
+
+    bot.callbackQuery(/^clinic:report$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        await ctx.answerCallbackQuery();
+        const r = await renderClinicReport(cl);
+        await safeEdit(ctx, r.text, r.keyboard);
+    });
+
+    bot.callbackQuery(/^clinic:appt:(.+)$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        await ctx.answerCallbackQuery();
+        const r = await renderClinicBookingDetail(cl, ctx.match[1]);
+        if (!r) { await ctx.reply('Bron topilmadi'); return; }
+        await safeEdit(ctx, r.text, r.keyboard);
+    });
+
+    bot.callbackQuery(/^clinic:accept:(.+)$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        if (!cl.permissions.includes(ClinicPermission.BOOKING_ACCEPT)) {
+            await ctx.answerCallbackQuery({ text: 'Ruxsat yo\'q', show_alert: true });
+            return;
+        }
+        const result = await tryClinicAccept(cl, ctx.match[1]);
+        if (!result.ok) {
+            await ctx.answerCallbackQuery({ text: result.error || 'Xato', show_alert: true });
+            return;
+        }
+        await ctx.answerCallbackQuery({ text: '✅ Qabul qilindi' });
+        const r = await renderClinicBookingDetail(cl, ctx.match[1]);
+        if (r) await safeEdit(ctx, r.text, r.keyboard);
+    });
+
+    bot.callbackQuery(/^clinic:reject:(.+)$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        if (!cl.permissions.includes(ClinicPermission.BOOKING_REJECT)) {
+            await ctx.answerCallbackQuery({ text: 'Ruxsat yo\'q', show_alert: true });
+            return;
+        }
+        // For now we cancel with a default reason; future iteration: prompt for text.
+        const result = await tryClinicReject(cl, ctx.match[1], 'Klinika tomonidan rad etildi');
+        if (!result.ok) {
+            await ctx.answerCallbackQuery({ text: result.error || 'Xato', show_alert: true });
+            return;
+        }
+        await ctx.answerCallbackQuery({ text: '❌ Rad qilindi' });
+        const r = await renderClinicBookingDetail(cl, ctx.match[1]);
+        if (r) await safeEdit(ctx, r.text, r.keyboard);
+    });
+
+    bot.callbackQuery(/^clinic:cash:(.+):confirm$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        await ctx.answerCallbackQuery();
+        const id = ctx.match[1];
+        const appt = await prisma.appointment.findFirst({
+            where: { id, clinicId: cl.clinicId },
+            select: { price: true },
+        });
+        const amount = appt?.price ?? 0;
+        const kb = new InlineKeyboard()
+            .text(`✅ ${amount.toLocaleString('uz-UZ')} UZS qabul`, `clinic:cash:${id}:do:${amount}`).row()
+            .text('↩️ Bekor', `clinic:appt:${id}`);
+        await safeEdit(ctx,
+            `💵 <b>Naqd to'lov tasdiqlash</b>\n\nSumma: <b>${amount.toLocaleString('uz-UZ')} UZS</b>`,
+            kb,
+        );
+    });
+
+    bot.callbackQuery(/^clinic:cash:(.+):do:(\d+)$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        if (!cl.permissions.includes(ClinicPermission.PAYMENT_CONFIRM_CASH)) {
+            await ctx.answerCallbackQuery({ text: 'Ruxsat yo\'q', show_alert: true });
+            return;
+        }
+        const [, id, amountStr] = ctx.match;
+        const result = await tryClinicCashConfirm(cl, id, Number(amountStr));
+        if (!result.ok) {
+            await ctx.answerCallbackQuery({ text: result.error || 'Xato', show_alert: true });
+            return;
+        }
+        await ctx.answerCallbackQuery({ text: '✅ Tasdiqlandi' });
+        const r = await renderClinicBookingDetail(cl, id);
+        if (r) await safeEdit(ctx, r.text, r.keyboard);
+    });
+
+    bot.callbackQuery(/^clinic:switch:(.+)$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const newClinicId = ctx.match[1];
+        // Only persist if the user is actually a member.
+        const tg = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) },
+            select: { userId: true },
+        });
+        if (!tg?.userId) { await ctx.answerCallbackQuery(); return; }
+        const member = await prisma.clinicMembership.findFirst({
+            where: { userId: tg.userId, clinicId: newClinicId, isActive: true },
+            include: { clinic: { select: { nameUz: true } } },
+        });
+        if (!member) {
+            await ctx.answerCallbackQuery({ text: 'A\'zo emassiz', show_alert: true });
+            return;
+        }
+        await (prisma as any).telegramAccount.update({
+            where: { chatId: BigInt(chatId) },
+            data: { activeClinicId: newClinicId },
+        });
+        await ctx.answerCallbackQuery({ text: `✓ ${member.clinic.nameUz}` });
+        try { await ctx.editMessageText(`✓ Klinika almashtirildi: <b>${member.clinic.nameUz}</b>`, { parse_mode: 'HTML' }); } catch {}
+    });
+
     bot.callbackQuery(/^cart:clear:confirm$/, async (ctx) => {
         const chatId = ctx.chat?.id;
         if (!chatId) { await ctx.answerCallbackQuery(); return; }
@@ -804,6 +1114,23 @@ function registerHandlers(bot: Bot) {
         });
         const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
         const linked = Boolean(acc?.userId);
+
+        // ── Clinic keyboard hits first ───────────────────────────────────
+        const clinicRoute = routeClinicLabel(lang, text);
+        if (clinicRoute && linked) {
+            const ctxCl = await loadClinicCtx(chatId);
+            if (!ctxCl) {
+                await ctx.reply(LABELS[lang].notLinkedHint);
+                return;
+            }
+            try {
+                await handleClinicReply(ctx, ctxCl, clinicRoute);
+            } catch (e) {
+                console.error('[bot] clinic view failed:', e);
+                await ctx.reply('Xato yuz berdi');
+            }
+            return;
+        }
 
         const route = routeReplyLabel(lang, text);
         if (!route) {

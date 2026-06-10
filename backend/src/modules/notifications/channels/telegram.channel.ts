@@ -1,9 +1,25 @@
+import { ClinicPermission } from '@prisma/client';
 import prisma from '../../../config/database';
 import { NotificationEvent } from '../notification.types';
 import { renderTemplate } from '../notification.templates';
 import { NotificationChannel, DeliveryResult } from './channel';
 import { isTelegramConfigured, getBot } from '../../telegram/telegram.bot';
 import { sendMessage } from '../../telegram/telegram.service';
+
+/**
+ * Pick the ClinicPermission that gates each clinic-targeted notification. The
+ * channel only fans out to members whose role holds at least one matching
+ * permission, so a CASHIER doesn't get spammed with new-booking alerts and a
+ * DOCTOR doesn't get cash-pending pings.
+ */
+function requiredPermsForEvent(type: NotificationEvent['type']): ClinicPermission[] {
+    switch (type) {
+        case 'clinic_new_booking':           return [ClinicPermission.BOOKING_VIEW, ClinicPermission.BOOKING_ACCEPT];
+        case 'clinic_patient_checked_in':    return [ClinicPermission.BOOKING_VIEW, ClinicPermission.PAYMENT_CONFIRM_CASH];
+        case 'clinic_cash_pending':          return [ClinicPermission.PAYMENT_CONFIRM_CASH, ClinicPermission.PAYMENT_VIEW];
+        default:                              return []; // empty → no perm gate; everyone bound gets it
+    }
+}
 
 /**
  * Send the rendered telegram body to every TelegramAccount bound to the
@@ -31,18 +47,26 @@ export const telegramChannel: NotificationChannel = {
             }
 
             if (event.clinicId) {
-                const admins = await prisma.user.findMany({
+                // Resolve recipients via active ClinicMembership rather than the
+                // legacy User.clinicId column so multi-account clinics work, and
+                // gate by the permission appropriate for the event type so the
+                // RECEPTIONIST gets new-booking pings and the CASHIER gets cash
+                // pings (instead of every member spamming every event).
+                const requiredPerms = requiredPermsForEvent(event.type as any);
+                const memberships = await prisma.clinicMembership.findMany({
                     where: {
                         clinicId: event.clinicId,
-                        role: { in: ['CLINIC_ADMIN', 'PENDING_CLINIC'] },
                         isActive: true,
+                        ...(requiredPerms.length > 0
+                            ? { role: { permissions: { hasSome: requiredPerms } } }
+                            : {}),
                     },
-                    select: { id: true },
+                    select: { userId: true },
                 });
-                if (admins.length) {
-                    const adminIds = admins.map(a => a.id);
+                if (memberships.length) {
+                    const memberIds = memberships.map(m => m.userId);
                     const accs = await (prisma as any).telegramAccount.findMany({
-                        where: { userId: { in: adminIds }, isBlocked: false },
+                        where: { userId: { in: memberIds }, isBlocked: false },
                         select: { chatId: true, language: true },
                     });
                     for (const a of accs) targets.push({ chatId: a.chatId, language: a.language === 'ru' ? 'ru' : 'uz' });

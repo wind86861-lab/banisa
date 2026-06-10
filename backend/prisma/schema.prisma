@@ -1131,6 +1131,9 @@ model TelegramAccount {
   isBlocked      Boolean  @default(false)
   linkedAt       DateTime @default(now())
   lastSeenAt     DateTime @default(now())
+  // Multi-clinic users pick which clinic the bot keyboard acts against
+  // via /switch_clinic. NULL = use the first active membership.
+  activeClinicId String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
