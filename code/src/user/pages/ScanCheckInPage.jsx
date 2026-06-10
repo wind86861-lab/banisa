@@ -65,21 +65,54 @@ export default function ScanCheckInPage() {
             );
         }
 
+        const finalize = (decoded) => {
+            const secret = parseSecret(decoded);
+            if (!secret) return false;
+            setState('done');
+            const geo = geoRef.current;
+            const params = geo ? `?lat=${geo.lat}&lng=${geo.lng}` : '';
+            navigate(`/checkin/${secret}${params}`, { replace: true });
+            return true;
+        };
+
+        // ─── Telegram Mini App native scanner (preferred) ──────────────
+        // html5-qrcode relies on getUserMedia, which is unreliable inside
+        // Telegram WebViews on some Android/iOS builds — the permission
+        // dialog accepts but the <video> stream never paints, leaving the
+        // patient staring at a black box. Telegram's own showScanQrPopup
+        // delegates to the platform camera so it always works once the
+        // user is in a Mini App.
+        const tg = typeof window !== 'undefined' ? window.Telegram?.WebApp : null;
+        if (tg && typeof tg.showScanQrPopup === 'function' && tg.initData) {
+            try {
+                setState('scanning');
+                tg.showScanQrPopup(
+                    { text: 'Klinika QR kodini skanlang' },
+                    (decoded) => {
+                        if (finalize(decoded)) {
+                            try { tg.closeScanQrPopup?.(); } catch { /* ignore */ }
+                            return true; // tells Telegram to close the popup
+                        }
+                        return false; // keep scanning
+                    },
+                );
+                return () => {
+                    try { tg.closeScanQrPopup?.(); } catch { /* ignore */ }
+                };
+            } catch (e) {
+                // Older clients lacking the API fall through to html5-qrcode.
+                console.warn('[checkin] showScanQrPopup failed, falling back:', e);
+            }
+        }
+
+        // ─── Browser fallback: html5-qrcode + getUserMedia ─────────────
         const scanner = new Html5Qrcode(READER_ID, { verbose: false });
         scannerRef.current = scanner;
 
         const onSuccess = async (decoded) => {
-            const secret = parseSecret(decoded);
-            if (!secret) return; // keep scanning until we recognize the format
-            try {
-                await scanner.stop();
-                await scanner.clear();
-            } catch { /* ignore */ }
-            setState('done');
-            // Hand off to the unified check-in result page.
-            const geo = geoRef.current;
-            const params = geo ? `?lat=${geo.lat}&lng=${geo.lng}` : '';
-            navigate(`/checkin/${secret}${params}`, { replace: true });
+            if (!parseSecret(decoded)) return;
+            try { await scanner.stop(); await scanner.clear(); } catch { /* ignore */ }
+            finalize(decoded);
         };
 
         const start = async () => {
@@ -91,7 +124,6 @@ export default function ScanCheckInPage() {
                     () => { /* per-frame errors are silent */ },
                 );
                 setState('scanning');
-                // Probe torch support after start; not all browsers expose it.
                 try {
                     const caps = scanner.getRunningTrackCapabilities && scanner.getRunningTrackCapabilities();
                     if (caps && caps.torch) setTorchSupported(true);
