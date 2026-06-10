@@ -11,7 +11,6 @@ const PAGE_TITLES = {
     '/clinic/profile':    'Klinika Profili',
     '/clinic/bookings':   'Bronlar',
     '/clinic/discounts':  'Chegirmalar',
-    '/clinic/staff':      'Xodimlar',
     '/clinic/reports':    'Hisobotlar',
     '/clinic/notifications': 'Bildirishnomalar',
     '/clinic/cashier':    'Kassir navbati',

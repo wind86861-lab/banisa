@@ -146,51 +146,6 @@ export const useConfirmCash = () => {
     });
 };
 
-// ─── Staff ────────────────────────────────────────────────────────────────────
-export const useClinicStaff = (filters = {}) =>
-    useQuery({
-        queryKey: ['clinic', 'staff', filters],
-        queryFn: async () => {
-            const params = new URLSearchParams();
-            if (filters.search) params.append('search', filters.search);
-            if (filters.page) params.append('page', String(filters.page));
-            const { data } = await api.get(`/clinic/staff?${params}`);
-            return { data: data.data ?? [], meta: data.meta ?? {} };
-        },
-    });
-
-export const useCreateStaff = () => {
-    const qc = useQueryClient();
-    return useMutation({
-        mutationFn: async (payload) => {
-            const { data } = await api.post('/clinic/staff', payload);
-            return data.data;
-        },
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['clinic', 'staff'] }),
-    });
-};
-
-export const useUpdateStaff = () => {
-    const qc = useQueryClient();
-    return useMutation({
-        mutationFn: async ({ id, ...payload }) => {
-            const { data } = await api.put(`/clinic/staff/${id}`, payload);
-            return data.data;
-        },
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['clinic', 'staff'] }),
-    });
-};
-
-export const useDeleteStaff = () => {
-    const qc = useQueryClient();
-    return useMutation({
-        mutationFn: async (id) => {
-            await api.delete(`/clinic/staff/${id}`);
-        },
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['clinic', 'staff'] }),
-    });
-};
-
 // ─── Discounts ────────────────────────────────────────────────────────────────
 export const useClinicDiscounts = (filters = {}) =>
     useQuery({

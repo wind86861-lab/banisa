@@ -50,7 +50,6 @@ import ClinicDoctors from './clinic/pages/ClinicDoctors';
 import ClinicAmbulances from './clinic/pages/ClinicAmbulances';
 import AdminPaymeOversight from './admin/pages/AdminPaymeOversight';
 import AdminSpecialties from './admin/pages/AdminSpecialties';
-import ClinicStaff from './clinic/pages/ClinicStaff';
 import ClinicTeam from './clinic/pages/ClinicTeam';
 import ClinicReports from './clinic/pages/ClinicReports';
 import ClinicNotifications from './clinic/pages/ClinicNotifications';
@@ -211,7 +210,6 @@ function App() {
                                         <Route path="payments" element={<ClinicPayments />} />
                                         <Route path="doctors" element={<ClinicDoctors />} />
                                         <Route path="ambulances" element={<ClinicAmbulances />} />
-                                        <Route path="staff" element={<ClinicStaff />} />
                                         <Route path="team" element={<ClinicTeam />} />
                                         <Route path="reports" element={<ClinicReports />} />
                                         <Route path="notifications" element={<ClinicNotifications />} />

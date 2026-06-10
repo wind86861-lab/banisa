@@ -271,7 +271,7 @@ export default function ClinicDashboard() {
                 {[
                     { icon: <Calendar size={20} />, label: 'Bronlar', sub: "Barcha bronlarni ko'rish", path: '/clinic/bookings', color: '#00C9A7', bg: 'rgba(0,201,167,0.1)' },
                     { icon: <Briefcase size={20} />, label: 'Xizmatlar', sub: 'Xizmatlarni boshqarish', path: '/clinic/services', color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
-                    { icon: <Users size={20} />, label: 'Xodimlar', sub: 'Shifokorlar va xodimlar', path: '/clinic/staff', color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
+                    { icon: <Users size={20} />, label: 'Jamoa', sub: 'Klinika hisoblari va rollar', path: '/clinic/team', color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
                     { icon: <Activity size={20} />, label: 'Profil', sub: "Klinika ma'lumotlari", path: '/clinic/profile', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
                 ].map((a, i) => (
                     <div key={i} className="cd-action-card" onClick={() => navigate(a.path)}>
