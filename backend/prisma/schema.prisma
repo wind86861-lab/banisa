@@ -1134,6 +1134,11 @@ model TelegramAccount {
   // Multi-clinic users pick which clinic the bot keyboard acts against
   // via /switch_clinic. NULL = use the first active membership.
   activeClinicId String?
+  // Bot conversational state — set by wizards (patient search, booking,
+  // reschedule). Cleared when the wizard advances/finishes/cancels. Keeps
+  // multi-step flows resilient across restarts without a separate session
+  // store. Shape: { kind: 'search'|'reschedule:<id>'|'booking:<step>', data?: any }.
+  wizardState   Json?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

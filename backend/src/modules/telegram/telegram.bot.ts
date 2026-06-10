@@ -14,6 +14,13 @@ import {
     tryClinicAccept, tryClinicReject, tryClinicCashConfirm,
     ClinicCtx,
 } from './clinic.views';
+import {
+    getWizardState, setWizardState,
+    promptPatientSearch, runPatientSearch, renderPatientProfile,
+    promptReschedule, runReschedule,
+    startBookingWizard, bookingStep1Phone, bookingStep2Services,
+    bookingStep3DateTime, bookingStep4Confirm, bookingFinalize,
+} from './clinic.wizards';
 import { ClinicPermission } from '@prisma/client';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
@@ -69,6 +76,8 @@ const LABELS: Record<Lang, Record<string, string>> = {
         clinicReport: '📊 Hisobot',
         clinicTeam: '👥 Jamoa',
         clinicSwitch: '🔄 Klinikani almashtirish',
+        clinicSearch: '🔍 Bemor qidirish',
+        clinicNewBooking: '➕ Yangi bron',
     },
     ru: {
         services: '🩺 Услуги',
@@ -103,6 +112,8 @@ const LABELS: Record<Lang, Record<string, string>> = {
         clinicReport: '📊 Отчёт',
         clinicTeam: '👥 Команда',
         clinicSwitch: '🔄 Сменить клинику',
+        clinicSearch: '🔍 Поиск пациента',
+        clinicNewBooking: '➕ Новая бронь',
     },
 };
 
@@ -248,6 +259,7 @@ async function smartKeyboard(userId: string | null, lang: Lang, linked: boolean,
         // Clinic rows first — that's the operational context for members
         kb.text(L.clinicToday).text(L.clinicPending).row()
           .text(L.clinicCashier).text(L.clinicReport).row()
+          .text(L.clinicSearch).text(L.clinicNewBooking).row()
           .text(L.clinicTeam).text(L.profile).row();
     } else {
         kb.text(L.services).text(L.clinics).row()
@@ -301,7 +313,7 @@ function routeReplyLabel(lang: Lang, text: string): ReplyRoute | null {
     return null;
 }
 
-type ClinicView = 'today' | 'pending' | 'cashier' | 'report' | 'team' | 'switch';
+type ClinicView = 'today' | 'pending' | 'cashier' | 'report' | 'team' | 'switch' | 'search' | 'newbooking';
 
 function routeClinicLabel(lang: Lang, text: string): ClinicView | null {
     const map: Record<string, ClinicView> = {
@@ -311,6 +323,8 @@ function routeClinicLabel(lang: Lang, text: string): ClinicView | null {
         [LABELS.uz.clinicReport]: 'report',   [LABELS.ru.clinicReport]: 'report',
         [LABELS.uz.clinicTeam]: 'team',       [LABELS.ru.clinicTeam]: 'team',
         [LABELS.uz.clinicSwitch]: 'switch',   [LABELS.ru.clinicSwitch]: 'switch',
+        [LABELS.uz.clinicSearch]: 'search',   [LABELS.ru.clinicSearch]: 'search',
+        [LABELS.uz.clinicNewBooking]: 'newbooking', [LABELS.ru.clinicNewBooking]: 'newbooking',
     };
     return map[text] || null;
 }
@@ -351,6 +365,26 @@ async function handleClinicReply(ctx: any, ctxCl: ClinicCtx, view: ClinicView): 
         }
         const r = await renderClinicTeam(ctxCl); await reply(r.text, r.keyboard); return;
     }
+    if (view === 'search') {
+        if (!ctxCl.permissions.includes(ClinicPermission.PATIENT_VIEW)) {
+            await ctx.reply('Ruxsat yo\'q'); return;
+        }
+        const chatId = ctx.chat?.id;
+        if (chatId) await setWizardState(chatId, { kind: 'search' });
+        const r = await promptPatientSearch(ctxCl);
+        await reply(r.text, r.keyboard);
+        return;
+    }
+    if (view === 'newbooking') {
+        if (!ctxCl.permissions.includes(ClinicPermission.BOOKING_ACCEPT)) {
+            await ctx.reply('Ruxsat yo\'q'); return;
+        }
+        const chatId = ctx.chat?.id;
+        if (chatId) await setWizardState(chatId, { kind: 'booking', data: { step: 1 } });
+        const r = await startBookingWizard(ctxCl);
+        await reply(r.text, r.keyboard);
+        return;
+    }
     if (view === 'switch') {
         const chatId = ctx.chat?.id;
         if (!chatId) return;
@@ -375,6 +409,63 @@ async function handleClinicReply(ctx: any, ctxCl: ClinicCtx, view: ClinicView): 
         );
         return;
     }
+}
+
+/**
+ * Routes free-text the patient/operator just sent into the active wizard.
+ * Each wizard owns its parser; on success/failure the wizard state is
+ * either advanced (data merged) or cleared so the keyboard goes back to
+ * normal text-dispatch.
+ */
+async function handleWizardText(ctx: any, ctxCl: ClinicCtx, wizard: any, text: string): Promise<void> {
+    const reply = async (t: string, kb: any) => ctx.reply(t, { parse_mode: 'HTML', reply_markup: kb });
+    const chatId = ctx.chat?.id;
+
+    if (wizard.kind === 'search') {
+        const r = await runPatientSearch(ctxCl, text);
+        if (chatId) await setWizardState(chatId, null);
+        await reply(r.text, r.keyboard);
+        return;
+    }
+
+    if (typeof wizard.kind === 'string' && wizard.kind.startsWith('reschedule:')) {
+        const apptId = wizard.kind.slice('reschedule:'.length);
+        const r = await runReschedule(ctxCl, apptId, text);
+        if (chatId) await setWizardState(chatId, null);
+        if (!r.ok) {
+            await ctx.reply(`❌ ${r.error}`);
+            return;
+        }
+        await ctx.reply(`✅ Ko'chirildi: ${r.newAt?.toISOString().slice(0, 16)}`);
+        const detail = await renderClinicBookingDetail(ctxCl, apptId);
+        if (detail) await reply(detail.text, detail.keyboard);
+        return;
+    }
+
+    if (wizard.kind === 'booking' && wizard.data?.step === 1) {
+        const r = await bookingStep1Phone(ctxCl, text);
+        if (r.next === 'service' && chatId) {
+            await setWizardState(chatId, { kind: 'booking', data: { ...wizard.data, step: 2, ...r.data } });
+        }
+        await reply(r.text, r.keyboard);
+        return;
+    }
+
+    if (wizard.kind === 'booking' && wizard.data?.step === 3) {
+        // Datetime input → step 4 (confirmation preview)
+        const preview = await bookingStep4Confirm(ctxCl, wizard.data, text);
+        if (!preview.ok) {
+            await ctx.reply(`❌ ${preview.error}`);
+            return;
+        }
+        if (chatId) await setWizardState(chatId, { kind: 'booking', data: { ...wizard.data, step: 4 } });
+        if (preview.preview) await reply(preview.preview.text, preview.preview.keyboard);
+        return;
+    }
+
+    // Unknown state: drop it and nudge with the main keyboard.
+    if (chatId) await setWizardState(chatId, null);
+    await ctx.reply('Wizard yopildi. Davom etish uchun tugmani bosing.');
 }
 
 async function lookupLang(chatId: number): Promise<Lang> {
@@ -972,6 +1063,97 @@ function registerHandlers(bot: Bot) {
         if (r) await safeEdit(ctx, r.text, r.keyboard);
     });
 
+    // ─── Clinic wizards ───────────────────────────────────────────────────
+    bot.callbackQuery(/^clinic:wizard:cancel$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (chatId) await setWizardState(chatId, null);
+        await ctx.answerCallbackQuery({ text: 'Bekor qilindi' });
+        try { await ctx.editMessageText('↩️ Bekor qilindi'); } catch {}
+    });
+
+    bot.callbackQuery(/^clinic:search$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        const chatId = ctx.chat?.id;
+        if (chatId) await setWizardState(chatId, { kind: 'search' });
+        await ctx.answerCallbackQuery();
+        const r = await promptPatientSearch(cl);
+        await safeEdit(ctx, r.text, r.keyboard);
+    });
+
+    bot.callbackQuery(/^clinic:patient:(.+)$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        await ctx.answerCallbackQuery();
+        const r = await renderPatientProfile(cl, ctx.match[1]);
+        if (!r) { await ctx.reply('Bemor topilmadi'); return; }
+        await safeEdit(ctx, r.text, r.keyboard);
+    });
+
+    // Reschedule entry — sets the wizard state, then awaits a DD.MM HH:MM message
+    bot.callbackQuery(/^clinic:resched:(.+)$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        if (!cl.permissions.includes(ClinicPermission.BOOKING_RESCHEDULE)) {
+            await ctx.answerCallbackQuery({ text: 'Ruxsat yo\'q', show_alert: true });
+            return;
+        }
+        const id = ctx.match[1];
+        const chatId = ctx.chat?.id;
+        if (chatId) await setWizardState(chatId, { kind: `reschedule:${id}` as any });
+        await ctx.answerCallbackQuery();
+        const r = await promptReschedule(cl, id);
+        await safeEdit(ctx, r.text, r.keyboard);
+    });
+
+    // ─── Booking wizard inline steps ─────────────────────────────────────
+    bot.callbackQuery(/^clinic:book:type:(DIAGNOSTIC|SURGICAL)$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        const type = ctx.match[1] as 'DIAGNOSTIC' | 'SURGICAL';
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const wizard = await getWizardState(chatId);
+        if (wizard.kind !== 'booking') {
+            await ctx.answerCallbackQuery({ text: 'Wizard topilmadi', show_alert: true });
+            return;
+        }
+        await ctx.answerCallbackQuery();
+        await setWizardState(chatId, { kind: 'booking', data: { ...wizard.data, step: 2, serviceType: type } });
+        const r = await bookingStep2Services(cl, type);
+        await safeEdit(ctx, r.text, r.keyboard);
+    });
+
+    bot.callbackQuery(/^clinic:book:svc:(DIAGNOSTIC|SURGICAL):([^:]+):(\d+)$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        const [, , serviceId, priceStr] = ctx.match;
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const wizard = await getWizardState(chatId);
+        if (wizard.kind !== 'booking') { await ctx.answerCallbackQuery(); return; }
+        await ctx.answerCallbackQuery();
+        await setWizardState(chatId, {
+            kind: 'booking',
+            data: { ...wizard.data, step: 3, serviceId, price: Number(priceStr) },
+        });
+        const r = bookingStep3DateTime();
+        await safeEdit(ctx, r.text, r.keyboard);
+    });
+
+    bot.callbackQuery(/^clinic:book:save:(.+)$/, async (ctx) => {
+        const cl = await resolveClinic(ctx); if (!cl) return;
+        const iso = ctx.match[1];
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const wizard = await getWizardState(chatId);
+        if (wizard.kind !== 'booking') { await ctx.answerCallbackQuery({ text: 'Wizard topilmadi', show_alert: true }); return; }
+        const at = new Date(iso);
+        const result = await bookingFinalize(cl, wizard.data, at);
+        await setWizardState(chatId, null);
+        if (!result.ok) {
+            await ctx.answerCallbackQuery({ text: result.error || 'Xato', show_alert: true });
+            return;
+        }
+        await ctx.answerCallbackQuery({ text: '✅ Bron yaratildi' });
+        try { await ctx.editMessageText(`✅ Bron yaratildi!\n№ <code>${result.appointmentId}</code>`, { parse_mode: 'HTML' }); } catch {}
+    });
+
     bot.callbackQuery(/^clinic:switch:(.+)$/, async (ctx) => {
         const chatId = ctx.chat?.id;
         if (!chatId) { await ctx.answerCallbackQuery(); return; }
@@ -1114,6 +1296,23 @@ function registerHandlers(bot: Bot) {
         });
         const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
         const linked = Boolean(acc?.userId);
+
+        // ── Active wizard intercepts text first ──────────────────────────
+        if (linked) {
+            const wizard = await getWizardState(chatId);
+            if (wizard.kind) {
+                const ctxCl = await loadClinicCtx(chatId);
+                if (ctxCl) {
+                    try { await handleWizardText(ctx, ctxCl, wizard, text); }
+                    catch (e) {
+                        console.error('[bot] wizard text failed:', e);
+                        await setWizardState(chatId, null);
+                        await ctx.reply('Wizard xato — qaytadan boshlang');
+                    }
+                    return;
+                }
+            }
+        }
 
         // ── Clinic keyboard hits first ───────────────────────────────────
         const clinicRoute = routeClinicLabel(lang, text);
