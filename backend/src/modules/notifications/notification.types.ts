@@ -18,6 +18,7 @@ export type EventType =
     | 'clinic_new_booking'
     | 'clinic_patient_checked_in'
     | 'clinic_cash_pending'
+    | 'clinic_daily_report'
     | 'general';
 
 export interface BaseEvent<T extends EventType> {
@@ -65,4 +66,14 @@ export interface GeneralEvent extends BaseEvent<'general'> {
     data?: Record<string, any>;
 }
 
-export type NotificationEvent = BookingEvent | PaymentEvent | GeneralEvent;
+export interface ClinicDailyReportEvent extends BaseEvent<'clinic_daily_report'> {
+    /** Aggregated numbers the template renders into the body. */
+    total: number;
+    completed: number;
+    cancelled: number;
+    revenue: number;
+    paidCount: number;
+    pending: number;
+}
+
+export type NotificationEvent = BookingEvent | PaymentEvent | GeneralEvent | ClinicDailyReportEvent;

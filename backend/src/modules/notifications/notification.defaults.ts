@@ -17,6 +17,7 @@ export const DEFAULT_CHANNELS: Record<EventType, Channel[]> = {
     clinic_new_booking: ['inapp', 'telegram'],
     clinic_patient_checked_in: ['inapp', 'telegram'],
     clinic_cash_pending: ['inapp', 'telegram'],
+    clinic_daily_report: ['inapp', 'telegram'],
     // Fallback
     general: ['inapp'],
 };

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Phone, Trash2, ShieldCheck, LogOut, Loader2, X, AlertCircle, Users } from 'lucide-react';
+import { Plus, Phone, Trash2, ShieldCheck, LogOut, Loader2, X, AlertCircle, Users, Send, Copy, Check } from 'lucide-react';
 import api from '../../shared/api/axios';
 import './clinic-admin.css';
 
@@ -51,6 +51,8 @@ export default function ClinicTeam() {
     const [inviting, setInviting] = useState(false);
 
     const [busyUserId, setBusyUserId] = useState(null);
+    const [botLinkModal, setBotLinkModal] = useState(null); // { userId, deepLink, expiresAt }
+    const [linkCopied, setLinkCopied] = useState(false);
 
     const refresh = async () => {
         setLoading(true);
@@ -111,6 +113,17 @@ export default function ClinicTeam() {
         } finally { setBusyUserId(null); }
     };
 
+    const handleBotLink = async (userId) => {
+        setBusyUserId(userId);
+        try {
+            const { data } = await api.post(`/clinic/team/members/${userId}/bot-link`);
+            setBotLinkModal({ userId, ...data.data });
+            setLinkCopied(false);
+        } catch (e) {
+            alert(e?.response?.data?.error?.message || 'Bot link yaratilmadi');
+        } finally { setBusyUserId(null); }
+    };
+
     const handleLeave = async () => {
         if (!window.confirm('Klinikadan chiqib ketishni xohlaysizmi?')) return;
         try {
@@ -165,8 +178,8 @@ export default function ClinicTeam() {
                             <th style={th}>A'zo</th>
                             <th style={th}>Telefon</th>
                             <th style={th}>Rol</th>
+                            <th style={th}>Telegram</th>
                             <th style={th}>Qo'shilgan</th>
-                            <th style={th}>So'nggi faollik</th>
                             <th style={{ ...th, textAlign: 'right' }}>Amallar</th>
                         </tr>
                     </thead>
@@ -204,10 +217,42 @@ export default function ClinicTeam() {
                                             <RoleChip role={m.role} />
                                         )}
                                     </td>
+                                    <td style={td}>
+                                        {m.telegramBound ? (
+                                            <span style={{
+                                                padding: '3px 8px', borderRadius: 10,
+                                                fontSize: 11, fontWeight: 700,
+                                                background: 'rgba(34,158,217,0.15)',
+                                                color: '#229ED9',
+                                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                            }}>
+                                                <Send size={11} /> Bog'langan
+                                            </span>
+                                        ) : (
+                                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>
+                                        )}
+                                        {m.telegramBound && m.telegramLastSeen && (
+                                            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                                                {fmtRelative(m.telegramLastSeen)}
+                                            </div>
+                                        )}
+                                    </td>
                                     <td style={td}>{fmtDate(m.joinedAt)}</td>
-                                    <td style={td}>{fmtRelative(m.lastSeenAt)}</td>
                                     <td style={{ ...td, textAlign: 'right' }}>
                                         {!m.isActive && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Nofaol</span>}
+                                        {m.isActive && !m.telegramBound && canInvite && (
+                                            <button
+                                                className="ca-icon-btn"
+                                                disabled={busyUserId === m.userId}
+                                                title="Bot link yuborish"
+                                                onClick={() => handleBotLink(m.userId)}
+                                                style={{ color: '#229ED9' }}
+                                            >
+                                                {busyUserId === m.userId
+                                                    ? <Loader2 size={14} className="ca-spin" />
+                                                    : <Send size={14} />}
+                                            </button>
+                                        )}
                                         {showRemove && m.isActive && (
                                             <button
                                                 className="ca-icon-btn danger"
@@ -228,6 +273,68 @@ export default function ClinicTeam() {
                     </tbody>
                 </table>
             </div>
+
+            {/* Bot link modal */}
+            {botLinkModal && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
+                }}>
+                    <div style={{ background: 'var(--bg-card)', padding: 24, borderRadius: 12, width: 420, maxWidth: '92vw' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Send size={18} color="#229ED9" /> Bot bog'lash linki
+                            </h3>
+                            <button className="ca-icon-btn" onClick={() => setBotLinkModal(null)}><X size={16} /></button>
+                        </div>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
+                            Ushbu linkni a'zoga SMS, WhatsApp yoki boshqa kanal orqali yuboring.
+                            U Telegram'ni ochib bosa, bot avtomatik bog'lanadi. Link <strong>1 soat</strong> amal qiladi.
+                        </p>
+
+                        <div style={{
+                            padding: 10, background: 'var(--bg-main)', borderRadius: 8,
+                            border: '1px solid var(--border-color)',
+                            fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all',
+                            marginBottom: 12,
+                        }}>{botLinkModal.deepLink}</div>
+
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                                className="ca-btn-primary"
+                                style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                onClick={() => {
+                                    navigator.clipboard?.writeText(botLinkModal.deepLink);
+                                    setLinkCopied(true);
+                                    setTimeout(() => setLinkCopied(false), 2000);
+                                }}
+                            >
+                                {linkCopied ? <><Check size={14} /> Nusxalandi</> : <><Copy size={14} /> Nusxalash</>}
+                            </button>
+                            <a
+                                className="ca-btn-secondary"
+                                href={botLinkModal.deepLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ flex: 1, textAlign: 'center', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                            >
+                                <Send size={14} /> Telegram'da ochish
+                            </a>
+                        </div>
+
+                        <details style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)' }}>
+                            <summary style={{ cursor: 'pointer' }}>Bu qanday ishlaydi?</summary>
+                            <ol style={{ paddingLeft: 20, marginTop: 6 }}>
+                                <li>A'zoga linkni yuboring</li>
+                                <li>U linkni bosa, Telegram'da bot ochiladi</li>
+                                <li>"START" tugmasi avtomatik bosiladi</li>
+                                <li>Bot a'zoning Telegram chatini akkauntiga bog'laydi</li>
+                                <li>Bundan keyin notifikatsiyalar avtomatik keladi</li>
+                            </ol>
+                        </details>
+                    </div>
+                </div>
+            )}
 
             {/* My role + permissions */}
             {me && (

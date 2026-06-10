@@ -74,3 +74,14 @@ export const whoami = async (req: ClinicRequest, res: Response, next: NextFuncti
         sendSuccess(res, req.clinicContext);
     } catch (e) { next(e); }
 };
+
+export const botLink = async (req: ClinicRequest, res: Response, next: NextFunction) => {
+    try {
+        const data = await teamService.generateBindLinkFor({
+            clinicId: req.clinicContext!.clinicId,
+            actorId: req.user!.id,
+            userId: req.params.userId as string,
+        });
+        sendSuccess(res, data, undefined, 'Bot link yaratildi');
+    } catch (e) { next(e); }
+};

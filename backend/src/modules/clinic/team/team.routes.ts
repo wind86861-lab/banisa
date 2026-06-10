@@ -18,6 +18,7 @@ router.get('/roles', requireClinicPermission(ClinicPermission.TEAM_VIEW), ctrl.l
 router.post('/invite',          requireClinicPermission(ClinicPermission.TEAM_INVITE),      ctrl.invite);
 router.patch('/members/:userId', requireClinicPermission(ClinicPermission.TEAM_ROLE_CHANGE), ctrl.changeRole);
 router.delete('/members/:userId', requireClinicPermission(ClinicPermission.TEAM_REMOVE),     ctrl.remove);
+router.post('/members/:userId/bot-link', requireClinicPermission(ClinicPermission.TEAM_INVITE), ctrl.botLink);
 
 // Anyone can leave themselves regardless of permission.
 router.post('/leave', ctrl.leave);

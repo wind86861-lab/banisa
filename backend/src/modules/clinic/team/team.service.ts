@@ -28,6 +28,10 @@ export interface TeamMemberDTO {
     joinedAt: Date;
     lastSeenAt: Date | null;
     role: { id: string; name: string; isSystem: boolean; permissions: ClinicPermission[] };
+    /** True when the member has a non-blocked TelegramAccount row. */
+    telegramBound: boolean;
+    /** Last time the bot saw this user — useful to spot dead bindings. */
+    telegramLastSeen: Date | null;
 }
 
 export const teamService = {
@@ -51,21 +55,59 @@ export const teamService = {
             where: { clinicId },
             orderBy: [{ isActive: 'desc' }, { joinedAt: 'asc' }],
             include: {
-                user: { select: { id: true, phone: true, firstName: true, lastName: true } },
+                user: {
+                    select: {
+                        id: true, phone: true, firstName: true, lastName: true,
+                        telegramAccount: { select: { isBlocked: true, lastSeenAt: true } },
+                    },
+                },
                 role: { select: { id: true, name: true, isSystem: true, permissions: true } },
             },
         });
-        return rows.map(r => ({
-            membershipId: r.id,
-            userId: r.user.id,
-            phone: r.user.phone,
-            firstName: r.user.firstName,
-            lastName: r.user.lastName,
-            isActive: r.isActive,
-            joinedAt: r.joinedAt,
-            lastSeenAt: r.lastSeenAt,
-            role: r.role,
-        }));
+        return rows.map(r => {
+            const tg = r.user.telegramAccount;
+            return {
+                membershipId: r.id,
+                userId: r.user.id,
+                phone: r.user.phone,
+                firstName: r.user.firstName,
+                lastName: r.user.lastName,
+                isActive: r.isActive,
+                joinedAt: r.joinedAt,
+                lastSeenAt: r.lastSeenAt,
+                role: r.role,
+                telegramBound: !!tg && !tg.isBlocked,
+                telegramLastSeen: tg?.lastSeenAt ?? null,
+            };
+        });
+    },
+
+    /**
+     * Generate a fresh `t.me/<bot>?start=<token>` deep link for a specific
+     * member so the inviter can paste it into any channel (SMS, WhatsApp,
+     * email) and the member binds with one tap. Reuses the existing
+     * TelegramLoginToken model so the bot's /start handler picks it up via
+     * the same code path that web "Link Telegram" uses.
+     */
+    async generateBindLinkFor(input: {
+        clinicId: string;
+        actorId: string;
+        userId: string;
+    }): Promise<{ deepLink: string; expiresAt: Date }> {
+        // Make sure the target is actually a member of this clinic.
+        const membership = await prisma.clinicMembership.findUnique({
+            where: { clinicId_userId: { clinicId: input.clinicId, userId: input.userId } },
+        });
+        if (!membership) throw new AppError('A\'zo topilmadi', 404, ErrorCodes.NOT_FOUND);
+
+        // Lazy import to avoid pulling the bot module into the team controller
+        // request path; the bot lives in a sibling module.
+        const { createLinkToken } = await import('../../telegram/telegram.service');
+        const info = await createLinkToken(input.userId);
+        if (!info) throw new AppError('Bot URL hozircha mavjud emas', 503, ErrorCodes.SERVER_ERROR);
+
+        await this.audit(input.clinicId, input.actorId, 'team.bot_link_generated', 'user', input.userId, {});
+        return { deepLink: info.deepLink, expiresAt: info.expiresAt };
     },
 
     /**
@@ -157,6 +199,10 @@ export const teamService = {
             }
         } catch { /* non-fatal */ }
 
+        const tg = await prisma.telegramAccount.findUnique({
+            where: { userId: membership.user.id },
+            select: { isBlocked: true, lastSeenAt: true },
+        });
         return {
             membershipId: membership.id,
             userId: membership.user.id,
@@ -167,6 +213,8 @@ export const teamService = {
             joinedAt: membership.joinedAt,
             lastSeenAt: membership.lastSeenAt,
             role: membership.role,
+            telegramBound: !!tg && !tg.isBlocked,
+            telegramLastSeen: tg?.lastSeenAt ?? null,
         };
     },
 

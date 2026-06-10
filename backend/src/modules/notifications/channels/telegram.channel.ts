@@ -7,16 +7,19 @@ import { isTelegramConfigured, getBot } from '../../telegram/telegram.bot';
 import { sendMessage } from '../../telegram/telegram.service';
 
 /**
- * Pick the ClinicPermission that gates each clinic-targeted notification. The
- * channel only fans out to members whose role holds at least one matching
- * permission, so a CASHIER doesn't get spammed with new-booking alerts and a
- * DOCTOR doesn't get cash-pending pings.
+ * Pick the ClinicPermission that gates each clinic-targeted notification.
+ * In the simplified 2-role world:
+ *   - CLINIC_ADMIN holds all the BOOKING_ACCEPT/PAYMENT_CONFIRM_CASH perms,
+ *     so it receives every operational event.
+ *   - DIRECTOR only holds REPORTS_DAILY (plus VIEW perms), so it only gets
+ *     the daily report — exactly what the user asked for.
  */
 function requiredPermsForEvent(type: NotificationEvent['type']): ClinicPermission[] {
     switch (type) {
-        case 'clinic_new_booking':           return [ClinicPermission.BOOKING_VIEW, ClinicPermission.BOOKING_ACCEPT];
-        case 'clinic_patient_checked_in':    return [ClinicPermission.BOOKING_VIEW, ClinicPermission.PAYMENT_CONFIRM_CASH];
-        case 'clinic_cash_pending':          return [ClinicPermission.PAYMENT_CONFIRM_CASH, ClinicPermission.PAYMENT_VIEW];
+        case 'clinic_new_booking':           return [ClinicPermission.BOOKING_ACCEPT];
+        case 'clinic_patient_checked_in':    return [ClinicPermission.BOOKING_ACCEPT];
+        case 'clinic_cash_pending':          return [ClinicPermission.PAYMENT_CONFIRM_CASH];
+        case 'clinic_daily_report':          return [ClinicPermission.REPORTS_DAILY];
         default:                              return []; // empty → no perm gate; everyone bound gets it
     }
 }

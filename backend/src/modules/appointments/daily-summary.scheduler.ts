@@ -29,14 +29,15 @@ function dayBoundsTashkent(isoDate: string): { from: Date; to: Date } {
     return { from, to };
 }
 
-function fmt(n: number): string { return Number(n).toLocaleString('en-US').replace(/,/g, ' '); }
-
 async function alreadySentToday(clinicId: string, isoDate: string): Promise<boolean> {
     const since = new Date(`${isoDate}T00:00:00+05:00`);
     const log = await (prisma as any).notificationLog.findFirst({
         where: {
             clinicId,
-            eventType: 'clinic_daily_summary',
+            // Match both the legacy marker (clinic_daily_summary) and the new
+            // typed event (clinic_daily_report) so a same-day rollout doesn't
+            // double-fire the summary.
+            eventType: { in: ['clinic_daily_summary', 'clinic_daily_report'] },
             createdAt: { gte: since },
         },
         select: { id: true },
@@ -50,32 +51,32 @@ async function runForClinic(clinicId: string, isoDate: string) {
     const { from, to } = dayBoundsTashkent(isoDate);
 
     // Aggregate metrics for the day.
-    const [total, checkedIn, noShows, paidRevenue, clinic] = await Promise.all([
+    const [total, completed, cancelled, paidRevenue, paidCount, pending] = await Promise.all([
         prisma.appointment.count({ where: { clinicId, scheduledAt: { gte: from, lt: to } } }),
-        prisma.appointment.count({ where: { clinicId, scheduledAt: { gte: from, lt: to }, checkedInAt: { not: null } } }),
-        prisma.appointment.count({ where: { clinicId, scheduledAt: { gte: from, lt: to }, status: 'NO_SHOW' } }),
+        prisma.appointment.count({ where: { clinicId, scheduledAt: { gte: from, lt: to }, status: 'COMPLETED' as any } }),
+        prisma.appointment.count({ where: { clinicId, scheduledAt: { gte: from, lt: to }, status: 'CANCELLED' as any } }),
         prisma.appointment.aggregate({
-            where: { clinicId, scheduledAt: { gte: from, lt: to }, paymentStatus: 'PAID' },
+            where: { clinicId, scheduledAt: { gte: from, lt: to }, paymentStatus: 'PAID' as any },
             _sum: { paidAmount: true },
         }),
-        prisma.clinic.findUnique({ where: { id: clinicId }, select: { nameUz: true } }),
+        prisma.appointment.count({ where: { clinicId, scheduledAt: { gte: from, lt: to }, paymentStatus: 'PAID' as any } }),
+        prisma.appointment.count({ where: { clinicId, scheduledAt: { gte: from, lt: to }, paymentStatus: 'PENDING' as any } }),
     ]);
 
     const revenue = paidRevenue._sum?.paidAmount || 0;
-    const arrivedPct = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
-    const title = `📊 Bugungi xulosa — ${isoDate}`;
-    const body =
-        `📅 Bronlar: ${total}\n` +
-        `✅ Kelganlar: ${checkedIn} (${arrivedPct}%)\n` +
-        `❌ Kelmaganlar: ${noShows}\n` +
-        `💵 Tushum: ${fmt(revenue)} so'm` +
-        (clinic?.nameUz ? `\n🏥 ${clinic.nameUz}` : '');
 
+    // Dispatch the typed daily-report event. The Telegram channel routes it
+    // via REPORTS_DAILY permission gate, so DIRECTOR + CLINIC_ADMIN both get
+    // it but no one else does.
     await dispatchNotification({
-        type: 'general',
+        type: 'clinic_daily_report',
         clinicId,
-        title,
-        body,
+        total,
+        completed,
+        cancelled,
+        revenue,
+        paidCount,
+        pending,
         link: '/clinic/reports',
     });
 }

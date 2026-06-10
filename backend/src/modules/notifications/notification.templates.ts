@@ -90,6 +90,13 @@ const T = {
         smsQueueIsYours: 'navbat sizniki',
         smsNewBooking: 'yangi bron',
         smsPatientArrived: 'keldi',
+        dailyReport: 'Kunlik hisobot',
+        total: 'Jami bronlar',
+        completed: 'Bajarildi',
+        cancelled: 'Bekor qilindi',
+        revenue: 'Tushum',
+        paidCount: "To'langan",
+        pending: 'Kutilmoqda',
     },
     ru: {
         service: 'Услуга', clinic: 'Клиника', patient: 'Пациент', appt: 'Приём',
@@ -117,6 +124,13 @@ const T = {
         smsQueueIsYours: 'ваша очередь',
         smsNewBooking: 'новая бронь',
         smsPatientArrived: 'пришёл',
+        dailyReport: 'Дневной отчёт',
+        total: 'Всего броней',
+        completed: 'Выполнено',
+        cancelled: 'Отменено',
+        revenue: 'Выручка',
+        paidCount: 'Оплачено',
+        pending: 'Ожидается',
     },
 } as const;
 
@@ -201,6 +215,29 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 body: `${event.patientName || t.patient} — ${event.serviceName || t.service} — ${fmtPrice(event.finalPrice)} ${t.som}${event.waitMinutes ? ` — ${event.waitMinutes} ${t.minutes} ${t.waited}` : ''}`,
                 sms: `${t.smsPrefix} ${event.patientName || t.patient.toLowerCase()} ${t.waited}${event.waitMinutes ? ` (${event.waitMinutes} ${t.minutes})` : ''}.`,
                 telegram: `⏰ <b>${esc(t.cashPending)}</b>\n👤 ${esc(event.patientName || t.patient)}\n💵 ${esc(fmtPrice(event.finalPrice))} ${esc(t.som)}${event.waitMinutes ? `\n⏱ ${esc(event.waitMinutes)} ${esc(t.minutes)}` : ''}`,
+            };
+        }
+        case 'clinic_daily_report': {
+            const today = new Date().toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'uz-UZ', {
+                timeZone: PATIENT_TZ,
+                day: '2-digit', month: '2-digit', year: 'numeric',
+            });
+            const lines = [
+                `📊 <b>${esc(t.dailyReport)} — ${esc(today)}</b>`,
+                ``,
+                `📅 ${esc(t.total)}: <b>${esc(event.total)}</b>`,
+                `✅ ${esc(t.completed)}: <b>${esc(event.completed)}</b>`,
+                `❌ ${esc(t.cancelled)}: <b>${esc(event.cancelled)}</b>`,
+                ``,
+                `💵 ${esc(t.revenue)}: <b>${esc(fmtPrice(event.revenue))} ${esc(t.som)}</b>`,
+                `💳 ${esc(t.paidCount)}: <b>${esc(event.paidCount)}</b>`,
+                `⏳ ${esc(t.pending)}: <b>${esc(event.pending)}</b>`,
+            ];
+            return {
+                title: `📊 ${t.dailyReport} — ${today}`,
+                body: `${t.total}: ${event.total} • ${t.completed}: ${event.completed} • ${t.cancelled}: ${event.cancelled} • ${t.revenue}: ${fmtPrice(event.revenue)} ${t.som}`,
+                sms: `${t.smsPrefix} ${t.dailyReport.toLowerCase()} ${today}: ${event.total}/${event.completed}, ${fmtPrice(event.revenue)} ${t.som}.`.slice(0, 160),
+                telegram: lines.join('\n'),
             };
         }
         case 'general': {
