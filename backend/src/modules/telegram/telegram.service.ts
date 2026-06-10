@@ -99,8 +99,11 @@ export async function sendMessage(chatId: bigint, text: string, link?: string): 
         const reply_markup = link
             ? { inline_keyboard: [[destinationButton(link)]] }
             : undefined;
+        // HTML mode: templates emit <b>/<code>/<i>; only <, >, & need escaping
+        // (handled per-field by esc() in notification.templates.ts). Markdown
+        // was silently 400ing on any clinic/patient name with an apostrophe.
         const msg = await bot.api.sendMessage(Number(chatId), text, {
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
             ...(reply_markup ? { reply_markup } : {}),
         });
         return { ok: true, messageId: msg.message_id };

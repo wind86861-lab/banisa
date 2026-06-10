@@ -34,6 +34,15 @@ function fmtPrice(value: number | undefined | null): string {
 // UTC strings, so every appointment reminder said the wrong hour.
 const PATIENT_TZ = 'Asia/Tashkent';
 
+/** Escape the chars Telegram HTML parse mode treats as markup. */
+function esc(s: string | number | null | undefined): string {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 function fmtTime(at: Date | string | undefined | null, lang: TplLang): string {
     if (!at) return '';
     const d = typeof at === 'string' ? new Date(at) : at;
@@ -122,7 +131,7 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 title: `✅ ${t.bookingConfirmed}`,
                 body: `${svc}${when ? ` — ${when}` : ''}${event.clinicName ? ` (${event.clinicName})` : ''}`,
                 sms: `${t.smsPrefix} ${t.smsBookingConfirmed}. ${svc}${when ? ` ${when}` : ''}.`,
-                telegram: `✅ *${t.bookingConfirmed}*\n${svc}${when ? `\n📅 ${when}` : ''}${event.clinicName ? `\n🏥 ${event.clinicName}` : ''}`,
+                telegram: `✅ <b>${esc(t.bookingConfirmed)}</b>\n${esc(svc)}${when ? `\n📅 ${esc(when)}` : ''}${event.clinicName ? `\n🏥 ${esc(event.clinicName)}` : ''}\n\n👇 Tafsilot uchun pastdagi tugmani bosing`,
             };
         }
         case 'booking_cancelled': {
@@ -131,7 +140,7 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 title: `❌ ${t.bookingCancelled}`,
                 body: `${event.serviceName || t.service}${when ? ` — ${when}` : ''}`,
                 sms: `${t.smsPrefix} ${t.smsBookingCancelled}${event.bookingNumber ? ` (№${event.bookingNumber})` : ''}.`,
-                telegram: `❌ *${t.bookingCancelled}*\n${event.serviceName || t.service}${when ? `\n📅 ${when}` : ''}`,
+                telegram: `❌ <b>${esc(t.bookingCancelled)}</b>\n${esc(event.serviceName || t.service)}${when ? `\n📅 ${esc(when)}` : ''}`,
             };
         }
         case 'booking_reminder_24h': {
@@ -140,7 +149,7 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 title: `🔔 ${t.remindTomorrow}`,
                 body: `${event.serviceName || t.appt}${when ? ` — ${when}` : ''}`,
                 sms: `${t.smsPrefix} ${t.smsRemindTomorrow}${when ? ` ${when}` : ''}. ${event.clinicName || ''}`.trim(),
-                telegram: `🔔 *${t.remindTomorrow}*\n${event.serviceName || t.appt}${when ? `\n📅 ${when}` : ''}${event.clinicName ? `\n🏥 ${event.clinicName}` : ''}`,
+                telegram: `🔔 <b>${esc(t.remindTomorrow)}</b>\n${esc(event.serviceName || t.appt)}${when ? `\n📅 ${esc(when)}` : ''}${event.clinicName ? `\n🏥 ${esc(event.clinicName)}` : ''}\n\n👇 Bronni ochish va tafsilotni ko'rish uchun tugmani bosing`,
             };
         }
         case 'booking_reminder_1h': {
@@ -149,7 +158,7 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 title: `⏰ ${t.remind1h}`,
                 body: `${event.serviceName || t.appt}${when ? ` — ${when}` : ''}`,
                 sms: `${t.smsPrefix} ${t.smsRemind1h}${when ? ` ${when}` : ''}.`,
-                telegram: `⏰ *${t.remind1h}*\n${event.serviceName || t.appt}${when ? `\n📅 ${when}` : ''}${event.clinicName ? `\n🏥 ${event.clinicName}` : ''}`,
+                telegram: `⏰ <b>${esc(t.remind1h)}</b>\n${esc(event.serviceName || t.appt)}${when ? `\n📅 ${esc(when)}` : ''}${event.clinicName ? `\n🏥 ${esc(event.clinicName)}` : ''}\n\n👇 Klinikaga keldingizmi? QR'ni skanlash uchun bronni oching`,
             };
         }
         case 'payment_received': {
@@ -157,7 +166,7 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 title: `✅ ${t.paymentReceived}`,
                 body: `${fmtPrice(event.amount)} ${t.som}`,
                 sms: `${t.smsPrefix} ${fmtPrice(event.amount)} ${t.som} ${t.smsPaymentReceived}.`,
-                telegram: `✅ *${t.paymentReceived}*\n💵 ${fmtPrice(event.amount)} ${t.som}`,
+                telegram: `✅ <b>${esc(t.paymentReceived)}</b>\n💵 ${esc(fmtPrice(event.amount))} ${esc(t.som)}`,
             };
         }
         case 'queue_called': {
@@ -165,7 +174,7 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 title: `📣 ${t.queueIsYours}`,
                 body: event.queueNumber ? `${t.queueNum} №${event.queueNumber} — ${t.cabinetOpen}` : t.cabinetOpen,
                 sms: `${t.smsPrefix} ${t.smsQueueIsYours}${event.queueNumber ? ` (№${event.queueNumber})` : ''}.`,
-                telegram: `📣 *${t.queueIsYours}*${event.queueNumber ? `\n#${event.queueNumber}` : ''}`,
+                telegram: `📣 <b>${esc(t.queueIsYours)}</b>${event.queueNumber ? `\n#${esc(event.queueNumber)}` : ''}`,
             };
         }
         case 'clinic_new_booking': {
@@ -174,7 +183,7 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 title: `📅 ${t.newBooking}`,
                 body: `${event.patientName || t.patient} — ${event.serviceName || t.service}${when ? ` — ${when}` : ''}`,
                 sms: `${t.smsPrefix} ${t.smsNewBooking}${event.bookingNumber ? ` №${event.bookingNumber}` : ''}.`,
-                telegram: `📅 *${t.newBooking}*\n👤 ${event.patientName || t.patient}\n🩺 ${event.serviceName || t.service}${when ? `\n📅 ${when}` : ''}`,
+                telegram: `📅 <b>${esc(t.newBooking)}</b>\n👤 ${esc(event.patientName || t.patient)}\n🩺 ${esc(event.serviceName || t.service)}${when ? `\n📅 ${esc(when)}` : ''}`,
             };
         }
         case 'clinic_patient_checked_in': {
@@ -183,7 +192,7 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 title: isCash ? `💵 ${t.cashPending}` : `✅ ${t.patientArrived}`,
                 body: `${event.patientName || t.patient} — ${event.serviceName || t.service}${event.finalPrice ? ` — ${fmtPrice(event.finalPrice)} ${t.som}` : ''}${isCash ? '' : ` (${t.onlinePaid})`}`,
                 sms: `${t.smsPrefix} ${event.patientName || t.patient.toLowerCase()} ${t.smsPatientArrived}${event.bookingNumber ? ` №${event.bookingNumber}` : ''}.`,
-                telegram: `${isCash ? '💵' : '✅'} *${isCash ? t.cashPending : t.patientArrived}*\n👤 ${event.patientName || t.patient}\n🩺 ${event.serviceName || t.service}${event.finalPrice ? `\n💵 ${fmtPrice(event.finalPrice)} ${t.som}` : ''}`,
+                telegram: `${isCash ? '💵' : '✅'} <b>${esc(isCash ? t.cashPending : t.patientArrived)}</b>\n👤 ${esc(event.patientName || t.patient)}\n🩺 ${esc(event.serviceName || t.service)}${event.finalPrice ? `\n💵 ${esc(fmtPrice(event.finalPrice))} ${esc(t.som)}` : ''}`,
             };
         }
         case 'clinic_cash_pending': {
@@ -191,7 +200,7 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 title: `⏰ ${t.cashPending}`,
                 body: `${event.patientName || t.patient} — ${event.serviceName || t.service} — ${fmtPrice(event.finalPrice)} ${t.som}${event.waitMinutes ? ` — ${event.waitMinutes} ${t.minutes} ${t.waited}` : ''}`,
                 sms: `${t.smsPrefix} ${event.patientName || t.patient.toLowerCase()} ${t.waited}${event.waitMinutes ? ` (${event.waitMinutes} ${t.minutes})` : ''}.`,
-                telegram: `⏰ *${t.cashPending}*\n👤 ${event.patientName || t.patient}\n💵 ${fmtPrice(event.finalPrice)} ${t.som}${event.waitMinutes ? `\n⏱ ${event.waitMinutes} ${t.minutes}` : ''}`,
+                telegram: `⏰ <b>${esc(t.cashPending)}</b>\n👤 ${esc(event.patientName || t.patient)}\n💵 ${esc(fmtPrice(event.finalPrice))} ${esc(t.som)}${event.waitMinutes ? `\n⏱ ${esc(event.waitMinutes)} ${esc(t.minutes)}` : ''}`,
             };
         }
         case 'general': {
@@ -199,7 +208,7 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 title: event.title,
                 body: event.body,
                 sms: `${t.smsPrefix} ${event.body}`.slice(0, 160),
-                telegram: `*${event.title}*\n${event.body}`,
+                telegram: `<b>${esc(event.title)}</b>\n${esc(event.body)}`,
             };
         }
     }
