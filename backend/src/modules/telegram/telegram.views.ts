@@ -50,16 +50,30 @@ const CANCELLABLE_STATUSES = new Set([
     'PENDING', 'OPERATOR_CONFIRMED', 'SENT_TO_CLINIC', 'CLINIC_ACCEPTED',
 ]);
 
+// Server-side renders MUST pin the timezone to Asia/Tashkent — the prod
+// Linux box runs UTC, and toLocaleString without timeZone would emit UTC
+// strings even with an 'uz-UZ' locale, so every booking time appeared 5
+// hours earlier than reality in the bot.
+const PATIENT_TZ = 'Asia/Tashkent';
+
 function fmtDate(d: Date | string | null | undefined, lang: Lang): string {
     if (!d) return '—';
     const date = typeof d === 'string' ? new Date(d) : d;
+    if (Number.isNaN(date.getTime())) return '—';
     const locale = lang === 'ru' ? 'ru-RU' : 'uz-UZ';
     try {
         return date.toLocaleString(locale, {
-            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+            timeZone: PATIENT_TZ,
+            day: '2-digit', month: 'short',
+            hour: '2-digit', minute: '2-digit',
+            hour12: false,
         });
     } catch {
-        return date.toISOString().slice(0, 16).replace('T', ' ');
+        // toLocaleString may throw on environments with limited ICU data.
+        // Manual fallback that still pins to Asia/Tashkent (+5, no DST).
+        const tashkent = new Date(date.getTime() + 5 * 60 * 60 * 1000);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${pad(tashkent.getUTCDate())}.${pad(tashkent.getUTCMonth() + 1)} ${pad(tashkent.getUTCHours())}:${pad(tashkent.getUTCMinutes())}`;
     }
 }
 

@@ -29,15 +29,28 @@ function fmtPrice(value: number | undefined | null): string {
     return Number(value).toLocaleString('en-US').replace(/,/g, ' ');
 }
 
+// Patient-facing notifications always render in Asia/Tashkent. The host
+// runs UTC; without an explicit timeZone toLocaleString quietly returned
+// UTC strings, so every appointment reminder said the wrong hour.
+const PATIENT_TZ = 'Asia/Tashkent';
+
 function fmtTime(at: Date | string | undefined | null, lang: TplLang): string {
     if (!at) return '';
     const d = typeof at === 'string' ? new Date(at) : at;
     if (Number.isNaN(d.getTime())) return '';
     const locale = lang === 'ru' ? 'ru-RU' : 'uz-UZ';
-    return d.toLocaleString(locale, {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-    });
+    try {
+        return d.toLocaleString(locale, {
+            timeZone: PATIENT_TZ,
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+            hour12: false,
+        });
+    } catch {
+        const t = new Date(d.getTime() + 5 * 60 * 60 * 1000);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${pad(t.getUTCDate())}.${pad(t.getUTCMonth() + 1)}.${t.getUTCFullYear()} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}`;
+    }
 }
 
 /** Per-language short-form strings used inside templates. */
