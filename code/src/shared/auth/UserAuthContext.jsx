@@ -1,26 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { setAccessToken, getAccessToken, clearAccessToken, setIsPatientSession } from '../api/axios';
 import axiosInstance from '../api/axios';
 import { setPatientAuthResolver, clearPatientAuthResolver } from './patientAuthBridge';
-
-/**
- * Pending Mini App route driver. Lives inside <UserAuthProvider> so it can
- * consume the resolver context, and inside the <BrowserRouter> so it can use
- * useNavigate. When UserAuthContext's mount effect decodes start_param into a
- * target route it stashes it in pendingMiniAppRoute; this component fires the
- * actual React Router navigation so v6 picks it up. Pure window.history calls
- * change the URL bar but leave the rendered route stuck on the home page.
- */
-function MiniAppStartRouter({ target, onConsumed }) {
-  const navigate = useNavigate();
-  useEffect(() => {
-    if (!target) return;
-    navigate(target, { replace: true });
-    onConsumed?.();
-  }, [target, navigate, onConsumed]);
-  return null;
-}
 
 // ─── Patient session storage policy (XSS-hardened) ──────────────────────────
 // Access token lives in MODULE MEMORY only (see api/axios.js). The HttpOnly
@@ -86,9 +67,6 @@ export const UserAuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [expiringSoon, setExpiringSoon] = useState(false);
-  // Mini App start_param target — read by MiniAppStartRouter (rendered as a
-  // child) and turned into a real react-router-dom navigation.
-  const [pendingMiniAppRoute, setPendingMiniAppRoute] = useState(null);
 
   // Refs for latest state — needed because the module-level ensurePatientAuth
   // is closed over old values when first defined.
@@ -248,29 +226,7 @@ export const UserAuthProvider = ({ children }) => {
         if (cached?.role === 'PATIENT') setUser(cached);
 
         await ensurePatientAuth();
-
-        // Mini App startapp param routing — the bot's inline buttons use
-        // t.me/<bot>?startapp=<X> deep links instead of direct web_app URLs
-        // because mobile Telegram clients sometimes reload web_app URLs back
-        // to the Mini App root, dropping the patient on /xizmatlar instead
-        // of the intended screen. The deep link always lands on the root;
-        // we record the target and let MiniAppStartRouter (below) drive the
-        // React Router navigation — replaceState alone doesn't notify v6
-        // routers, so the URL would change while the rendered route stayed.
-        if (typeof window !== 'undefined') {
-          const tg = window.Telegram?.WebApp;
-          const param = tg?.initDataUnsafe?.start_param;
-          const onRoot = ['/', '/xizmatlar'].includes(window.location.pathname);
-          if (param && onRoot) {
-            let target = null;
-            if (param === 'scan-checkin')   target = '/user/scan-checkin';
-            else if (param === 'appointments') target = '/user/appointments';
-            else if (param === 'checkout')  target = '/user/cart/checkout';
-            else if (param === 'profile')   target = '/user/profile';
-            else if (param.startsWith('appt-')) target = `/user/appointments/${param.slice(5)}`;
-            if (target) setPendingMiniAppRoute(target);
-          }
-        }
+        // start_param routing is handled in main.jsx before React mounts.
       } catch (e) {
         console.error('[auth] restore failed:', e);
       } finally {
@@ -386,10 +342,6 @@ export const UserAuthProvider = ({ children }) => {
       ensurePatientAuth,
       waitForUser,
     }}>
-      <MiniAppStartRouter
-        target={pendingMiniAppRoute}
-        onConsumed={() => setPendingMiniAppRoute(null)}
-      />
       {children}
       {expiringSoon && user && (
         <div role="status" style={{
