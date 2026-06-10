@@ -90,9 +90,16 @@ api.interceptors.response.use(
     }
 
     const storedUser = readStoredUser();
+    // Mini App context overrides the path selection. Without this, an early
+    // 401 from a component that fetches before applyAuthSuccess runs would
+    // be routed to the CLINIC/ADMIN refresh path (because _isPatientSession
+    // hasn't flipped to true yet), that fails, redirectToLogin then does
+    // window.location.href = '/' — a HARD RELOAD that the patient saw as
+    // "page loads, reloads from 0, then goes to main page".
+    const inMiniApp = typeof window !== 'undefined' && !!window.Telegram?.WebApp?.initData;
 
     // SUPER_ADMIN has no refresh cookie — straight to login.
-    if (storedUser?.role === 'SUPER_ADMIN') {
+    if (storedUser?.role === 'SUPER_ADMIN' && !inMiniApp) {
       clearAccessToken();
       tokenStorage.clear();
       if (typeof window !== 'undefined') window.location.href = '/admin/login';
@@ -104,7 +111,10 @@ api.interceptors.response.use(
 
     try {
       // ── PATIENT path ────────────────────────────────────────────────
-      if (_isPatientSession) {
+      // Use whenever _isPatientSession says so OR we're physically inside
+      // a Mini App (initData present) — the latter covers the cold-start
+      // race where the patient session flag hasn't flipped yet.
+      if (_isPatientSession || inMiniApp) {
         const recoveredUser = await callEnsurePatientAuth();
         const newToken = _accessToken; // resolver wrote it into module mem
         if (recoveredUser && newToken) {
@@ -112,10 +122,12 @@ api.interceptors.response.use(
           original.headers.Authorization = `Bearer ${newToken}`;
           return api(original);
         }
-        // Resolver returned null — session is genuinely dead.
+        // Resolver returned null — session is genuinely dead. In a Mini App
+        // we DON'T hard-redirect (would refresh the WebView away from the
+        // intended page); we just reject and let UI guards handle it.
         processQueue(error, null);
         clearAccessToken();
-        redirectToLogin(storedUser);
+        if (!inMiniApp) redirectToLogin(storedUser);
         return Promise.reject(error);
       }
 
@@ -148,9 +160,11 @@ api.interceptors.response.use(
       processQueue(refreshError, null);
       clearAccessToken();
       // Only redirect on a real 401 — rate-limit (429) shouldn't kick out
-      // active users.
+      // active users. Inside a Mini App we never hard-redirect; that's a
+      // full WebView reload that boots the patient off the deep-linked
+      // page back to the configured Mini App root.
       const refreshStatus = refreshError?.response?.status;
-      if (refreshStatus === 401) redirectToLogin(storedUser);
+      if (refreshStatus === 401 && !inMiniApp) redirectToLogin(storedUser);
       return Promise.reject(refreshError);
     } finally {
       _isRefreshing = false;
