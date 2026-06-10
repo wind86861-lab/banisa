@@ -23,7 +23,7 @@ function parseSecret(text) {
 
 export default function ScanCheckInPage() {
     const navigate = useNavigate();
-    const { user, isLoading: authLoading } = useUserAuth();
+    const { user, isLoading: authLoading, ensurePatientAuth } = useUserAuth();
     const scannerRef = useRef(null);
     const geoRef = useRef(null);
     const [state, setState] = useState('starting'); // starting | scanning | denied | error | done
@@ -32,13 +32,28 @@ export default function ScanCheckInPage() {
     const [manualCode, setManualCode] = useState('');
     const [torchOn, setTorchOn] = useState(false);
     const [torchSupported, setTorchSupported] = useState(false);
+    const [resolvedUser, setResolvedUser] = useState(null);
+
+    // Bot opens this page as a Mini App. The initial render can see user=null
+    // while ensurePatientAuth is mid-flight; the old check redirected to
+    // /user/login during that race, UserLoginPage's Mini App auto-login then
+    // bounced us back to the default landing — the patient never reached
+    // the scanner. Wait for the resolver to settle before deciding.
+    useEffect(() => {
+        if (user) { setResolvedUser(user); return; }
+        if (!ensurePatientAuth) return;
+        let cancelled = false;
+        (async () => {
+            const u = await ensurePatientAuth();
+            if (cancelled) return;
+            if (u) setResolvedUser(u);
+            else navigate(`/user/login?redirect=${encodeURIComponent('/user/scan-checkin')}`);
+        })();
+        return () => { cancelled = true; };
+    }, [user, ensurePatientAuth, navigate]);
 
     useEffect(() => {
-        if (authLoading) return;
-        if (!user) {
-            navigate(`/user/login?redirect=${encodeURIComponent('/user/scan-checkin')}`);
-            return;
-        }
+        if (!resolvedUser) return;
 
         // Ask for geolocation in parallel — non-blocking. If user denies we just
         // proceed without GPS (backend treats missing coords as a soft pass).
@@ -100,7 +115,7 @@ export default function ScanCheckInPage() {
             })();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [authLoading, user]);
+    }, [resolvedUser]);
 
     return (
         <div className="scan-page">
