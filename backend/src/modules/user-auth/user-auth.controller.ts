@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { registerUser, loginUser, getUserProfile, refreshAccessToken } from './user-auth.service';
+import { requestPasswordReset, validateResetToken, consumeResetToken } from './password-reset.service';
 import { sendSuccess } from '../../utils/response';
 import { AuthRequest } from '../../middleware/auth.middleware';
 
@@ -91,4 +92,29 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
     } catch (error) {
         next(error);
     }
+};
+
+// ─── PASSWORD RESET ─────────────────────────────────────────────────────────
+// Always responds 200 even when the phone isn't registered or isn't bound
+// to the bot — otherwise the endpoint becomes an account-enumeration oracle.
+// The SPA shows the same "agar account mavjud bo'lsa..." copy regardless.
+export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        await requestPasswordReset(req.body?.phone, req.ip);
+        sendSuccess(res, null, undefined, 'Agar telefon raqami tizimda mavjud bo\'lsa, parol tiklash havolasi yuborildi');
+    } catch (error) { next(error); }
+};
+
+export const checkResetToken = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await validateResetToken(String(req.query?.token || ''));
+        sendSuccess(res, result);
+    } catch (error) { next(error); }
+};
+
+export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        await consumeResetToken(req.body?.token, req.body?.newPassword);
+        sendSuccess(res, null, undefined, 'Parol muvaffaqiyatli o\'zgartirildi');
+    } catch (error) { next(error); }
 };

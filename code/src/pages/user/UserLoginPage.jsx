@@ -205,8 +205,11 @@ export default function UserLoginPage() {
                             </button>
                         </form>
 
-                        <div className="auth-footer">
-                            Hisobingiz yo'qmi? <Link to={signupHref} state={{ from }}>Ro'yxatdan o'tish</Link>
+                        <div className="auth-footer" style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+                            <Link to="/user/forgot-password" style={{ fontSize: 13, color: 'var(--color-primary)' }}>
+                                Parolni unutdingizmi?
+                            </Link>
+                            <span>Hisobingiz yo'qmi? <Link to={signupHref} state={{ from }}>Ro'yxatdan o'tish</Link></span>
                         </div>
 
                         <Link to="/login" className="auth-clinic-link">

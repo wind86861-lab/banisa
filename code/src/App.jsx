@@ -67,6 +67,8 @@ import MiniAppBindFirst from './pages/MiniAppBindFirst';
 import ClinicDetailPage from './pages/home/ClinicDetailPage';
 import UserLoginPage from './pages/user/UserLoginPage';
 import UserSignupPage from './pages/user/UserSignupPage';
+import UserForgotPasswordPage from './pages/user/UserForgotPasswordPage';
+import UserResetPasswordPage from './pages/user/UserResetPasswordPage';
 import UserDashboard from './user/pages/UserDashboard';
 import UserProfilePage from './user/pages/UserProfile';
 import UserAppointments from './user/pages/UserAppointments';
@@ -151,6 +153,8 @@ function App() {
                                     {/* ─── USER AUTH ROUTES (PATIENT) ──────────────── */}
                                     <Route path="/user/login" element={<UserPublicOnlyGuard><UserLoginPage /></UserPublicOnlyGuard>} />
                                     <Route path="/user/signup" element={<UserPublicOnlyGuard><UserSignupPage /></UserPublicOnlyGuard>} />
+                                    <Route path="/user/forgot-password" element={<UserForgotPasswordPage />} />
+                                    <Route path="/user/reset-password" element={<UserResetPasswordPage />} />
 
                                     {/* ─── USER PROTECTED ROUTES (PATIENT) ─────────── */}
                                     <Route path="/user/dashboard" element={<UserGuard><UserDashboard /></UserGuard>} />
