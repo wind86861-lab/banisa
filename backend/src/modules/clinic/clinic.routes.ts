@@ -25,7 +25,6 @@ import { customizationController } from './services/customization.controller';
 import { serviceImageUpload } from '../../middleware/upload.middleware';
 import {
     getClinicStats,
-    getClinicBookings, updateBookingStatus,
     getClinicProfile, updateClinicProfile,
     getClinicDiscounts, createClinicDiscount, updateClinicDiscount, deleteClinicDiscount,
     resolveMapLink,
@@ -85,9 +84,9 @@ router.put('/settings/queue', validate(queueSettingsSchema), clinicSettingsContr
 // ─── Stats ─────────────────────────────────────────────────────────────────────
 router.get('/stats', getClinicStats);
 
-// ─── Bookings ──────────────────────────────────────────────────────────────────
-router.get('/bookings', getClinicBookings);
-router.patch('/bookings/:id/status', updateBookingStatus);
+// /api/clinic/bookings is the legacy endpoint — the SPA talks to
+// /api/clinic/appointments instead. Removed to stop stale bookmarks from
+// hitting code that still uses the old where.status cast.
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
 router.get('/profile', getClinicProfile);

@@ -170,69 +170,6 @@ export const getClinicStats = async (req: AuthRequest, res: Response) => {
     });
 };
 
-// ─── Bookings / Appointments ──────────────────────────────────────────────────
-export const getClinicBookings = async (req: AuthRequest, res: Response) => {
-    const clinicId = await getClinicId(req.user!.id);
-    if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
-
-    const status = String(req.query.status ?? '');
-    const search = String(req.query.search ?? '');
-    const page = String(req.query.page ?? '1');
-    const limit = String(req.query.limit ?? '20');
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    const where: any = { clinicId };
-    if (status && status !== 'ALL') where.status = status;
-    if (search) {
-        where.OR = [
-            { patient: { firstName: { contains: search, mode: 'insensitive' } } },
-            { patient: { lastName: { contains: search, mode: 'insensitive' } } },
-            { patient: { phone: { contains: search } } },
-        ];
-    }
-
-    const [appointments, total] = await Promise.all([
-        prisma.appointment.findMany({
-            where,
-            orderBy: { createdAt: 'desc' },
-            skip,
-            take: parseInt(limit),
-            include: {
-                patient: { select: { id: true, firstName: true, lastName: true, phone: true, email: true } },
-                doctor: { select: { id: true, firstName: true, lastName: true, specialty: true } },
-            },
-        }),
-        prisma.appointment.count({ where }),
-    ]);
-
-    return res.json({
-        success: true,
-        data: appointments,
-        meta: { total, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(total / parseInt(limit)) },
-    });
-};
-
-export const updateBookingStatus = async (req: AuthRequest, res: Response) => {
-    const clinicId = await getClinicId(req.user!.id);
-    if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
-
-    const id = String(req.params.id);
-    const { status, cancellationReason } = req.body;
-
-    const appointment = await prisma.appointment.findFirst({ where: { id, clinicId } });
-    if (!appointment) return res.status(404).json({ success: false, message: 'Bron topilmadi' });
-
-    const allowed = ['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED', 'NO_SHOW'];
-    if (!allowed.includes(status)) return res.status(400).json({ success: false, message: 'Noto\'g\'ri status' });
-
-    const updated = await prisma.appointment.update({
-        where: { id },
-        data: { status, ...(cancellationReason && { cancellationReason }) },
-        include: { patient: { select: { id: true, firstName: true, lastName: true, phone: true } } },
-    });
-
-    return res.json({ success: true, data: updated });
-};
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
 export const getClinicProfile = async (req: AuthRequest, res: Response) => {
