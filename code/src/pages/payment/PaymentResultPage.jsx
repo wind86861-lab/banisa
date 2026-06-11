@@ -36,8 +36,10 @@ export default function PaymentResultPage() {
                     setAppointment(appt);
                     setPollCount(prev => prev + 1);
 
-                    // Stop polling if payment completed/failed or max attempts reached
-                    if (appt.status === 'PAID' || appt.status === 'CANCELLED' || pollCount >= 15) {
+                    // Stop polling if payment completed/failed or max attempts reached.
+                    // Payment is tracked on `paymentStatus` (not `status`) in
+                    // the simplified appointment model.
+                    if (appt.paymentStatus === 'PAID' || appt.status === 'CANCELLED' || pollCount >= 15) {
                         setPolling(false);
                         if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
                     } else {
@@ -81,7 +83,7 @@ export default function PaymentResultPage() {
     };
 
     const shortId = orderId ? `#${orderId.slice(0, 8).toUpperCase()}` : '';
-    const isPaid = appointment?.status === 'PAID';
+    const isPaid = appointment?.paymentStatus === 'PAID';
     const isCancelled = appointment?.status === 'CANCELLED';
     const isPending = appointment && !isPaid && !isCancelled;
 

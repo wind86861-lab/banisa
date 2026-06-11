@@ -432,7 +432,7 @@ export default function ClinicBookings() {
                                                     <CheckCircle2 size={15} />
                                                 </button>
                                             )}
-                                            {['CHECKED_IN', 'PAID'].includes(b.status) && (
+                                            {['CONFIRMED', 'CHECKED_IN'].includes(b.status) && (
                                                 <button className="ca-icon-btn danger" title="Kelmadi" onClick={() => setDialog({ booking: b, action: 'no_show' })}>
                                                     <XCircle size={15} />
                                                 </button>
