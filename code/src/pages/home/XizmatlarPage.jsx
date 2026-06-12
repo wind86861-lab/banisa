@@ -4,7 +4,7 @@ import {
     Search, SlidersHorizontal, X, ChevronDown, ChevronRight,
     LayoutGrid, List, Star, Users, Clock, MapPin, ArrowUpRight,
     Stethoscope, Activity, Leaf, Package, Home, ChevronLeft,
-    Filter, Loader2, ShoppingCart, Heart
+    Filter, Loader2, ShoppingCart, Heart, Check
 } from 'lucide-react';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
@@ -76,7 +76,7 @@ const FALLBACK_IMAGES = {
     checkup: '/images/default-checkup.svg',
 };
 
-function ServiceCard({ service, listView, onAddToCart, isLoggedIn, favoriteIds, onToggleFavorite }) {
+function ServiceCard({ service, listView, onAddToCart, isLoggedIn, favoriteIds, onToggleFavorite, inCart, cartBusy }) {
     const cat = CATEGORIES.find(c => c.id === service.category);
 
     // Fix image URL - add backend base URL if it's a relative path
@@ -155,19 +155,21 @@ function ServiceCard({ service, listView, onAddToCart, isLoggedIn, favoriteIds, 
                     </span>
                 </div>
                 <div className="xp-card-actions">
-                    {isLoggedIn && (
-                        <button
-                            className="xp-card-cart-btn"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                onAddToCart(service);
-                            }}
-                            title="Savatga qo'shish"
-                        >
-                            <ShoppingCart size={18} />
-                        </button>
-                    )}
+                    <button
+                        className={`xp-card-cart-btn${inCart ? ' in-cart' : ''}`}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!cartBusy) onAddToCart(service);
+                        }}
+                        disabled={cartBusy}
+                        title={inCart ? 'Savatda mavjud' : "Savatga qo'shish"}
+                        aria-label={inCart ? 'Savatda mavjud' : "Savatga qo'shish"}
+                    >
+                        {cartBusy ? <Loader2 size={18} className="xp-spin" />
+                            : inCart ? <Check size={18} />
+                            : <ShoppingCart size={18} />}
+                    </button>
                     <span className="xp-card-book-btn">Batafsil →</span>
                 </div>
             </div>
@@ -563,7 +565,28 @@ export default function XizmatlarPage() {
     const { user, waitForUser } = useUserAuth();
     const { set: favoriteIds } = useFavoriteIds();
     const toggleFavMut = useToggleFavorite();
-    const { addToCart } = useCart();
+    const { addToCart, cart } = useCart();
+    const [pendingCartId, setPendingCartId] = useState(null);
+
+    // Flat lookup of "is this service already in my cart?" — derived from
+    // the existing cart groups so we don't double-fetch.
+    const cartServiceIds = useMemo(() => {
+        const ids = new Set();
+        (cart || []).forEach(g => (g.items || []).forEach(it => {
+            if (it.service?.id) ids.add(String(it.service.id));
+            if (it.serviceId) ids.add(String(it.serviceId));
+        }));
+        return ids;
+    }, [cart]);
+
+    const showCartToast = (text, tone = 'success') => {
+        const n = document.createElement('div');
+        n.className = `xp-toast xp-toast--${tone}`;
+        n.textContent = text;
+        document.body.appendChild(n);
+        setTimeout(() => n.classList.add('show'), 10);
+        setTimeout(() => { n.classList.remove('show'); setTimeout(() => n.remove(), 300); }, 2400);
+    };
     const [activeCategory, setActiveCategory] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSpecialties, setSelectedSpecialties] = useState([]);
@@ -596,18 +619,17 @@ export default function XizmatlarPage() {
         else if (service.category === 'sanatoriya') serviceType = 'SANATORIUM';
         else if (service.category === 'checkup') serviceType = 'CHECKUP';
 
-        // Get clinic ID from service
         const clinicId = service.clinic?.id;
-        if (!clinicId) {
-            alert('Klinika ma\'lumoti topilmadi');
-            return;
-        }
+        if (!clinicId) { showCartToast('Klinika topilmadi', 'error'); return; }
 
-        const result = await addToCart(clinicId, serviceType, service.serviceId || service.id, 1);
-        if (!result.success) {
-            alert(result.message || 'Xatolik yuz berdi');
+        setPendingCartId(service.id);
+        try {
+            const result = await addToCart(clinicId, serviceType, service.serviceId || service.id, 1);
+            if (result.success) showCartToast("✓ Savatga qo'shildi");
+            else showCartToast(result.message || "Qo'shib bo'lmadi", 'error');
+        } finally {
+            setPendingCartId(null);
         }
-        // Success: silent. The cart badge in the navbar updates automatically.
     };
 
     // Handle navigation state - auto-select subcategory if passed from home page
@@ -1520,6 +1542,8 @@ export default function XizmatlarPage() {
                                     isLoggedIn={!!user}
                                     favoriteIds={favoriteIds}
                                     onToggleFavorite={(args) => toggleFavMut.mutate(args)}
+                                    inCart={cartServiceIds.has(String(service.serviceId || service.id))}
+                                    cartBusy={pendingCartId === service.id}
                                 />
                             ))
                         ) : (

@@ -1083,6 +1083,61 @@
   transform: scale(0.95);
 }
 
+.xp-card-cart-btn:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.xp-card-cart-btn.in-cart {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+
+.xp-card-cart-btn.in-cart:hover {
+  background: #15803d;
+  border-color: #15803d;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+}
+
+.xp-spin {
+  animation: xp-spin 0.9s linear infinite;
+}
+
+@keyframes xp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Toast for cart add/error */
+.xp-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: #031B4E;
+  color: #fff;
+  padding: 12px 22px;
+  border-radius: 100px;
+  box-shadow: 0 8px 28px rgba(3, 27, 78, 0.3);
+  z-index: 9999;
+  opacity: 0;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: calc(100vw - 32px);
+  text-align: center;
+}
+
+.xp-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.xp-toast--error {
+  background: #b91c1c;
+  box-shadow: 0 8px 28px rgba(185, 28, 28, 0.3);
+}
+
 /* Cart notification */
 .xp-cart-notification {
   position: fixed;
