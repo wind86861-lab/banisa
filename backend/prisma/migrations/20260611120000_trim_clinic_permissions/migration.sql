@@ -4,11 +4,9 @@
 -- anything in code. Drop them, then re-seed both system roles with the
 -- reduced set.
 --
--- Kept (13): BOOKING_VIEW, BOOKING_ACCEPT, BOOKING_RESCHEDULE,
---            PATIENT_VIEW, PATIENT_CONTACT,
---            PAYMENT_VIEW, PAYMENT_CONFIRM_CASH,
---            TEAM_VIEW, TEAM_INVITE, TEAM_REMOVE, TEAM_ROLE_CHANGE,
---            REPORTS_DAILY, REPORTS_EXPORT.
+-- Postgres won't allow ARRAY(SELECT ...) in an ALTER COLUMN USING
+-- expression ("cannot use subquery in transform expression"), so we
+-- do the swap via a temp column + UPDATE + drop-and-rename instead.
 
 CREATE TYPE "ClinicPermission_new" AS ENUM (
     'BOOKING_VIEW',
@@ -26,16 +24,16 @@ CREATE TYPE "ClinicPermission_new" AS ENUM (
     'REPORTS_EXPORT'
 );
 
--- Migrate the array column. unnest + filter to the kept set, then re-pack
--- as the new enum. Rows whose array contained only dropped values get an
--- empty permissions[] — that's fine, the role becomes view-less and will
--- be overwritten by the upsert below if it's a system role.
-ALTER TABLE "ClinicRole"
-    ALTER COLUMN "permissions" TYPE "ClinicPermission_new"[]
-    USING (
+ALTER TABLE "ClinicRole" ADD COLUMN "permissions_new" "ClinicPermission_new"[];
+
+UPDATE "ClinicRole"
+SET "permissions_new" = COALESCE(sub.arr, ARRAY[]::"ClinicPermission_new"[])
+FROM (
+    SELECT
+        r.id,
         ARRAY(
             SELECT v::text::"ClinicPermission_new"
-            FROM unnest("permissions") AS v
+            FROM unnest(r."permissions") AS v
             WHERE v::text IN (
                 'BOOKING_VIEW','BOOKING_ACCEPT','BOOKING_RESCHEDULE',
                 'PATIENT_VIEW','PATIENT_CONTACT',
@@ -43,8 +41,15 @@ ALTER TABLE "ClinicRole"
                 'TEAM_VIEW','TEAM_INVITE','TEAM_REMOVE','TEAM_ROLE_CHANGE',
                 'REPORTS_DAILY','REPORTS_EXPORT'
             )
-        )
-    );
+        ) AS arr
+    FROM "ClinicRole" r
+) AS sub
+WHERE "ClinicRole".id = sub.id;
+
+ALTER TABLE "ClinicRole" DROP COLUMN "permissions";
+ALTER TABLE "ClinicRole" RENAME COLUMN "permissions_new" TO "permissions";
+ALTER TABLE "ClinicRole" ALTER COLUMN "permissions" SET NOT NULL;
+ALTER TABLE "ClinicRole" ALTER COLUMN "permissions" SET DEFAULT ARRAY[]::"ClinicPermission_new"[];
 
 DROP TYPE "ClinicPermission";
 ALTER TYPE "ClinicPermission_new" RENAME TO "ClinicPermission";
