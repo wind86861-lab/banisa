@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Search, X, ChevronLeft, Clock, MapPin, ShoppingCart, SlidersHorizontal,
-    Activity, Stethoscope, Leaf, Package, Loader2, Filter
+    Activity, Stethoscope, Leaf, Package, Loader2, Filter, Check,
 } from 'lucide-react';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
@@ -51,7 +51,7 @@ const FALLBACK_IMAGES = {
 
 function fmt(n) { return (n || 0).toLocaleString('uz-UZ'); }
 
-function ServiceCard({ service, onAddToCart, isLoggedIn }) {
+function ServiceCard({ service, onAddToCart, inCart, busy }) {
     let imgSrc = (service.images?.[0]) || FALLBACK_IMAGES[service.category] || FALLBACK_IMAGES.diagnostika;
     if (imgSrc?.startsWith('/uploads')) imgSrc = `https://banisa.uz${imgSrc}`;
     const rating = typeof service.rating === 'number' ? service.rating : 0;
@@ -95,15 +95,17 @@ function ServiceCard({ service, onAddToCart, isLoggedIn }) {
                     ) : null}
                     <span className="xc-card-price-num">{fmt(service.price)} <span>so'm</span></span>
                 </div>
-                {isLoggedIn && (
-                    <button
-                        className="xc-card-cart-btn"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddToCart(service); }}
-                        aria-label="Savatga qo'shish"
-                    >
-                        <ShoppingCart size={16} />
-                    </button>
-                )}
+                <button
+                    className={`xc-card-cart-btn${inCart ? ' in-cart' : ''}`}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!busy) onAddToCart(service); }}
+                    disabled={busy}
+                    aria-label={inCart ? 'Savatda mavjud' : "Savatga qo'shish"}
+                    title={inCart ? 'Savatda mavjud' : "Savatga qo'shish"}
+                >
+                    {busy ? <Loader2 size={16} className="xc-spin" />
+                        : inCart ? <Check size={16} />
+                        : <ShoppingCart size={16} />}
+                </button>
             </div>
         </Link>
     );
@@ -113,8 +115,19 @@ export default function XizmatlarCategoryPage() {
     const { category } = useParams();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { user, waitForUser } = useUserAuth();
-    const { addToCart } = useCart();
+    const { waitForUser } = useUserAuth();
+    const { addToCart, cart } = useCart();
+    const [pendingServiceId, setPendingServiceId] = useState(null);
+
+    // Flat set of "is this service already in my cart?" lookups.
+    const cartServiceIds = useMemo(() => {
+        const ids = new Set();
+        (cart || []).forEach(g => (g.items || []).forEach(it => {
+            if (it.service?.id) ids.add(String(it.service.id));
+            if (it.serviceId) ids.add(String(it.serviceId));
+        }));
+        return ids;
+    }, [cart]);
 
     const meta = CATEGORY_META[category];
     const [searchQuery, setSearchQuery] = useState('');
@@ -185,6 +198,15 @@ export default function XizmatlarCategoryPage() {
         return list;
     }, [categoryPool, selectedSub, searchQuery, sortBy, minRating, selectedRegions]);
 
+    const showToast = (text, tone = 'success') => {
+        const n = document.createElement('div');
+        n.className = `xc-toast xc-toast--${tone}`;
+        n.textContent = text;
+        document.body.appendChild(n);
+        setTimeout(() => n.classList.add('show'), 10);
+        setTimeout(() => { n.classList.remove('show'); setTimeout(() => n.remove(), 300); }, 2400);
+    };
+
     const handleAddToCart = async (service) => {
         const resolved = await waitForUser();
         if (!resolved) { navigate('/user/login'); return; }
@@ -193,15 +215,15 @@ export default function XizmatlarCategoryPage() {
         else if (service.category === 'sanatoriya') serviceType = 'SANATORIUM';
         else if (service.category === 'checkup') serviceType = 'CHECKUP';
         const clinicId = service.clinic?.id;
-        if (!clinicId) return;
-        const result = await addToCart(clinicId, serviceType, service.serviceId || service.id, 1);
-        if (result.success) {
-            const n = document.createElement('div');
-            n.className = 'xc-toast';
-            n.textContent = "✓ Savatga qo'shildi";
-            document.body.appendChild(n);
-            setTimeout(() => n.classList.add('show'), 10);
-            setTimeout(() => { n.classList.remove('show'); setTimeout(() => n.remove(), 300); }, 1800);
+        if (!clinicId) { showToast('Klinika topilmadi', 'error'); return; }
+
+        setPendingServiceId(service.id);
+        try {
+            const result = await addToCart(clinicId, serviceType, service.serviceId || service.id, 1);
+            if (result.success) showToast("✓ Savatga qo'shildi");
+            else showToast(result.message || "Qo'shib bo'lmadi", 'error');
+        } finally {
+            setPendingServiceId(null);
         }
     };
 
@@ -315,7 +337,8 @@ export default function XizmatlarCategoryPage() {
                                 key={s.id}
                                 service={s}
                                 onAddToCart={handleAddToCart}
-                                isLoggedIn={!!user}
+                                inCart={cartServiceIds.has(String(s.serviceId || s.id))}
+                                busy={pendingServiceId === s.id}
                             />
                         ))}
                     </div>
