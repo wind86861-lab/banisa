@@ -26,7 +26,6 @@ import { serviceImageUpload } from '../../middleware/upload.middleware';
 import {
     getClinicStats,
     getClinicProfile, updateClinicProfile,
-    getClinicDiscounts, createClinicDiscount, updateClinicDiscount, deleteClinicDiscount,
     resolveMapLink,
 } from './clinic-extra.controller';
 
@@ -92,11 +91,5 @@ router.get('/stats', getClinicStats);
 router.get('/profile', getClinicProfile);
 router.put('/profile', updateClinicProfile);
 router.post('/resolve-map-link', resolveMapLink);
-
-// ─── Discounts ─────────────────────────────────────────────────────────────────
-router.get('/discounts', getClinicDiscounts);
-router.post('/discounts', createClinicDiscount);
-router.put('/discounts/:id', updateClinicDiscount);
-router.delete('/discounts/:id', deleteClinicDiscount);
 
 export default router;

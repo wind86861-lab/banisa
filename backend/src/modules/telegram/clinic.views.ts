@@ -202,9 +202,6 @@ export async function renderClinicBookingDetail(ctx: ClinicCtx, appointmentId: s
         && permsHave(ctx, ClinicPermission.BOOKING_RESCHEDULE)) {
         kb.text(ctx.lang === 'ru' ? '🔁 Перенести' : '🔁 Ko\'chirish', `clinic:resched:${appt.id}`);
     }
-    if (appt.status === 'PENDING' && permsHave(ctx, ClinicPermission.BOOKING_REJECT)) {
-        kb.text(ctx.lang === 'ru' ? '❌ Отклонить' : '❌ Rad qilish', `clinic:reject:${appt.id}`);
-    }
     if (kb.inline_keyboard.length > 0) kb.row();
 
     // Cash confirm path
@@ -342,37 +339,6 @@ export async function tryClinicAccept(ctx: ClinicCtx, appointmentId: string): Pr
             ctx.clinicId,
             appointmentId,
         );
-        return { ok: true };
-    } catch (e: any) {
-        return { ok: false, error: e?.message || 'Xato' };
-    }
-}
-
-export async function tryClinicReject(ctx: ClinicCtx, appointmentId: string, reason: string): Promise<{ ok: boolean; error?: string }> {
-    try {
-        // The service exposes reschedule (lifecycle's official "no" path);
-        // we mark CANCELLED with cancelledBy=CLINIC instead.
-        const appt = await prisma.appointment.findFirst({
-            where: { id: appointmentId, clinicId: ctx.clinicId },
-        });
-        if (!appt) return { ok: false, error: 'not_found' };
-        if (appt.status !== 'PENDING') return { ok: false, error: 'wrong_status' };
-        await prisma.appointment.update({
-            where: { id: appointmentId },
-            data: {
-                status: 'CANCELLED' as any,
-                cancelledAt: new Date(),
-                cancelledBy: 'CLINIC' as any,
-                cancellationReason: reason,
-            } as any,
-        });
-        await prisma.clinicAuditLog.create({
-            data: {
-                clinicId: ctx.clinicId, actorId: ctx.userId,
-                action: 'booking.reject', targetType: 'appointment', targetId: appointmentId,
-                metadata: { reason },
-            },
-        });
         return { ok: true };
     } catch (e: any) {
         return { ok: false, error: e?.message || 'Xato' };

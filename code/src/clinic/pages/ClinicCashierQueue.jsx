@@ -5,6 +5,7 @@ import { Banknote, Clock, Phone, User, RefreshCw, CheckCircle2, Loader2 } from '
 import api from '../../shared/api/axios';
 import { fmtSum, shortBookingNo } from '../../shared/utils/format';
 import CashConfirmModal from '../components/CashConfirmModal';
+import { useMyClinicMembership } from '../hooks/useMyClinicMembership';
 import './ClinicCashierQueue.css';
 
 function waitedMinutes(checkedInAt) {
@@ -24,6 +25,8 @@ export default function ClinicCashierQueue() {
     const focusId = searchParams.get('focus');
     const [confirmTarget, setConfirmTarget] = useState(null);
     const [tick, setTick] = useState(0);
+    const { can } = useMyClinicMembership();
+    const canConfirmCash = can('PAYMENT_CONFIRM_CASH');
 
     const { data, isLoading, isFetching, isError, refetch } = useQuery({
         queryKey: ['clinic', 'cashier-queue'],
@@ -124,9 +127,11 @@ export default function ClinicCashierQueue() {
                                 </div>
                                 <div className="cq-row-right">
                                     <div className="cq-amount">{fmtSum(finalP)} <span>so'm</span></div>
-                                    <button className="cq-confirm-btn" onClick={() => setConfirmTarget(a)}>
-                                        Tasdiqlash
-                                    </button>
+                                    {canConfirmCash && (
+                                        <button className="cq-confirm-btn" onClick={() => setConfirmTarget(a)}>
+                                            Tasdiqlash
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         );

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useClinicBookings, useUpdateBookingStatus } from '../hooks/useClinicData';
+import { useMyClinicMembership } from '../hooks/useMyClinicMembership';
 import CashConfirmModal from '../components/CashConfirmModal';
 import AppointmentMetadataInput from '../components/AppointmentMetadataInput';
 import BanisaLoader from '../../shared/components/BanisaLoader';
@@ -101,7 +102,7 @@ function ConfirmDialog({ booking, action, onConfirm, onClose }) {
     );
 }
 
-function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash }) {
+function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash, perms }) {
     if (!booking) return null;
     const patient = booking.patient ?? {};
     const doctor = booking.doctor ?? null;
@@ -211,15 +212,16 @@ function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash }) {
                     <AppointmentMetadataInput appointmentId={booking.id} />
                 </div>
 
-                {/* Footer actions */}
-                {['PENDING', 'CHECKED_IN', 'IN_PROGRESS'].includes(booking.status) && (
+                {/* Footer actions (hidden entirely for DIRECTOR / no write perms) */}
+                {(perms?.canAccept || perms?.canCashConfirm)
+                    && ['PENDING', 'CHECKED_IN', 'IN_PROGRESS'].includes(booking.status) && (
                     <div className="ca-drawer-footer">
-                        {booking.status === 'PENDING' && (
+                        {perms?.canAccept && booking.status === 'PENDING' && (
                             <button className="ca-btn-primary" onClick={() => onConfirm(booking)}>
                                 <CheckCircle2 size={15} /> Qabul qilish
                             </button>
                         )}
-                        {needsCashConfirm(booking) && (
+                        {perms?.canCashConfirm && needsCashConfirm(booking) && (
                             <button
                                 onClick={() => onCash && onCash(booking)}
                                 style={{
@@ -232,12 +234,12 @@ function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash }) {
                                 <Wallet size={15} /> Naqdni qabul qilish
                             </button>
                         )}
-                        {canStart(booking) && (
+                        {perms?.canActOnLifecycle && canStart(booking) && (
                             <button className="ca-btn-primary" onClick={() => onConfirm(booking, 'start')}>
                                 <CheckCircle2 size={15} /> Xizmatni boshlash
                             </button>
                         )}
-                        {booking.status === 'IN_PROGRESS' && (
+                        {perms?.canActOnLifecycle && booking.status === 'IN_PROGRESS' && (
                             <button className="ca-btn-primary" onClick={() => onConfirm(booking, 'complete')}>
                                 <CheckCircle2 size={15} /> Xizmatni tugatish
                             </button>
@@ -250,6 +252,13 @@ function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash }) {
 }
 
 export default function ClinicBookings() {
+    const { can } = useMyClinicMembership();
+    const canAccept = can('BOOKING_ACCEPT');
+    const canCashConfirm = can('PAYMENT_CONFIRM_CASH');
+    // Lifecycle actions (start / complete / no-show) ride alongside accept —
+    // DIRECTOR shouldn't toggle them either.
+    const canActOnLifecycle = canAccept;
+
     const [searchParams, setSearchParams] = useSearchParams();
     const [viewMode, setViewMode] = useState('list');
     const [search, setSearch] = useState('');
@@ -407,12 +416,12 @@ export default function ClinicBookings() {
                                             <button className="ca-icon-btn" title="Ko'rish" onClick={() => setDrawer(b)}>
                                                 <Eye size={15} />
                                             </button>
-                                            {b.status === 'PENDING' && (
+                                            {canAccept && b.status === 'PENDING' && (
                                                 <button className="ca-icon-btn success" title="Qabul qilish" onClick={() => handleConfirm(b)}>
                                                     <CheckCircle2 size={15} />
                                                 </button>
                                             )}
-                                            {needsCashConfirm(b) && (
+                                            {canCashConfirm && needsCashConfirm(b) && (
                                                 <button
                                                     className="ca-icon-btn"
                                                     style={{ background: '#10b981', color: '#fff' }}
@@ -422,17 +431,17 @@ export default function ClinicBookings() {
                                                     <Wallet size={15} />
                                                 </button>
                                             )}
-                                            {canStart(b) && (
+                                            {canActOnLifecycle && canStart(b) && (
                                                 <button className="ca-icon-btn success" title="Boshlash" onClick={() => setDialog({ booking: b, action: 'start' })}>
                                                     <CheckCircle2 size={15} />
                                                 </button>
                                             )}
-                                            {b.status === 'IN_PROGRESS' && (
+                                            {canActOnLifecycle && b.status === 'IN_PROGRESS' && (
                                                 <button className="ca-icon-btn success" title="Tugatish" onClick={() => setDialog({ booking: b, action: 'complete' })}>
                                                     <CheckCircle2 size={15} />
                                                 </button>
                                             )}
-                                            {['CONFIRMED', 'CHECKED_IN'].includes(b.status) && (
+                                            {canActOnLifecycle && ['CONFIRMED', 'CHECKED_IN'].includes(b.status) && (
                                                 <button className="ca-icon-btn danger" title="Kelmadi" onClick={() => setDialog({ booking: b, action: 'no_show' })}>
                                                     <XCircle size={15} />
                                                 </button>
@@ -483,22 +492,22 @@ export default function ClinicBookings() {
                             </div>
                             <div className="ca-card-actions" onClick={e => e.stopPropagation()}>
                                 <button className="ca-icon-btn" title="Ko'rish" onClick={() => setDrawer(b)}><Eye size={15} /></button>
-                                {b.status === 'PENDING' && (
+                                {canAccept && b.status === 'PENDING' && (
                                     <button className="ca-icon-btn success" title="Qabul qilish" onClick={() => handleConfirm(b)}>
                                         <CheckCircle2 size={15} />
                                     </button>
                                 )}
-                                {needsCashConfirm(b) && (
+                                {canCashConfirm && needsCashConfirm(b) && (
                                     <button className="ca-icon-btn" style={{ background: '#10b981', color: '#fff' }} title="Naqdni qabul qilish" onClick={() => setCashBooking(b)}>
                                         <Wallet size={15} />
                                     </button>
                                 )}
-                                {canStart(b) && (
+                                {canActOnLifecycle && canStart(b) && (
                                     <button className="ca-icon-btn success" title="Boshlash" onClick={() => setDialog({ booking: b, action: 'start' })}>
                                         <CheckCircle2 size={15} />
                                     </button>
                                 )}
-                                {b.status === 'IN_PROGRESS' && (
+                                {canActOnLifecycle && b.status === 'IN_PROGRESS' && (
                                     <button className="ca-icon-btn success" title="Tugatish" onClick={() => setDialog({ booking: b, action: 'complete' })}>
                                         <CheckCircle2 size={15} />
                                     </button>
@@ -517,6 +526,7 @@ export default function ClinicBookings() {
                         onClose={() => setDrawer(null)}
                         onConfirm={handleConfirm}
                         onCash={(b) => { setCashBooking(b); setDrawer(null); }}
+                        perms={{ canAccept, canCashConfirm, canActOnLifecycle }}
                     />
                 )}
             </AnimatePresence>

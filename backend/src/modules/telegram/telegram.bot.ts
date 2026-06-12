@@ -11,7 +11,7 @@ import {
 import {
     renderClinicToday, renderClinicPending, renderClinicBookingDetail,
     renderCashierQueue, renderClinicReport, renderClinicTeam,
-    tryClinicAccept, tryClinicReject, tryClinicCashConfirm,
+    tryClinicAccept, tryClinicCashConfirm,
     ClinicCtx,
 } from './clinic.views';
 import {
@@ -334,8 +334,7 @@ async function handleClinicReply(ctx: any, ctxCl: ClinicCtx, view: ClinicView): 
         ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
 
     if (view === 'today') {
-        if (!ctxCl.permissions.includes(ClinicPermission.BOOKING_VIEW)
-            && !ctxCl.permissions.includes(ClinicPermission.BOOKING_VIEW_OWN)) {
+        if (!ctxCl.permissions.includes(ClinicPermission.BOOKING_VIEW)) {
             await ctx.reply('Ruxsat yo\'q'); return;
         }
         const r = await renderClinicToday(ctxCl); await reply(r.text, r.keyboard); return;
@@ -1007,23 +1006,6 @@ function registerHandlers(bot: Bot) {
             return;
         }
         await ctx.answerCallbackQuery({ text: '✅ Qabul qilindi' });
-        const r = await renderClinicBookingDetail(cl, ctx.match[1]);
-        if (r) await safeEdit(ctx, r.text, r.keyboard);
-    });
-
-    bot.callbackQuery(/^clinic:reject:(.+)$/, async (ctx) => {
-        const cl = await resolveClinic(ctx); if (!cl) return;
-        if (!cl.permissions.includes(ClinicPermission.BOOKING_REJECT)) {
-            await ctx.answerCallbackQuery({ text: 'Ruxsat yo\'q', show_alert: true });
-            return;
-        }
-        // For now we cancel with a default reason; future iteration: prompt for text.
-        const result = await tryClinicReject(cl, ctx.match[1], 'Klinika tomonidan rad etildi');
-        if (!result.ok) {
-            await ctx.answerCallbackQuery({ text: result.error || 'Xato', show_alert: true });
-            return;
-        }
-        await ctx.answerCallbackQuery({ text: '❌ Rad qilindi' });
         const r = await renderClinicBookingDetail(cl, ctx.match[1]);
         if (r) await safeEdit(ctx, r.text, r.keyboard);
     });

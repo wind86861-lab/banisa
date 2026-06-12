@@ -44,7 +44,6 @@ import ClinicDashboard from './clinic/pages/ClinicDashboard';
 import ClinicServices from './clinic/pages/ClinicServices';
 import ClinicProfile from './clinic/pages/ClinicProfile';
 import ClinicBookings from './clinic/pages/ClinicBookings';
-import ClinicDiscounts from './clinic/pages/ClinicDiscounts';
 import ClinicPayments from './clinic/pages/ClinicPayments';
 import ClinicDoctors from './clinic/pages/ClinicDoctors';
 import ClinicAmbulances from './clinic/pages/ClinicAmbulances';
@@ -206,7 +205,6 @@ function App() {
                                         <Route path="bookings" element={<ClinicBookings />} />
                                         <Route path="checkin-qr" element={<ClinicCheckInQR />} />
                                         <Route path="cashier" element={<ClinicCashierQueue />} />
-                                        <Route path="discounts" element={<ClinicDiscounts />} />
                                         <Route path="payments" element={<ClinicPayments />} />
                                         <Route path="doctors" element={<ClinicDoctors />} />
                                         <Route path="ambulances" element={<ClinicAmbulances />} />

@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import prisma from '../../config/database';
 import { AuthRequest } from '../../middleware/auth.middleware';
 
@@ -290,25 +290,6 @@ export const updateClinicProfile = async (req: AuthRequest, res: Response) => {
 
     const updated = await prisma.clinic.update({ where: { id: clinicId }, data });
     return res.json({ success: true, data: updated });
-};
-
-// ─── Discounts (simple JSON-stored, no dedicated table yet) ───────────────────
-// We store discounts as a JSON field in Clinic.metadata or use a simple approach
-// For now return empty array — can be extended when Discount model is added
-export const getClinicDiscounts = async (req: AuthRequest, res: Response) => {
-    return res.json({ success: true, data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 0 } });
-};
-
-export const createClinicDiscount = async (_req: Request, res: Response) => {
-    return res.status(501).json({ success: false, message: 'Chegirmalar moduli tez kunda' });
-};
-
-export const updateClinicDiscount = async (_req: Request, res: Response) => {
-    return res.status(501).json({ success: false, message: 'Chegirmalar moduli tez kunda' });
-};
-
-export const deleteClinicDiscount = async (_req: Request, res: Response) => {
-    return res.status(501).json({ success: false, message: 'Chegirmalar moduli tez kunda' });
 };
 
 // ─── Resolve a Google/Yandex map link into lat/lng ───────────────────────────

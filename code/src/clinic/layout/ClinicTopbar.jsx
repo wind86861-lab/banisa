@@ -10,7 +10,6 @@ const PAGE_TITLES = {
     '/clinic/services':   'Xizmatlar va Narxlar',
     '/clinic/profile':    'Klinika Profili',
     '/clinic/bookings':   'Bronlar',
-    '/clinic/discounts':  'Chegirmalar',
     '/clinic/reports':    'Hisobotlar',
     '/clinic/notifications': 'Bildirishnomalar',
     '/clinic/cashier':    'Kassir navbati',

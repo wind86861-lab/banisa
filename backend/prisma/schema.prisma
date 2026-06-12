@@ -1459,28 +1459,16 @@ enum AmbulanceStatus {
 enum ClinicPermission {
   // Bookings
   BOOKING_VIEW
-  BOOKING_VIEW_OWN          // doctors: only their own bookings
   BOOKING_ACCEPT
-  BOOKING_REJECT
   BOOKING_RESCHEDULE
-  BOOKING_CANCEL
-  BOOKING_DELETE
 
   // Patients
   PATIENT_VIEW
   PATIENT_CONTACT           // phone / e-mail (PII)
-  PATIENT_MEDICAL_HISTORY
 
   // Payments
   PAYMENT_VIEW
   PAYMENT_CONFIRM_CASH
-  PAYMENT_REFUND
-  PAYMENT_REPORTS
-
-  // Services / pricing
-  SERVICE_VIEW
-  SERVICE_PRICE_UPDATE
-  SERVICE_ACTIVATE
 
   // Team
   TEAM_VIEW
@@ -1488,23 +1476,9 @@ enum ClinicPermission {
   TEAM_REMOVE
   TEAM_ROLE_CHANGE
 
-  // Clinic profile
-  CLINIC_PROFILE_EDIT
-  CLINIC_SCHEDULE_EDIT
-  CLINIC_DELETE
-
   // Reports
   REPORTS_DAILY
-  REPORTS_MONTHLY
-  REPORTS_FINANCIAL
   REPORTS_EXPORT
-
-  // Doctors
-  DOCTOR_MANAGE
-  DOCTOR_SCHEDULE_EDIT
-
-  // Audit trail
-  AUDIT_VIEW
 }
 
 /// Per-clinic role definition. Default system roles are seeded automatically

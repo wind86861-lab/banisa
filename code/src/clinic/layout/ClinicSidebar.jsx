@@ -9,10 +9,14 @@ import {
     CreditCard, Ambulance,
 } from 'lucide-react';
 import { useAuth } from '../../shared/auth/AuthContext';
+import { useMyClinicMembership } from '../hooks/useMyClinicMembership';
 import api from '../../shared/api/axios';
 import '../../components/Sidebar.css';
 import './ClinicSidebar.css';
 
+// All nav items for CLINIC_ADMIN. DIRECTOR sees a stripped-down list
+// (read-only essentials + the daily-report destination) — those keys are
+// listed in DIRECTOR_NAV_KEYS below.
 const NAV_GROUPS = [
     {
         title: 'ASOSIY',
@@ -22,7 +26,6 @@ const NAV_GROUPS = [
             { key: 'bookings', label: 'Bronlar', path: '/clinic/bookings', icon: <Calendar size={20} /> },
             { key: 'cashier', label: 'Kassa navbati', path: '/clinic/cashier', icon: <Banknote size={20} /> },
             { key: 'checkin-qr', label: 'Check-in QR', path: '/clinic/checkin-qr', icon: <Printer size={20} /> },
-            { key: 'discounts', label: 'Chegirmalar', path: '/clinic/discounts', icon: <Tag size={20} /> },
             { key: 'payments', label: "To'lov tizimi", path: '/clinic/payments', icon: <CreditCard size={20} /> },
         ],
     },
@@ -36,6 +39,8 @@ const NAV_GROUPS = [
         ],
     },
 ];
+
+const DIRECTOR_NAV_KEYS = new Set(['dashboard', 'bookings', 'reports', 'notifications', 'team']);
 
 function useUnreadCount() {
     return useQuery({
@@ -57,6 +62,14 @@ export default function ClinicSidebar({ isOpen, toggleSidebar }) {
     const location = useLocation();
     const { user, logout } = useAuth();
     const { data: unreadCount = 0 } = useUnreadCount();
+    const { isDirector } = useMyClinicMembership();
+
+    const navGroups = isDirector
+        ? NAV_GROUPS.map(g => ({
+            ...g,
+            items: g.items.filter(i => DIRECTOR_NAV_KEYS.has(i.key)),
+        })).filter(g => g.items.length > 0)
+        : NAV_GROUPS;
 
     const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 
@@ -103,7 +116,7 @@ export default function ClinicSidebar({ isOpen, toggleSidebar }) {
             {/* ─── Navigation ─── */}
             <div className="sidebar-content">
                 <nav className="sidebar-nav">
-                    {NAV_GROUPS.map((group, gi) => (
+                    {navGroups.map((group, gi) => (
                         <div key={gi} className="nav-section">
                             {group.title && isOpen && (
                                 <h3 className="section-title">{group.title}</h3>

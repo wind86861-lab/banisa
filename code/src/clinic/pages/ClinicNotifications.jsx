@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Bell, BellOff, CheckCheck, Clock, Calendar,
     Star, Package, AlertCircle, Info, Megaphone,
-    Settings, RefreshCw, X, Filter,
-    ToggleLeft, ToggleRight, ChevronRight,
+    RefreshCw, ChevronRight,
     UserCheck, Wallet, Banknote, Loader2,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -39,17 +38,6 @@ const TYPE_CONFIG = {
     GENERAL: { icon: Info, color: '#6366f1', bg: 'rgba(99,102,241,0.1)', label: 'Xabar' },
 };
 
-const DEFAULT_SETTINGS = {
-    bookingCreated: true,
-    bookingCancelled: true,
-    bookingReminder: true,
-    newReview: true,
-    systemAlerts: true,
-    promotions: false,
-    weeklyReport: true,
-    pushEnabled: true,
-};
-
 /* ─── hooks ─── */
 const useNotifications = (filters) =>
     useQuery({
@@ -59,19 +47,6 @@ const useNotifications = (filters) =>
             return data.data || { notifications: [], unreadCount: 0, total: 0 };
         },
         refetchInterval: 30_000,
-    });
-
-const useNotificationSettings = () =>
-    useQuery({
-        queryKey: ['clinic', 'notification-settings'],
-        queryFn: async () => {
-            try {
-                const { data } = await api.get('/clinic/notification-settings');
-                return { ...DEFAULT_SETTINGS, ...(data.data || {}) };
-            } catch {
-                return DEFAULT_SETTINGS;
-            }
-        },
     });
 
 const useMarkAllRead = () => {
@@ -87,14 +62,6 @@ const useMarkRead = () => {
     return useMutation({
         mutationFn: (id) => api.patch(`/clinic/notifications/${id}/read`),
         onSuccess: () => qc.invalidateQueries({ queryKey: ['clinic', 'notifications'] }),
-    });
-};
-
-const useSaveSettings = () => {
-    const qc = useQueryClient();
-    return useMutation({
-        mutationFn: (settings) => api.put('/clinic/notification-settings', settings),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['clinic', 'notification-settings'] }),
     });
 };
 
@@ -197,29 +164,6 @@ function NotificationItem({ n, onClick, onCashConfirm }) {
     );
 }
 
-function SettingsToggle({ label, description, checked, onChange }) {
-    return (
-        <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '12px 0', borderBottom: '1px solid var(--border-color)',
-        }}>
-            <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-main)' }}>{label}</div>
-                {description && (
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{description}</div>
-                )}
-            </div>
-            <button
-                onClick={() => onChange(!checked)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-            >
-                {checked
-                    ? <ToggleRight size={28} color="var(--color-primary)" />
-                    : <ToggleLeft size={28} color="var(--text-muted)" />}
-            </button>
-        </div>
-    );
-}
 
 /* ─── main page ─── */
 const TABS = [
@@ -233,9 +177,6 @@ const TABS = [
 export default function ClinicNotifications() {
     const navigate = useNavigate();
     const [tab, setTab] = useState('all');
-    const [view, setView] = useState('history');  // 'history' | 'settings'
-    const [settingsLocal, setSettingsLocal] = useState(null);
-    const [settingsSaved, setSettingsSaved] = useState(false);
     const [cashConfirmBooking, setCashConfirmBooking] = useState(null);
     const [cashLoading, setCashLoading] = useState(false);
 
@@ -260,27 +201,11 @@ export default function ClinicNotifications() {
     };
 
     const { data, isLoading, refetch } = useNotifications(filters);
-    const { data: settings } = useNotificationSettings();
     const markAllMut = useMarkAllRead();
     const markReadMut = useMarkRead();
-    const saveSettingsMut = useSaveSettings();
 
     const notifications = data?.notifications || [];
     const unreadCount = data?.unreadCount ?? 0;
-
-    useEffect(() => {
-        if (settings && !settingsLocal) setSettingsLocal({ ...settings });
-    }, [settings, settingsLocal]);
-
-    const handleSaveSettings = async () => {
-        await saveSettingsMut.mutateAsync(settingsLocal);
-        setSettingsSaved(true);
-        setTimeout(() => setSettingsSaved(false), 2500);
-    };
-
-    const setSetting = useCallback((key, val) => {
-        setSettingsLocal(prev => ({ ...prev, [key]: val }));
-    }, []);
 
     return (
         <div>
@@ -295,7 +220,7 @@ export default function ClinicNotifications() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    {view === 'history' && unreadCount > 0 && (
+                    {unreadCount > 0 && (
                         <button
                             className="ca-btn-secondary"
                             style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}
@@ -315,12 +240,10 @@ export default function ClinicNotifications() {
                     >
                         <RefreshCw size={16} />
                     </button>
-                    {/* Settings panel hidden until the backend endpoint exists —
-                        previously this opened a panel whose Save button hit a 404. */}
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: view === 'settings' ? '1fr 380px' : '1fr', gap: 20, marginTop: 20, alignItems: 'start' }}>
+            <div style={{ marginTop: 20 }}>
 
                 {/* ── Left: notification list ── */}
                 <div className="ca-card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -377,114 +300,6 @@ export default function ClinicNotifications() {
                         </div>
                     )}
                 </div>
-
-                {/* ── Right: settings panel ── */}
-                {view === 'settings' && settingsLocal && (
-                    <div className="ca-card" style={{ position: 'sticky', top: 20 }}>
-                        <div style={{ marginBottom: 16 }}>
-                            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
-                                Bildirishnoma sozlamalari
-                            </div>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                Qaysi bildirishnomalarni olishni sozlang
-                            </div>
-                        </div>
-
-                        {/* Push toggle */}
-                        <div style={{
-                            padding: '12px 14px', borderRadius: 10, marginBottom: 16,
-                            background: settingsLocal.pushEnabled
-                                ? 'rgba(0,189,224,0.07)' : 'rgba(239,68,68,0.06)',
-                            border: `1px solid ${settingsLocal.pushEnabled
-                                ? 'rgba(0,189,224,0.2)' : 'rgba(239,68,68,0.2)'}`,
-                            display: 'flex', alignItems: 'center', gap: 10,
-                        }}>
-                            {settingsLocal.pushEnabled
-                                ? <Bell size={18} color="var(--color-primary)" />
-                                : <BellOff size={18} color="#ef4444" />}
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 13, fontWeight: 600 }}>
-                                    Push bildirishnomalar
-                                </div>
-                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                    {settingsLocal.pushEnabled ? 'Yoqilgan' : 'O\'chirilgan'}
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setSetting('pushEnabled', !settingsLocal.pushEnabled)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                            >
-                                {settingsLocal.pushEnabled
-                                    ? <ToggleRight size={30} color="var(--color-primary)" />
-                                    : <ToggleLeft size={30} color="var(--text-muted)" />}
-                            </button>
-                        </div>
-
-                        {/* Category toggles */}
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-                            Bron bildirishnomalari
-                        </div>
-                        <SettingsToggle
-                            label="Yangi bron"
-                            description="Bemor bron qilganda xabar oling"
-                            checked={settingsLocal.bookingCreated}
-                            onChange={v => setSetting('bookingCreated', v)}
-                        />
-                        <SettingsToggle
-                            label="Bron bekor qilindi"
-                            description="Bemor bronni bekor qilganda"
-                            checked={settingsLocal.bookingCancelled}
-                            onChange={v => setSetting('bookingCancelled', v)}
-                        />
-                        <SettingsToggle
-                            label="Bron eslatmasi"
-                            description="Bron vaqtidan 1 soat oldin"
-                            checked={settingsLocal.bookingReminder}
-                            onChange={v => setSetting('bookingReminder', v)}
-                        />
-
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '16px 0 8px' }}>
-                            Boshqa bildirishnomalar
-                        </div>
-                        <SettingsToggle
-                            label="Yangi sharh"
-                            description="Bemor sharh qoldirganida"
-                            checked={settingsLocal.newReview}
-                            onChange={v => setSetting('newReview', v)}
-                        />
-                        <SettingsToggle
-                            label="Tizim ogohlantirishlari"
-                            description="Muhim tizim xabarlari"
-                            checked={settingsLocal.systemAlerts}
-                            onChange={v => setSetting('systemAlerts', v)}
-                        />
-                        <SettingsToggle
-                            label="Haftalik hisobot"
-                            description="Har dushanba haftalik statistika"
-                            checked={settingsLocal.weeklyReport}
-                            onChange={v => setSetting('weeklyReport', v)}
-                        />
-                        <SettingsToggle
-                            label="Aksiya & yangiliklar"
-                            description="Platforma yangiliklari va takliflari"
-                            checked={settingsLocal.promotions}
-                            onChange={v => setSetting('promotions', v)}
-                        />
-
-                        <button
-                            className="ca-btn-primary"
-                            style={{ width: '100%', marginTop: 20, justifyContent: 'center' }}
-                            onClick={handleSaveSettings}
-                            disabled={saveSettingsMut.isPending}
-                        >
-                            {saveSettingsMut.isPending
-                                ? <><Loader2 size={14} className="ca-spin" /> Saqlanmoqda...</>
-                                : settingsSaved
-                                    ? <><CheckCheck size={14} /> Saqlandi!</>
-                                    : 'Sozlamalarni saqlash'}
-                        </button>
-                    </div>
-                )}
             </div>
 
             {/* Cash Confirm Modal */}
