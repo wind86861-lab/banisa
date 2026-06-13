@@ -6,6 +6,7 @@ import {
 import { useSurgicalServices, useActivateSurgicalService, useDeactivateSurgicalService } from '../../hooks/useSurgicalServices';
 import SurgeryCustomizationDrawer from './SurgeryCustomizationDrawer';
 import api from '../../../shared/api/axios';
+import { friendlyApiError } from '../../../shared/utils/apiError';
 
 const fmt = (n) => (n ?? 0).toLocaleString('uz-UZ');
 
@@ -294,11 +295,16 @@ export default function SurgicalServicesTab() {
                         maxWidth: 380, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
                     }}>
                         <h3 style={{ margin: '0 0 10px', fontSize: 16 }}>Operatsiyani o'chirish</h3>
-                        <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 20px' }}>
+                        <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 16px' }}>
                             Ushbu operatsiya klinikangiz ro'yxatidan o'chiriladi. Istalgan vaqt qayta aktivlashtirish mumkin.
                         </p>
+                        {deactivateMut.isError && (
+                            <div className="ca-dialog-error" style={{ marginBottom: 16 }}>
+                                {friendlyApiError(deactivateMut.error, "Operatsiyani nofaol qilib bo'lmadi")}
+                            </div>
+                        )}
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                            <button className="ca-icon-btn" onClick={() => setConfirmDeactivate(null)}>Bekor</button>
+                            <button className="ca-icon-btn" onClick={() => { setConfirmDeactivate(null); deactivateMut.reset(); }}>Bekor</button>
                             <button
                                 className="ca-btn-primary"
                                 style={{ background: '#ef4444', borderColor: '#ef4444' }}

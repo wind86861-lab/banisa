@@ -11,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useClinicServices, useActivateService, useDeactivateService } from '../hooks/useClinicServices';
 import { useWorkingHours } from '../hooks/useServiceSettings';
 import BanisaLoader from '../../shared/components/BanisaLoader';
+import { friendlyApiError } from '../../shared/utils/apiError';
 import ServiceCustomizationDrawer from '../components/services/ServiceCustomizationDrawer';
 import CheckupPackagesTab from '../components/services/CheckupPackagesTab';
 import SurgicalServicesTab from '../components/services/SurgicalServicesTab';
@@ -653,15 +654,20 @@ export default function ClinicServices() {
 
             {/* ═══ DEACTIVATE CONFIRM ═══ */}
             {confirmDeactivate && (
-                <div className="ca-dialog-overlay" onClick={() => setConfirmDeactivate(null)}>
+                <div className="ca-dialog-overlay" onClick={() => { setConfirmDeactivate(null); deactivateMut.reset(); }}>
                     <div className="ca-dialog" onClick={e => e.stopPropagation()}>
                         <div className="ca-dialog-icon" style={{ background: 'rgba(252,105,106,0.12)', color: 'var(--color-danger)' }}>
                             <AlertCircle size={26} />
                         </div>
                         <div className="ca-dialog-title">Xizmatni o&#39;chirish?</div>
                         <div className="ca-dialog-desc">Bu xizmat nofaol qilinadi. Qayta aktivlashtirish mumkin.</div>
+                        {deactivateMut.isError && (
+                            <div className="ca-dialog-error">
+                                {friendlyApiError(deactivateMut.error, "Xizmatni nofaol qilib bo'lmadi")}
+                            </div>
+                        )}
                         <div className="ca-dialog-actions">
-                            <button className="ca-btn-secondary" onClick={() => setConfirmDeactivate(null)}>Bekor</button>
+                            <button className="ca-btn-secondary" onClick={() => { setConfirmDeactivate(null); deactivateMut.reset(); }}>Bekor</button>
                             <button className="ca-btn-danger" onClick={handleDeactivate} disabled={deactivateMut.isPending}>
                                 {deactivateMut.isPending ? <Loader2 size={14} className="ca-spin" /> : null}
                                 O&#39;chirish

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, Circle, CircleCheckBig, Package2, Loader2, Settings2, X } from 'lucide-react';
 import { useActivatePackage, useUpdatePackage, useDeactivatePackage } from '../../hooks/useCheckupPackages';
 import CheckupPackageDrawer from './CheckupPackageDrawer';
+import { friendlyApiError } from '../../../shared/utils/apiError';
 
 const fmt = (n) => (n ?? 0).toLocaleString('uz-UZ');
 
@@ -146,11 +147,16 @@ export default function PackageCard({ package: pkg }) {
                         maxWidth: 380, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
                     }}>
                         <h3 style={{ margin: '0 0 10px', fontSize: 16 }}>Paketni o'chirish</h3>
-                        <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 20px' }}>
+                        <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 16px' }}>
                             <strong>{pkg.nameUz}</strong> klinikangiz ro'yxatidan o'chiriladi. Istalgan vaqt qayta aktivlashtirish mumkin.
                         </p>
+                        {deactivateMutation.isError && (
+                            <div className="ca-dialog-error" style={{ marginBottom: 16 }}>
+                                {friendlyApiError(deactivateMutation.error, "Paketni nofaol qilib bo'lmadi")}
+                            </div>
+                        )}
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                            <button className="ca-btn-secondary" onClick={() => setConfirmDeactivate(false)} disabled={deactivateMutation.isPending}>
+                            <button className="ca-btn-secondary" onClick={() => { setConfirmDeactivate(false); deactivateMutation.reset(); }} disabled={deactivateMutation.isPending}>
                                 Bekor qilish
                             </button>
                             <button
