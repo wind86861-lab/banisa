@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import axiosInstance from '../shared/api/axios';
 import { useUserAuth } from '../shared/auth/UserAuthContext';
+import { friendlyApiError } from '../shared/utils/apiError';
 
 const CartContext = createContext();
 
@@ -89,25 +90,7 @@ export const CartProvider = ({ children }) => {
             return { success: true, message: 'Savatga qo\'shildi!' };
         } catch (error) {
             console.error('Add to cart error:', error);
-            const status = error.response?.status;
-            const code = error.response?.data?.error?.code;
-            const raw = error.response?.data?.error?.message
-                || error.response?.data?.message
-                || '';
-
-            // The /cart endpoint is patient-only. If the caller is signed
-            // in as a clinic admin (or has no session at all) Express
-            // returns "Permission denied", which is opaque to a patient
-            // staring at a service card. Translate it.
-            let msg;
-            if (status === 403 || code === 'FORBIDDEN' || /permission denied/i.test(raw)) {
-                msg = "Bron qilish uchun bemor sifatida tizimga kiring";
-            } else if (status === 401) {
-                msg = "Iltimos, tizimga kiring";
-            } else {
-                msg = raw || 'Xatolik yuz berdi';
-            }
-            return { success: false, message: msg };
+            return { success: false, message: friendlyApiError(error) };
         } finally {
             addingRef.current = false;
             setAddingToCart(false);

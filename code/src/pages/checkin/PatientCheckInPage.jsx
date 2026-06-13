@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import axiosInstance from '../../shared/api/axios';
 import { shortBookingNo } from '../../shared/utils/format';
+import { friendlyApiError } from '../../shared/utils/apiError';
 import './CheckIn.css';
 
 // Stop the silent spinner and offer "call clinic" after this long.
@@ -90,7 +91,7 @@ export default function PatientCheckInPage() {
                 const res = await axiosInstance.post('/user/appointments/scan-checkin', body);
                 handleData(res.data?.data);
             } catch (e) {
-                setErrMsg(e.response?.data?.error?.message || e.response?.data?.message || 'Check-in xatoligi');
+                setErrMsg(friendlyApiError(e, 'Check-in xatoligi'));
                 setStep('error');
             }
         })();
@@ -108,7 +109,7 @@ export default function PatientCheckInPage() {
             setStep(appt?.paymentStatus === 'PAID' ? 'paid' : 'awaiting-cash');
             playSuccessChime();
         } catch (e) {
-            setErrMsg(e.response?.data?.error?.message || e.response?.data?.message || 'Check-in xatoligi');
+            setErrMsg(friendlyApiError(e, 'Check-in xatoligi'));
             setStep('error');
         } finally {
             setPicking(false);

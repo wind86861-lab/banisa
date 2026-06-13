@@ -6,6 +6,7 @@ import {
     AlertTriangle, Loader2,
 } from 'lucide-react';
 import axiosInstance from '../../shared/api/axios';
+import { friendlyApiError } from '../../shared/utils/apiError';
 import './PaymePage.css';
 
 const MERCHANT_ID = '69e72340adc989d99c87540a';
@@ -71,7 +72,7 @@ export default function PaymePage() {
                 price: Number(bookingData.price),
             })
                 .then(res => { setOrderId(res.data.data.id); })
-                .catch(err => { setError(err.response?.data?.error?.message || 'Bron yaratishda xatolik yuz berdi'); })
+                .catch(err => { setError(friendlyApiError(err, 'Bron yaratishda xatolik yuz berdi')); })
                 .finally(() => { setCreatingAppointment(false); });
         }
     }, [bookingData, orderId, creatingAppointment, error, checkingClinic]);

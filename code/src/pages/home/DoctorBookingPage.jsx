@@ -8,6 +8,7 @@ import {
     User, MessageSquare, CreditCard,
 } from 'lucide-react';
 import api from '../../shared/api/axios';
+import { friendlyApiError } from '../../shared/utils/apiError';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
 import Footer from './Footer';
@@ -316,7 +317,7 @@ export default function DoctorBookingPage() {
                         {book.isError && (
                             <div className="book-error">
                                 <AlertTriangle size={12} />
-                                {book.error?.response?.data?.message || 'Band qilishda xato'}
+                                {friendlyApiError(book.error, 'Band qilishda xato')}
                             </div>
                         )}
 

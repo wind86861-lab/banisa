@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { Building2, Calendar, Clock, CreditCard, ChevronRight, ArrowRight } from 'lucide-react';
 import { useCreateAppointment } from '../hooks/useBooking';
+import { friendlyApiError } from '../../shared/utils/apiError';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
 import Footer from '../../pages/home/Footer';
@@ -62,7 +63,7 @@ export default function CheckoutPage() {
                 navigate('/user/booking-success', { state: { appointment } });
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Xatolik yuz berdi');
+            setError(friendlyApiError(err));
         }
     };
 

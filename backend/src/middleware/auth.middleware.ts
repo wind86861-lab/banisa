@@ -45,7 +45,11 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
 export const requireRole = (roles: string[]) => {
     return (req: AuthRequest, res: Response, next: NextFunction) => {
         if (!req.user || !roles.includes(req.user.role)) {
-            return next(new AppError('Permission denied', 403, ErrorCodes.FORBIDDEN));
+            return next(new AppError(
+                'Bu amal uchun ruxsatingiz yo\'q. Iltimos, mos hisob bilan tizimga kiring.',
+                403,
+                ErrorCodes.FORBIDDEN,
+            ));
         }
         next();
     };
