@@ -60,7 +60,7 @@ async function runForClinic(clinicId: string, isoDate: string) {
             _sum: { paidAmount: true },
         }),
         prisma.appointment.count({ where: { clinicId, scheduledAt: { gte: from, lt: to }, paymentStatus: 'PAID' as any } }),
-        prisma.appointment.count({ where: { clinicId, scheduledAt: { gte: from, lt: to }, paymentStatus: 'PENDING' as any } }),
+        prisma.appointment.count({ where: { clinicId, scheduledAt: { gte: from, lt: to }, paymentStatus: 'UNPAID' as any } }),
     ]);
 
     const revenue = paidRevenue._sum?.paidAmount || 0;

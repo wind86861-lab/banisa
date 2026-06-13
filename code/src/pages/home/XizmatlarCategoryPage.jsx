@@ -119,15 +119,28 @@ export default function XizmatlarCategoryPage() {
     const { addToCart, cart } = useCart();
     const [pendingServiceId, setPendingServiceId] = useState(null);
 
-    // Flat set of "is this service already in my cart?" lookups.
-    const cartServiceIds = useMemo(() => {
-        const ids = new Set();
-        (cart || []).forEach(g => (g.items || []).forEach(it => {
-            if (it.service?.id) ids.add(String(it.service.id));
-            if (it.serviceId) ids.add(String(it.serviceId));
-        }));
-        return ids;
+    // Match in-cart by (clinicId, serviceId) — a checkup package can be
+    // offered by multiple clinics with the same serviceId, so keying on
+    // serviceId alone made adding to clinic A flash the ✓ check on clinic
+    // B's identical-looking card too.
+    const cartServiceKeys = useMemo(() => {
+        const keys = new Set();
+        (cart || []).forEach(g => {
+            const clinicId = g.clinic?.id;
+            if (!clinicId) return;
+            (g.items || []).forEach(it => {
+                const sid = it.service?.id ?? it.serviceId;
+                if (sid) keys.add(`${clinicId}:${sid}`);
+            });
+        });
+        return keys;
     }, [cart]);
+
+    const isInCart = (service) => {
+        const sid = service.serviceId || service.id;
+        const cid = service.clinic?.id;
+        return cid && sid && cartServiceKeys.has(`${cid}:${sid}`);
+    };
 
     const meta = CATEGORY_META[category];
     const [searchQuery, setSearchQuery] = useState('');
@@ -337,7 +350,7 @@ export default function XizmatlarCategoryPage() {
                                 key={s.id}
                                 service={s}
                                 onAddToCart={handleAddToCart}
-                                inCart={cartServiceIds.has(String(s.serviceId || s.id))}
+                                inCart={isInCart(s)}
                                 busy={pendingServiceId === s.id}
                             />
                         ))}

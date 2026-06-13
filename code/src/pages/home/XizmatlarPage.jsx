@@ -568,16 +568,28 @@ export default function XizmatlarPage() {
     const { addToCart, cart } = useCart();
     const [pendingCartId, setPendingCartId] = useState(null);
 
-    // Flat lookup of "is this service already in my cart?" — derived from
-    // the existing cart groups so we don't double-fetch.
-    const cartServiceIds = useMemo(() => {
-        const ids = new Set();
-        (cart || []).forEach(g => (g.items || []).forEach(it => {
-            if (it.service?.id) ids.add(String(it.service.id));
-            if (it.serviceId) ids.add(String(it.serviceId));
-        }));
-        return ids;
+    // Match in-cart by (clinicId, serviceId) — a checkup package can be
+    // offered by multiple clinics with the same serviceId, so keying on
+    // serviceId alone made the ✓ check flash on the other clinic's
+    // identical-looking card too.
+    const cartServiceKeys = useMemo(() => {
+        const keys = new Set();
+        (cart || []).forEach(g => {
+            const clinicId = g.clinic?.id;
+            if (!clinicId) return;
+            (g.items || []).forEach(it => {
+                const sid = it.service?.id ?? it.serviceId;
+                if (sid) keys.add(`${clinicId}:${sid}`);
+            });
+        });
+        return keys;
     }, [cart]);
+
+    const isInCart = (service) => {
+        const sid = service.serviceId || service.id;
+        const cid = service.clinic?.id;
+        return cid && sid && cartServiceKeys.has(`${cid}:${sid}`);
+    };
 
     const showCartToast = (text, tone = 'success') => {
         const n = document.createElement('div');
@@ -1542,7 +1554,7 @@ export default function XizmatlarPage() {
                                     isLoggedIn={!!user}
                                     favoriteIds={favoriteIds}
                                     onToggleFavorite={(args) => toggleFavMut.mutate(args)}
-                                    inCart={cartServiceIds.has(String(service.serviceId || service.id))}
+                                    inCart={isInCart(service)}
                                     cartBusy={pendingCartId === service.id}
                                 />
                             ))

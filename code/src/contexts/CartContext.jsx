@@ -20,6 +20,12 @@ export const CartProvider = ({ children }) => {
     const userRef = useRef(user);
     useEffect(() => { userRef.current = user; }, [user]);
 
+    // Ref mirror of addingToCart — React state updates aren't observable to
+    // the next microtask, so two rapid clicks (e.g. on the same xizmatlar
+    // grid before the first finishes) can both clear the `addingToCart`
+    // closure guard. The ref flips synchronously and stops that race.
+    const addingRef = useRef(false);
+
     // Compute cartCount from cart array
     const computeCount = (cartData) => {
         return (cartData || []).reduce((sum, group) => sum + (group.itemCount || 0), 0);
@@ -60,7 +66,7 @@ export const CartProvider = ({ children }) => {
         if (!userRef.current) {
             return { success: false, message: 'Iltimos, tizimga kiring' };
         }
-        if (addingToCart) {
+        if (addingRef.current || addingToCart) {
             return { success: false, message: 'Iltimos, kuting...' };
         }
 
@@ -74,6 +80,7 @@ export const CartProvider = ({ children }) => {
             };
         }
 
+        addingRef.current = true;
         setAddingToCart(true);
         try {
             await axiosInstance.post('/cart', { clinicId, serviceType, serviceId, quantity });
@@ -82,11 +89,27 @@ export const CartProvider = ({ children }) => {
             return { success: true, message: 'Savatga qo\'shildi!' };
         } catch (error) {
             console.error('Add to cart error:', error);
-            const msg = error.response?.data?.error?.message
+            const status = error.response?.status;
+            const code = error.response?.data?.error?.code;
+            const raw = error.response?.data?.error?.message
                 || error.response?.data?.message
-                || 'Xatolik yuz berdi';
+                || '';
+
+            // The /cart endpoint is patient-only. If the caller is signed
+            // in as a clinic admin (or has no session at all) Express
+            // returns "Permission denied", which is opaque to a patient
+            // staring at a service card. Translate it.
+            let msg;
+            if (status === 403 || code === 'FORBIDDEN' || /permission denied/i.test(raw)) {
+                msg = "Bron qilish uchun bemor sifatida tizimga kiring";
+            } else if (status === 401) {
+                msg = "Iltimos, tizimga kiring";
+            } else {
+                msg = raw || 'Xatolik yuz berdi';
+            }
             return { success: false, message: msg };
         } finally {
+            addingRef.current = false;
             setAddingToCart(false);
         }
     };
