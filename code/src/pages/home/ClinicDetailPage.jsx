@@ -34,8 +34,16 @@ const DAYS_UZ = {
 };
 const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
+// Always pin to Asia/Tashkent — a user browsing from Moscow at 17:30 MSK
+// would otherwise see Medilux (open 07:30–17:00 Tashkent) flagged as open
+// because their browser-local time was still inside the window. The
+// schedule is stored in Tashkent local time, so the comparison has to be
+// too.
+function tashkentNow() {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+}
 function getTodayKey() {
-    return ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()];
+    return ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][tashkentNow().getDay()];
 }
 
 const CDP_UZ_DAYS = {
@@ -68,7 +76,7 @@ function computeIsOpen(workingHours) {
     if (!workingHours) return null;
     const wh = normalizeWHCDP(workingHours);
     if (Object.keys(wh).length === 0) return null;
-    const now = new Date();
+    const now = tashkentNow();
     const todayKey = getTodayKey();
     const day = wh[todayKey];
     if (!day) return null;
