@@ -318,9 +318,22 @@ export class CartService {
         for (const [clinicId, items] of Object.entries(byClinic)) {
             // Calculate total price for this clinic group + collect every
             // service name so the clinic notification can list what the
-            // patient actually booked (not just "1 ta xizmat").
+            // patient actually booked (not just "1 ta xizmat"). itemBreakdown
+            // also captures per-item prices so we can persist a row per
+            // service into AppointmentService below — without that, only
+            // the first cart item ever made it onto the booking and the
+            // others vanished.
             let totalPrice = 0;
             const serviceNames: string[] = [];
+            const itemBreakdown: Array<{
+                serviceType: 'DIAGNOSTIC' | 'SURGICAL' | 'SANATORIUM' | 'CHECKUP';
+                originalServiceId: string;
+                serviceName: string;
+                basePrice: number;
+                finalPrice: number;
+                discountAmount: number;
+                quantity: number;
+            }> = [];
             for (const item of items) {
                 let service: any;
                 let customization: { customPrice: number | null; discountPercent: number | null } | null = null;
@@ -410,8 +423,17 @@ export class CartService {
                     const disc = customization?.discountPercent ?? 0;
                     const finalPrice = disc > 0 ? Math.round(cp * (1 - disc / 100)) : cp;
                     totalPrice += finalPrice * item.quantity;
-                    const name = service.nameUz || service.nameRu || service.title;
-                    if (name) serviceNames.push(item.quantity > 1 ? `${name} ×${item.quantity}` : name);
+                    const name = service.nameUz || service.nameRu || service.title || 'Xizmat';
+                    serviceNames.push(item.quantity > 1 ? `${name} ×${item.quantity}` : name);
+                    itemBreakdown.push({
+                        serviceType: item.serviceType as any,
+                        originalServiceId: item.serviceId,
+                        serviceName: name,
+                        basePrice: cp,
+                        finalPrice,
+                        discountAmount: Math.max(0, cp - finalPrice),
+                        quantity: item.quantity,
+                    });
                 }
             }
 
@@ -456,6 +478,25 @@ export class CartService {
                     surgicalService: { select: { nameUz: true } },
                 },
             });
+
+            // Persist every cart item as an AppointmentService row so the
+            // admin drawer (and any future per-item reporting) sees the full
+            // basket — not just the "primary" item we wrote onto the
+            // appointment's own service-id field. The clinic-side list
+            // endpoint already includes appointment.services[].
+            if (itemBreakdown.length > 0) {
+                await prisma.appointmentService.createMany({
+                    data: itemBreakdown.flatMap(it => Array.from({ length: Math.max(1, it.quantity) }).map(() => ({
+                        appointmentId: appointment.id,
+                        serviceType: it.serviceType as any,
+                        serviceName: it.serviceName,
+                        originalServiceId: it.originalServiceId,
+                        price: it.basePrice,
+                        finalPrice: it.finalPrice,
+                        discountAmount: it.discountAmount,
+                    }))),
+                });
+            }
 
             appointments.push(appointment);
 
