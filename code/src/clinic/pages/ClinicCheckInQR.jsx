@@ -20,16 +20,18 @@ const PAPER_SIZES = [
     { id: 'A4', label: 'A4', hint: '210×297 mm' },
 ];
 
-// Card width per paper (mm). Leaves a balanced margin inside the page.
-// font-size scales with the card so every em-based dimension follows —
-// without this the static 3.6mm font kept the QR small even at A4.
-// QR em + font-mm → printed QR size:
-//   A6: 16em × 3.5mm ≈ 56mm  (postcard QR, easy hand-scan)
-//   A5: 18em × 5.0mm ≈ 90mm  (wall-mounted at 1m)
-//   A4: 20em × 6.5mm ≈ 130mm (lobby / entrance signage)
-const PAPER_CARD_MM = { A6: 92,  A5: 135, A4: 190 };
-const PAPER_FONT_MM = { A6: 3.5, A5: 5.0, A4: 6.5 };
-const PAPER_QR_EM   = { A6: 16,  A5: 18,  A4: 20  };
+// Card width per paper (mm). Numbers bumped close to the page edge
+// (4 mm page margin) so the QR can actually fill the sheet — the older
+// values left a lot of whitespace and the user wanted "yana ham
+// kattaroq". Page margin is set to 4 mm via @page below.
+//   A6: 21em × 4.5mm ≈ 95 mm   (countertop card)
+//   A5: 22em × 6.5mm ≈ 143 mm  (wall, arm's reach)
+//   A4: 24em × 9.0mm ≈ 216 mm  → capped at 200 mm by the card width
+//      → QR fills ~95% of an A4 card; scanners read it from across a lobby.
+const PAPER_CARD_MM   = { A6: 100, A5: 140, A4: 200 };
+const PAPER_FONT_MM   = { A6: 4.5, A5: 6.5, A4: 9.0 };
+const PAPER_QR_EM     = { A6: 18,  A5: 20,  A4: 22  };
+const PAPER_MARGIN_MM = { A6: 4,   A5: 4,   A4: 4   };
 
 // Pixel-faithful port of the "Banisa QR Card" preview. Visual contract lives
 // in clinic-checkin-qr.css; print rules there also strip the clinic shell.
@@ -64,13 +66,21 @@ export default function ClinicCheckInQR() {
         const cardMm = PAPER_CARD_MM[paper];
         const fontMm = PAPER_FONT_MM[paper];
         const qrEm = PAPER_QR_EM[paper];
+        const marginMm = PAPER_MARGIN_MM[paper];
+        // Shrink the card's own padding to em-relative minimums and slim
+        // the head/foot gap so almost all the page width turns into QR.
         el.textContent = `@media print {
-            @page { size: ${paper} portrait; margin: 6mm; }
+            @page { size: ${paper} portrait; margin: ${marginMm}mm; }
             .qr-card {
                 width: ${cardMm}mm !important;
                 max-width: ${cardMm}mm !important;
                 font-size: ${fontMm}mm !important;
+                padding: 1em 1em 0.75em !important;
+                gap: 0.6em !important;
+                box-shadow: none !important;
+                border: 1px solid #e2e8f0 !important;
             }
+            .qr-card__frame { padding: 0.6em !important; }
             .qr-card__qr { width: ${qrEm}em !important; height: ${qrEm}em !important; }
         }`;
         return () => {
