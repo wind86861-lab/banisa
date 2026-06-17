@@ -40,9 +40,17 @@ export const teamService = {
      * isSystem=true so the UI can mark them read-only.
      */
     async listRoles(clinicId: string) {
+        // Hide legacy roles (OWNER-LEGACY, MANAGER-LEGACY, CASHIER-LEGACY, …)
+        // from every dropdown. The 20260610190000 migration renamed the
+        // pre-simplification roles with a -LEGACY suffix and flipped
+        // isSystem to false so the UI would stop offering them; the row
+        // itself stays around because AppointmentLog/ClinicAuditLog
+        // entries reference it by name. Filter on isSystem=true here
+        // (DIRECTOR + CLINIC_ADMIN are the only seeded system roles in
+        // the new 2-role world).
         return prisma.clinicRole.findMany({
-            where: { clinicId },
-            orderBy: [{ isSystem: 'desc' }, { name: 'asc' }],
+            where: { clinicId, isSystem: true },
+            orderBy: [{ name: 'asc' }],
             select: {
                 id: true, name: true, description: true,
                 permissions: true, isSystem: true,
