@@ -114,6 +114,19 @@ export const useNoShowBooking = () => {
     });
 };
 
+// Per-patient stats at this clinic — drives the "Mijoz tarixi" block
+// in the booking drawer (returning vs new, last visit, total paid).
+export const usePatientStats = (patientId) =>
+    useQuery({
+        queryKey: ['clinic', 'patient-stats', patientId],
+        queryFn: async () => {
+            const { data } = await api.get(`/clinic/appointments/patient-stats/${patientId}`);
+            return data.data;
+        },
+        enabled: !!patientId,
+        staleTime: 60_000,
+    });
+
 // Backwards-compatible wrapper for old ClinicBookings page — maps old statuses to new actions
 export const useUpdateBookingStatus = () => {
     const qc = useQueryClient();

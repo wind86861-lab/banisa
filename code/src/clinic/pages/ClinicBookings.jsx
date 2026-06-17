@@ -6,7 +6,7 @@ import {
     User, Phone, Stethoscope, X, AlertTriangle, Wallet,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useClinicBookings, useUpdateBookingStatus } from '../hooks/useClinicData';
+import { useClinicBookings, useUpdateBookingStatus, usePatientStats } from '../hooks/useClinicData';
 import { useMyClinicMembership } from '../hooks/useMyClinicMembership';
 import CashConfirmModal from '../components/CashConfirmModal';
 import AppointmentMetadataInput from '../components/AppointmentMetadataInput';
@@ -106,6 +106,24 @@ function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash, perms })
     if (!booking) return null;
     const patient = booking.patient ?? {};
     const doctor = booking.doctor ?? null;
+    const { data: stats } = usePatientStats(patient.id);
+
+    const originalPrice = Number(booking.price ?? 0);
+    const finalPrice = Number(booking.finalPrice ?? booking.price ?? 0);
+    const discountAmount = Math.max(0, originalPrice - finalPrice);
+    const paymentMethodLabel = {
+        CASH: '💵 Naqd (klinikada)',
+        CARD: '💳 Karta',
+        PAYME: '💳 Payme',
+        CLICK: '💳 Click',
+    }[booking.paymentMethod] || (booking.paymentMethod ? `💳 ${booking.paymentMethod}` : '—');
+    const paymentStatusLabel = booking.paymentStatus === 'PAID'
+        ? { text: "✓ To'langan", color: '#059669' }
+        : booking.paymentStatus === 'REFUNDED'
+            ? { text: '↩ Qaytarilgan', color: '#6b7280' }
+            : { text: "○ To'lanmagan", color: '#d97706' };
+
+    const fmtDateOnly = (d) => d ? new Date(d).toLocaleDateString('uz-UZ', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
 
     return (
         <>
@@ -146,8 +164,41 @@ function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash, perms })
                                 <div className="ca-info-row-icon"><Phone size={16} /></div>
                                 <div>
                                     <div className="ca-info-row-label">Telefon</div>
-                                    <div className="ca-info-row-value">{patient.phone}</div>
+                                    <div className="ca-info-row-value">
+                                        <a href={`tel:${patient.phone}`} style={{ color: 'inherit', textDecoration: 'none' }}>{patient.phone}</a>
+                                    </div>
                                 </div>
+                            </div>
+                        )}
+                        {stats && (
+                            <div style={{
+                                marginTop: 12,
+                                padding: '10px 12px',
+                                background: stats.isReturning ? 'rgba(16,185,129,0.08)' : 'rgba(59,130,246,0.08)',
+                                border: `1px solid ${stats.isReturning ? 'rgba(16,185,129,0.25)' : 'rgba(59,130,246,0.25)'}`,
+                                borderRadius: 10,
+                                fontSize: 12,
+                                color: 'var(--text-main)',
+                            }}>
+                                <div style={{ fontWeight: 700, marginBottom: 6, color: stats.isReturning ? '#059669' : '#2563eb' }}>
+                                    {stats.isReturning ? '🔁 Qaytaruvchi mijoz' : '✨ Yangi mijoz'}
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                                    <div>Jami bron: <strong>{stats.totalBookings}</strong></div>
+                                    <div>Bajarilgan: <strong>{stats.completed}</strong></div>
+                                    {stats.cancelled > 0 && <div>Bekor: <strong>{stats.cancelled}</strong></div>}
+                                    {stats.noShow > 0 && <div style={{ color: '#dc2626' }}>Kelmagan: <strong>{stats.noShow}</strong></div>}
+                                </div>
+                                {stats.paidTotal > 0 && (
+                                    <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                                        Jami sarflagan: <strong style={{ color: '#059669' }}>{fmt(stats.paidTotal)} so'm</strong>
+                                    </div>
+                                )}
+                                {stats.lastVisitAt && (
+                                    <div style={{ marginTop: 4, color: 'var(--text-muted)' }}>
+                                        Oxirgi tashrif: {fmtDateOnly(stats.lastVisitAt)}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -225,6 +276,47 @@ function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash, perms })
                                 </div>
                             </div>
                         )}
+                    </div>
+
+                    {/* Pricing + payment */}
+                    <div className="ca-detail-section">
+                        <div className="ca-detail-section-title">To'lov ma'lumotlari</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14 }}>
+                            {discountAmount > 0 && (
+                                <>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: 'var(--text-muted)' }}>Asl narx</span>
+                                        <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{fmt(originalPrice)} so'm</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: '#059669' }}>Chegirma{booking.discountPercent ? ` (${booking.discountPercent}%)` : ''}</span>
+                                        <span style={{ color: '#059669' }}>−{fmt(discountAmount)} so'm</span>
+                                    </div>
+                                </>
+                            )}
+                            <div style={{
+                                display: 'flex', justifyContent: 'space-between',
+                                paddingTop: discountAmount > 0 ? 6 : 0,
+                                borderTop: discountAmount > 0 ? '1px solid var(--border-color)' : 'none',
+                            }}>
+                                <span style={{ fontWeight: 700 }}>Umumiy summa</span>
+                                <span style={{ fontWeight: 700, fontSize: 16, color: '#031B4E' }}>{fmt(finalPrice)} so'm</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                                <span style={{ color: 'var(--text-muted)' }}>To'lov turi</span>
+                                <span>{paymentMethodLabel}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>To'lov holati</span>
+                                <span style={{ color: paymentStatusLabel.color, fontWeight: 600 }}>{paymentStatusLabel.text}</span>
+                            </div>
+                            {booking.bookingNumber && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--border-color)' }}>
+                                    <span style={{ color: 'var(--text-muted)' }}>Bron raqami</span>
+                                    <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{booking.bookingNumber}</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {booking.cancellationReason && (

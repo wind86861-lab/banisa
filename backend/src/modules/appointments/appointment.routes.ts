@@ -51,6 +51,7 @@ clinicAppointmentRouter.use(requireAuth, requireRole(['CLINIC_ADMIN']));
 clinicAppointmentRouter.get('/', clinicAppointmentController.list);
 clinicAppointmentRouter.get('/cashier-queue', clinicAppointmentController.cashierQueue);
 clinicAppointmentRouter.get('/checkin-qr', clinicAppointmentController.getCheckInQr);
+clinicAppointmentRouter.get('/patient-stats/:id', clinicAppointmentController.patientStats);
 clinicAppointmentRouter.get('/:id', clinicAppointmentController.getById);
 clinicAppointmentRouter.post('/:id/accept', validate(clinicAcceptSchema), clinicAppointmentController.accept);
 clinicAppointmentRouter.post('/:id/reschedule', validate(clinicRescheduleSchema), clinicAppointmentController.reschedule);

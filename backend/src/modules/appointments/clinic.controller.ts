@@ -120,6 +120,51 @@ export const clinicAppointmentController = {
         }
     },
 
+    // Patient history at *this* clinic — drives the "Mijoz tarixi" block in
+    // the booking drawer (returning customer? when were they last here?
+    // how much have they paid us in total?). Scoped to the caller's clinic
+    // so cross-clinic leakage isn't possible.
+    patientStats: async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            const { clinicId } = await resolveClinicActor(req);
+            const patientId = String(req.params.id);
+
+            const [total, completed, cancelled, noShow, paidAgg, lastVisit, firstBooking] = await Promise.all([
+                prisma.appointment.count({ where: { clinicId, patientId } }),
+                prisma.appointment.count({ where: { clinicId, patientId, status: 'COMPLETED' as any } }),
+                prisma.appointment.count({ where: { clinicId, patientId, status: 'CANCELLED' as any } }),
+                prisma.appointment.count({ where: { clinicId, patientId, status: 'NO_SHOW' as any } }),
+                prisma.appointment.aggregate({
+                    where: { clinicId, patientId, paymentStatus: 'PAID' as any },
+                    _sum: { paidAmount: true },
+                }),
+                prisma.appointment.findFirst({
+                    where: { clinicId, patientId, status: { in: ['CHECKED_IN', 'IN_PROGRESS', 'COMPLETED'] as any } },
+                    orderBy: { scheduledAt: 'desc' },
+                    select: { scheduledAt: true, checkedInAt: true },
+                }),
+                prisma.appointment.findFirst({
+                    where: { clinicId, patientId },
+                    orderBy: { createdAt: 'asc' },
+                    select: { createdAt: true },
+                }),
+            ]);
+
+            sendSuccess(res, {
+                totalBookings: total,
+                completed,
+                cancelled,
+                noShow,
+                paidTotal: paidAgg._sum?.paidAmount || 0,
+                lastVisitAt: lastVisit?.checkedInAt || lastVisit?.scheduledAt || null,
+                firstBookingAt: firstBooking?.createdAt || null,
+                isReturning: total > 1, // includes the current booking, so >1 means they've been before
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
     // Real-time cashier queue: AWAITING_CASH (CHECKED_IN + UNPAID + CASH).
     cashierQueue: async (req: AuthRequest, res: Response, next: NextFunction) => {
         try {
