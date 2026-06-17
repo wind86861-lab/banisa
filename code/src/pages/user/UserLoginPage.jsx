@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Phone, Lock, Loader2, ArrowLeft, Eye, EyeOff, AlertCircle, Building2, Send } from 'lucide-react';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
-import BanisaLoader from '../../shared/components/BanisaLoader';
 import './css/UserAuth.css';
 
 // Only allow internal redirects to prevent open-redirect via ?redirect=https://...
@@ -75,16 +74,16 @@ export default function UserLoginPage() {
             let msg;
             if (!status) msg = 'Serverga ulanib bo\'lmadi. Internet yoki server holatini tekshiring.';
             else if (status === 429) msg = 'Juda ko\'p urinish. Biroz kuting va qayta urinib ko\'ring.';
-            else if (status === 401 || status === 400) msg = 'Telefon raqam yoki parol noto\'g\'ri.';
+            else if (status === 401 || status === 400) msg = "Telefon raqam yoki parol noto'g'ri. Qayta urinib ko'ring.";
             else if (status >= 500) msg = 'Server xatoligi yuz berdi. Biroz kuting va qayta urinib ko\'ring.';
             else msg = d?.error?.message || d?.message || (typeof d?.error === 'string' ? d.error : null) || err?.message || 'Tizimga kirishda xatolik yuz berdi';
             setError(String(msg));
         } finally { setLoading(false); }
     };
 
-    if (loading) {
-        return <BanisaLoader message="Kirish..." />;
-    }
+    // The login button drives its own inline spinner — don't full-page swap
+    // the form to <BanisaLoader>, that brief blank flash made users think the
+    // page bounced when in fact the inline error just landed below it.
 
     // Mini App: show a focused screen instead of the broken widget +
     // unusable password form. Auto-login is in flight; on failure the

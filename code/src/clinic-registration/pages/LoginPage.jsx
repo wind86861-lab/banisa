@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../shared/auth/AuthContext';
 import PhoneInput from '../../shared/components/PhoneInput';
-import BanisaLoader from '../../shared/components/BanisaLoader';
 
 const statCards = [
   { Icon: Building2, label: '500+ Klinikalar', color: '#00C9A7' },
@@ -40,21 +39,24 @@ export default function LoginPage() {
         navigate('/status');
       }
     } catch (err) {
-      let errorMsg = 'Telefon yoki parol noto\'g\'ri';
+      const status = err.response?.status;
+      let errorMsg;
 
-      if (err.response?.data?.error) {
-        const errorData = err.response.data.error;
-        if (typeof errorData === 'object' && errorData.message) {
-          errorMsg = errorData.message;
-        } else if (typeof errorData === 'string') {
-          errorMsg = errorData;
-        }
-      } else if (err.message) {
-        errorMsg = err.message;
-      }
-
-      if ((err.response?.status === 400 || err.response?.status === 401) && justRegistered) {
-        errorMsg = 'Arizangiz hali tasdiqlanmagan. Admin tasdiqlashini kuting va qayta urinib ko\'ring.';
+      if (!status) {
+        errorMsg = "Serverga ulanib bo'lmadi. Internet yoki server holatini tekshiring.";
+      } else if (status === 429) {
+        errorMsg = "Juda ko'p urinish. Biroz kuting va qayta urinib ko'ring.";
+      } else if (status === 401 || status === 400) {
+        errorMsg = justRegistered
+          ? "Arizangiz hali tasdiqlanmagan. Admin tasdiqlashini kuting va qayta urinib ko'ring."
+          : "Telefon yoki parol noto'g'ri. Qayta urinib ko'ring.";
+      } else if (status >= 500) {
+        errorMsg = "Server xatoligi. Biroz kuting va qayta urinib ko'ring.";
+      } else {
+        const errorData = err.response?.data?.error;
+        if (typeof errorData === 'object' && errorData?.message) errorMsg = errorData.message;
+        else if (typeof errorData === 'string') errorMsg = errorData;
+        else errorMsg = err.message || "Tizimga kirishda xatolik yuz berdi";
       }
 
       setError(errorMsg);
@@ -66,9 +68,11 @@ export default function LoginPage() {
     }
   };
 
-  if (loading) {
-    return <BanisaLoader message="Kirish..." />;
-  }
+  // No full-page <BanisaLoader> swap here — replacing the entire form with a
+  // loader briefly unmounted the inline error banner, so a "wrong password"
+  // 401 looked like a navigation back to the home page. Loading state now
+  // shows only inside the submit button below, and the error banner stays
+  // anchored at the top of the form.
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F0F4FF' }}>
