@@ -132,7 +132,12 @@ export const useUpdateBookingStatus = () => {
                 default:
                     throw new Error(`Bu status uchun amal mavjud emas: ${status}`);
             }
-            const { data } = await api.post(endpoint);
+            // POST with an explicit empty object — without a body Express
+            // leaves req.body as undefined, and the zod schemas wrapping
+            // these endpoints (clinicAcceptSchema, clinicCompleteSchema, …)
+            // require body to be an object. Sending {} satisfies the
+            // optional-field schemas without needing a per-action payload.
+            const { data } = await api.post(endpoint, {});
             return data.data;
         },
         onSuccess: () => invalidateBookings(qc),

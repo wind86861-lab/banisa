@@ -83,6 +83,20 @@ export const clinicAppointmentController = {
                         patient: { select: { id: true, firstName: true, lastName: true, phone: true } },
                         diagnosticService: { select: { id: true, nameUz: true } },
                         surgicalService: { select: { id: true, nameUz: true } },
+                        // AppointmentService rows carry serviceName for every
+                        // booking that came through the cart — without this,
+                        // CHECKUP / SANATORIUM / multi-item bookings showed
+                        // only the generic "Checkup" service-type label in
+                        // the admin drawer. We surface name + price so the
+                        // drawer can render the full list.
+                        services: {
+                            select: {
+                                id: true,
+                                serviceType: true,
+                                serviceName: true,
+                                finalPrice: true,
+                            },
+                        },
                     },
                 }),
                 prisma.appointment.count({ where }),

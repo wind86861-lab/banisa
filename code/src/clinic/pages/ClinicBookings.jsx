@@ -173,15 +173,35 @@ function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash, perms })
                             <div className="ca-info-row-icon"><Stethoscope size={16} /></div>
                             <div>
                                 <div className="ca-info-row-label">Xizmat</div>
-                                <div className="ca-info-row-value">
-                                    {booking.diagnosticService?.nameUz
-                                        || booking.surgicalService?.nameUz
-                                        || SERVICE_TYPE_MAP[booking.serviceType]
-                                        || '—'}
-                                </div>
-                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                                    {SERVICE_TYPE_MAP[booking.serviceType] ?? booking.serviceType ?? ''}
-                                </div>
+                                {Array.isArray(booking.services) && booking.services.length > 0 ? (
+                                    <>
+                                        {booking.services.map(s => (
+                                            <div key={s.id} className="ca-info-row-value" style={{ fontWeight: 600 }}>
+                                                • {s.serviceName}
+                                                {s.finalPrice ? (
+                                                    <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 12 }}>
+                                                        {' '}— {fmt(s.finalPrice)} so'm
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        ))}
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                                            {SERVICE_TYPE_MAP[booking.serviceType] ?? booking.serviceType ?? ''}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="ca-info-row-value">
+                                            {booking.diagnosticService?.nameUz
+                                                || booking.surgicalService?.nameUz
+                                                || SERVICE_TYPE_MAP[booking.serviceType]
+                                                || '—'}
+                                        </div>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                            {SERVICE_TYPE_MAP[booking.serviceType] ?? booking.serviceType ?? ''}
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                         {doctor && (
