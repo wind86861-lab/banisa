@@ -410,14 +410,31 @@ export default function ClinicDetailPage() {
                                                     const working = !isDayOff;
                                                     const openT = h?.start ?? '';
                                                     const closeT = h?.end ?? '';
+                                                    // The Ochiq / Yopiq pill only carries useful info for today.
+                                                    // For every other row the status label was the same as
+                                                    // "is this a working day", which is identical info to the
+                                                    // hours next to it — operators were reading it as a live
+                                                    // status indicator and assumed the clinic was currently
+                                                    // open. For today: live check against the now-Tashkent
+                                                    // clock. For other days: show "Ish kuni"/"Dam olish".
+                                                    let statusLabel = '';
+                                                    let statusCls = '';
+                                                    if (isToday) {
+                                                        const openNow = computeIsOpen(wh);
+                                                        if (openNow === true) { statusLabel = 'Hozir ochiq'; statusCls = 'open'; }
+                                                        else if (openNow === false) { statusLabel = working ? 'Hozir yopiq' : 'Dam olish'; statusCls = 'closed'; }
+                                                    } else {
+                                                        statusLabel = working ? 'Ish kuni' : 'Dam olish';
+                                                        statusCls = working ? 'open' : 'closed';
+                                                    }
                                                     return (
                                                         <div key={day} className={`cdp-hour-row${isToday ? ' today' : ''}`}>
                                                             <span className="cdp-hour-day">{DAYS_UZ[day]}</span>
                                                             <span className="cdp-hour-time">
                                                                 {working && openT ? `${openT} – ${closeT}` : 'Dam olish'}
                                                             </span>
-                                                            <span className={`cdp-hour-status ${working ? 'open' : 'closed'}`}>
-                                                                {working ? 'Ochiq' : 'Yopiq'}
+                                                            <span className={`cdp-hour-status ${statusCls}`}>
+                                                                {statusLabel}
                                                             </span>
                                                         </div>
                                                     );

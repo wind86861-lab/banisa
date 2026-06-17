@@ -28,16 +28,22 @@ const DAYS_UZ = {
 };
 const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
+// Schedule is stored in Tashkent local time — derive both the current
+// weekday and current minute-of-day from there too, otherwise a user
+// browsing from a different timezone sees the wrong day/window.
+function tashkentNow() {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+}
 function getTodayKey() {
     const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    return days[new Date().getDay()];
+    return days[tashkentNow().getDay()];
 }
 
 function computeIsOpen(workingHours) {
     if (!workingHours) return null;
     const wh = normalizeWHCDD(workingHours);
     if (Object.keys(wh).length === 0) return null;
-    const now = new Date();
+    const now = tashkentNow();
     const todayKey = getTodayKey();
     const day = wh[todayKey];
     if (!day) return null;
@@ -160,14 +166,27 @@ function InfoTab({ clinic }) {
                             const working = !isDayOffVal;
                             const openT = hours?.start ?? '';
                             const closeT = hours?.end ?? '';
+                            // Only today gets a real-time pill; the others only
+                            // need to convey "work day vs day off" — same fix
+                            // as ClinicDetailPage.
+                            let statusLabel = '';
+                            let statusCls = '';
+                            if (isToday) {
+                                const openNow = computeIsOpen(clinic.workingHours);
+                                if (openNow === true) { statusLabel = '● Hozir ochiq'; statusCls = 'open'; }
+                                else if (openNow === false) { statusLabel = working ? '● Hozir yopiq' : '● Dam olish'; statusCls = 'closed'; }
+                            } else {
+                                statusLabel = working ? '● Ish kuni' : '● Dam olish';
+                                statusCls = working ? 'open' : 'closed';
+                            }
                             return (
                                 <div key={day} className={`cdd-hours-row ${isToday ? 'today' : ''}`}>
                                     <span className="cdd-hours-day">{DAYS_UZ[day]}</span>
                                     <span className="cdd-hours-time">
                                         {working && openT ? `${openT} – ${closeT}` : 'Dam olish'}
                                     </span>
-                                    <span className={`cdd-hours-dot ${working ? 'open' : 'closed'}`}>
-                                        {working ? '● Ochiq' : '● Yopiq'}
+                                    <span className={`cdd-hours-dot ${statusCls}`}>
+                                        {statusLabel}
                                     </span>
                                 </div>
                             );
