@@ -172,9 +172,15 @@ function BookingDrawer({ booking, onClose, onConfirm, onCancel, onCash, perms })
                         <div className="ca-info-row">
                             <div className="ca-info-row-icon"><Stethoscope size={16} /></div>
                             <div>
-                                <div className="ca-info-row-label">Xizmat turi</div>
+                                <div className="ca-info-row-label">Xizmat</div>
                                 <div className="ca-info-row-value">
-                                    {SERVICE_TYPE_MAP[booking.serviceType] ?? booking.serviceType ?? '—'}
+                                    {booking.diagnosticService?.nameUz
+                                        || booking.surgicalService?.nameUz
+                                        || SERVICE_TYPE_MAP[booking.serviceType]
+                                        || '—'}
+                                </div>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                    {SERVICE_TYPE_MAP[booking.serviceType] ?? booking.serviceType ?? ''}
                                 </div>
                             </div>
                         </div>
@@ -410,7 +416,19 @@ export default function ClinicBookings() {
                                             <span className="sub">{fmtTime(b.scheduledAt)}</span>
                                         </div>
                                     </td>
-                                    <td>{SERVICE_TYPE_MAP[b.serviceType] ?? b.serviceType ?? '—'}</td>
+                                    <td>
+                                        <div className="ca-name-cell">
+                                            <span className="main">
+                                                {b.diagnosticService?.nameUz
+                                                    || b.surgicalService?.nameUz
+                                                    || SERVICE_TYPE_MAP[b.serviceType]
+                                                    || '—'}
+                                            </span>
+                                            <span className="sub">
+                                                {SERVICE_TYPE_MAP[b.serviceType] ?? b.serviceType ?? ''}
+                                            </span>
+                                        </div>
+                                    </td>
                                     <td>
                                         {b.doctor
                                             ? `${b.doctor.firstName} ${b.doctor.lastName}`
@@ -492,8 +510,14 @@ export default function ClinicBookings() {
                                 </div>
                             </div>
                             <div>
-                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                    {SERVICE_TYPE_MAP[b.serviceType] ?? b.serviceType ?? '—'}
+                                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-main)' }}>
+                                    {b.diagnosticService?.nameUz
+                                        || b.surgicalService?.nameUz
+                                        || SERVICE_TYPE_MAP[b.serviceType]
+                                        || '—'}
+                                </span>
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>
+                                    {SERVICE_TYPE_MAP[b.serviceType] ?? b.serviceType ?? ''}
                                     {b.doctor && ` • ${b.doctor.firstName} ${b.doctor.lastName}`}
                                 </span>
                             </div>

@@ -6,12 +6,15 @@ import { Channel, EventType } from './notification.types';
  * Reminders default to all enabled channels — they're the bot's main job.
  */
 export const DEFAULT_CHANNELS: Record<EventType, Channel[]> = {
-    // Patient
-    booking_confirmed: ['inapp', 'sms'],
-    booking_cancelled: ['inapp', 'sms'],
+    // Patient — telegram is now in every patient-facing default so a bound
+    // user gets the same ping in the bot they get in the app + SMS. The
+    // bot channel auto-skips when the user has no TelegramAccount, so this
+    // is safe to enable across the board.
+    booking_confirmed: ['inapp', 'sms', 'telegram'],
+    booking_cancelled: ['inapp', 'sms', 'telegram'],
     booking_reminder_24h: ['inapp', 'sms', 'telegram'],
     booking_reminder_1h: ['inapp', 'sms', 'telegram'],
-    payment_received: ['inapp', 'sms'],
+    payment_received: ['inapp', 'sms', 'telegram'],
     queue_called: ['inapp', 'telegram'],
     // Clinic
     clinic_new_booking: ['inapp', 'telegram'],
