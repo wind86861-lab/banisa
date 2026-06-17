@@ -30,23 +30,25 @@ export const inAppChannel: NotificationChannel = {
             }
 
             if (event.clinicId) {
-                const admins = await prisma.user.findMany({
-                    where: {
-                        clinicId: event.clinicId,
-                        role: { in: ['CLINIC_ADMIN', 'PENDING_CLINIC'] },
-                        isActive: true,
-                    },
-                    select: { id: true },
+                // Resolve recipients via active ClinicMembership — the
+                // legacy User.clinicId column only knows the admin's first
+                // clinic, so multi-clinic admins invited via the team flow
+                // would never have seen a notification for any clinic
+                // except their initial one.
+                const memberships = await prisma.clinicMembership.findMany({
+                    where: { clinicId: event.clinicId, isActive: true },
+                    select: { userId: true },
                 });
+                const adminIds = memberships.map(m => m.userId);
 
-                if (admins.length === 0) {
+                if (adminIds.length === 0) {
                     await (prisma as any).notification.create({
                         data: { recipientClinicId: event.clinicId, ...base },
                     });
                 } else {
                     await (prisma as any).notification.createMany({
-                        data: admins.map(a => ({
-                            recipientUserId: a.id,
+                        data: adminIds.map(id => ({
+                            recipientUserId: id,
                             recipientClinicId: event.clinicId,
                             ...base,
                         })),

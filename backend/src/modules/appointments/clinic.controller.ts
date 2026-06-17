@@ -11,9 +11,25 @@ async function resolveClinicActor(req: AuthRequest) {
         where: { id: req.user!.id },
         select: { firstName: true, lastName: true, clinicId: true },
     });
-    if (!u?.clinicId) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
+
+    // Multi-clinic admins invited via the team flow only set User.clinicId
+    // the first time they're added. Subsequent invites only add a
+    // ClinicMembership row, so without this fallback their list would 404
+    // for any clinic except the very first one.
+    let clinicId = u?.clinicId
+        || (req.headers['x-clinic-id'] as string | undefined)
+        || (req.query?.clinicId as string | undefined);
+    if (!clinicId) {
+        const membership = await prisma.clinicMembership.findFirst({
+            where: { userId: req.user!.id, isActive: true },
+            select: { clinicId: true },
+            orderBy: { joinedAt: 'asc' },
+        });
+        clinicId = membership?.clinicId;
+    }
+    if (!clinicId) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
     return {
-        clinicId: u.clinicId,
+        clinicId,
         actor: {
             userId: req.user!.id,
             role: 'CLINIC' as const,
@@ -56,7 +72,11 @@ export const clinicAppointmentController = {
             const [items, total] = await Promise.all([
                 prisma.appointment.findMany({
                     where,
-                    orderBy: { scheduledAt: 'asc' },
+                    // Newest first — without this, the page was sorted by
+                    // scheduledAt asc and a freshly-created booking with a
+                    // future scheduledAt dropped to the bottom (past
+                    // NO_SHOW rows hogged page 1).
+                    orderBy: [{ createdAt: 'desc' }],
                     skip,
                     take: limit,
                     include: {
