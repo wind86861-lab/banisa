@@ -199,6 +199,26 @@ export const UserAuthProvider = ({ children }) => {
   const ensurePatientAuthRef = useRef(ensurePatientAuth);
   useEffect(() => { ensurePatientAuthRef.current = ensurePatientAuth; });
 
+  // Watchdog-side hook: skip the cache and actually hit the refresh
+  // endpoint. ensurePatientAuth() returns the cached user when the token
+  // has > 60 s left, which makes proactive renewal a no-op and ends up
+  // surprising the operator with a logout at the very moment the token
+  // crosses the buffer. tryCookieRefresh writes the new token through
+  // applyAuthSuccess on success.
+  const forceRefreshRef = useRef(async () => null);
+  useEffect(() => {
+    forceRefreshRef.current = async () => {
+      // Inside a Mini App, fall back to initData first — patient may not
+      // have a refresh cookie at all.
+      const tg = typeof window !== 'undefined' ? window.Telegram?.WebApp : null;
+      if (tg?.initData) {
+        const r = await tryMiniAppLogin();
+        if (r?.user) return r.user;
+      }
+      return tryCookieRefresh();
+    };
+  });
+
   // Register with the module bridge so the axios interceptor can call the
   // same resolver. The dedup is automatic — both end up awaiting the same
   // `authResolverPromise`.
@@ -236,25 +256,44 @@ export const UserAuthProvider = ({ children }) => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Silent expiry watchdog ─────────────────────────────────────────────
-  // Re-auths when the access token has <2 min left. Uses ensurePatientAuth
-  // so the same tier order applies (Mini App initData → cookie → null).
+  // Proactively rotates the access token long before it expires so the
+  // operator never sees a 401 → logout. Triggers when the token is past
+  // its halfway point AND at least 30 s have passed since the last
+  // successful rotation — that combination handles both the typical case
+  // (1 h token, rotate every ~30 m) and the corner where the watchdog
+  // first runs immediately after login.
   useEffect(() => {
     if (!user) return;
     let failedOnce = false;
+    let lastRotateAt = Date.now();
 
     const tick = async () => {
       const token = getAccessToken();
       if (!token) return;
       const ms = tokenMsLeft(token);
 
+      // Hard-expired — only chance left is the refresh cookie itself.
       if (ms <= 0) {
-        const u = await ensurePatientAuthRef.current();
-        if (!u) clearSession();
+        const u = await forceRefreshRef.current();
+        if (u) { lastRotateAt = Date.now(); failedOnce = false; setExpiringSoon(false); }
+        else clearSession();
         return;
       }
-      if (ms < 120_000 && !failedOnce) {
-        const u = await ensurePatientAuthRef.current();
-        if (!u) {
+
+      // Past halfway → renew. payload.iat is in seconds; we approximate by
+      // halving the prod TTL (1 h) when we can't read iat for some reason.
+      let halfMs;
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const lifeMs = (payload.exp - payload.iat) * 1000;
+        halfMs = lifeMs / 2;
+      } catch { halfMs = 30 * 60 * 1000; }
+
+      const elapsed = (Date.now() - lastRotateAt);
+      if (ms < halfMs && elapsed > 30_000 && !failedOnce) {
+        const u = await forceRefreshRef.current();
+        if (u) { lastRotateAt = Date.now(); failedOnce = false; setExpiringSoon(false); }
+        else {
           failedOnce = true;
           setExpiringSoon(ms < 60_000);
         }
@@ -264,7 +303,7 @@ export const UserAuthProvider = ({ children }) => {
     };
 
     tick();
-    const interval = setInterval(tick, 15_000);
+    const interval = setInterval(tick, 30_000);
     return () => clearInterval(interval);
   }, [user]);
 
