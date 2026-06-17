@@ -1,9 +1,28 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { Printer, RefreshCw, Info } from 'lucide-react';
+import { Printer, RefreshCw, Info, Maximize2 } from 'lucide-react';
 import api from '../../shared/api/axios';
 import BanisaLoader from '../../shared/components/BanisaLoader';
 import './clinic-checkin-qr.css';
+
+// Screen + print size options. Values pinned in CSS via .qr-card--<size>
+// (screen widths + em base) and an @page rule injected from React for the
+// paper choice — @page can't be scoped to a class so we have to push the
+// rule in dynamically.
+const SCREEN_SIZES = [
+    { id: 'S', label: 'Kichik', hint: '320px' },
+    { id: 'M', label: "O'rta",   hint: '380px' },
+    { id: 'L', label: 'Katta',   hint: '480px' },
+];
+const PAPER_SIZES = [
+    { id: 'A6', label: 'A6', hint: '105×148 mm' },
+    { id: 'A5', label: 'A5', hint: '148×210 mm' },
+    { id: 'A4', label: 'A4', hint: '210×297 mm' },
+];
+
+// Card width per paper (mm). Leaves a balanced margin inside the page.
+const PAPER_CARD_MM = { A6: 92, A5: 135, A4: 180 };
+const PAPER_QR_EM   = { A6: 14, A5: 16, A4: 18 };
 
 // Pixel-faithful port of the "Banisa QR Card" preview. Visual contract lives
 // in clinic-checkin-qr.css; print rules there also strip the clinic shell.
@@ -12,6 +31,45 @@ export default function ClinicCheckInQR() {
     const [qrDataUrl, setQrDataUrl] = useState(null);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState('');
+    const [size, setSize] = useState(() => {
+        const v = typeof window !== 'undefined' && localStorage.getItem('qr_screen_size');
+        return v && SCREEN_SIZES.some(s => s.id === v) ? v : 'M';
+    });
+    const [paper, setPaper] = useState(() => {
+        const v = typeof window !== 'undefined' && localStorage.getItem('qr_print_paper');
+        return v && PAPER_SIZES.some(p => p.id === v) ? v : 'A6';
+    });
+
+    useEffect(() => { localStorage.setItem('qr_screen_size', size); }, [size]);
+
+    // Push an @page + .qr-card override into the document for the chosen
+    // paper. Without this every print job falls back to the static A6 rule
+    // baked into clinic-checkin-qr.css. The style element is hot-swapped
+    // when the paper choice changes.
+    useEffect(() => {
+        localStorage.setItem('qr_print_paper', paper);
+        let el = document.getElementById('qr-paper-style');
+        if (!el) {
+            el = document.createElement('style');
+            el.id = 'qr-paper-style';
+            document.head.appendChild(el);
+        }
+        const cardMm = PAPER_CARD_MM[paper];
+        const qrEm = PAPER_QR_EM[paper];
+        el.textContent = `@media print {
+            @page { size: ${paper} portrait; margin: 6mm; }
+            .qr-card { width: ${cardMm}mm !important; max-width: ${cardMm}mm !important; }
+            .qr-card__qr { width: ${qrEm}em !important; height: ${qrEm}em !important; }
+        }`;
+        return () => {
+            // keep the style around for the next print — only remove on unmount
+        };
+    }, [paper]);
+
+    useEffect(() => () => {
+        const el = document.getElementById('qr-paper-style');
+        if (el) el.remove();
+    }, []);
 
     const fetchQr = async () => {
         setLoading(true);
@@ -82,10 +140,45 @@ export default function ClinicCheckInQR() {
                 </div>
             </div>
 
+            <div className="qrp-size-bar no-print">
+                <div className="qrp-size-group">
+                    <span className="qrp-size-label"><Maximize2 size={13} /> Ekran o'lchami</span>
+                    <div className="qrp-chip-row">
+                        {SCREEN_SIZES.map(s => (
+                            <button
+                                key={s.id}
+                                type="button"
+                                className={`qrp-chip${size === s.id ? ' qrp-chip--active' : ''}`}
+                                onClick={() => setSize(s.id)}
+                                title={s.hint}
+                            >
+                                {s.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div className="qrp-size-group">
+                    <span className="qrp-size-label"><Printer size={13} /> Chop etish qog'ozi</span>
+                    <div className="qrp-chip-row">
+                        {PAPER_SIZES.map(p => (
+                            <button
+                                key={p.id}
+                                type="button"
+                                className={`qrp-chip${paper === p.id ? ' qrp-chip--active' : ''}`}
+                                onClick={() => setPaper(p.id)}
+                                title={p.hint}
+                            >
+                                {p.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
             <div className="qrp-layout">
                 {/* The card (only thing that prints) */}
                 <div className="qrp-card-wrap">
-                    <article className="qr-card" aria-label="Check-in QR kartasi">
+                    <article className={`qr-card qr-card--${size}`} aria-label="Check-in QR kartasi">
                         {/* Brand pill */}
                         <div className="qr-card__brand">
                             <svg viewBox="0 0 24 24" aria-hidden="true">

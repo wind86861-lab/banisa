@@ -58,6 +58,68 @@
 
 .qrp-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
+/* ── Size picker bar ─────────────────────────────────────────────────── */
+.qrp-size-bar {
+    max-width: 1100px;
+    margin: 0 auto 28px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px 36px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px 20px;
+}
+
+.qrp-size-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 240px;
+}
+
+.qrp-size-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--qr-ink-500);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.qrp-chip-row {
+    display: inline-flex;
+    gap: 6px;
+    background: var(--qr-ink-100);
+    padding: 4px;
+    border-radius: 10px;
+}
+
+.qrp-chip {
+    border: none;
+    background: transparent;
+    color: var(--qr-ink-700);
+    padding: 7px 14px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.qrp-chip:hover {
+    color: var(--qr-ink-900);
+}
+
+.qrp-chip--active {
+    background: #fff;
+    color: var(--qr-ink-900);
+    box-shadow: 0 1px 2px rgba(15,23,42,0.08), 0 4px 12px rgba(15,23,42,0.06);
+}
+
 .qrp-btn {
     display: inline-flex;
     align-items: center;
@@ -103,14 +165,14 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── Fluid sizing ──────────────────────────────────────────────────────
-   Card width scales with viewport. All internal dimensions use `em`
-   relative to the card's own font-size, so changing one number rescales
-   the whole card proportionally (brand pill, QR, fonts, gaps — all). */
+   Card width is driven by .qr-card--S / --M / --L (set from React).
+   All internal dimensions use `em` relative to the card's own font-size,
+   so changing the base width rescales the whole card proportionally
+   (brand pill, QR, fonts, gaps — all). */
 .qr-card {
-    /* fluid width: 280px floor, 460px ceiling, ~32% of viewport in between */
-    width: clamp(280px, 32vw, 460px);
-    /* base font-size drives every em inside the card */
-    font-size: clamp(13px, 1.05vw, 16px);
+    /* Defaults are the medium preset; override classes below take precedence */
+    width: 380px;
+    font-size: 15px;
     background: #fff;
     border-radius: 2em;
     padding: 2.25em 2em 1.75em;
@@ -123,6 +185,12 @@
         0 32px 80px -40px rgba(15,23,42,0.4);
     position: relative;
 }
+
+/* Screen-size variants — set both width and font-size so every em-based
+   inside element (QR, fonts, gaps) scales together. */
+.qr-card--S { width: 320px; font-size: 13px; }
+.qr-card--M { width: 380px; font-size: 15px; }
+.qr-card--L { width: 480px; font-size: 18px; }
 
 /* ── Brand pill ─────────────────────────────────────────────────────── */
 .qr-card__brand {
@@ -348,8 +416,12 @@
 
 @media (max-width: 480px) {
     .qrp-page { padding: 24px 14px 60px; }
-    /* On phones the 32vw cap would shrink too much — let it fill the column */
-    .qr-card { width: min(94vw, 380px); }
+    /* On phones the static widths can overflow the column — let them
+       shrink to viewport but never above their preset ceiling. */
+    .qr-card--S { width: min(94vw, 320px); }
+    .qr-card--M { width: min(94vw, 380px); }
+    .qr-card--L { width: min(94vw, 480px); }
+    .qrp-size-group { min-width: 0; flex: 1; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
