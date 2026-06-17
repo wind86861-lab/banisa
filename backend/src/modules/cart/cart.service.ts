@@ -316,8 +316,11 @@ export class CartService {
 
         // Create one appointment per clinic
         for (const [clinicId, items] of Object.entries(byClinic)) {
-            // Calculate total price for this clinic group
+            // Calculate total price for this clinic group + collect every
+            // service name so the clinic notification can list what the
+            // patient actually booked (not just "1 ta xizmat").
             let totalPrice = 0;
+            const serviceNames: string[] = [];
             for (const item of items) {
                 let service: any;
                 let customization: { customPrice: number | null; discountPercent: number | null } | null = null;
@@ -407,6 +410,8 @@ export class CartService {
                     const disc = customization?.discountPercent ?? 0;
                     const finalPrice = disc > 0 ? Math.round(cp * (1 - disc / 100)) : cp;
                     totalPrice += finalPrice * item.quantity;
+                    const name = service.nameUz || service.nameRu || service.title;
+                    if (name) serviceNames.push(item.quantity > 1 ? `${name} ×${item.quantity}` : name);
                 }
             }
 
@@ -459,9 +464,15 @@ export class CartService {
             const a = appointment as any;
             const patientName = [a.patient?.firstName, a.patient?.lastName]
                 .filter(Boolean).join(' ') || a.patient?.phone || 'Bemor';
-            const serviceName = a.diagnosticService?.nameUz
-                || a.surgicalService?.nameUz
-                || (items.length > 1 ? `${items.length} ta xizmat` : 'Xizmat');
+            // Prefer the joined service-name list collected above — for cart
+            // orders that span multiple items (incl. checkup packages) this
+            // shows the clinic exactly what the patient bought rather than
+            // a generic "1 ta xizmat" fallback.
+            const serviceName = serviceNames.length
+                ? serviceNames.join(', ')
+                : a.diagnosticService?.nameUz
+                    || a.surgicalService?.nameUz
+                    || (items.length > 1 ? `${items.length} ta xizmat` : 'Xizmat');
             dispatchNotification({
                 type: 'clinic_new_booking',
                 clinicId: a.clinicId,

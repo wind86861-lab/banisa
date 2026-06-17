@@ -318,9 +318,16 @@ export class AppointmentService {
     async clinicAccept(actor: Actor, clinicId: string, appointmentId: string, notes?: string) {
         const appt = await prisma.appointment.findFirst({
             where: { id: appointmentId, clinicId },
+            include: INCLUDE_FULL,
         });
         if (!appt) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
-        assertStatus(appt.status, ['PENDING'], 'Faqat yangi bronlarni qabul qilish mumkin');
+        // Idempotent: if another admin (or a tap from the bot) already moved
+        // it past PENDING, don't 400 — the operator's click was just stale.
+        // We return the current row silently and skip the notify so the
+        // patient isn't spammed twice.
+        if (appt.status !== 'PENDING') {
+            return appt;
+        }
 
         const updated = await prisma.appointment.update({
             where: { id: appointmentId },

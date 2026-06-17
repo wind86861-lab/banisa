@@ -321,7 +321,14 @@ export default function ClinicBookings() {
                 status: newStatus,
             });
         } catch (e) {
-            toast.error(e.response?.data?.message || e.message || 'Xatolik');
+            const msg = e.response?.data?.error?.message
+                || e.response?.data?.message
+                || e.message || 'Xatolik';
+            toast.error(msg);
+            // The most common 400 here is "booking is no longer in that
+            // status" — another admin (or a bot tap) already acted on it.
+            // Pull a fresh list so the stale row disappears.
+            refetch();
         }
         setDialog(null);
     };

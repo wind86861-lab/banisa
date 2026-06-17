@@ -36,6 +36,9 @@ export const useUpdateProfile = () => {
 };
 
 // ─── Bookings / Appointments (new workflow) ──────────────────────────────────
+// 30 s poll so bot-side accepts (clinic admin taps the inline button in
+// Telegram) reflect in the web list within a tab focus, instead of leaving
+// a stale "Qabul qilish" button that 400s when the operator clicks it.
 export const useClinicBookings = (filters = {}) =>
     useQuery({
         queryKey: ['clinic', 'bookings', filters],
@@ -48,6 +51,8 @@ export const useClinicBookings = (filters = {}) =>
             const { data } = await api.get(`/clinic/appointments?${params}`);
             return { data: data.data ?? [], meta: data.meta ?? {} };
         },
+        refetchInterval: 30_000,
+        refetchOnWindowFocus: true,
     });
 
 const invalidateBookings = (qc) => {
