@@ -4,7 +4,20 @@ import { callEnsurePatientAuth } from '../auth/patientAuthBridge';
 
 // VULN-03: access token stored in module memory — not localStorage (XSS-safe)
 let _accessToken = null;
-let _isPatientSession = false;
+// Bootstrap _isPatientSession synchronously from the durable
+// user_had_session flag so a 401 fired before UserAuthContext mounts
+// (e.g., a page query that ran inside another lazy chunk during the
+// reload) still routes through the patient refresh path. Without this
+// the interceptor's `_isPatientSession || inMiniApp` gate fell through
+// to the clinic refresh, which 401'd, and the user was redirected to
+// /user/login before UserAuthContext even had a chance to finish its
+// cookie refresh.
+let _isPatientSession = (() => {
+  try {
+    return typeof window !== 'undefined'
+      && localStorage.getItem('user_had_session') === '1';
+  } catch { return false; }
+})();
 
 export const setAccessToken = (token) => { _accessToken = token; };
 export const getAccessToken = () => _accessToken;
