@@ -21,8 +21,15 @@ const PAPER_SIZES = [
 ];
 
 // Card width per paper (mm). Leaves a balanced margin inside the page.
-const PAPER_CARD_MM = { A6: 92, A5: 135, A4: 180 };
-const PAPER_QR_EM   = { A6: 14, A5: 16, A4: 18 };
+// font-size scales with the card so every em-based dimension follows —
+// without this the static 3.6mm font kept the QR small even at A4.
+// QR em + font-mm → printed QR size:
+//   A6: 16em × 3.5mm ≈ 56mm  (postcard QR, easy hand-scan)
+//   A5: 18em × 5.0mm ≈ 90mm  (wall-mounted at 1m)
+//   A4: 20em × 6.5mm ≈ 130mm (lobby / entrance signage)
+const PAPER_CARD_MM = { A6: 92,  A5: 135, A4: 190 };
+const PAPER_FONT_MM = { A6: 3.5, A5: 5.0, A4: 6.5 };
+const PAPER_QR_EM   = { A6: 16,  A5: 18,  A4: 20  };
 
 // Pixel-faithful port of the "Banisa QR Card" preview. Visual contract lives
 // in clinic-checkin-qr.css; print rules there also strip the clinic shell.
@@ -55,10 +62,15 @@ export default function ClinicCheckInQR() {
             document.head.appendChild(el);
         }
         const cardMm = PAPER_CARD_MM[paper];
+        const fontMm = PAPER_FONT_MM[paper];
         const qrEm = PAPER_QR_EM[paper];
         el.textContent = `@media print {
             @page { size: ${paper} portrait; margin: 6mm; }
-            .qr-card { width: ${cardMm}mm !important; max-width: ${cardMm}mm !important; }
+            .qr-card {
+                width: ${cardMm}mm !important;
+                max-width: ${cardMm}mm !important;
+                font-size: ${fontMm}mm !important;
+            }
             .qr-card__qr { width: ${qrEm}em !important; height: ${qrEm}em !important; }
         }`;
         return () => {
