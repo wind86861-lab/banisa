@@ -316,9 +316,18 @@ export default function ClinicDetailPage() {
                             <div className="cdp-identity-info">
                                 <div className="cdp-identity-badges">
                                     <span className="cdp-badge cdp-badge-type">{CLINIC_TYPE_LABELS[clinic.type]}</span>
-                                    <span className={`cdp-badge ${clinic.isOpen ? 'cdp-badge-open' : 'cdp-badge-closed'}`}>
-                                        <span className="cdp-badge-dot" /> {clinic.isOpen ? 'Hozir ochiq' : 'Yopiq'}
-                                    </span>
+                                    {(() => {
+                                        // Prefer the live browser-time check over the
+                                        // server-stamped isOpen flag — the server payload
+                                        // is cached and used to be UTC-based, so a clinic
+                                        // shut at 18:00 Tashkent could still show open.
+                                        const openNow = computeIsOpen(clinic.workingHours) ?? clinic.isOpen;
+                                        return (
+                                            <span className={`cdp-badge ${openNow ? 'cdp-badge-open' : 'cdp-badge-closed'}`}>
+                                                <span className="cdp-badge-dot" /> {openNow ? 'Hozir ochiq' : 'Yopiq'}
+                                            </span>
+                                        );
+                                    })()}
                                     {clinic.hasEmergency && <span className="cdp-badge cdp-badge-emergency">🚑 Tez yordam</span>}
                                 </div>
                                 <h1 className="cdp-name">{clinic.nameUz}</h1>

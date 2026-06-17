@@ -56,8 +56,12 @@ const checkIsOpen = (workingHours: any): boolean => {
         const raw = typeof workingHours === 'string' ? JSON.parse(workingHours) : workingHours;
         const wh = normalizeWorkingHours(raw);
         const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        const today = days[new Date().getDay()];
-        const now = new Date().toTimeString().slice(0, 5);
+        // Pin to Asia/Tashkent — the prod box runs UTC, and using
+        // server `new Date()` flagged clinics as open until 23:00
+        // Tashkent because UTC was still inside the 08:00–18:00 window.
+        const tzNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+        const today = days[tzNow.getDay()];
+        const now = `${String(tzNow.getHours()).padStart(2, '0')}:${String(tzNow.getMinutes()).padStart(2, '0')}`;
         const d = wh[today];
         if (!d) return false;
         const isDayOff = d.isDayOff !== undefined ? d.isDayOff : (d.isWorking !== undefined ? !d.isWorking : (d.isOpen !== undefined ? !d.isOpen : false));
