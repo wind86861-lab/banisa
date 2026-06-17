@@ -13,8 +13,13 @@ const normalizePhone = (phone: string): string => {
 
 // Generate tokens
 const generateAccessToken = (payload: { id: string; role: string }): string =>
+    // Bumped from 15 m → 1 h in production. The watchdog refreshes at the
+    // 2-min mark, but any transient hiccup (network blip, cookie not yet
+    // delivered, tab in background) left the operator instantly logged out
+    // because the cushion was tiny. The HttpOnly refresh cookie is still
+    // 7 days, so silent re-auth keeps working even after long idle.
     jwt.sign(payload, env.JWT_ACCESS_SECRET as jwt.Secret, {
-        expiresIn: env.NODE_ENV === 'production' ? '15m' : '1h'
+        expiresIn: env.NODE_ENV === 'production' ? '1h' : '4h'
     } as jwt.SignOptions);
 
 const generateRefreshToken = (payload: { id: string }): string =>
