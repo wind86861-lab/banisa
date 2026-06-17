@@ -171,6 +171,30 @@ export class AppointmentService {
             metadata: { bookingNumber, discountPercent: pricing.discountPercent },
         });
 
+        // Mirror the cart-side AppointmentService row(s) so the admin drawer
+        // can render the booked service even when the patient went through
+        // the single-service flow (single booking → POST /user/appointments).
+        const apptFullForSvc = appointment as any;
+        const svcName = apptFullForSvc.diagnosticService?.nameUz
+            || apptFullForSvc.surgicalService?.nameUz;
+        if (svcName) {
+            try {
+                await prisma.appointmentService.create({
+                    data: {
+                        appointmentId: appointment.id,
+                        serviceType: data.serviceType as any,
+                        serviceName: svcName,
+                        originalServiceId: data.diagnosticServiceId ?? data.surgicalServiceId ?? null,
+                        price: data.price,
+                        finalPrice: pricing.finalPrice,
+                        discountAmount: pricing.discountAmount,
+                    },
+                });
+            } catch (e) {
+                console.error('[createBooking] appointmentService row failed:', e);
+            }
+        }
+
         // Ping the clinic — every admin with BOOKING_ACCEPT gets an in-app
         // notification + (if their telegram is bound) a message with inline
         // "✅ Qabul qilish" + "🔁 Vaqtni o'zgartirish" callback buttons. The
