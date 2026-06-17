@@ -4,7 +4,35 @@ import { NotificationEvent } from '../notification.types';
 import { renderTemplate } from '../notification.templates';
 import { NotificationChannel, DeliveryResult } from './channel';
 import { isTelegramConfigured, getBot } from '../../telegram/telegram.bot';
-import { sendMessage } from '../../telegram/telegram.service';
+import { sendMessage, InlineActionButton } from '../../telegram/telegram.service';
+
+/** For events that map to an in-chat action (accept / reschedule / cash-confirm),
+ *  return the inline buttons the recipient should see attached to the message.
+ *  Keys into the existing bot callback handlers in telegram.bot.ts so the
+ *  acceptance flow works end-to-end inside Telegram without opening the web. */
+function inlineActionsForEvent(event: NotificationEvent, lang: 'uz' | 'ru'): InlineActionButton[] {
+    if (event.type === 'clinic_new_booking' && (event as any).appointmentId) {
+        const id = (event as any).appointmentId;
+        return [
+            {
+                text: lang === 'ru' ? '✅ Принять' : '✅ Qabul qilish',
+                callback_data: `clinic:accept:${id}`,
+            },
+            {
+                text: lang === 'ru' ? '🔁 Перенести' : '🔁 Vaqtni o\'zgartirish',
+                callback_data: `clinic:resched:${id}`,
+            },
+        ];
+    }
+    if (event.type === 'clinic_cash_pending' && (event as any).appointmentId) {
+        const id = (event as any).appointmentId;
+        return [{
+            text: lang === 'ru' ? '💵 Наличные приняты' : '💵 Naqd qabul qilindi',
+            callback_data: `clinic:cash:${id}:confirm`,
+        }];
+    }
+    return [];
+}
 
 /**
  * Pick the ClinicPermission that gates each clinic-targeted notification.
@@ -85,7 +113,8 @@ export const telegramChannel: NotificationChannel = {
                 targets.map(({ chatId, language }) => {
                     const tpl = renderTemplate(event, language);
                     const text = (tpl.telegram || `*${tpl.title}*\n${tpl.body}`).slice(0, 4000);
-                    return sendMessage(chatId, text, event.link);
+                    const actions = inlineActionsForEvent(event, language);
+                    return sendMessage(chatId, text, event.link, actions);
                 }),
             );
             const anyOk = results.some(r => r.status === 'fulfilled' && (r.value as any).ok);

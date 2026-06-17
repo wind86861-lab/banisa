@@ -92,13 +92,28 @@ function destinationButton(link: string): any {
     return { text: 'Ochish', web_app: { url: absoluteLink(link) } };
 }
 
-export async function sendMessage(chatId: bigint, text: string, link?: string): Promise<{ ok: boolean; messageId?: number; error?: string }> {
+/** Extra action button rendered alongside the deep-link destination button.
+ *  Callback buttons fire the bot's own callbackQuery handlers (e.g. accept /
+ *  reschedule), so a clinic admin can act on a booking without leaving chat.
+ */
+export interface InlineActionButton { text: string; callback_data: string; }
+
+export async function sendMessage(
+    chatId: bigint,
+    text: string,
+    link?: string,
+    actions?: InlineActionButton[],
+): Promise<{ ok: boolean; messageId?: number; error?: string }> {
     const bot = getBot();
     if (!bot) return { ok: false, error: 'bot not configured' };
     try {
-        const reply_markup = link
-            ? { inline_keyboard: [[destinationButton(link)]] }
-            : undefined;
+        const rows: any[][] = [];
+        if (actions && actions.length) {
+            // One action button per row keeps long Uzbek labels readable.
+            for (const a of actions) rows.push([{ text: a.text, callback_data: a.callback_data }]);
+        }
+        if (link) rows.push([destinationButton(link)]);
+        const reply_markup = rows.length ? { inline_keyboard: rows } : undefined;
         // HTML mode: templates emit <b>/<code>/<i>; only <, >, & need escaping
         // (handled per-field by esc() in notification.templates.ts). Markdown
         // was silently 400ing on any clinic/patient name with an apostrophe.

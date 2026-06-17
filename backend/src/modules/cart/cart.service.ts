@@ -1,5 +1,6 @@
 import prisma from '../../config/database';
 import { AppError, ErrorCodes } from '../../utils/errors';
+import { dispatch as dispatchNotification } from '../notifications/notification.dispatcher';
 
 export class CartService {
     async addToCart(userId: string, data: {
@@ -445,10 +446,35 @@ export class CartService {
                 data: appointmentData,
                 include: {
                     clinic: { select: { id: true, nameUz: true, nameRu: true } },
+                    patient: { select: { firstName: true, lastName: true, phone: true } },
+                    diagnosticService: { select: { nameUz: true } },
+                    surgicalService: { select: { nameUz: true } },
                 },
             });
 
             appointments.push(appointment);
+
+            // Notify the clinic the same way single-service bookings do.
+            // Best-effort — checkout must not break if telegram/SMS hiccups.
+            const a = appointment as any;
+            const patientName = [a.patient?.firstName, a.patient?.lastName]
+                .filter(Boolean).join(' ') || a.patient?.phone || 'Bemor';
+            const serviceName = a.diagnosticService?.nameUz
+                || a.surgicalService?.nameUz
+                || (items.length > 1 ? `${items.length} ta xizmat` : 'Xizmat');
+            dispatchNotification({
+                type: 'clinic_new_booking',
+                clinicId: a.clinicId,
+                appointmentId: a.id,
+                bookingNumber: a.bookingNumber,
+                patientName,
+                serviceName,
+                appointmentAt: a.scheduledAt,
+                finalPrice: a.finalPrice ?? a.price,
+                paymentMethod: a.paymentMethod,
+                priority: 'HIGH',
+                link: `/clinic/bookings?focus=${a.id}`,
+            }).catch(e => console.error('[cart.checkout] notify clinic failed:', e));
         }
 
         // Clear cart after successful checkout

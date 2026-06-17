@@ -171,6 +171,28 @@ export class AppointmentService {
             metadata: { bookingNumber, discountPercent: pricing.discountPercent },
         });
 
+        // Ping the clinic — every admin with BOOKING_ACCEPT gets an in-app
+        // notification + (if their telegram is bound) a message with inline
+        // "✅ Qabul qilish" + "🔁 Vaqtni o'zgartirish" callback buttons. The
+        // bot callback handlers already exist in telegram.bot.ts.
+        const apptFull = appointment as any;
+        const patientName = [apptFull.patient?.firstName, apptFull.patient?.lastName]
+            .filter(Boolean).join(' ') || apptFull.patient?.phone || 'Bemor';
+        const serviceName = apptFull.diagnosticService?.nameUz
+            || apptFull.surgicalService?.nameUz || 'Xizmat';
+        dispatchNotification({
+            type: 'clinic_new_booking',
+            clinicId: data.clinicId,
+            appointmentId: appointment.id,
+            bookingNumber: apptFull.bookingNumber,
+            patientName,
+            serviceName,
+            appointmentAt: apptFull.scheduledAt,
+            finalPrice: apptFull.finalPrice ?? apptFull.price,
+            priority: 'HIGH',
+            link: `/clinic/bookings?focus=${appointment.id}`,
+        }).catch(e => console.error('[createBooking] notify clinic failed:', e));
+
         return appointment;
     }
 
@@ -320,6 +342,25 @@ export class AppointmentService {
             userName: actor.name,
             note: notes,
         });
+
+        // Tell the patient — in-app + SMS (default channels), and Telegram if
+        // they've bound. Best-effort: never break the accept on notify failure.
+        const u = updated as any;
+        const serviceName = u.diagnosticService?.nameUz
+            || u.surgicalService?.nameUz || 'Xizmat';
+        dispatchNotification({
+            type: 'booking_confirmed',
+            userId: u.patientId,
+            appointmentId,
+            bookingNumber: u.bookingNumber,
+            serviceName,
+            clinicName: u.clinic?.nameUz,
+            appointmentAt: u.scheduledAt,
+            finalPrice: u.finalPrice ?? u.price,
+            priority: 'NORMAL',
+            link: `/user/appointments/${appointmentId}`,
+        }).catch(e => console.error('[clinicAccept] notify patient failed:', e));
+
         return updated;
     }
 
