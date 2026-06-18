@@ -204,9 +204,11 @@ export default function CartCheckoutPage() {
                 setSuccess({ appointmentId: firstAppt?.id, isCash: true });
                 return;
             } else {
-                // Card/Payme/Click — go to payment page
+                // Card/Payme/Click — go to payment page (Click has its own route
+                // because it's a redirect-style provider, not a POST-form one).
                 const firstAppointment = result.appointments?.[0];
-                navigate('/payment', {
+                const target = paymentMethod === 'click' ? '/payment/click' : '/payment';
+                navigate(target, {
                     state: {
                         bookingData: {
                             clinicId: firstAppointment?.clinicId,

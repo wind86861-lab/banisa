@@ -63,7 +63,11 @@ export default function PaymentResultPage() {
 
     const handleRetry = () => {
         if (!appointment) return;
-        navigate('/payment/payme', {
+        // Route the retry to whichever provider the original booking used.
+        // CLICK has its own redirect-style page; everything else goes to
+        // the existing Payme POST-form page.
+        const target = appointment.paymentMethod === 'CLICK' ? '/payment/click' : '/payment';
+        navigate(target, {
             state: {
                 bookingData: {
                     skipCreate: true,
@@ -193,7 +197,9 @@ export default function PaymentResultPage() {
                             </div>
                             <div className="pay-result-row">
                                 <span className="pay-result-label">To'lov usuli</span>
-                                <span className="pay-result-value">Payme</span>
+                                <span className="pay-result-value">
+                                    {appointment.paymentMethod === 'CLICK' ? 'CLICK' : 'Payme'}
+                                </span>
                             </div>
                         </div>
 
