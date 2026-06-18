@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, Lock, Sparkles } from 'lucide-react';
 import PaymeTab from './payments/PaymeTab';
+import ClickTab from './payments/ClickTab';
 import './payments/clinic-payments.css';
 
 const PROVIDERS = [
@@ -18,8 +19,8 @@ const PROVIDERS = [
         key: 'click',
         label: 'Click',
         accent: '#0078d4',
-        status: 'soon',
-        soonText: 'Tez orada — Click integratsiyasi',
+        status: 'available',
+        component: ClickTab,
     },
     {
         key: 'alif',
