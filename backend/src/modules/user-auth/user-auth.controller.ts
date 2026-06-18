@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { registerUser, loginUser, getUserProfile, refreshAccessToken } from './user-auth.service';
+import { registerUser, loginUser, getUserProfile, refreshAccessToken, changeUserPassword } from './user-auth.service';
 import { requestPasswordReset, validateResetToken, consumeResetToken } from './password-reset.service';
 import { sendSuccess } from '../../utils/response';
 import { AuthRequest } from '../../middleware/auth.middleware';
@@ -115,6 +115,20 @@ export const checkResetToken = async (req: Request, res: Response, next: NextFun
 export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
         await consumeResetToken(req.body?.token, req.body?.newPassword);
+        sendSuccess(res, null, undefined, 'Parol muvaffaqiyatli o\'zgartirildi');
+    } catch (error) { next(error); }
+};
+
+// Authenticated patient changes their own password (current + new).
+export const changePassword = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) throw new Error('Unauthorized');
+        await changeUserPassword(
+            userId,
+            String(req.body?.currentPassword || ''),
+            String(req.body?.newPassword || ''),
+        );
         sendSuccess(res, null, undefined, 'Parol muvaffaqiyatli o\'zgartirildi');
     } catch (error) { next(error); }
 };

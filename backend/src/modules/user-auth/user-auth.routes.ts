@@ -19,6 +19,7 @@ router.post('/reset-password', userAuthController.resetPassword);
 
 // ─── PROTECTED ROUTES ───────────────────────────────────────────────────────
 router.get('/profile', requireAuth, userAuthController.getProfile);
+router.post('/change-password', requireAuth, userAuthController.changePassword);
 router.post('/logout', requireAuth, userAuthController.logout);
 
 export default router;

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { User, Mail, Phone, Edit2, Save, X, ChevronRight, LogOut } from 'lucide-react';
+import { User, Mail, Phone, Edit2, Save, X, ChevronRight, LogOut, Lock, Eye, EyeOff } from 'lucide-react';
 import api from '../../shared/api/axios';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import TopBar from '../../pages/home/TopBar';
@@ -17,6 +17,11 @@ export default function UserProfile() {
         lastName: '',
         email: '',
     });
+    const [pwOpen, setPwOpen] = useState(false);
+    const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+    const [pwShow, setPwShow] = useState({ current: false, next: false, confirm: false });
+    const [pwMsg, setPwMsg] = useState({ type: '', text: '' });
+    const [resetMsg, setResetMsg] = useState('');
 
     const queryClient = useQueryClient();
     const { updateUserState, logout } = useUserAuth();
@@ -63,6 +68,49 @@ export default function UserProfile() {
             email: profile?.email || '',
         });
         setIsEditing(false);
+    };
+
+    const changePwMutation = useMutation({
+        mutationFn: async ({ currentPassword, newPassword }) => {
+            const res = await api.post('/user/auth/change-password', { currentPassword, newPassword });
+            return res.data;
+        },
+        onSuccess: () => {
+            setPwMsg({ type: 'success', text: 'Parol muvaffaqiyatli o\'zgartirildi' });
+            setPwForm({ current: '', next: '', confirm: '' });
+            setTimeout(() => { setPwOpen(false); setPwMsg({ type: '', text: '' }); }, 1500);
+        },
+        onError: (err) => {
+            setPwMsg({ type: 'error', text: err?.response?.data?.error?.message || err?.response?.data?.message || 'Xatolik yuz berdi' });
+        },
+    });
+
+    const handleChangePassword = (e) => {
+        e.preventDefault();
+        setPwMsg({ type: '', text: '' });
+        if (!pwForm.current || !pwForm.next) {
+            setPwMsg({ type: 'error', text: 'Joriy va yangi parolni kiriting' });
+            return;
+        }
+        if (pwForm.next.length < 6) {
+            setPwMsg({ type: 'error', text: 'Yangi parol kamida 6 ta belgi boʻlishi kerak' });
+            return;
+        }
+        if (pwForm.next !== pwForm.confirm) {
+            setPwMsg({ type: 'error', text: 'Parollar bir xil emas' });
+            return;
+        }
+        changePwMutation.mutate({ currentPassword: pwForm.current, newPassword: pwForm.next });
+    };
+
+    const sendResetLink = async () => {
+        setResetMsg('');
+        try {
+            await api.post('/user/auth/forgot-password', { phone: profile?.phone });
+            setResetMsg('Telegram orqali parol tiklash havolasi yuborildi (agar bot bog\'langan bo\'lsa).');
+        } catch {
+            setResetMsg('Telegram orqali parol tiklash havolasi yuborildi (agar bot bog\'langan bo\'lsa).');
+        }
     };
 
     if (isLoading) {
@@ -198,6 +246,117 @@ export default function UserProfile() {
                             <span className="up-info-value up-info-mono">{profile?.id}</span>
                         </div>
                     </div>
+                </div>
+
+                {/* Password */}
+                <div className="up-card">
+                    <h3 className="up-card-title"><Lock size={16} /> Parol</h3>
+                    <p style={{ margin: '0 0 14px', color: '#64748b', fontSize: 13 }}>
+                        Sayt orqali kirish uchun parol. Mini-app orqali kelganda parol kerak emas — lekin brauzerdan kirsangiz, telefon+parol bilan kirasiz.
+                    </p>
+
+                    {!pwOpen ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                            <button
+                                type="button"
+                                onClick={() => { setPwOpen(true); setPwMsg({ type: '', text: '' }); }}
+                                style={{
+                                    background: '#00BDE0', color: '#fff', border: 'none',
+                                    padding: '10px 16px', borderRadius: 8, fontWeight: 600, cursor: 'pointer',
+                                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                                }}
+                            >
+                                <Lock size={16} /> Parolni o'zgartirish / o'rnatish
+                            </button>
+                            <button
+                                type="button"
+                                onClick={sendResetLink}
+                                style={{
+                                    background: '#fff', color: '#0A2463', border: '1px solid #cbd5e1',
+                                    padding: '10px 16px', borderRadius: 8, fontWeight: 500, cursor: 'pointer',
+                                }}
+                            >
+                                Telegram orqali tiklash
+                            </button>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleChangePassword} style={{ display: 'grid', gap: 12, maxWidth: 420 }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Joriy parol</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type={pwShow.current ? 'text' : 'password'}
+                                        value={pwForm.current}
+                                        onChange={(e) => setPwForm(f => ({ ...f, current: e.target.value }))}
+                                        placeholder="Joriy parolingiz"
+                                        autoComplete="current-password"
+                                        style={{ width: '100%', padding: '10px 38px 10px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 }}
+                                    />
+                                    <button type="button" onClick={() => setPwShow(s => ({ ...s, current: !s.current }))} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                                        {pwShow.current ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Yangi parol</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type={pwShow.next ? 'text' : 'password'}
+                                        value={pwForm.next}
+                                        onChange={(e) => setPwForm(f => ({ ...f, next: e.target.value }))}
+                                        placeholder="Kamida 6 ta belgi"
+                                        autoComplete="new-password"
+                                        minLength={6}
+                                        style={{ width: '100%', padding: '10px 38px 10px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 }}
+                                    />
+                                    <button type="button" onClick={() => setPwShow(s => ({ ...s, next: !s.next }))} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                                        {pwShow.next ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Yangi parolni tasdiqlang</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type={pwShow.confirm ? 'text' : 'password'}
+                                        value={pwForm.confirm}
+                                        onChange={(e) => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                                        placeholder="Qayta kiriting"
+                                        autoComplete="new-password"
+                                        minLength={6}
+                                        style={{ width: '100%', padding: '10px 38px 10px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 }}
+                                    />
+                                    <button type="button" onClick={() => setPwShow(s => ({ ...s, confirm: !s.confirm }))} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                                        {pwShow.confirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+                            {pwMsg.text && (
+                                <div style={{
+                                    padding: '8px 12px', borderRadius: 6, fontSize: 13,
+                                    background: pwMsg.type === 'success' ? '#dcfce7' : '#fef2f2',
+                                    color: pwMsg.type === 'success' ? '#166534' : '#991b1b',
+                                }}>{pwMsg.text}</div>
+                            )}
+                            <div style={{ display: 'flex', gap: 10 }}>
+                                <button type="submit" disabled={changePwMutation.isPending} style={{ background: '#00BDE0', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: 8, fontWeight: 600, cursor: 'pointer', flex: 1 }}>
+                                    {changePwMutation.isPending ? 'Saqlanmoqda...' : 'Saqlash'}
+                                </button>
+                                <button type="button" onClick={() => { setPwOpen(false); setPwForm({ current: '', next: '', confirm: '' }); setPwMsg({ type: '', text: '' }); }} style={{ background: '#fff', color: '#64748b', border: '1px solid #cbd5e1', padding: '10px 16px', borderRadius: 8, cursor: 'pointer' }}>
+                                    Bekor qilish
+                                </button>
+                            </div>
+                            <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>
+                                Joriy parolingizni bilmasangiz, <button type="button" onClick={sendResetLink} style={{ background: 'none', border: 'none', color: '#00BDE0', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontSize: 12 }}>Telegram orqali tiklash</button> tugmasidan foydalaning.
+                            </p>
+                        </form>
+                    )}
+                    {resetMsg && (
+                        <div style={{
+                            marginTop: 12, padding: '8px 12px', borderRadius: 6, fontSize: 13,
+                            background: '#eff6ff', color: '#1e40af',
+                        }}>{resetMsg}</div>
+                    )}
                 </div>
 
                 {/* Danger Zone */}

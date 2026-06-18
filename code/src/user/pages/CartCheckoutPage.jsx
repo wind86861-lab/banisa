@@ -23,6 +23,7 @@ export default function CartCheckoutPage() {
     const [submitting, setSubmitting] = useState(false);
     const [clinicPaymentMethods, setClinicPaymentMethods] = useState({});
     const [clinicDiscounts, setClinicDiscounts] = useState({});
+    const [clinicWorkingHours, setClinicWorkingHours] = useState({});
     const [success, setSuccess] = useState(null); // { appointmentId, isCash } after submit
     const [oferta, setOferta] = useState(null); // { id, version, fileUrl, fileName } or null if none
     const [ofertaAgreed, setOfertaAgreed] = useState(false);
@@ -44,20 +45,24 @@ export default function CartCheckoutPage() {
         const fetchPaymentMethods = async () => {
             const methods = {};
             const discounts = {};
+            const hours = {};
             for (const group of cart) {
                 try {
                     const res = await axiosInstance.get(`/public/clinics/${group.clinic.id}`);
                     const clinic = res.data.data;
                     methods[group.clinic.id] = Array.isArray(clinic.paymentMethods) ? clinic.paymentMethods : [];
                     discounts[group.clinic.id] = Number(clinic.defaultDiscountPercent) || 0;
+                    hours[group.clinic.id] = clinic.workingHours || null;
                 } catch (err) {
                     console.error(`Failed to fetch payment methods for clinic ${group.clinic.id}:`, err);
                     methods[group.clinic.id] = ['CASH'];
                     discounts[group.clinic.id] = 0;
+                    hours[group.clinic.id] = null;
                 }
             }
             setClinicPaymentMethods(methods);
             setClinicDiscounts(discounts);
+            setClinicWorkingHours(hours);
         };
 
         fetchPaymentMethods();
@@ -154,6 +159,41 @@ export default function CartCheckoutPage() {
 
     const hasMultipleClinics = cart.length > 1;
 
+    // ─── Working-hours clamp ───────────────────────────────────────────────
+    // Cart is always a single clinic on submit (we block multi-clinic above),
+    // so use the first group as the source of truth for time bounds. Day key
+    // matches the DB shape: { monday: {...}, tuesday: {...}, ... }.
+    const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const DAY_LABEL_UZ = {
+        sunday: 'Yakshanba', monday: 'Dushanba', tuesday: 'Seshanba',
+        wednesday: 'Chorshanba', thursday: 'Payshanba', friday: 'Juma', saturday: 'Shanba',
+    };
+    const primaryClinicId = cart[0]?.clinic?.id;
+    const workingHours = primaryClinicId ? clinicWorkingHours[primaryClinicId] : null;
+    const selectedDayKey = selectedDate
+        ? DAY_KEYS[new Date(selectedDate + 'T00:00').getDay()]
+        : null;
+    const selectedDayHours = workingHours && selectedDayKey ? workingHours[selectedDayKey] : null;
+    const isClinicOpenOnDay = !workingHours || !selectedDayKey
+        ? true // unknown hours → don't block, server validates
+        : selectedDayHours?.isAroundClock || Boolean(selectedDayHours?.isOpen);
+    const dayOpenTime = selectedDayHours?.isAroundClock ? '00:00' : (selectedDayHours?.openTime || null);
+    const dayCloseTime = selectedDayHours?.isAroundClock ? '23:59' : (selectedDayHours?.closeTime || null);
+    // For today, clamp opening to "now + 30min" if it's after the clinic opens.
+    const effectiveMinTime = (() => {
+        if (!dayOpenTime) return isToday ? minTimeIfToday : undefined;
+        if (isToday && minTimeIfToday > dayOpenTime) return minTimeIfToday;
+        return dayOpenTime;
+    })();
+    const effectiveMaxTime = dayCloseTime || undefined;
+    // Auto-clear time if it falls outside the new window (e.g. after date change).
+    useEffect(() => {
+        if (!selectedTime || !selectedDayHours || !isClinicOpenOnDay) return;
+        if (effectiveMinTime && selectedTime < effectiveMinTime) setSelectedTime('');
+        else if (effectiveMaxTime && selectedTime > effectiveMaxTime) setSelectedTime('');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedDate, isClinicOpenOnDay, effectiveMinTime, effectiveMaxTime]);
+
     const handleCheckout = async () => {
         if (hasMultipleClinics) {
             setError("Bitta bron faqat bitta klinikadan bo'lishi mumkin. Iltimos, boshqa klinika xizmatlarini savatdan olib tashlang.");
@@ -169,6 +209,18 @@ export default function CartCheckoutPage() {
         }
         if (!selectedTime) {
             setError('Iltimos, vaqtni tanlang');
+            return;
+        }
+        if (!isClinicOpenOnDay) {
+            setError(`Klinika ${DAY_LABEL_UZ[selectedDayKey] || ''} kuni dam oladi. Iltimos, boshqa sanani tanlang.`);
+            return;
+        }
+        if (effectiveMinTime && selectedTime < effectiveMinTime) {
+            setError(`Tanlangan vaqt klinika ish vaqti oraligʻidan tashqarida. Iltimos, ${effectiveMinTime} dan keyingi vaqtni tanlang.`);
+            return;
+        }
+        if (effectiveMaxTime && selectedTime > effectiveMaxTime) {
+            setError(`Tanlangan vaqt klinika ish vaqti oraligʻidan tashqarida. Iltimos, ${effectiveMaxTime} dan oldingi vaqtni tanlang.`);
             return;
         }
         // Build local datetime → ISO. Avoids the old `T09:00Z` hack that put
@@ -297,16 +349,31 @@ export default function CartCheckoutPage() {
                                     <label style={{ display: 'block', fontWeight: 500, marginBottom: 6, fontSize: 14 }}>Vaqt</label>
                                     <input
                                         type="time"
-                                        min={isToday ? minTimeIfToday : undefined}
+                                        min={effectiveMinTime}
+                                        max={effectiveMaxTime}
                                         value={selectedTime}
                                         onChange={(e) => setSelectedTime(e.target.value)}
-                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 }}
+                                        disabled={!isClinicOpenOnDay}
+                                        style={{
+                                            width: '100%', padding: '10px 12px',
+                                            border: '1px solid #ddd', borderRadius: 8, fontSize: 14,
+                                            background: !isClinicOpenOnDay ? '#f1f5f9' : '#fff',
+                                            cursor: !isClinicOpenOnDay ? 'not-allowed' : 'auto',
+                                        }}
                                     />
                                 </div>
                             </div>
-                            {isToday && (
+                            {selectedDate && !isClinicOpenOnDay && (
+                                <p style={{ marginTop: 8, fontSize: 13, color: '#dc2626', fontWeight: 500 }}>
+                                    ⚠️ Klinika {DAY_LABEL_UZ[selectedDayKey] || ''} kuni dam oladi. Iltimos, boshqa sanani tanlang.
+                                </p>
+                            )}
+                            {selectedDate && isClinicOpenOnDay && dayOpenTime && dayCloseTime && (
                                 <p style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>
-                                    Bugungi sana uchun: kamida {minTimeIfToday} dan keyingi vaqtni tanlang.
+                                    🕐 Klinika ish vaqti: <b>{dayOpenTime} – {dayCloseTime}</b>
+                                    {isToday && minTimeIfToday > dayOpenTime && (
+                                        <> · bugungi kun uchun {minTimeIfToday} dan</>
+                                    )}
                                 </p>
                             )}
 

@@ -2,6 +2,7 @@ import prisma from '../../config/database';
 import { AppError, ErrorCodes } from '../../utils/errors';
 import { dispatch as dispatchNotification } from '../notifications/notification.dispatcher';
 import { broadcastBookingById } from '../telegram/admin-broadcast.service';
+import { assertWithinWorkingHours } from '../clinics/working-hours.util';
 
 export class CartService {
     async addToCart(userId: string, data: {
@@ -305,6 +306,11 @@ export class CartService {
                 ErrorCodes.VALIDATION_ERROR,
             );
         }
+
+        // Working-hours gate (server-side defense). The cart UI already
+        // clamps the time picker but a manual API call could still ship a
+        // time outside the clinic's hours.
+        assertWithinWorkingHours(cartItems[0].clinic, new Date(data.scheduledAt));
 
         // Group by clinic
         const byClinic = cartItems.reduce((acc, item) => {

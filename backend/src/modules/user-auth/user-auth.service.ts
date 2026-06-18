@@ -165,6 +165,39 @@ export const refreshAccessToken = async (refreshToken: string) => {
     }
 };
 
+// ─── CHANGE PASSWORD ────────────────────────────────────────────────────────
+// Authenticated patient updates their own login password. Requires the
+// current password — if the patient never set one (Telegram-registered
+// account with the bot-issued random hash), they go through the
+// /forgot-password flow instead, which sends a reset link to their
+// linked Telegram chat.
+export const changeUserPassword = async (
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+): Promise<{ ok: true }> => {
+    if (!newPassword || newPassword.length < 6 || newPassword.length > 128) {
+        throw new AppError('Yangi parol kamida 6 ta belgi boʻlishi kerak', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    if (!currentPassword) {
+        throw new AppError('Joriy parolni kiriting', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, passwordHash: true, role: true, isActive: true },
+    });
+    if (!user || !user.isActive || user.role !== 'PATIENT') {
+        throw new AppError('Foydalanuvchi topilmadi', 404, ErrorCodes.NOT_FOUND);
+    }
+    const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!ok) {
+        throw new AppError('Joriy parol notoʻgʻri', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+    return { ok: true };
+};
+
 // ─── GET USER PROFILE ───────────────────────────────────────────────────────
 export const getUserProfile = async (userId: string) => {
     const user = await prisma.user.findUnique({

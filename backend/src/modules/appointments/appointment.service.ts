@@ -9,6 +9,7 @@ import {
 } from './appointment.utils';
 import { dispatch as dispatchNotification } from '../notifications/notification.dispatcher';
 import { broadcastBookingById } from '../telegram/admin-broadcast.service';
+import { assertWithinWorkingHours } from '../clinics/working-hours.util';
 
 /**
  * AppointmentService
@@ -83,12 +84,13 @@ export class AppointmentService {
         // 1. Verify clinic is active
         const clinic = await prisma.clinic.findUnique({
             where: { id: data.clinicId },
-            select: { id: true, status: true, defaultDiscountPercent: true, commissionRate: true },
+            select: { id: true, status: true, defaultDiscountPercent: true, commissionRate: true, workingHours: true },
         });
         if (!clinic) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
         if (clinic.status !== 'APPROVED') {
             throw new AppError('Klinika faol emas', 400, ErrorCodes.VALIDATION_ERROR);
         }
+        assertWithinWorkingHours(clinic as any, new Date(data.scheduledAt));
 
         // 2. Verify service
         if (data.serviceType === 'DIAGNOSTIC' && data.diagnosticServiceId) {
