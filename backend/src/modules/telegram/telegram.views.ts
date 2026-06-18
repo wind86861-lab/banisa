@@ -395,6 +395,7 @@ export async function renderProfile(userId: string, lang: Lang): Promise<RenderR
 
     const kb = new InlineKeyboard()
         .url(lang === 'ru' ? '✏️ Редактировать' : '✏️ Tahrirlash', startAppLink('profile')).row()
+        .text(lang === 'ru' ? '🔐 Установить пароль' : '🔐 Parol o\'rnatish', 'profile:password').row()
         .text(lang === 'ru' ? '🌐 Сменить язык' : '🌐 Tilni o\'zgartirish', 'lang:menu').row()
         .text(lang === 'ru' ? '🚪 Отвязать бот' : '🚪 Botni uzish', 'profile:unlink:confirm');
 

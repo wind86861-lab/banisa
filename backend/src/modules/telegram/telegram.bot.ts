@@ -1350,6 +1350,47 @@ function registerHandlers(bot: Bot) {
         } catch { /* ignore */ }
     });
 
+    bot.callbackQuery(/^profile:password$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) },
+            select: { language: true, userId: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        if (!acc?.userId) {
+            await ctx.answerCallbackQuery({
+                text: lang === 'ru' ? 'Сначала войдите в аккаунт' : 'Avval hisobga kiring',
+                show_alert: true,
+            });
+            return;
+        }
+        const user = await prisma.user.findUnique({
+            where: { id: acc.userId },
+            select: { phone: true },
+        });
+        if (!user?.phone) {
+            await ctx.answerCallbackQuery({ text: 'Phone not found', show_alert: true });
+            return;
+        }
+        try {
+            const { requestPasswordReset } = await import('../user-auth/password-reset.service');
+            await requestPasswordReset(user.phone);
+            await ctx.answerCallbackQuery({
+                text: lang === 'ru'
+                    ? '🔐 Ссылка для пароля отправлена. Откройте её и задайте новый пароль.'
+                    : '🔐 Parol o\'rnatish havolasi yuborildi. Uni oching va yangi parolingizni kiriting.',
+                show_alert: true,
+            });
+        } catch (e) {
+            console.error('[bot profile:password] failed:', e);
+            await ctx.answerCallbackQuery({
+                text: lang === 'ru' ? 'Ошибка. Попробуйте позже' : 'Xatolik. Keyinroq urinib koʻring',
+                show_alert: true,
+            });
+        }
+    });
+
     bot.callbackQuery(/^profile:cancel$/, async (ctx) => {
         const chatId = ctx.chat?.id;
         if (!chatId) { await ctx.answerCallbackQuery(); return; }
