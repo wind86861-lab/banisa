@@ -443,11 +443,18 @@ export class CartService {
             const bookingNumber = `BN-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
             const qrToken = `${bookingNumber}-${require('crypto').randomBytes(16).toString('hex')}`;
 
+            // The cart carries 4 service-type tags, but Prisma's
+            // AppointmentServiceType enum only has DIAGNOSTIC/SURGICAL/OTHER.
+            // SANATORIUM + CHECKUP fall through to OTHER so the insert
+            // doesn't blow up with "Expected AppointmentServiceType".
+            const toAppointmentEnum = (t: string): 'DIAGNOSTIC' | 'SURGICAL' | 'OTHER' =>
+                t === 'DIAGNOSTIC' ? 'DIAGNOSTIC' : t === 'SURGICAL' ? 'SURGICAL' : 'OTHER';
+
             const isCash = (data.paymentMethod || 'naqd') === 'naqd' || data.paymentMethod === 'CASH';
             const appointmentData: any = {
                 patientId: userId,
                 clinicId,
-                serviceType: primaryItem.serviceType,
+                serviceType: toAppointmentEnum(primaryItem.serviceType),
                 scheduledAt: new Date(data.scheduledAt),
                 price: totalPrice,
                 finalPrice: totalPrice,
@@ -489,7 +496,7 @@ export class CartService {
                 await prisma.appointmentService.createMany({
                     data: itemBreakdown.flatMap(it => Array.from({ length: Math.max(1, it.quantity) }).map(() => ({
                         appointmentId: appointment.id,
-                        serviceType: it.serviceType as any,
+                        serviceType: toAppointmentEnum(it.serviceType),
                         serviceName: it.serviceName,
                         originalServiceId: it.originalServiceId,
                         price: it.basePrice,
