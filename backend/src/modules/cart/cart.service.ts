@@ -1,6 +1,7 @@
 import prisma from '../../config/database';
 import { AppError, ErrorCodes } from '../../utils/errors';
 import { dispatch as dispatchNotification } from '../notifications/notification.dispatcher';
+import { broadcastBookingById } from '../telegram/admin-broadcast.service';
 
 export class CartService {
     async addToCart(userId: string, data: {
@@ -527,6 +528,9 @@ export class CartService {
                 priority: 'HIGH',
                 link: `/clinic/bookings?focus=${a.id}`,
             }).catch(e => console.error('[cart.checkout] notify clinic failed:', e));
+
+            // Fire-and-forget broadcast to the super-admin Telegram group.
+            broadcastBookingById(a.id).catch(e => console.error('[cart.checkout] admin broadcast failed:', e));
         }
 
         // Clear cart after successful checkout

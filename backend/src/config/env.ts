@@ -53,6 +53,12 @@ export const env = {
     // 32 raw bytes hex-encoded = 64 chars. Generate with:
     //   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
     PAYME_MASTER_KEY: requireSecret('PAYME_MASTER_KEY', ''),
+    // Optional super-admin Telegram group: every new booking is
+    // broadcast there with full details, and /report inside the
+    // group returns a per-clinic summary + PDF. Empty disables the
+    // feature. Discover the chat id by adding the bot to your
+    // group and sending /chatid.
+    SUPER_ADMIN_TG_GROUP_ID: process.env.SUPER_ADMIN_TG_GROUP_ID || '',
 };
 
 // In production the master key must be present and the right length.

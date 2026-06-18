@@ -8,6 +8,7 @@ import {
     logAppointmentEvent,
 } from './appointment.utils';
 import { dispatch as dispatchNotification } from '../notifications/notification.dispatcher';
+import { broadcastBookingById } from '../telegram/admin-broadcast.service';
 
 /**
  * AppointmentService
@@ -216,6 +217,9 @@ export class AppointmentService {
             priority: 'HIGH',
             link: `/clinic/bookings?focus=${appointment.id}`,
         }).catch(e => console.error('[createBooking] notify clinic failed:', e));
+
+        // Fire-and-forget broadcast to the super-admin Telegram group.
+        broadcastBookingById(appointment.id).catch(e => console.error('[createBooking] admin broadcast failed:', e));
 
         return appointment;
     }

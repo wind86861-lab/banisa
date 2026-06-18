@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard, Keyboard } from 'grammy';
+import { Bot, InlineKeyboard, InputFile, Keyboard } from 'grammy';
 import prisma from '../../config/database';
 import { registerOrLoginViaContact } from './telegram.register';
 import {
@@ -22,6 +22,8 @@ import {
     bookingStep3DateTime, bookingStep4Confirm, bookingFinalize,
 } from './clinic.wizards';
 import { ClinicPermission } from '@prisma/client';
+import { env } from '../../config/env';
+import { parseReportArgs, buildReport, formatReportText, buildReportPdf } from './admin-report.service';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const PUBLIC_BASE = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').replace(/\/+$/, '');
@@ -755,6 +757,113 @@ function registerHandlers(bot: Bot) {
         }
         const name = acc.user?.firstName || 'Foydalanuvchi';
         await ctx.reply(`✅ Bog\'langan: ${name} (${acc.user?.phone || '—'})`);
+    });
+
+    // Tiny universal helper — works in private chats, groups, supergroups,
+    // channels. Replies with the current chat's id so a super-admin can
+    // copy it into SUPER_ADMIN_TG_GROUP_ID after adding the bot to the
+    // ops group.
+    bot.command('chatid', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        const chatType = ctx.chat?.type;
+        if (!chatId) return;
+        await ctx.reply(
+            `🆔 <b>Chat ID:</b> <code>${chatId}</code>\n` +
+            `📂 <b>Type:</b> ${chatType}\n\n` +
+            'Buni <code>SUPER_ADMIN_TG_GROUP_ID</code> sifatida .env ga qoʻying va serverni restart qiling.',
+            { parse_mode: 'HTML' },
+        );
+    });
+
+    // When the bot is added to a (super)group, DM every bound SUPER_ADMIN
+    // with the new chat id and one-line setup instruction. Falls back
+    // silently if no admin has bound the bot.
+    bot.on('my_chat_member', async (ctx) => {
+        try {
+            const u = ctx.update.my_chat_member;
+            if (!u || !u.new_chat_member) return;
+            const newStatus = u.new_chat_member.status;
+            const chatType = u.chat.type;
+            if (chatType !== 'group' && chatType !== 'supergroup') return;
+            if (!['administrator', 'member'].includes(newStatus)) return;
+
+            // Find every bound super-admin and DM them.
+            const admins = await prisma.user.findMany({
+                where: { role: 'SUPER_ADMIN' as any, isActive: true },
+                select: { id: true },
+            });
+            if (admins.length === 0) return;
+            const accs = await (prisma as any).telegramAccount.findMany({
+                where: { userId: { in: admins.map(a => a.id) }, isBlocked: false },
+                select: { chatId: true },
+            });
+            const msg =
+                `🤝 Bot yangi guruhga qoʻshildi:\n` +
+                `<b>${u.chat.title || '—'}</b>\n` +
+                `🆔 <code>${u.chat.id}</code>\n\n` +
+                `Uni admin gruppa qilish uchun .env ga:\n` +
+                `<code>SUPER_ADMIN_TG_GROUP_ID=${u.chat.id}</code>\n` +
+                `qoʻshing va serverni restart qiling.`;
+            for (const a of accs) {
+                try {
+                    await ctx.api.sendMessage(Number(a.chatId), msg, { parse_mode: 'HTML' });
+                } catch { /* swallow */ }
+            }
+        } catch (e) {
+            console.error('[bot] my_chat_member handler failed:', e);
+        }
+    });
+
+    /**
+     * /report — super-admin group only. Returns a per-clinic summary
+     * (text + PDF) for the requested window. Args:
+     *   /report            → today
+     *   /report day        → today
+     *   /report week       → last 7 days
+     *   /report month      → current month
+     *   /report DD.MM.YYYY DD.MM.YYYY  → custom range (inclusive)
+     */
+    bot.command('report', async (ctx) => {
+        const groupId = env.SUPER_ADMIN_TG_GROUP_ID;
+        const chatId = ctx.chat?.id;
+        if (!groupId) {
+            await ctx.reply('⚠️ Super-admin guruhi sozlanmagan. SUPER_ADMIN_TG_GROUP_ID ni .env ga qoʻying.');
+            return;
+        }
+        if (!chatId || chatId.toString() !== groupId.toString()) {
+            await ctx.reply('🚫 /report faqat super-admin guruhida ishlaydi.');
+            return;
+        }
+        const raw = (ctx.message?.text || '').replace(/^\/report(@\S+)?\s*/i, '').trim();
+        const range = parseReportArgs(raw);
+        if (!range) {
+            await ctx.reply(
+                '❓ Notoʻgʻri argument.\n\nIshlatish:\n' +
+                '<code>/report</code> — bugun\n' +
+                '<code>/report day</code> — bugun\n' +
+                '<code>/report week</code> — oxirgi 7 kun\n' +
+                '<code>/report month</code> — joriy oy\n' +
+                '<code>/report 01.06.2026 18.06.2026</code> — sana oraligʻi',
+                { parse_mode: 'HTML' },
+            );
+            return;
+        }
+        try {
+            await ctx.replyWithChatAction('typing');
+            const data = await buildReport(range);
+            const text = formatReportText(data);
+            await ctx.reply(text, { parse_mode: 'HTML' });
+            if (data.grandTotal > 0) {
+                const pdf = await buildReportPdf(data);
+                const fname = `banisa-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+                await ctx.replyWithDocument(new InputFile(pdf, fname), {
+                    caption: `📄 ${range.label}`,
+                });
+            }
+        } catch (e: any) {
+            console.error('[bot /report] failed:', e);
+            await ctx.reply('⚠️ Hisobot yaratishda xatolik: ' + (e?.message || 'noma\'lum'));
+        }
     });
 
     bot.command('unlink', async (ctx) => {
