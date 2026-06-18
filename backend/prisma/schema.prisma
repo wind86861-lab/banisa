@@ -280,6 +280,9 @@ model Clinic {
   paymeConfig            ClinicPaymeConfig?
   paymeConfigVersions    PaymeConfigVersion[]
   paymeTransactions      PaymeTransaction[]
+  clickConfig            ClinicClickConfig?
+  clickConfigVersions    ClickConfigVersion[]
+  clickTransactions      ClickTransaction[]
   doctorClinics          DoctorClinic[]
   ambulances             Ambulance[]
   memberships            ClinicMembership[]
@@ -978,6 +981,112 @@ model PaymeWebhookLog {
   isTestMode Boolean  @default(false)
   ip         String?
   createdAt  DateTime @default(now())
+
+  @@index([clinicId, createdAt])
+  @@index([clinicId, errorCode])
+  @@index([createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CLICK.UZ INTEGRATION — mirrors the Payme models above. Per-clinic merchant
+// credentials, transaction tracking, immutable config history, webhook log.
+// Secret keys encrypted at rest with the same AES-256-GCM TenantVault as
+// Payme (PAYME_MASTER_KEY env).
+// ═══════════════════════════════════════════════════════════════════════════
+
+model ClickTransaction {
+  id                String   @id @default(uuid())
+  clickTransId      String?  @unique
+  clickPaydocId     String?
+  merchantTransId   String                          // = appointment.id
+  merchantPrepareId String?                         // = our ClickTransaction.id, echoed to CLICK after Prepare
+  amount            Int                             // som (CLICK uses decimal som, we store as int rounded)
+  state             Int      @default(0)            // 0=draft 1=prepared 2=paid -1=cancelled
+  signTime          String?
+  clinicId          String?
+  isTestMode        Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  clinic Clinic? @relation(fields: [clinicId], references: [id])
+
+  @@index([clickTransId])
+  @@index([merchantTransId])
+  @@index([state])
+  @@index([merchantTransId, state])
+  @@index([clinicId])
+  @@index([clinicId, state])
+}
+
+model ClinicClickConfig {
+  id                       String   @id @default(uuid())
+  clinicId                 String   @unique
+  merchantId               String                       // numeric, public
+  serviceId                String                       // numeric, public — distinct service per clinic
+  merchantUserId           String?                      // for outgoing Merchant API calls
+  // Production secret key, AES-256-GCM encrypted
+  prodKeyCiphertext        String
+  prodKeyIv                String
+  prodKeyTag               String
+  // Optional sandbox secret key
+  testKeyCiphertext        String?
+  testKeyIv                String?
+  testKeyTag               String?
+  isTestMode               Boolean  @default(true)
+  isActive                 Boolean  @default(false)
+  connectedAt              DateTime?
+  lastUsedAt               DateTime?
+  lastRotatedAt            DateTime?
+  createdBy                String?
+  updatedBy                String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  clinic   Clinic               @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  versions ClickConfigVersion[]
+
+  @@index([isActive])
+}
+
+model ClickConfigVersion {
+  id                String   @id @default(uuid())
+  configId          String
+  clinicId          String
+  version           Int
+  merchantId        String
+  serviceId         String
+  merchantUserId    String?
+  prodKeyCiphertext String
+  prodKeyIv         String
+  prodKeyTag        String
+  testKeyCiphertext String?
+  testKeyIv         String?
+  testKeyTag        String?
+  isTestMode        Boolean
+  reason            String?   // "initial" | "rotation" | "manual" | "incident"
+  changedBy         String?
+  createdAt         DateTime @default(now())
+
+  config ClinicClickConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  clinic Clinic            @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([configId, version])
+  @@index([clinicId])
+  @@index([createdAt])
+}
+
+model ClickWebhookLog {
+  id           String   @id @default(uuid())
+  clinicId     String?
+  method       String                  // "prepare" | "complete" | "AuthFailed"
+  errorCode    Int?
+  errorMsg     String?
+  orderId      String?                 // merchant_trans_id
+  clickTransId String?
+  durationMs   Int
+  isTestMode   Boolean  @default(false)
+  ip           String?
+  createdAt    DateTime @default(now())
 
   @@index([clinicId, createdAt])
   @@index([clinicId, errorCode])
