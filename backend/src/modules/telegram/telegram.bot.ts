@@ -1382,6 +1382,10 @@ function registerHandlers(bot: Bot) {
         if (ctx.message.contact) return;
         const chatId = ctx.chat?.id;
         if (!chatId) return;
+        // Bot is meant for private DMs. Stay silent in groups/supergroups —
+        // otherwise we spam the super-admin group with menu replies and
+        // crash on stale pre-upgrade chat ids.
+        if (ctx.chat?.type !== 'private') return;
         const acc = await (prisma as any).telegramAccount.findUnique({
             where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
         });
