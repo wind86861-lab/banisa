@@ -33,29 +33,40 @@ export const handleMerchantApi = async (req: Request, res: Response) => {
     const tag = ctx.clinicId ? `Payme:${ctx.clinicId.slice(0, 8)}` : 'Payme:legacy';
     console.log(`[${tag}] method=${method} test=${ctx.isTestMode} order=${params?.account?.order_id ?? '-'}`);
 
+    // Methods that move money / mutate transaction state. When the integration
+    // is paused (isActive=false), refuse these — auth succeeded so we know
+    // the key matches, but the clinic admin has turned the integration off.
+    // Read-only methods (CheckPerformTransaction, CheckTransaction,
+    // GetStatement) still run so self-test loops can validate the config.
+    const STATE_MUTATING = new Set(['CreateTransaction', 'PerformTransaction', 'CancelTransaction']);
+
     let outcome: { result?: any; error?: any } = {};
     try {
-        switch (method) {
-            case 'CheckPerformTransaction':
-                outcome = await paymeService.checkPerformTransaction(params as any, ctx);
-                break;
-            case 'CreateTransaction':
-                outcome = await paymeService.createTransaction(params as any, ctx);
-                break;
-            case 'PerformTransaction':
-                outcome = await paymeService.performTransaction(params as any, ctx);
-                break;
-            case 'CancelTransaction':
-                outcome = await paymeService.cancelTransaction(params as any, ctx);
-                break;
-            case 'CheckTransaction':
-                outcome = await paymeService.checkTransaction(params as any, ctx);
-                break;
-            case 'GetStatement':
-                outcome = await paymeService.getStatement(params as any, ctx);
-                break;
-            default:
-                outcome = { error: { code: -32601, message: 'Method not found', data: method } };
+        if ((ctx as any).isInactive && STATE_MUTATING.has(method)) {
+            outcome = { error: { code: -31008, message: 'Integration paused by clinic admin', data: null } };
+        } else {
+            switch (method) {
+                case 'CheckPerformTransaction':
+                    outcome = await paymeService.checkPerformTransaction(params as any, ctx);
+                    break;
+                case 'CreateTransaction':
+                    outcome = await paymeService.createTransaction(params as any, ctx);
+                    break;
+                case 'PerformTransaction':
+                    outcome = await paymeService.performTransaction(params as any, ctx);
+                    break;
+                case 'CancelTransaction':
+                    outcome = await paymeService.cancelTransaction(params as any, ctx);
+                    break;
+                case 'CheckTransaction':
+                    outcome = await paymeService.checkTransaction(params as any, ctx);
+                    break;
+                case 'GetStatement':
+                    outcome = await paymeService.getStatement(params as any, ctx);
+                    break;
+                default:
+                    outcome = { error: { code: -32601, message: 'Method not found', data: method } };
+            }
         }
     } catch (err) {
         console.error(`[${tag}] Internal error:`, err);

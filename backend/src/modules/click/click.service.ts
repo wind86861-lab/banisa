@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import prisma from '../../config/database';
 import { dispatch as dispatchNotification } from '../notifications/notification.dispatcher';
-import { getActiveConfigForClinic, ResolvedClickConfig, touchLastUsed } from './click-config.service';
+import { getConfigForClinic, ResolvedClickConfig, touchLastUsed } from './click-config.service';
 
 // ─── Click SHOP API constants ───────────────────────────────────────────────
 export const CLICK_ACTION = {
@@ -125,14 +125,19 @@ export async function handleWebhook(clinicId: string, req: ClickRequest): Promis
         };
     }
 
-    // 1. Resolve the clinic's active config (decrypted secret_key).
-    const cfg = await getActiveConfigForClinic(clinicId);
+    // 1. Resolve the clinic's config (decrypted secret_key). We ignore
+    // isActive here — authentication is independent of the integration's
+    // on/off state. The state-mutating Complete action below refuses when
+    // isActive=false (treated like sign-check fail so CLICK retries) while
+    // read-only flows (Prepare for a non-existent self-test order) can
+    // still validate the key end-to-end.
+    const cfg = await getConfigForClinic(clinicId);
     if (!cfg) {
         return {
             body: buildError(req, CLICK_ERROR.SIGN_CHECK_FAILED),
             logMethod: 'AuthFailed',
             logError: CLICK_ERROR.SIGN_CHECK_FAILED.code,
-            logErrMsg: 'No active config for clinic',
+            logErrMsg: 'No config for clinic',
         };
     }
 
@@ -163,6 +168,17 @@ export async function handleWebhook(clinicId: string, req: ClickRequest): Promis
 
     // 3. Action branch.
     const action = Number(req.action);
+    // Refuse state-mutating Complete when the integration is paused. Sign
+    // check has already passed so this is a "you authenticated but the
+    // clinic admin turned the integration off" scenario.
+    if (!cfg.isActive && action === CLICK_ACTION.COMPLETE) {
+        return {
+            body: buildError(req, CLICK_ERROR.SIGN_CHECK_FAILED),
+            logMethod: 'Complete',
+            logError: CLICK_ERROR.SIGN_CHECK_FAILED.code,
+            logErrMsg: 'Integration paused by clinic admin',
+        };
+    }
     if (action === CLICK_ACTION.PREPARE) return prepare(req, cfg);
     if (action === CLICK_ACTION.COMPLETE) return complete(req, cfg);
 

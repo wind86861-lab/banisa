@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { handleMerchantApi } from './payme.controller';
-import { getActiveConfigForClinic, touchLastUsed } from './payme-config.service';
+import { getConfigForClinic, touchLastUsed } from './payme-config.service';
 import { safeEqual } from '../../utils/tenant-vault';
 
 const router = Router();
@@ -43,12 +43,17 @@ const paymeTenantAuth = async (req: Request, res: Response, next: NextFunction) 
 
     let config;
     try {
-        config = await getActiveConfigForClinic(clinicId);
+        // Load config IGNORING isActive — we authenticate the credential
+        // independently of the integration's on/off state. State-mutating
+        // methods are gated at the handler layer via ctx.isInactive, so a
+        // read-only CheckPerformTransaction self-test can still validate
+        // the freshly-rotated key before the admin re-enables.
+        config = await getConfigForClinic(clinicId);
     } catch (err) {
         console.error(`[Payme:${clinicId}] config lookup failed`, err);
         return res.status(200).json(UNAUTHORIZED_RESPONSE);
     }
-    if (!config || !config.isActive) {
+    if (!config) {
         return res.status(200).json(UNAUTHORIZED_RESPONSE);
     }
 
@@ -69,7 +74,11 @@ const paymeTenantAuth = async (req: Request, res: Response, next: NextFunction) 
         return res.status(200).json(UNAUTHORIZED_RESPONSE);
     }
 
-    (req as any).paymeCtx = { clinicId, isTestMode: matched.test };
+    (req as any).paymeCtx = {
+        clinicId,
+        isTestMode: matched.test,
+        isInactive: !config.isActive,
+    };
     // Fire-and-forget bump so the clinic dashboard can show "last used X ago".
     touchLastUsed(config.configId);
     next();

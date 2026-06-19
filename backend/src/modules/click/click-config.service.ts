@@ -32,12 +32,21 @@ export function invalidateCache(clinicId?: string) {
 // clinic has no row, or if isActive=false. Hot-path: webhook signature
 // verification.
 export async function getActiveConfigForClinic(clinicId: string): Promise<ResolvedClickConfig | null> {
+    const config = await getConfigForClinic(clinicId);
+    return config && config.isActive ? config : null;
+}
+
+// Same as getActiveConfigForClinic but ignores isActive. Used by self-test
+// + the webhook auth path so a freshly rotated (inactive) key can still be
+// validated end-to-end. State-mutating Click actions (Complete) are gated
+// at the controller layer when isActive=false.
+export async function getConfigForClinic(clinicId: string): Promise<ResolvedClickConfig | null> {
     const now = Date.now();
     const hit = cache.get(clinicId);
     if (hit && hit.expiresAt > now) return hit.value;
 
     const row = await prisma.clinicClickConfig.findUnique({ where: { clinicId } });
-    if (!row || !row.isActive) {
+    if (!row) {
         cache.set(clinicId, { value: null, expiresAt: now + CACHE_TTL_MS });
         return null;
     }

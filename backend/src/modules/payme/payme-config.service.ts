@@ -29,12 +29,23 @@ export function invalidateCache(clinicId?: string) {
 // Load (and decrypt) the active config for a clinic. Returns null if the clinic
 // has no config row, or if isActive=false. Hot-path: webhook auth middleware.
 export async function getActiveConfigForClinic(clinicId: string): Promise<ResolvedPaymeConfig | null> {
+    const config = await getConfigForClinic(clinicId);
+    return config && config.isActive ? config : null;
+}
+
+// Load + decrypt the config IGNORING isActive. Auth middleware uses this so
+// the credential check (key match) is separated from the business-state gate
+// (integration enabled). State-mutating Payme methods are still refused at
+// the handler level when isActive=false — but read-only methods like
+// CheckPerformTransaction can run, which lets the self-test loop validate a
+// freshly rotated key before the admin re-enables.
+export async function getConfigForClinic(clinicId: string): Promise<ResolvedPaymeConfig | null> {
     const now = Date.now();
     const hit = cache.get(clinicId);
     if (hit && hit.expiresAt > now) return hit.value;
 
     const row = await prisma.clinicPaymeConfig.findUnique({ where: { clinicId } });
-    if (!row || !row.isActive) {
+    if (!row) {
         cache.set(clinicId, { value: null, expiresAt: now + CACHE_TTL_MS });
         return null;
     }
