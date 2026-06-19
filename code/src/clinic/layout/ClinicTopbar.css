@@ -1,10 +1,28 @@
 /* ─── Clinic Topbar additions ────────────────────────────────────────────── */
 
+.clinic-page-title {
+    /* Hard cap so a giant clinic name can never push the right-side
+       actions off-screen. Past this width we ellipsize and keep the
+       full text in the title= tooltip. */
+    max-width: clamp(160px, 35vw, 360px);
+    min-width: 0;
+}
+
 .clinic-page-title span {
     font-size: 16px;
     font-weight: 700;
     color: var(--text-main);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+/* On phones the topbar is tight — give the title an even smaller cap. */
+@media (max-width: 480px) {
+    .clinic-page-title {
+        max-width: clamp(120px, 50vw, 220px);
+    }
 }
 
 .clinic-topbar-avatar {

@@ -21,7 +21,18 @@ export default function ClinicTopbar({ toggleSidebar, isSidebarOpen, isDarkMode,
     const navigate = useNavigate();
     const { user, logout } = useAuth();
 
-    const pageTitle = PAGE_TITLES[location.pathname] || 'Klinika Paneli';
+    // Show the page-specific title where we know one (Dashboard, Bronlar…),
+    // otherwise fall back to the clinic's own name so the operator always
+    // sees a meaningful label at the top — never "Klinika Paneli" generic.
+    const clinicName = user?.clinicName || 'Klinika';
+    const pageTitle = PAGE_TITLES[location.pathname] || clinicName;
+    // Adaptive font: shrink for long clinic names so they don't push the
+    // hamburger off-screen on narrow viewports. Buckets are tuned for the
+    // longest existing clinic names in production (~40 chars).
+    const titleFontSize =
+        pageTitle.length > 42 ? 11 :
+        pageTitle.length > 32 ? 13 :
+        pageTitle.length > 24 ? 14 : 16;
     const userFullName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Admin';
     const userInitial = userFullName ? userFullName[0].toUpperCase() : 'A';
 
@@ -38,7 +49,7 @@ export default function ClinicTopbar({ toggleSidebar, isSidebarOpen, isDarkMode,
                     <Menu size={20} />
                 </button>
                 <div className="clinic-page-title">
-                    <span>{pageTitle}</span>
+                    <span style={{ fontSize: titleFontSize }} title={pageTitle}>{pageTitle}</span>
                 </div>
             </div>
 
