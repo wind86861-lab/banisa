@@ -105,6 +105,16 @@ export const login = async (credentials: {
     const accessToken = generateAccessToken({ id: user.id, role: user.role, status: user.status });
     const refreshToken = generateRefreshToken({ id: user.id });
 
+    // Fetch clinic name for CLINIC_ADMIN users
+    let clinicName = null;
+    if (credentials.loginType === 'CLINIC_ADMIN' && user.clinicId) {
+        const clinic = await prisma.clinic.findUnique({
+            where: { id: user.clinicId },
+            select: { nameUz: true }
+        });
+        clinicName = clinic?.nameUz || null;
+    }
+
     return {
         user: {
             id: user.id,
@@ -115,6 +125,7 @@ export const login = async (credentials: {
             role: user.role,
             status: user.status,
             clinicId: user.clinicId,
+            clinicName,
         },
         accessToken,
         refreshToken,
@@ -155,6 +166,16 @@ export const refreshAccessToken = async (token: string) => {
     const newAccessToken = generateAccessToken({ id: user.id, role: user.role, status: user.status });
     const newRefreshToken = generateRefreshToken({ id: user.id }); // rotate
 
+    // Fetch clinic name for CLINIC_ADMIN users
+    let clinicName = null;
+    if (user.role === 'CLINIC_ADMIN' && user.clinicId) {
+        const clinic = await prisma.clinic.findUnique({
+            where: { id: user.clinicId },
+            select: { nameUz: true }
+        });
+        clinicName = clinic?.nameUz || null;
+    }
+
     return {
         newAccessToken,
         newRefreshToken,
@@ -167,6 +188,7 @@ export const refreshAccessToken = async (token: string) => {
             role: user.role,
             status: user.status,
             clinicId: user.clinicId,
+            clinicName,
         },
     };
 };
@@ -174,9 +196,24 @@ export const refreshAccessToken = async (token: string) => {
 export const getMe = async (userId: string) => {
     const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, email: true, firstName: true, lastName: true, role: true },
+        select: {
+            id: true, phone: true, email: true, firstName: true, lastName: true,
+            role: true, status: true, clinicId: true,
+        },
     });
 
     if (!user) throw new AppError('User not found', 404, ErrorCodes.NOT_FOUND);
-    return user;
+
+    // Match the login + refresh response shape so AuthContext picks up the
+    // clinic name when it rehydrates from /me on page reload.
+    let clinicName: string | null = null;
+    if (user.role === 'CLINIC_ADMIN' && user.clinicId) {
+        const clinic = await prisma.clinic.findUnique({
+            where: { id: user.clinicId },
+            select: { nameUz: true },
+        });
+        clinicName = clinic?.nameUz || null;
+    }
+
+    return { ...user, clinicName };
 };
