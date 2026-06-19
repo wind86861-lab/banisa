@@ -1496,19 +1496,23 @@ function registerHandlers(bot: Bot) {
             console.error('[bot skory location] failed:', e);
             await ctx.reply('Xatolik. Qayta urinib koʻring.');
         }
-        // Restore the main reply keyboard — request-location keyboard
-        // is one-time and Telegram removes it after the share, so without
-        // this the patient is stuck with no menu.
+        // Restore the persistent reply keyboard under the typing input —
+        // requestLocation() keyboard is one-time, so Telegram removes it
+        // after the share. mainMenu() is inline (renders on a message)
+        // and won't bring the input-row buttons back, smartKeyboard does.
         try {
-            await ctx.reply(LABELS[lang].menuTitle, {
-                reply_markup: mainMenu(lang, Boolean(acc?.userId)),
-            });
+            const kb = await smartKeyboard(acc?.userId ?? null, lang, Boolean(acc?.userId), Number(chatId));
+            await ctx.reply(LABELS[lang].menuTitle, { reply_markup: kb });
         } catch { /* non-fatal */ }
     });
 
     // ─── Reply keyboard text → native render or URL ──────────────────────
     bot.on('message', async (ctx) => {
         const text = ctx.message.text || '';
+        // Skip non-text messages entirely (location, photo, sticker, etc.)
+        // so they reach their dedicated handlers without us spamming the
+        // menu in response to an empty body.
+        if (!ctx.message.text) return;
         if (text.startsWith('/')) return;
         if (ctx.message.contact) return;
         const chatId = ctx.chat?.id;
@@ -1524,7 +1528,8 @@ function registerHandlers(bot: Bot) {
                 where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
             });
             const lng: Lang = accForLang?.language === 'ru' ? 'ru' : 'uz';
-            await ctx.reply(LABELS[lng].menuTitle, { reply_markup: mainMenu(lng, Boolean(accForLang?.userId)) });
+            const kb = await smartKeyboard(accForLang?.userId ?? null, lng, Boolean(accForLang?.userId), Number(chatId));
+            await ctx.reply(LABELS[lng].menuTitle, { reply_markup: kb });
             return;
         }
         const acc = await (prisma as any).telegramAccount.findUnique({
