@@ -106,6 +106,26 @@ export const AuthProvider = ({ children }) => {
           setIsPatientSession(false);
           setUser(existingUser);
           setIsLoading(false);
+          // Background hydration — sessionStorage user can be stale (e.g.
+          // saved before backend started returning clinicName). Refresh
+          // it from /auth/me without blocking initial render so the
+          // sidebar/topbar pick up the real clinic name on next paint.
+          const needsHydration =
+            existingUser.role === 'CLINIC_ADMIN' &&
+            existingUser.clinicId &&
+            !existingUser.clinicName;
+          if (needsHydration) {
+            axiosInstance
+              .get('/auth/me')
+              .then((res) => {
+                const fresh = res.data?.data ?? res.data;
+                if (fresh && fresh.id) {
+                  tokenStorage.setUser(fresh);
+                  setUser(fresh);
+                }
+              })
+              .catch(() => { /* non-fatal; current data stays */ });
+          }
           return;
         }
         tokenStorage.clear();
