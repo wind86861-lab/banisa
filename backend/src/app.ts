@@ -97,15 +97,60 @@ app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(cookieParser()); // required for HttpOnly refresh-token cookie (VULN-03)
 
-// Lightweight healthcheck for nginx / PM2 / uptime monitors.
-app.get('/api/health', async (_req, res) => {
+// ─── Healthcheck ────────────────────────────────────────────────────────────
+// Three flavors, all under /api/health:
+//   GET /api/health          → full status (db ping + uptime + version)
+//   GET /api/health/live     → liveness probe, no DB hit (fast)
+//   GET /api/health/ready    → readiness probe, returns 503 if DB is down
+//
+// Used by: nginx upstream check, PM2, external uptime monitors, the
+// payment self-tests' "is the backend even up" sanity hint.
+const APP_BOOTED_AT = Date.now();
+let APP_VERSION = 'unknown';
+try {
+    APP_VERSION = (require('../package.json')?.version as string) || 'unknown';
+} catch { /* non-fatal */ }
+
+app.get('/api/health/live', (_req, res) => {
+    res.json({ ok: true, ts: Date.now() });
+});
+
+app.get('/api/health/ready', async (_req, res) => {
     try {
         const prisma = (await import('./config/database')).default;
+        const t0 = Date.now();
         await prisma.$queryRaw`SELECT 1`;
-        res.json({ ok: true, ts: Date.now() });
+        res.json({ ok: true, dbPingMs: Date.now() - t0, ts: Date.now() });
     } catch {
-        res.status(503).json({ ok: false });
+        res.status(503).json({ ok: false, db: 'down' });
     }
+});
+
+app.get('/api/health', async (_req, res) => {
+    const payload: any = {
+        ok: true,
+        ts: Date.now(),
+        uptimeSec: Math.floor((Date.now() - APP_BOOTED_AT) / 1000),
+        version: APP_VERSION,
+        env: process.env.NODE_ENV || 'unknown',
+        pid: process.pid,
+        node: process.version,
+        memory: {
+            rssMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+            heapMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        },
+    };
+    try {
+        const prisma = (await import('./config/database')).default;
+        const t0 = Date.now();
+        await prisma.$queryRaw`SELECT 1`;
+        payload.db = { ok: true, pingMs: Date.now() - t0 };
+    } catch (e: any) {
+        payload.ok = false;
+        payload.db = { ok: false, error: e?.message?.slice(0, 200) || 'unknown' };
+        return res.status(503).json(payload);
+    }
+    res.json(payload);
 });
 
 // Static file serving (uploaded documents, logos, licenses)

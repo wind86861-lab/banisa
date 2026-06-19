@@ -1,7 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import crypto from 'crypto';
 import { handleMerchantApi } from './payme.controller';
-import { env } from '../../config/env';
 import { getActiveConfigForClinic, touchLastUsed } from './payme-config.service';
 import { safeEqual } from '../../utils/tenant-vault';
 
@@ -31,40 +29,6 @@ function parseBasicPassword(authHeader: string): { login: string; password: stri
         return null;
     }
 }
-
-// Legacy auth — global env keys, used by the unscoped POST /api/payme endpoint.
-// Stays here for the Medilux migration window; will be retired in Sprint 2.3.
-const paymeLegacyAuth = (req: Request, res: Response, next: NextFunction) => {
-    const authHeader = (req.headers['authorization'] || '') as string;
-    const creds = parseBasicPassword(authHeader);
-    if (!creds) return res.status(200).json(UNAUTHORIZED_RESPONSE);
-
-    const candidates = env.NODE_ENV === 'production'
-        ? [{ key: env.PAYME_PROD_KEY, test: false }]
-        : [
-            { key: env.PAYME_PROD_KEY, test: false },
-            { key: env.PAYME_TEST_KEY, test: true },
-          ];
-
-    const pwBuf = Buffer.from(creds.password);
-    let matched: { test: boolean } | null = null;
-    for (const c of candidates) {
-        if (!c.key) continue;
-        const keyBuf = Buffer.from(c.key);
-        if (keyBuf.length !== pwBuf.length) continue;
-        if (crypto.timingSafeEqual(keyBuf, pwBuf)) {
-            matched = { test: c.test };
-            break;
-        }
-    }
-
-    if (creds.login !== 'Paycom' || !matched) {
-        return res.status(200).json(UNAUTHORIZED_RESPONSE);
-    }
-
-    (req as any).paymeCtx = { clinicId: null, isTestMode: matched.test };
-    next();
-};
 
 // Per-clinic auth — looks up ClinicPaymeConfig by :clinicId, decrypts the
 // stored keys, and constant-time compares against the Basic password.
@@ -111,25 +75,40 @@ const paymeTenantAuth = async (req: Request, res: Response, next: NextFunction) 
     next();
 };
 
-// Deprecation surface — every hit to the legacy / endpoint logs a warning
-// with the requesting IP and Basic-auth login. After Medilux is migrated to
-// the per-clinic URL, this endpoint will be flipped to 410 Gone in one line.
-const legacyDeprecationLogger = (req: Request, res: Response, next: NextFunction) => {
+// Sunset gate — legacy /api/payme has been retired (Medilux migrated to
+// /callback/:clinicId on 2026-06-19). We keep the route mounted so any
+// stragglers get a clear, audit-friendly rejection instead of a 404 that
+// looks like a network problem.
+//
+// Each hit logs the caller so if a clinic's cabinet quietly reverts, we see
+// it in the warning stream. Returns 410 Gone with the Sunset + Link headers
+// pointing at the successor URL pattern.
+const legacySunset = (req: Request, res: Response) => {
     console.warn(
-        `[Payme:legacy] DEPRECATED hit — ip=${req.ip} ua="${req.headers['user-agent'] || ''}". ` +
-        'Migrate to /api/payme/callback/:clinicId.',
+        `[Payme:legacy] 410 hit — ip=${req.ip} ua="${req.headers['user-agent'] || ''}". ` +
+        'Use /api/payme/callback/:clinicId.',
     );
+    res.status(410);
     res.setHeader('Deprecation', 'true');
     res.setHeader('Sunset', 'Wed, 31 Dec 2026 23:59:59 GMT');
     res.setHeader('Link', '</api/payme/callback/{clinicId}>; rel="successor-version"');
-    next();
+    return res.json({
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+            code: -32601,
+            message: 'Endpoint sunset. Use /api/payme/callback/:clinicId.',
+            data: null,
+        },
+    });
 };
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 // Per-clinic webhook (the URL each clinic pastes into their Payme dashboard).
 router.post('/callback/:clinicId', paymeTenantAuth, handleMerchantApi);
-// Legacy global endpoint — DEPRECATED. Kept until Medilux finishes migrating.
-// Every hit logs a warning so we can tell when the cabinet has switched over.
-router.post('/', legacyDeprecationLogger, paymeLegacyAuth, handleMerchantApi);
+// Legacy global endpoint — RETIRED. Returns 410 Gone (was: paymeLegacyAuth +
+// handleMerchantApi). Kept mounted for observability — any future hit logs
+// who tried it so we can chase down stale Payme cabinets quickly.
+router.post('/', legacySunset);
 
 export default router;
