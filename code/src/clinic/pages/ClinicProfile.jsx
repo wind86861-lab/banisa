@@ -378,6 +378,10 @@ export default function ClinicProfile() {
             bankName: profile.bankName ?? '', bankAccountNumber: profile.bankAccountNumber ?? '',
             mfo: profile.mfo ?? '', oked: profile.oked ?? '', vatNumber: profile.vatNumber ?? '',
             invoiceEmail: profile.invoiceEmail ?? '',
+            // Fiscal codes (Payme receipts → Soliq)
+            fiscalMxikCode: profile.fiscalMxikCode ?? '',
+            fiscalPackageCode: profile.fiscalPackageCode ?? '',
+            fiscalVatPercent: profile.fiscalVatPercent ?? '',
             // Admin person
             adminFirstName: profile.adminFirstName ?? '', adminLastName: profile.adminLastName ?? '',
             adminEmail: profile.adminEmail ?? '', adminPhone: profile.adminPhone ?? '',
@@ -824,6 +828,54 @@ export default function ClinicProfile() {
                         <div className="ca-section-head"><span className="ca-section-title"><CreditCard size={16} /> Qabul qilinadigan to'lov usullari</span></div>
                         <div className="ca-section-body">
                             <CheckboxList value={paymentMethods} options={PAYMENT_METHOD_OPTIONS} onChange={setPaymentMethods} />
+                        </div>
+                    </div>
+
+                    {/* Fiskal kodlar (Soliq) — Payme chekiga ketadigan ma'lumotlar */}
+                    <div className="ca-section-card">
+                        <div className="ca-section-head">
+                            <span className="ca-section-title"><CreditCard size={16} /> Fiskal kodlar (Soliq cheki)</span>
+                        </div>
+                        <div className="ca-section-body">
+                            <p style={{ margin: '0 0 14px', fontSize: 13, color: '#64748b', lineHeight: 1.55 }}>
+                                Payme chekiga shu kodlar yoziladi va Soliq Komiteti hisobotiga tushadi.
+                                Kerakli MXIK kodi va o'lchov birligi <a href="https://tasnif.soliq.uz" target="_blank" rel="noopener noreferrer" style={{ color: '#06b6d4' }}>tasnif.soliq.uz</a> dan tekshiriladi.
+                                Bo'sh qoldirilsa, tibbiy xizmatlar uchun standart qiymatlar ishlatiladi (MXIK <code style={{ background:'#f1f5f9', padding:'1px 4px', borderRadius:3 }}>10902004002000999</code>, o'lchov <code style={{ background:'#f1f5f9', padding:'1px 4px', borderRadius:3 }}>1322039</code>, QQS 12%).
+                            </p>
+                            <div className="ca-form-row">
+                                <div className="ca-form-group">
+                                    <label className="ca-label">MXIK kodi</label>
+                                    <input
+                                        value={form.fiscalMxikCode ?? ''}
+                                        onChange={e => set('fiscalMxikCode', e.target.value.replace(/\D/g, ''))}
+                                        placeholder="10902004002000999"
+                                        maxLength={32}
+                                    />
+                                </div>
+                                <div className="ca-form-group">
+                                    <label className="ca-label">O'lchov birligi (package_code)</label>
+                                    <input
+                                        value={form.fiscalPackageCode ?? ''}
+                                        onChange={e => set('fiscalPackageCode', e.target.value.replace(/\D/g, ''))}
+                                        placeholder="1322039"
+                                        maxLength={32}
+                                    />
+                                </div>
+                            </div>
+                            <div className="ca-form-row">
+                                <div className="ca-form-group">
+                                    <label className="ca-label">QQS foizi (vat_percent)</label>
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        max={100}
+                                        value={form.fiscalVatPercent ?? ''}
+                                        onChange={e => set('fiscalVatPercent', e.target.value === '' ? '' : Number(e.target.value))}
+                                        placeholder="12"
+                                    />
+                                </div>
+                                <div className="ca-form-group" />
+                            </div>
                         </div>
                     </div>
                 </>

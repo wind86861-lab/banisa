@@ -54,7 +54,15 @@ export const checkPerformTransaction = async (params: {
         include: {
             diagnosticService: { select: { id: true, nameUz: true } },
             surgicalService: { select: { id: true, nameUz: true } },
-            clinic: { select: { id: true, nameUz: true } },
+            clinic: {
+                select: {
+                    id: true, nameUz: true,
+                    fiscalMxikCode: true, fiscalPackageCode: true, fiscalVatPercent: true,
+                },
+            },
+            services: {
+                select: { serviceName: true, finalPrice: true, price: true },
+            },
         },
     });
 
@@ -127,32 +135,53 @@ export const checkPerformTransaction = async (params: {
         return { error: PAYME_ERROR.ORDER_BUSY };
     }
 
-    // Build receipt detail for tax (soliq) compliance
-    const serviceName = appointment.diagnosticService?.nameUz
-        || appointment.surgicalService?.nameUz
-        || 'Tibbiy xizmat';
+    // Build receipt detail for tax (soliq) compliance.
+    // Defaults verified from tasnif.soliq.uz + confirmed by real clinic
+    // receipt — clinic admins can override per-clinic in their profile:
+    //   10902004002000999 = medical/wellness institution services
+    //   1322039 = "xizmat (marta)" / "услуга (раз)"
+    //   12 = QQS 12% (medical institutions)
+    const DEFAULT_MXIK = '10902004002000999';
+    const DEFAULT_PACKAGE = '1322039';
+    const DEFAULT_VAT = 12;
+    const mxik = appointment.clinic.fiscalMxikCode || DEFAULT_MXIK;
+    const pkg = appointment.clinic.fiscalPackageCode || DEFAULT_PACKAGE;
+    const vat = appointment.clinic.fiscalVatPercent ?? DEFAULT_VAT;
 
-    // MXIK verified from tasnif.soliq.uz + confirmed by real clinic receipt:
-    // 10902004002000999 = "Услуги прочих оздоровительных и медицинских учреждений"
-    //                      (Other wellness & medical institution services)
-    // package_code 1322039 = "xizmat (marta)" / "услуга (раз)"
-    // vat_percent 12 = QQS 12% (as shown on real medical clinic receipt)
+    // Cart-style bookings carry per-item rows in AppointmentService — emit
+    // one items[] entry per real service. Solo bookings (single-service
+    // path) fall back to one synthesized line.
+    let items: Array<{
+        title: string; price: number; count: number;
+        code: string; package_code: string; vat_percent: number;
+    }>;
+    if (appointment.services && appointment.services.length > 0) {
+        items = appointment.services.map((s) => ({
+            title: s.serviceName || 'Tibbiy xizmat',
+            price: (s.finalPrice || s.price || 0) * 100, // som → tiyin
+            count: 1,
+            code: mxik,
+            package_code: pkg,
+            vat_percent: vat,
+        }));
+    } else {
+        const serviceName = appointment.diagnosticService?.nameUz
+            || appointment.surgicalService?.nameUz
+            || 'Tibbiy xizmat';
+        items = [{
+            title: serviceName,
+            price: expectedAmount,
+            count: 1,
+            code: mxik,
+            package_code: pkg,
+            vat_percent: vat,
+        }];
+    }
+
     return {
         result: {
             allow: true,
-            detail: {
-                receipt_type: 0,
-                items: [
-                    {
-                        title: serviceName,
-                        price: expectedAmount,
-                        count: 1,
-                        code: '10902004002000999',  // MXIK: Tibbiy va sog'lomlashtirish muassasalari xizmatlari
-                        package_code: '1322039',    // xizmat (marta) — услуга (раз)
-                        vat_percent: 12,            // QQS 12% (tibbiy muassasa xizmatlari)
-                    },
-                ],
-            },
+            detail: { receipt_type: 0, items },
         },
     };
 };

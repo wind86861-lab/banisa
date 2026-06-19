@@ -216,6 +216,12 @@ model Clinic {
   parkingAvailable       Boolean                   @default(false)
   amenities              Json?
   paymentMethods         Json?
+  // Soliq fiscal codes used to populate the Payme receipt `detail.items`.
+  // All nullable — when missing, the Payme handler falls back to safe
+  // defaults (medical-services MXIK with 12% VAT).
+  fiscalMxikCode         String?
+  fiscalPackageCode      String?
+  fiscalVatPercent       Int?
   insuranceAccepted      Json?
   priceRange             String?
   averageRating          Float?                    @default(0)

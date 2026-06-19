@@ -209,6 +209,8 @@ export const getClinicProfile = async (req: AuthRequest, res: Response) => {
             paymentMethods: true,
             bankName: true, bankAccountNumber: true, mfo: true, oked: true,
             vatNumber: true, invoiceEmail: true,
+            // Fiscal codes for Payme receipts (Soliq)
+            fiscalMxikCode: true, fiscalPackageCode: true, fiscalVatPercent: true,
             // Admin person
             adminFirstName: true, adminLastName: true,
             adminEmail: true, adminPhone: true, adminPosition: true,
@@ -238,6 +240,7 @@ const EDITABLE_FIELDS = [
     'legalName', 'legalAddress', 'legalForm', 'certificates',
     'paymentMethods',
     'bankName', 'bankAccountNumber', 'mfo', 'oked', 'vatNumber', 'invoiceEmail',
+    'fiscalMxikCode', 'fiscalPackageCode', 'fiscalVatPercent',
     'adminFirstName', 'adminLastName', 'adminEmail', 'adminPhone', 'adminPosition',
 ] as const;
 
@@ -268,6 +271,27 @@ export const updateClinicProfile = async (req: AuthRequest, res: Response) => {
         data.bedsCount = Number.isFinite(n) ? Math.trunc(n) : null;
     } else if (data.bedsCount === '') {
         data.bedsCount = null;
+    }
+    // Fiscal VAT% must be a non-negative integer (0, 12, etc).
+    if (data.fiscalVatPercent !== undefined && data.fiscalVatPercent !== null && data.fiscalVatPercent !== '') {
+        const n = Number(data.fiscalVatPercent);
+        data.fiscalVatPercent = Number.isFinite(n) && n >= 0 && n <= 100 ? Math.trunc(n) : null;
+    } else if (data.fiscalVatPercent === '' || data.fiscalVatPercent === null) {
+        data.fiscalVatPercent = null;
+    }
+    // Trim and validate MXIK / package code — must be digits only when set.
+    for (const k of ['fiscalMxikCode', 'fiscalPackageCode'] as const) {
+        const v = data[k];
+        if (v === undefined) continue;
+        if (v === null || v === '') { data[k] = null; continue; }
+        const s = String(v).trim();
+        if (!/^\d{1,32}$/.test(s)) {
+            return res.status(400).json({
+                success: false,
+                message: `${k} faqat raqamlardan iborat bo'lishi kerak (1-32 belgi).`,
+            });
+        }
+        data[k] = s;
     }
     if (data.floorsCount !== undefined && data.floorsCount !== null && data.floorsCount !== '') {
         const n = Number(data.floorsCount);

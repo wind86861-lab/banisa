@@ -10,7 +10,31 @@
 import crypto from 'crypto';
 import prisma from '../../config/database';
 import { env } from '../../config/env';
-import { getActiveConfigForClinic } from './click-config.service';
+import { open } from '../../utils/tenant-vault';
+
+async function loadConfigForSelfTest(clinicId: string): Promise<{
+    merchantId: string; serviceId: string; prodKey: string; testKey: string | null; isTestMode: boolean;
+} | null> {
+    const row = await prisma.clinicClickConfig.findUnique({ where: { clinicId } });
+    if (!row) return null;
+    try {
+        const prodKey = open({
+            ciphertext: row.prodKeyCiphertext, iv: row.prodKeyIv, tag: row.prodKeyTag,
+        });
+        let testKey: string | null = null;
+        if (row.testKeyCiphertext && row.testKeyIv && row.testKeyTag) {
+            testKey = open({
+                ciphertext: row.testKeyCiphertext, iv: row.testKeyIv, tag: row.testKeyTag,
+            });
+        }
+        return {
+            merchantId: row.merchantId, serviceId: row.serviceId,
+            prodKey, testKey, isTestMode: row.isTestMode,
+        };
+    } catch {
+        return null;
+    }
+}
 
 export type SelfTestStatus = 'pass' | 'fail';
 export interface SelfTestResult {
@@ -24,11 +48,11 @@ const TIMEOUT_MS = 8000;
 
 export async function runSelfTest(clinicId: string): Promise<SelfTestResult> {
     const startedAt = Date.now();
-    const config = await getActiveConfigForClinic(clinicId);
+    const config = await loadConfigForSelfTest(clinicId);
     if (!config) {
         return persist(clinicId, {
             status: 'fail',
-            message: 'Konfiguratsiya yo\'q yoki faolsiz — avval kalit kiriting.',
+            message: 'Konfiguratsiya yo\'q — avval kalit kiriting.',
             durationMs: Date.now() - startedAt,
         });
     }
