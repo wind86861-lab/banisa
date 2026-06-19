@@ -1485,7 +1485,7 @@ function registerHandlers(bot: Bot) {
         if (!chatId || ctx.chat?.type !== 'private') return;
         if (!isAwaitingLocation(Number(chatId))) return;
         const acc = await (prisma as any).telegramAccount.findUnique({
-            where: { chatId: BigInt(chatId) }, select: { language: true },
+            where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
         });
         const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
         const loc = ctx.message.location;
@@ -1496,6 +1496,14 @@ function registerHandlers(bot: Bot) {
             console.error('[bot skory location] failed:', e);
             await ctx.reply('Xatolik. Qayta urinib koʻring.');
         }
+        // Restore the main reply keyboard — request-location keyboard
+        // is one-time and Telegram removes it after the share, so without
+        // this the patient is stuck with no menu.
+        try {
+            await ctx.reply(LABELS[lang].menuTitle, {
+                reply_markup: mainMenu(lang, Boolean(acc?.userId)),
+            });
+        } catch { /* non-fatal */ }
     });
 
     // ─── Reply keyboard text → native render or URL ──────────────────────
