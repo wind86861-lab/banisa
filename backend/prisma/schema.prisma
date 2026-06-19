@@ -1367,6 +1367,7 @@ enum ServiceType {
   SURGICAL
   SANATORIUM
   CHECKUP
+  AMBULANCE
 }
 
 // ═══════════════════════════════════════════════════════

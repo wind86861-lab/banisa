@@ -24,6 +24,10 @@ import {
 import { ClinicPermission } from '@prisma/client';
 import { env } from '../../config/env';
 import { parseReportArgs, buildReport, formatReportText, buildReportPdf } from './admin-report.service';
+import {
+    sendSkoryMenu, handleNearestPrompt, handleCheapest, handleLocationReceived,
+    handleAddToCart, isAwaitingLocation, clearAwaitingLocation,
+} from './skory.handlers';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const PUBLIC_BASE = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').replace(/\/+$/, '');
@@ -1416,6 +1420,53 @@ function registerHandlers(bot: Bot) {
         try { await ctx.editMessageReplyMarkup({ reply_markup: rendered.keyboard }); } catch {}
     });
 
+    // ─── 🆘 Tez yordam callbacks ────────────────────────────────────────
+    bot.callbackQuery(/^skory:nearest$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        await ctx.answerCallbackQuery();
+        await handleNearestPrompt(ctx, lang);
+    });
+
+    bot.callbackQuery(/^skory:cheapest$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        await ctx.answerCallbackQuery();
+        try { await handleCheapest(ctx, lang); }
+        catch (e) { console.error('[bot skory:cheapest] failed:', e); }
+    });
+
+    bot.callbackQuery(/^skory:add:(.+)$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        if (!acc?.userId) {
+            await ctx.answerCallbackQuery({
+                text: lang === 'ru' ? 'Сначала войдите (/start)' : 'Avval botga kiring (/start)',
+                show_alert: true,
+            });
+            return;
+        }
+        const ambulanceId = ctx.match?.[1];
+        if (!ambulanceId) { await ctx.answerCallbackQuery(); return; }
+        try { await handleAddToCart(ctx, lang, acc.userId, ambulanceId); }
+        catch (e) {
+            console.error('[bot skory:add] failed:', e);
+            await ctx.answerCallbackQuery({ text: 'Xatolik', show_alert: true });
+        }
+    });
+
     bot.callbackQuery(/^lang:menu$/, async (ctx) => {
         await ctx.answerCallbackQuery();
         await ctx.reply('Tilni tanlang / Выберите язык:', {
@@ -1426,6 +1477,25 @@ function registerHandlers(bot: Bot) {
                 ]],
             },
         });
+    });
+
+    // ─── Shared location → nearest ambulance ────────────────────────────
+    bot.on('message:location', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId || ctx.chat?.type !== 'private') return;
+        if (!isAwaitingLocation(Number(chatId))) return;
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true },
+        });
+        const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        const loc = ctx.message.location;
+        if (!loc) return;
+        try {
+            await handleLocationReceived(ctx, lang, { latitude: loc.latitude, longitude: loc.longitude });
+        } catch (e) {
+            console.error('[bot skory location] failed:', e);
+            await ctx.reply('Xatolik. Qayta urinib koʻring.');
+        }
     });
 
     // ─── Reply keyboard text → native render or URL ──────────────────────
@@ -1439,6 +1509,16 @@ function registerHandlers(bot: Bot) {
         // otherwise we spam the super-admin group with menu replies and
         // crash on stale pre-upgrade chat ids.
         if (ctx.chat?.type !== 'private') return;
+        // Cancel the "share location" flow if the patient taps "❌ Bekor".
+        if (isAwaitingLocation(Number(chatId)) && (text === '❌ Bekor' || text === '❌ Отмена')) {
+            clearAwaitingLocation(Number(chatId));
+            const accForLang = await (prisma as any).telegramAccount.findUnique({
+                where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
+            });
+            const lng: Lang = accForLang?.language === 'ru' ? 'ru' : 'uz';
+            await ctx.reply(LABELS[lng].menuTitle, { reply_markup: mainMenu(lng, Boolean(accForLang?.userId)) });
+            return;
+        }
         const acc = await (prisma as any).telegramAccount.findUnique({
             where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
         });
@@ -1486,6 +1566,14 @@ function registerHandlers(bot: Bot) {
         }
 
         if (route.kind === 'url') {
+            // 🆘 Tez yordam gets the inline-menu treatment (nearest /
+            // cheapest / mini-app) instead of dropping the patient
+            // straight into the mini-app — they often want a quick
+            // glance + one-tap call from inside Telegram.
+            if (route.param === 'skory') {
+                await sendSkoryMenu(ctx, lang);
+                return;
+            }
             const kb = new InlineKeyboard().url(
                 `${LABELS[lang].open} ${route.label}`,
                 startApp(route.param),

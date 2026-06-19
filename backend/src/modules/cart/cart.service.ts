@@ -7,7 +7,7 @@ import { assertWithinWorkingHours } from '../clinics/working-hours.util';
 export class CartService {
     async addToCart(userId: string, data: {
         clinicId: string;
-        serviceType: 'DIAGNOSTIC' | 'SURGICAL' | 'SANATORIUM' | 'CHECKUP';
+        serviceType: 'DIAGNOSTIC' | 'SURGICAL' | 'SANATORIUM' | 'CHECKUP' | 'AMBULANCE';
         serviceId: string;
         quantity?: number;
     }) {
@@ -27,6 +27,10 @@ export class CartService {
                 break;
             case 'CHECKUP':
                 service = await prisma.checkupPackage.findUnique({ where: { id: data.serviceId } });
+                break;
+            case 'AMBULANCE':
+                service = await prisma.ambulance.findUnique({ where: { id: data.serviceId } });
+                if (service && (service as any).clinicId !== data.clinicId) service = null;
                 break;
         }
         if (!service) throw new AppError('Xizmat topilmadi', 404, ErrorCodes.NOT_FOUND);
@@ -176,6 +180,20 @@ export class CartService {
                             }
                         }
                         break;
+                    case 'AMBULANCE': {
+                        const amb = await prisma.ambulance.findUnique({ where: { id: item.serviceId } });
+                        if (amb && amb.clinicId === item.clinicId) {
+                            service = {
+                                id: amb.id,
+                                nameUz: `🆘 Tez yordam — ${amb.callSign}${amb.vehicleModel ? ' (' + amb.vehicleModel + ')' : ''}`,
+                                nameRu: `🆘 Скорая — ${amb.callSign}${amb.vehicleModel ? ' (' + amb.vehicleModel + ')' : ''}`,
+                                priceRecommended: amb.baseFee || 0,
+                                shortDescription: amb.type,
+                                imageUrl: amb.photoUrl,
+                            } as any;
+                        }
+                        break;
+                    }
                 }
 
                 const basePrice = service?.priceRecommended || service?.recommendedPrice || 0;
@@ -309,8 +327,12 @@ export class CartService {
 
         // Working-hours gate (server-side defense). The cart UI already
         // clamps the time picker but a manual API call could still ship a
-        // time outside the clinic's hours.
-        assertWithinWorkingHours(cartItems[0].clinic, new Date(data.scheduledAt));
+        // time outside the clinic's hours. Emergency ambulance calls
+        // bypass the gate — they're 24/7 by definition.
+        const hasAmbulance = cartItems.some(i => (i.serviceType as any) === 'AMBULANCE');
+        if (!hasAmbulance) {
+            assertWithinWorkingHours(cartItems[0].clinic, new Date(data.scheduledAt));
+        }
 
         // Group by clinic
         const byClinic = cartItems.reduce((acc, item) => {
@@ -333,7 +355,7 @@ export class CartService {
             let totalPrice = 0;
             const serviceNames: string[] = [];
             const itemBreakdown: Array<{
-                serviceType: 'DIAGNOSTIC' | 'SURGICAL' | 'SANATORIUM' | 'CHECKUP';
+                serviceType: 'DIAGNOSTIC' | 'SURGICAL' | 'SANATORIUM' | 'CHECKUP' | 'AMBULANCE';
                 originalServiceId: string;
                 serviceName: string;
                 basePrice: number;
@@ -423,6 +445,20 @@ export class CartService {
                             }
                         }
                         break;
+                    case 'AMBULANCE': {
+                        const amb = await prisma.ambulance.findUnique({ where: { id: item.serviceId } });
+                        if (amb && amb.clinicId === item.clinicId) {
+                            // Synthesize a service-shaped record so the common
+                            // pricing path below works untouched. Base fee is
+                            // the chaqiruv price; per-km is charged after the
+                            // dispatch resolves real distance.
+                            service = {
+                                nameUz: `🆘 Tez yordam — ${amb.callSign}${amb.vehicleModel ? ' (' + amb.vehicleModel + ')' : ''}`,
+                                priceRecommended: amb.baseFee || 0,
+                            } as any;
+                        }
+                        break;
+                    }
                 }
                 if (service) {
                     const basePrice = service.priceRecommended || service.recommendedPrice || 0;
