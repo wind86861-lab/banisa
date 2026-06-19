@@ -86,7 +86,10 @@ export const upsertCustomizationSchema = z.object({
         prepaymentPercentage: z.number().int().min(1).max(100).optional().nullable(),
 
         customPrice: z.number().int().min(0).optional().nullable(),
-        discountPercent: z.number().int().min(0).max(90).optional().nullable(),
+        // Up to 100% so clinics can run "free" promos. Matches the cap used
+        // by appointment.validation and services/validation — keeps the
+        // three discount surfaces consistent.
+        discountPercent: z.number().int().min(0).max(100).optional().nullable(),
 
         isHighlighted: z.boolean().optional(),
         displayOrder: z.number().int().min(1).max(1000).optional().nullable(),
