@@ -934,6 +934,18 @@ function registerHandlers(bot: Bot) {
         const kb = await smartKeyboard(result.user?.id ?? null, lang, true, chatId);
         await ctx.reply(welcome, { reply_markup: kb });
         await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
+
+        // Brand-new registrations get a follow-up nudge to set a real
+        // login password. Without it they can only re-enter via the bot —
+        // brauzer/sayt orqali kira olmaydi.
+        if (result.created) {
+            const setPwKb = new InlineKeyboard()
+                .text(lang === 'ru' ? '🔐 Задать пароль' : '🔐 Parol o\'rnatish', 'profile:password');
+            const text = lang === 'ru'
+                ? '🔐 <b>Установите пароль</b>\n\nЧтобы входить в аккаунт через сайт (без Telegram), задайте пароль. Ссылка придёт в этот чат и действует 15 минут.'
+                : '🔐 <b>Parol oʻrnating</b>\n\nSayt orqali (Telegramsiz) hisobingizga kira olishingiz uchun parol oʻrnating. Havola shu chatga keladi, 15 daqiqa amal qiladi.';
+            await ctx.reply(text, { parse_mode: 'HTML', reply_markup: setPwKb });
+        }
     });
 
     // ─── Helper: resolve linked account or short-circuit ──────────────────
