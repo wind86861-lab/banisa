@@ -341,6 +341,22 @@ export default function ClickTab() {
         mutationFn: async (next) =>
             (await api.patch('/clinic/payments/click/config/active', { isActive: next })).data,
         onSuccess: () => qc.invalidateQueries({ queryKey: ['clinic', 'click', 'config'] }),
+        onError: (err) => {
+            const code = err?.response?.data?.code;
+            const msg = err?.response?.data?.message || err?.message || 'Xatolik';
+            setToast(code === 'SELFTEST_REQUIRED'
+                ? '🔬 Avval "Tekshirish" tugmasini bosing — self-test PASS bo\'lmasa yoqib bo\'lmaydi.'
+                : msg);
+        },
+    });
+
+    const runSelfTest = useMutation({
+        mutationFn: async () => (await api.post('/clinic/payments/click/test')).data?.data,
+        onSuccess: (data) => {
+            qc.invalidateQueries({ queryKey: ['clinic', 'click', 'config'] });
+            setToast(data?.status === 'pass' ? '✅ Self-test PASS' : `❌ ${data?.message || 'FAIL'}`);
+        },
+        onError: (err) => setToast(err?.response?.data?.message || 'Tekshirishda xato'),
     });
 
     const toggleMode = useMutation({
@@ -429,6 +445,18 @@ export default function ClickTab() {
                     </button>
 
                     <button
+                        className="pay-btn"
+                        onClick={() => runSelfTest.mutate()}
+                        disabled={runSelfTest.isPending}
+                        title="Endpointga test so'rov yuboradi"
+                    >
+                        {runSelfTest.isPending
+                            ? <Loader2 size={14} className="spin" />
+                            : <FlaskConical size={14} />}
+                        Tekshirish
+                    </button>
+
+                    <button
                         className={`pay-btn ${config.isActive ? 'pay-btn--danger' : 'pay-btn--primary'}`}
                         onClick={() => toggleActive.mutate(!config.isActive)}
                         disabled={toggleActive.isPending}
@@ -439,6 +467,20 @@ export default function ClickTab() {
                         {config.isActive ? "Ulanishni o'chirish" : 'Ulanishni yoqish'}
                     </button>
                 </div>
+
+                {(config.lastSelfTestStatus || runSelfTest.data) && (
+                    <div style={{
+                        marginTop: 12, padding: '10px 14px', borderRadius: 10, fontSize: 13,
+                        border: '1px solid',
+                        background: (runSelfTest.data?.status || config.lastSelfTestStatus) === 'pass' ? '#dcfce7' : '#fee2e2',
+                        borderColor: (runSelfTest.data?.status || config.lastSelfTestStatus) === 'pass' ? '#86efac' : '#fca5a5',
+                        color: (runSelfTest.data?.status || config.lastSelfTestStatus) === 'pass' ? '#166534' : '#991b1b',
+                    }}>
+                        <b>{(runSelfTest.data?.status || config.lastSelfTestStatus) === 'pass' ? '✅ Self-test PASS' : '❌ Self-test FAIL'}</b>
+                        {' — '}
+                        {runSelfTest.data?.message || config.lastSelfTestMsg || 'Holat noma\'lum'}
+                    </div>
+                )}
 
                 <div style={{ display: 'flex', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#64748b' }}>

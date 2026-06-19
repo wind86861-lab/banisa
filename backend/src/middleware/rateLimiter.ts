@@ -68,3 +68,16 @@ export const refreshLimiter = rateLimit({
   skip: () => isDev,
   validate: false,
 });
+
+// Password change limit — even with a valid session token, brute-force-
+// guessing the current password is a recovery-token attack vector. Caps the
+// authenticated user at 10 attempts per 15 minutes per IP.
+export const passwordChangeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isDev ? 10000 : 10,
+  keyGenerator,
+  message: { success: false, error: 'Juda ko\'p urinish. 15 daqiqadan keyin qayta urining.' },
+  skipSuccessfulRequests: true,
+  skip: () => isDev,
+  validate: false,
+});

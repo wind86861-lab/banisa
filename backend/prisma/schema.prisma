@@ -1042,6 +1042,11 @@ model ClinicClickConfig {
   connectedAt              DateTime?
   lastUsedAt               DateTime?
   lastRotatedAt            DateTime?
+  // Self-test status — patchActive uses this as a gate before flipping
+  // isActive=true (mirrors ClinicPaymeConfig).
+  lastSelfTestAt           DateTime?
+  lastSelfTestStatus       String?
+  lastSelfTestMsg          String?
   createdBy                String?
   updatedBy                String?
   createdAt                DateTime @default(now())

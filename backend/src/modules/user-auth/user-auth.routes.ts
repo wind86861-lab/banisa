@@ -3,7 +3,7 @@ import * as userAuthController from './user-auth.controller';
 import { validate } from '../../middleware/validate.middleware';
 import { requireAuth } from '../../middleware/auth.middleware';
 import { userRegisterSchema, userLoginSchema } from './user-auth.validation';
-import { loginLimiter, registerLimiter } from '../../middleware/rateLimiter';
+import { loginLimiter, registerLimiter, passwordChangeLimiter } from '../../middleware/rateLimiter';
 
 const router = Router();
 
@@ -19,7 +19,7 @@ router.post('/reset-password', userAuthController.resetPassword);
 
 // ─── PROTECTED ROUTES ───────────────────────────────────────────────────────
 router.get('/profile', requireAuth, userAuthController.getProfile);
-router.post('/change-password', requireAuth, userAuthController.changePassword);
+router.post('/change-password', requireAuth, passwordChangeLimiter, userAuthController.changePassword);
 router.post('/logout', requireAuth, userAuthController.logout);
 
 export default router;

@@ -323,6 +323,24 @@ export default function PaymeTab() {
         mutationFn: async (next) =>
             (await api.patch('/clinic/payments/payme/config/active', { isActive: next })).data,
         onSuccess: () => qc.invalidateQueries({ queryKey: ['clinic', 'payme', 'config'] }),
+        onError: (err) => {
+            const code = err?.response?.data?.code;
+            const msg = err?.response?.data?.message || err?.message || 'Xatolik';
+            if (code === 'SELFTEST_REQUIRED') {
+                setToast('🔬 Avval "Tekshirish" tugmasini bosing — self-test PASS bo\'lmasa yoqib bo\'lmaydi.');
+            } else {
+                setToast(msg);
+            }
+        },
+    });
+
+    const runSelfTest = useMutation({
+        mutationFn: async () => (await api.post('/clinic/payments/payme/test')).data?.data,
+        onSuccess: (data) => {
+            qc.invalidateQueries({ queryKey: ['clinic', 'payme', 'config'] });
+            setToast(data?.status === 'pass' ? '✅ Self-test PASS' : `❌ ${data?.message || 'FAIL'}`);
+        },
+        onError: (err) => setToast(err?.response?.data?.message || 'Tekshirishda xato'),
     });
 
     const toggleMode = useMutation({
@@ -411,6 +429,18 @@ export default function PaymeTab() {
                     </button>
 
                     <button
+                        className="pay-btn"
+                        onClick={() => runSelfTest.mutate()}
+                        disabled={runSelfTest.isPending}
+                        title="Endpointga test so'rov yuboradi"
+                    >
+                        {runSelfTest.isPending
+                            ? <Loader2 size={14} className="spin" />
+                            : <FlaskConical size={14} />}
+                        Tekshirish
+                    </button>
+
+                    <button
                         className={`pay-btn ${config.isActive ? 'pay-btn--danger' : 'pay-btn--primary'}`}
                         onClick={() => toggleActive.mutate(!config.isActive)}
                         disabled={toggleActive.isPending}
@@ -421,6 +451,27 @@ export default function PaymeTab() {
                         {config.isActive ? "Ulanishni o'chirish" : 'Ulanishni yoqish'}
                     </button>
                 </div>
+
+                {/* Self-test result block — surfaces last PASS/FAIL so admins know
+                    why activation is gated and what to fix when it isn't passing. */}
+                {(config.lastSelfTestStatus || runSelfTest.data) && (
+                    <div style={{
+                        marginTop: 12, padding: '10px 14px', borderRadius: 10, fontSize: 13,
+                        border: '1px solid',
+                        background: (runSelfTest.data?.status || config.lastSelfTestStatus) === 'pass' ? '#dcfce7' : '#fee2e2',
+                        borderColor: (runSelfTest.data?.status || config.lastSelfTestStatus) === 'pass' ? '#86efac' : '#fca5a5',
+                        color: (runSelfTest.data?.status || config.lastSelfTestStatus) === 'pass' ? '#166534' : '#991b1b',
+                    }}>
+                        <b>{(runSelfTest.data?.status || config.lastSelfTestStatus) === 'pass' ? '✅ Self-test PASS' : '❌ Self-test FAIL'}</b>
+                        {' — '}
+                        {runSelfTest.data?.message || config.lastSelfTestMsg || 'Holat noma\'lum'}
+                        {config.lastSelfTestAt && (
+                            <div style={{ fontSize: 11, marginTop: 4, opacity: 0.75 }}>
+                                {fmtAgo(config.lastSelfTestAt)}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <div style={{ display: 'flex', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#64748b' }}>

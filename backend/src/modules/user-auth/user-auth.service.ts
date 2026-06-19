@@ -175,6 +175,7 @@ export const changeUserPassword = async (
     userId: string,
     currentPassword: string,
     newPassword: string,
+    actorIp?: string | null,
 ): Promise<{ ok: true }> => {
     if (!newPassword || newPassword.length < 6 || newPassword.length > 128) {
         throw new AppError('Yangi parol kamida 6 ta belgi boʻlishi kerak', 400, ErrorCodes.VALIDATION_ERROR);
@@ -195,8 +196,32 @@ export const changeUserPassword = async (
     }
     const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
     await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+
+    // Fire-and-forget security alert via the linked Telegram bot. If the
+    // change wasn't initiated by the user, this gives them a chance to act
+    // (revoke session, reset). Failures are non-fatal — the change has
+    // already succeeded by this point.
+    notifyPasswordChange(userId, actorIp).catch((e) =>
+        console.warn('[changeUserPassword] notify failed:', e?.message || e),
+    );
     return { ok: true };
 };
+
+async function notifyPasswordChange(userId: string, actorIp?: string | null): Promise<void> {
+    const tg = await (prisma as any).telegramAccount.findUnique({
+        where: { userId },
+        select: { chatId: true, language: true, isBlocked: true },
+    });
+    if (!tg || tg.isBlocked) return;
+    const { sendMessage } = await import('../telegram/telegram.service');
+    const lang = tg.language === 'ru' ? 'ru' : 'uz';
+    const ipBit = actorIp ? `\n📍 IP: <code>${actorIp}</code>` : '';
+    const body = lang === 'ru'
+        ? `🔐 *Пароль изменён*\n\nЕсли это были не вы — срочно зайдите в аккаунт и нажмите "Telegram orqali tiklash" в профиле, чтобы восстановить контроль.${ipBit}`
+        : `🔐 *Parolingiz oʻzgartirildi*\n\nAgar bu siz boʻlmasangiz — hisobingizga zudlik bilan kirib, profilda "Telegram orqali tiklash" tugmasini bosing.${ipBit}`;
+    try { await sendMessage(BigInt(tg.chatId), body); }
+    catch (e) { console.warn('[notifyPasswordChange] sendMessage failed:', (e as any)?.message); }
+}
 
 // ─── GET USER PROFILE ───────────────────────────────────────────────────────
 export const getUserProfile = async (userId: string) => {

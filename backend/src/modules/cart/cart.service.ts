@@ -35,6 +35,14 @@ export class CartService {
         }
         if (!service) throw new AppError('Xizmat topilmadi', 404, ErrorCodes.NOT_FOUND);
 
+        // Same K3 reason: only one ambulance per cart.
+        if (data.serviceType === 'AMBULANCE' && (data.quantity ?? 1) > 1) {
+            throw new AppError(
+                'Tez yordam uchun bitta chaqiruvdan ko\'pi qabul qilinmaydi.',
+                400, ErrorCodes.VALIDATION_ERROR,
+            );
+        }
+
         // Temporary policy: cart may only hold items from ONE clinic at a time.
         // Matches the checkout-side block; here we stop the conflict at the door.
         const existing = await prisma.cartItem.findFirst({
@@ -269,6 +277,16 @@ export class CartService {
             where: { id: cartItemId, userId },
         });
         if (!item) throw new AppError('Savat elementi topilmadi', 404, ErrorCodes.NOT_FOUND);
+        // Ambulance is a single emergency dispatch — there's no "two
+        // ambulances at once" use case, and the price model assumes one
+        // base fee. Quietly clamp to 1 instead of silently letting the
+        // total balloon.
+        if ((item.serviceType as any) === 'AMBULANCE' && quantity > 1) {
+            throw new AppError(
+                'Tez yordam uchun bitta chaqiruvdan ko\'pi qabul qilinmaydi.',
+                400, ErrorCodes.VALIDATION_ERROR,
+            );
+        }
 
         return prisma.cartItem.update({
             where: { id: cartItemId },

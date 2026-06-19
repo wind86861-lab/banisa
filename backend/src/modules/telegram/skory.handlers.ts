@@ -181,21 +181,15 @@ async function fetchAmbulance(id: string): Promise<any> {
 }
 
 async function findCheapest(): Promise<any | null> {
+    // Single round-trip: cheapest baseFee first, NULL baseFee last as a
+    // graceful fallback when the clinic hasn't entered pricing yet.
     const rows = await prisma.ambulance.findMany({
-        where: { isActive: true, status: 'AVAILABLE', baseFee: { not: null } },
-        orderBy: { baseFee: 'asc' },
+        where: { isActive: true, status: 'AVAILABLE' },
+        orderBy: [{ baseFee: { sort: 'asc', nulls: 'last' } }],
         take: 1,
         include: { clinic: { select: { id: true, nameUz: true, phones: true, latitude: true, longitude: true } } },
     });
-    if (rows.length === 0) {
-        // Fall back to any available (no fee data).
-        const any = await prisma.ambulance.findFirst({
-            where: { isActive: true, status: 'AVAILABLE' },
-            include: { clinic: { select: { id: true, nameUz: true, phones: true, latitude: true, longitude: true } } },
-        });
-        return any;
-    }
-    return rows[0];
+    return rows[0] ?? null;
 }
 
 async function findNearest(lat: number, lng: number): Promise<{ ambulance: any; distanceKm: number } | null> {
@@ -299,12 +293,23 @@ export async function handleAddToCart(ctx: any, lang: SkoryLang, userId: string,
         return;
     }
     try {
-        // Avoid the cross-clinic check tripping when the patient just
-        // wants to swap ambulances: nuke any pre-existing AMBULANCE rows
-        // in the same clinic before inserting (so quantity stays at 1).
-        await prisma.cartItem.deleteMany({
-            where: { userId, serviceType: 'AMBULANCE' as any },
+        // Emergency takes priority over everything else in the cart. If
+        // the patient already had items from a different clinic, the
+        // one-clinic-per-cart policy at checkout would 409 — surprising
+        // for a 🆘 flow. Wipe the entire cart and put only this ambulance
+        // in. If they had items from the SAME clinic, they're preserved
+        // (only the prior AMBULANCE row is replaced).
+        const existingCrossClinic = await prisma.cartItem.findFirst({
+            where: { userId, NOT: { clinicId: amb.clinicId } },
+            select: { id: true },
         });
+        if (existingCrossClinic) {
+            await prisma.cartItem.deleteMany({ where: { userId } });
+        } else {
+            await prisma.cartItem.deleteMany({
+                where: { userId, serviceType: 'AMBULANCE' as any },
+            });
+        }
         await prisma.cartItem.create({
             data: {
                 userId,

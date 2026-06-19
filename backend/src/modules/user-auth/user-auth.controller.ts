@@ -128,6 +128,7 @@ export const changePassword = async (req: AuthRequest, res: Response, next: Next
             userId,
             String(req.body?.currentPassword || ''),
             String(req.body?.newPassword || ''),
+            req.ip,
         );
         sendSuccess(res, null, undefined, 'Parol muvaffaqiyatli o\'zgartirildi');
     } catch (error) { next(error); }

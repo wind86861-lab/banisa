@@ -126,23 +126,39 @@ export const putConfig = async (req: AuthRequest, res: Response) => {
         prodKey: prodKey.trim(),
         testKey: testKey ? String(testKey).trim() : null,
         isTestMode: typeof isTestMode === 'boolean' ? isTestMode : (existing?.isTestMode ?? true),
-        isActive: existing?.isActive ?? false,
+        // K1: rotation auto-deactivates. Payme cabinet still uses the old key
+        // for a few minutes after rotation — leaving isActive=true silently
+        // breaks every payment in that window. Admin self-tests + re-enables.
+        isActive: false,
         actorId: req.user!.id,
         reason: existing ? 'rotation' : 'initial',
     });
 
     // Self-test is invalidated by a key change — admin must re-test
-    // before they can re-activate. Also clears lastUsedAt so the
-    // dashboard's "last webhook X ago" reflects the new key.
+    // before they can re-activate. Also clears lastUsedAt + drops PAYME
+    // from paymentMethods if the config was active before, so patients
+    // stop seeing the button until the test+activate flow completes.
     if (existing) {
-        await prisma.clinicPaymeConfig.update({
-            where: { clinicId },
-            data: {
-                lastUsedAt: null,
-                lastSelfTestAt: null,
-                lastSelfTestStatus: null,
-                lastSelfTestMsg: null,
-            },
+        await prisma.$transaction(async (tx) => {
+            await tx.clinicPaymeConfig.update({
+                where: { clinicId },
+                data: {
+                    lastUsedAt: null,
+                    lastSelfTestAt: null,
+                    lastSelfTestStatus: null,
+                    lastSelfTestMsg: null,
+                },
+            });
+            if (existing.isActive) {
+                const clinic = await tx.clinic.findUnique({
+                    where: { id: clinicId }, select: { paymentMethods: true },
+                });
+                const methods = (clinic?.paymentMethods as string[] | null) ?? [];
+                await tx.clinic.update({
+                    where: { id: clinicId },
+                    data: { paymentMethods: methods.filter((m) => m !== 'PAYME') },
+                });
+            }
         });
         invalidateCache(clinicId);
     }
@@ -156,7 +172,7 @@ export const putConfig = async (req: AuthRequest, res: Response) => {
     return res.json({
         success: true,
         data: projectConfig(
-            { ...saved, lastUsedAt: null, lastSelfTestAt: null, lastSelfTestStatus: null, lastSelfTestMsg: null },
+            { ...saved, isActive: false, lastUsedAt: null, lastSelfTestAt: null, lastSelfTestStatus: null, lastSelfTestMsg: null },
             prodKey.trim(),
             testKey ? String(testKey).trim() : null,
         ),
