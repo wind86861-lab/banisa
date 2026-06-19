@@ -74,8 +74,11 @@ export default function PaymeOnboardingWizard({ webhookUrl, initialConfig, onCan
     const [prodKey, setProdKey] = useState('');
     const [testKey, setTestKey] = useState('');
     const [isTestMode, setIsTestMode] = useState(initialConfig?.isTestMode ?? true);
-    const [activate, setActivate] = useState(initialConfig?.isActive ?? true);
+    // Fix #10: default to NOT activating immediately — admin must run the
+    // self-test first. Rotation keeps the previous activate state.
+    const [activate, setActivate] = useState(isRotation ? (initialConfig?.isActive ?? false) : false);
     const [copied, setCopied] = useState(false);
+    const [selfTestResult, setSelfTestResult] = useState(null); // { status, message } | null
 
     const save = useMutation({
         mutationFn: async () => {
@@ -91,6 +94,18 @@ export default function PaymeOnboardingWizard({ webhookUrl, initialConfig, onCan
             return data;
         },
         onSuccess: onSaved,
+    });
+
+    const runSelfTest = useMutation({
+        mutationFn: async () => {
+            const { data } = await api.post('/clinic/payments/payme/test');
+            return data?.data;
+        },
+        onSuccess: (data) => setSelfTestResult(data),
+        onError: (err) => setSelfTestResult({
+            status: 'fail',
+            message: err?.response?.data?.message || err?.message || 'Tekshirishda xato',
+        }),
     });
 
     const copyUrl = async () => {
@@ -127,6 +142,21 @@ export default function PaymeOnboardingWizard({ webhookUrl, initialConfig, onCan
                                 Har klinika alohida Payme merchant sifatida ro'yxatdan o'tishi kerak.
                                 Biz vositachi emas — to'lovlar to'g'ridan-to'g'ri sizning kabinetingizga keladi.
                             </p>
+
+                            <div className="pay-card" style={{ background: '#f8fafc', marginBottom: 16 }}>
+                                <div className="pay-card__title" style={{ marginBottom: 8 }}>
+                                    Payme kabinetidan nimani olib kelishingiz kerak:
+                                </div>
+                                <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 1.7, color: '#334155' }}>
+                                    <li><b>Merchant ID</b> — Sozlamalar &rarr; Boshqaruv (24 ta hex belgi, masalan <code style={{ background:'#e2e8f0', padding:'1px 4px', borderRadius:3 }}>65abc1234567890def123456</code>)</li>
+                                    <li><b>Test secret key</b> — Sozlamalar &rarr; API kalitlari &rarr; "Test"</li>
+                                    <li><b>Production secret key</b> — Sozlamalar &rarr; API kalitlari &rarr; "Live"</li>
+                                    <li><b>Webhook URL</b> — keyingi qadamlarda sizga beramiz, uni Payme kabinetiga kiritasiz</li>
+                                </ol>
+                                <div style={{ marginTop: 10, fontSize: 12, color: '#64748b' }}>
+                                    ℹ️ Merchant ID telefon raqami yoki ism emas — agar shunday ko'rsangiz, noto'g'ri sahifaga qaragansiz.
+                                </div>
+                            </div>
 
                             <button className="pay-wiz__option" onClick={() => setStep(1)}>
                                 <div className="pay-wiz__option-title">
@@ -308,11 +338,50 @@ export default function PaymeOnboardingWizard({ webhookUrl, initialConfig, onCan
                                 </div>
                             </div>
 
-                            <label className="pay-wiz__option" style={{ cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                            <div className="pay-card" style={{ marginBottom: 12 }}>
+                                <div className="pay-card__title" style={{ marginBottom: 8 }}>
+                                    <FlaskConical size={14} /> Avval URL'ni tekshiring
+                                </div>
+                                <div style={{ fontSize: 13, color: '#475569', marginBottom: 10 }}>
+                                    Yoqishdan oldin "Tekshirish" tugmasini bosing — bot URL'ga test so'rov yuboradi
+                                    va kalitlar ishlayotganini tasdiqlaydi. Backendda majburiy: PASS bo'lmasa yoqib bo'lmaydi.
+                                </div>
+                                <button
+                                    type="button"
+                                    className="pay-btn pay-btn--ghost"
+                                    onClick={() => { setSelfTestResult(null); runSelfTest.mutate(); }}
+                                    disabled={runSelfTest.isPending}
+                                    style={{ width: '100%' }}
+                                >
+                                    {runSelfTest.isPending
+                                        ? <><Loader2 size={14} className="spin" /> Tekshirilmoqda…</>
+                                        : <>🔬 Endpointni tekshirish</>}
+                                </button>
+                                {selfTestResult && (
+                                    <div style={{
+                                        marginTop: 10, padding: '10px 12px', borderRadius: 8, fontSize: 13,
+                                        background: selfTestResult.status === 'pass' ? '#dcfce7' : '#fee2e2',
+                                        color: selfTestResult.status === 'pass' ? '#166534' : '#991b1b',
+                                        border: '1px solid ' + (selfTestResult.status === 'pass' ? '#86efac' : '#fca5a5'),
+                                    }}>
+                                        <b>{selfTestResult.status === 'pass' ? '✅ PASS' : '❌ FAIL'}</b> — {selfTestResult.message}
+                                    </div>
+                                )}
+                            </div>
+
+                            <label
+                                className="pay-wiz__option"
+                                style={{
+                                    cursor: selfTestResult?.status === 'pass' ? 'pointer' : 'not-allowed',
+                                    display: 'flex', alignItems: 'flex-start', gap: 12,
+                                    opacity: selfTestResult?.status === 'pass' ? 1 : 0.5,
+                                }}
+                            >
                                 <input
                                     type="checkbox"
                                     checked={activate}
                                     onChange={(e) => setActivate(e.target.checked)}
+                                    disabled={selfTestResult?.status !== 'pass'}
                                     style={{ marginTop: 4, width: 18, height: 18, accentColor: '#06b6d4' }}
                                 />
                                 <div>
@@ -320,9 +389,11 @@ export default function PaymeOnboardingWizard({ webhookUrl, initialConfig, onCan
                                         Saqlash bilan birga yoqish
                                     </div>
                                     <div className="pay-wiz__option-sub">
-                                        {isTestMode
-                                            ? "Test rejimda yoqiladi — bemorlar Payme tugmasini ko'radi, lekin real pul yechilmaydi."
-                                            : "LIVE rejimda yoqiladi — bemorlar real to'lov qiladi."}
+                                        {selfTestResult?.status !== 'pass'
+                                            ? "Avval tekshirish PASS bo'lishi kerak — keyin shu checkbox faollashadi."
+                                            : isTestMode
+                                                ? "Test rejimda yoqiladi — bemorlar Payme tugmasini ko'radi, lekin real pul yechilmaydi."
+                                                : "LIVE rejimda yoqiladi — bemorlar real to'lov qiladi."}
                                     </div>
                                 </div>
                             </label>

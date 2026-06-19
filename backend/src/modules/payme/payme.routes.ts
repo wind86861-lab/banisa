@@ -111,10 +111,25 @@ const paymeTenantAuth = async (req: Request, res: Response, next: NextFunction) 
     next();
 };
 
+// Deprecation surface — every hit to the legacy / endpoint logs a warning
+// with the requesting IP and Basic-auth login. After Medilux is migrated to
+// the per-clinic URL, this endpoint will be flipped to 410 Gone in one line.
+const legacyDeprecationLogger = (req: Request, res: Response, next: NextFunction) => {
+    console.warn(
+        `[Payme:legacy] DEPRECATED hit — ip=${req.ip} ua="${req.headers['user-agent'] || ''}". ` +
+        'Migrate to /api/payme/callback/:clinicId.',
+    );
+    res.setHeader('Deprecation', 'true');
+    res.setHeader('Sunset', 'Wed, 31 Dec 2026 23:59:59 GMT');
+    res.setHeader('Link', '</api/payme/callback/{clinicId}>; rel="successor-version"');
+    next();
+};
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 // Per-clinic webhook (the URL each clinic pastes into their Payme dashboard).
 router.post('/callback/:clinicId', paymeTenantAuth, handleMerchantApi);
-// Legacy global endpoint (kept until Medilux is migrated).
-router.post('/', paymeLegacyAuth, handleMerchantApi);
+// Legacy global endpoint — DEPRECATED. Kept until Medilux finishes migrating.
+// Every hit logs a warning so we can tell when the cabinet has switched over.
+router.post('/', legacyDeprecationLogger, paymeLegacyAuth, handleMerchantApi);
 
 export default router;

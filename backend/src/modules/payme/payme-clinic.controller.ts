@@ -2,14 +2,10 @@ import { Response } from 'express';
 import prisma from '../../config/database';
 import { AuthRequest } from '../../middleware/auth.middleware';
 import { env } from '../../config/env';
-import {
-    getActiveConfigForClinic,
-    upsertConfig,
-    deactivateConfig,
-    invalidateCache,
-} from './payme-config.service';
+import { upsertConfig, invalidateCache } from './payme-config.service';
 import { getStats, getRecent } from './payme-webhook-log.service';
 import { maskKey, open } from '../../utils/tenant-vault';
+import { runSelfTest, hasRecentPass } from './payme-selftest.service';
 
 async function resolveClinicId(userId: string): Promise<string | null> {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { clinicId: true } });
@@ -18,6 +14,22 @@ async function resolveClinicId(userId: string): Promise<string | null> {
 
 function webhookUrlFor(clinicId: string) {
     return `${env.PUBLIC_API_BASE_URL.replace(/\/$/, '')}/api/payme/callback/${clinicId}`;
+}
+
+// Payme merchant IDs are 24-char hex (MongoDB ObjectId). Reject obvious junk
+// like the phone-number we found in Medilux's row — it sends invalid info up
+// to Payme and they reject the response.
+const PAYME_MERCHANT_ID_REGEX = /^[a-f0-9]{20,32}$/i;
+
+// Audit-log helper — never throws so a missing audit row can't break a save.
+async function audit(clinicId: string, actorId: string | null, action: string, metadata?: any): Promise<void> {
+    try {
+        await prisma.clinicAuditLog.create({
+            data: { clinicId, actorId, action, targetType: 'payme', metadata: metadata ?? null },
+        });
+    } catch (e) {
+        console.warn('[payme-clinic] audit log failed:', (e as any)?.message);
+    }
 }
 
 // Public-safe view of the config — plaintext keys NEVER returned.
@@ -32,6 +44,9 @@ function projectConfig(row: any, prodKey: string, testKey: string | null) {
         connectedAt: row.connectedAt,
         lastUsedAt: row.lastUsedAt,
         lastRotatedAt: row.lastRotatedAt,
+        lastSelfTestAt: row.lastSelfTestAt,
+        lastSelfTestStatus: row.lastSelfTestStatus,
+        lastSelfTestMsg: row.lastSelfTestMsg,
         webhookUrl: webhookUrlFor(row.clinicId),
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
@@ -83,13 +98,19 @@ export const getConfig = async (req: AuthRequest, res: Response) => {
 };
 
 // ─── PUT config (create or rotate) ──────────────────────────────────────────
+// Fix #1: validates merchantId format (24-char hex).
+// Fix #8: clears lastUsedAt on rotation so the dashboard reflects the new
+//          key's first usage from scratch.
 export const putConfig = async (req: AuthRequest, res: Response) => {
     const clinicId = await resolveClinicId(req.user!.id);
     if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
 
     const { merchantId, prodKey, testKey, isTestMode } = req.body || {};
-    if (typeof merchantId !== 'string' || merchantId.trim().length < 3) {
-        return res.status(400).json({ success: false, message: 'merchantId noto\'g\'ri' });
+    if (typeof merchantId !== 'string' || !PAYME_MERCHANT_ID_REGEX.test(merchantId.trim())) {
+        return res.status(400).json({
+            success: false,
+            message: 'merchantId noto\'g\'ri. Payme merchant ID 20-32 ta hex belgi (a-f, 0-9) bo\'lishi kerak. Payme kabinet → Sozlamalar → Merchant ID.',
+        });
     }
     if (typeof prodKey !== 'string' || prodKey.trim().length < 8) {
         return res.status(400).json({ success: false, message: 'Production kalit noto\'g\'ri (kamida 8 belgi)' });
@@ -110,10 +131,32 @@ export const putConfig = async (req: AuthRequest, res: Response) => {
         reason: existing ? 'rotation' : 'initial',
     });
 
+    // Self-test is invalidated by a key change — admin must re-test
+    // before they can re-activate. Also clears lastUsedAt so the
+    // dashboard's "last webhook X ago" reflects the new key.
+    if (existing) {
+        await prisma.clinicPaymeConfig.update({
+            where: { clinicId },
+            data: {
+                lastUsedAt: null,
+                lastSelfTestAt: null,
+                lastSelfTestStatus: null,
+                lastSelfTestMsg: null,
+            },
+        });
+        invalidateCache(clinicId);
+    }
+
+    await audit(clinicId, req.user!.id, existing ? 'payme.rotate' : 'payme.create', {
+        merchantId: saved.merchantId,
+        hasTestKey: !!testKey,
+        isTestMode: saved.isTestMode,
+    });
+
     return res.json({
         success: true,
         data: projectConfig(
-            saved,
+            { ...saved, lastUsedAt: null, lastSelfTestAt: null, lastSelfTestStatus: null, lastSelfTestMsg: null },
             prodKey.trim(),
             testKey ? String(testKey).trim() : null,
         ),
@@ -133,8 +176,6 @@ export const patchMode = async (req: AuthRequest, res: Response) => {
     const row = await prisma.clinicPaymeConfig.findUnique({ where: { clinicId } });
     if (!row) return res.status(404).json({ success: false, message: 'Config topilmadi' });
 
-    // Switching to live requires a prod key (always present) but switching to
-    // test requires a test key.
     if (isTestMode && !row.testKeyCiphertext) {
         return res.status(400).json({
             success: false,
@@ -142,21 +183,34 @@ export const patchMode = async (req: AuthRequest, res: Response) => {
         });
     }
 
+    // Mode flip invalidates the self-test — they were testing the OTHER key.
     const updated = await prisma.clinicPaymeConfig.update({
         where: { clinicId },
-        data: { isTestMode, updatedBy: req.user!.id },
+        data: {
+            isTestMode,
+            updatedBy: req.user!.id,
+            lastSelfTestAt: null,
+            lastSelfTestStatus: null,
+            lastSelfTestMsg: null,
+        },
     });
     invalidateCache(clinicId);
+    await audit(clinicId, req.user!.id, 'payme.mode_changed', { isTestMode });
 
     return res.json({ success: true, data: { isTestMode: updated.isTestMode } });
 };
 
-// ─── PATCH active (turn on/off without losing keys) ─────────────────────────
+// ─── PATCH active (turn on/off) ─────────────────────────────────────────────
+// Fix #2: two-stage activation — activation requires a passing self-test
+//          from the last 24h, unless forceActivate=true (kept for emergency
+//          migration scenarios; audit-logged).
+// Fix #6: paymentMethods sync moved into the same transaction.
+// Fix #9: writes ClinicAuditLog rows on every flip.
 export const patchActive = async (req: AuthRequest, res: Response) => {
     const clinicId = await resolveClinicId(req.user!.id);
     if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
 
-    const { isActive } = req.body || {};
+    const { isActive, forceActivate } = req.body || {};
     if (typeof isActive !== 'boolean') {
         return res.status(400).json({ success: false, message: 'isActive boolean bo\'lishi kerak' });
     }
@@ -164,35 +218,51 @@ export const patchActive = async (req: AuthRequest, res: Response) => {
     const row = await prisma.clinicPaymeConfig.findUnique({ where: { clinicId } });
     if (!row) return res.status(404).json({ success: false, message: 'Config topilmadi' });
 
-    const updated = await prisma.clinicPaymeConfig.update({
-        where: { clinicId },
-        data: {
-            isActive,
-            connectedAt: row.connectedAt ?? (isActive ? new Date() : null),
-            updatedBy: req.user!.id,
-        },
-    });
-    invalidateCache(clinicId);
+    // Two-stage gate: refuse to activate unless self-test passed recently.
+    // forceActivate=true bypasses for migration emergencies — gets audit-logged
+    // so a super admin can see who skipped the gate and why.
+    if (isActive && !forceActivate) {
+        const passed = await hasRecentPass(clinicId);
+        if (!passed) {
+            return res.status(412).json({
+                success: false,
+                code: 'SELFTEST_REQUIRED',
+                message: 'Yoqishdan oldin self-test PASS qilishi kerak. "Tekshirish" tugmasini bosing va 24 soat ichida qayta yoqing.',
+            });
+        }
+    }
 
-    // Keep clinic.paymentMethods in sync so booking flow shows/hides PAYME.
-    try {
-        const methods = Array.isArray(row.clinicId)
-            ? []
-            : ((await prisma.clinic.findUnique({
-                  where: { id: clinicId },
-                  select: { paymentMethods: true },
-              }))?.paymentMethods as string[] | null) ?? [];
+    // Atomic: bump isActive AND keep paymentMethods in sync so we never end
+    // up with PAYME shown to patients while the webhook is off (or vice versa).
+    const updatedConfig = await prisma.$transaction(async (tx) => {
+        const updated = await tx.clinicPaymeConfig.update({
+            where: { clinicId },
+            data: {
+                isActive,
+                connectedAt: row.connectedAt ?? (isActive ? new Date() : null),
+                updatedBy: req.user!.id,
+            },
+        });
+        const clinic = await tx.clinic.findUnique({
+            where: { id: clinicId }, select: { paymentMethods: true },
+        });
+        const methods = (clinic?.paymentMethods as string[] | null) ?? [];
         const set = new Set(methods);
         if (isActive) set.add('PAYME'); else set.delete('PAYME');
-        await prisma.clinic.update({
+        await tx.clinic.update({
             where: { id: clinicId },
             data: { paymentMethods: Array.from(set) },
         });
-    } catch (err) {
-        console.warn('[payme-clinic] paymentMethods sync failed:', (err as any)?.message);
-    }
+        return updated;
+    });
 
-    return res.json({ success: true, data: { isActive: updated.isActive } });
+    invalidateCache(clinicId);
+    await audit(clinicId, req.user!.id, isActive ? 'payme.activate' : 'payme.deactivate', {
+        forced: !!forceActivate && isActive,
+        merchantId: row.merchantId,
+    });
+
+    return res.json({ success: true, data: { isActive: updatedConfig.isActive } });
 };
 
 // ─── DELETE config (deactivate, keys remain encrypted in DB) ────────────────
@@ -203,17 +273,22 @@ export const deleteConfig = async (req: AuthRequest, res: Response) => {
     const row = await prisma.clinicPaymeConfig.findUnique({ where: { clinicId } });
     if (!row) return res.json({ success: true });
 
-    await deactivateConfig(clinicId, req.user!.id);
-    try {
-        const methods = ((await prisma.clinic.findUnique({
-            where: { id: clinicId },
-            select: { paymentMethods: true },
-        }))?.paymentMethods as string[] | null) ?? [];
-        await prisma.clinic.update({
+    await prisma.$transaction(async (tx) => {
+        await tx.clinicPaymeConfig.update({
+            where: { clinicId },
+            data: { isActive: false, updatedBy: req.user!.id },
+        });
+        const clinic = await tx.clinic.findUnique({
+            where: { id: clinicId }, select: { paymentMethods: true },
+        });
+        const methods = (clinic?.paymentMethods as string[] | null) ?? [];
+        await tx.clinic.update({
             where: { id: clinicId },
             data: { paymentMethods: methods.filter((m) => m !== 'PAYME') },
         });
-    } catch {}
+    });
+    invalidateCache(clinicId);
+    await audit(clinicId, req.user!.id, 'payme.disconnect', { merchantId: row.merchantId });
 
     return res.json({ success: true });
 };
@@ -266,23 +341,16 @@ export const getVersionsHandler = async (req: AuthRequest, res: Response) => {
     return res.json({ success: true, data: { items: versions } });
 };
 
-// ─── POST self-test (placeholder until Payme docs deep-dive) ────────────────
+// ─── POST self-test ─────────────────────────────────────────────────────────
+// Fix #3: real self-test — sends a CheckPerformTransaction probe to the
+// clinic's own callback URL. PASS proves auth+routing+handler all work.
 export const selfTestHandler = async (req: AuthRequest, res: Response) => {
     const clinicId = await resolveClinicId(req.user!.id);
     if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
 
-    const config = await getActiveConfigForClinic(clinicId);
-    if (!config) {
-        return res.status(400).json({
-            success: false,
-            message: 'Konfiguratsiya yo\'q yoki faolsiz',
-        });
-    }
-    return res.json({
-        success: true,
-        data: {
-            status: 'pending',
-            message: 'Live self-test Faza 3.5 da qo\'shiladi (Payme docs sandbox API).',
-        },
+    const result = await runSelfTest(clinicId);
+    await audit(clinicId, req.user!.id, 'payme.selftest', {
+        status: result.status, message: result.message, durationMs: result.durationMs,
     });
+    return res.json({ success: true, data: result });
 };

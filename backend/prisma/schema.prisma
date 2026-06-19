@@ -928,6 +928,11 @@ model ClinicPaymeConfig {
   connectedAt         DateTime?
   lastUsedAt          DateTime?
   lastRotatedAt       DateTime?
+  // Last self-test result — used by patchActive as a gate so admins
+  // can't flip isActive=true without first proving the URL+keys work.
+  lastSelfTestAt      DateTime?
+  lastSelfTestStatus  String?   // 'pass' | 'fail'
+  lastSelfTestMsg     String?
   // Audit pointers
   createdBy           String?
   updatedBy           String?
