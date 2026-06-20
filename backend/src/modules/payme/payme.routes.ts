@@ -71,6 +71,17 @@ const paymeTenantAuth = async (req: Request, res: Response, next: NextFunction) 
     }
 
     if (!matched) {
+        // Forensic log so we can tell WHY a real Payme call rejected:
+        // (a) wrong key entirely vs (b) right key but wrong mode.
+        // Only the length + last-4 fingerprint are printed — never the keys.
+        const supplied = creds.password;
+        const fp = `len=${supplied.length} tail=…${supplied.slice(-4)}`;
+        const prodFp = `len=${config.prodKey.length} tail=…${config.prodKey.slice(-4)}`;
+        const testFp = config.testKey ? `len=${config.testKey.length} tail=…${config.testKey.slice(-4)}` : 'none';
+        console.warn(
+            `[Payme:${clinicId.slice(0, 8)}] AUTH FAIL — mode=${config.isTestMode ? 'TEST' : 'LIVE'} ` +
+            `supplied(${fp}) prod(${prodFp}) test(${testFp})`,
+        );
         return res.status(200).json(UNAUTHORIZED_RESPONSE);
     }
 
