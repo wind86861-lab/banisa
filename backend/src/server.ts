@@ -4,6 +4,7 @@ import prisma from './config/database';
 import { startCheckInScheduler } from './modules/appointments/check-in.scheduler';
 import { startReminderScheduler } from './modules/appointments/reminder.scheduler';
 import { startDailySummaryScheduler } from './modules/appointments/daily-summary.scheduler';
+import { startPaymentExpiryScheduler } from './modules/appointments/payment-expiry.scheduler';
 import { getBot, isTelegramConfigured, setupChatMenuButton, setupBotCommands } from './modules/telegram/telegram.bot';
 
 const PORT = env.PORT || 5000;
@@ -22,6 +23,7 @@ async function bootstrap() {
                 startCheckInScheduler();
                 startReminderScheduler();
                 startDailySummaryScheduler();
+                startPaymentExpiryScheduler();
                 setupTelegramWebhook().catch((e) => console.error('[telegram] webhook setup failed:', e));
             } else {
                 console.log(`[scheduler] skipped on instance ${instanceId}`);

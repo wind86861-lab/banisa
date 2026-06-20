@@ -118,6 +118,15 @@ export const checkPerformTransaction = async (params: {
         return { error: PAYME_ERROR.INVALID_AMOUNT };
     }
 
+    // Clinic must accept first — payment is only opened after the clinic
+    // confirms the slot. Without this a patient could pay a still-PENDING
+    // booking and then the clinic discovers there's no time available.
+    // CANCELLED / NO_SHOW / COMPLETED are bookings the patient shouldn't
+    // be able to pay either.
+    if (appointment.status !== 'CONFIRMED' && appointment.status !== 'CHECKED_IN' && appointment.status !== 'IN_PROGRESS') {
+        return { error: PAYME_ERROR.WRONG_ACCOUNT };
+    }
+
     // 3. Check if another transaction already occupies this order
     const existingTx = await prisma.paymeTransaction.findFirst({
         where: {

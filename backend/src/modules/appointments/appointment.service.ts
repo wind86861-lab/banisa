@@ -382,21 +382,47 @@ export class AppointmentService {
 
         // Tell the patient — in-app + SMS (default channels), and Telegram if
         // they've bound. Best-effort: never break the accept on notify failure.
+        // Online payment flow gets a different event with a "💳 To'lash" link
+        // so the patient knows the clinic has now opened the slot for payment
+        // (we deliberately do NOT charge before clinic accepts — see the
+        // PaymePage / cart-checkout flow).
         const u = updated as any;
         const serviceName = u.diagnosticService?.nameUz
             || u.surgicalService?.nameUz || 'Xizmat';
-        dispatchNotification({
-            type: 'booking_confirmed',
-            userId: u.patientId,
-            appointmentId,
-            bookingNumber: u.bookingNumber,
-            serviceName,
-            clinicName: u.clinic?.nameUz,
-            appointmentAt: u.scheduledAt,
-            finalPrice: u.finalPrice ?? u.price,
-            priority: 'NORMAL',
-            link: `/user/appointments/${appointmentId}`,
-        }).catch(e => console.error('[clinicAccept] notify patient failed:', e));
+        const isOnlinePayment = u.paymentMethod === 'PAYME' || u.paymentMethod === 'CLICK';
+        const isUnpaid = u.paymentStatus !== 'PAID';
+        if (isOnlinePayment && isUnpaid) {
+            // Deep-link to the appointment detail page — its canPay block
+            // renders the green "💳 To'lash" button which takes the patient
+            // to /payment. Going through the detail page keeps the
+            // navigation surface consistent with the rest of the app.
+            dispatchNotification({
+                type: 'booking_ready_for_payment',
+                userId: u.patientId,
+                appointmentId,
+                bookingNumber: u.bookingNumber,
+                serviceName,
+                clinicName: u.clinic?.nameUz,
+                appointmentAt: u.scheduledAt,
+                finalPrice: u.finalPrice ?? u.price,
+                paymentMethod: u.paymentMethod,
+                priority: 'HIGH',
+                link: `/user/appointments/${appointmentId}`,
+            }).catch(e => console.error('[clinicAccept] notify pay-ready failed:', e));
+        } else {
+            dispatchNotification({
+                type: 'booking_confirmed',
+                userId: u.patientId,
+                appointmentId,
+                bookingNumber: u.bookingNumber,
+                serviceName,
+                clinicName: u.clinic?.nameUz,
+                appointmentAt: u.scheduledAt,
+                finalPrice: u.finalPrice ?? u.price,
+                priority: 'NORMAL',
+                link: `/user/appointments/${appointmentId}`,
+            }).catch(e => console.error('[clinicAccept] notify patient failed:', e));
+        }
 
         return updated;
     }

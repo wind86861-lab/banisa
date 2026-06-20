@@ -9,7 +9,9 @@ export type Channel = 'inapp' | 'sms' | 'telegram';
 export type EventType =
     // Patient-facing
     | 'booking_confirmed'
+    | 'booking_ready_for_payment'  // Clinic accepted; patient must pay now (online flow)
     | 'booking_cancelled'
+    | 'booking_payment_expired'    // 24h grace expired; auto-cancelled
     | 'booking_reminder_24h'
     | 'booking_reminder_1h'
     | 'payment_received'
@@ -35,7 +37,9 @@ export interface BaseEvent<T extends EventType> {
 
 export interface BookingEvent extends BaseEvent<
     | 'booking_confirmed'
+    | 'booking_ready_for_payment'
     | 'booking_cancelled'
+    | 'booking_payment_expired'
     | 'booking_reminder_24h'
     | 'booking_reminder_1h'
     | 'queue_called'

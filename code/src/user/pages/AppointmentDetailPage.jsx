@@ -122,9 +122,17 @@ export default function AppointmentDetailPage() {
             data.checkupPackage?.nameUz ||
             'Xizmat';
     const showCancel = canCancelFn(data);
-    const canPay = ['PENDING', 'CONFIRMED'].includes(data.status)
+    // Pay button only when clinic has accepted (CONFIRMED+) — Payme/Click
+    // webhooks server-side also refuse PENDING bookings, so this UI guard
+    // just keeps the patient from clicking a button that would fail.
+    const canPay = ['CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'].includes(data.status)
         && data.paymentStatus !== 'PAID'
         && data.paymentMethod !== 'CASH';
+    // PENDING with online payment → patient sees "Klinika tasdiqi
+    // kutilmoqda" badge instead of a non-functional Pay button.
+    const awaitingClinicAccept = data.status === 'PENDING'
+        && data.paymentStatus !== 'PAID'
+        && (data.paymentMethod === 'PAYME' || data.paymentMethod === 'CLICK');
     const mapsUrl = mapsDirectionsUrl(data.clinic);
     const original = Number(data.price || 0);
     const finalP = Number(data.finalPrice || data.price || 0);
@@ -251,6 +259,18 @@ export default function AppointmentDetailPage() {
                                         <Star size={16} /> Doktorga baho
                                     </button>
                                 )}
+                            </div>
+                        )}
+
+                        {awaitingClinicAccept && (
+                            <div className="apd-pay-card" style={{ background: '#fffbeb', border: '1px solid #fcd34d' }}>
+                                <div style={{ fontSize: 28 }}>⏳</div>
+                                <h3 style={{ color: '#92400e' }}>Klinika tasdiqi kutilmoqda</h3>
+                                <p style={{ marginTop: 6, marginBottom: 0, color: '#78350f', fontSize: 13, lineHeight: 1.5 }}>
+                                    Klinika sizning bronni qabul qilgach, sizga {data.paymentMethod === 'CLICK' ? 'Click' : 'Payme'} orqali
+                                    <strong> "💳 To'lash"</strong> havolasi yuboriladi (Telegram + sayt).
+                                    Hozirda to'lov amalga oshirib bo'lmaydi — klinika rad qilsa pul qaytarish muommosi yo'q.
+                                </p>
                             </div>
                         )}
 

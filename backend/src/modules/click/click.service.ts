@@ -229,6 +229,20 @@ async function prepare(req: ClickRequest, cfg: ResolvedClickConfig) {
         };
     }
 
+    // Clinic must accept first — same gate as Payme. Otherwise the patient
+    // could pay a still-PENDING booking and the clinic discovers there's no
+    // slot. CANCELLED / NO_SHOW also blocked.
+    if (appointment.status !== 'CONFIRMED'
+        && appointment.status !== 'CHECKED_IN'
+        && appointment.status !== 'IN_PROGRESS') {
+        return {
+            body: buildError(req, CLICK_ERROR.USER_NOT_FOUND),
+            logMethod: 'prepare',
+            logError: CLICK_ERROR.USER_NOT_FOUND.code,
+            logErrMsg: `clinic has not accepted yet (status=${appointment.status})`,
+        };
+    }
+
     // Amount check (CLICK posts som as a decimal; our finalPrice is integer
     // som. Allow ±1 som rounding wiggle.)
     const expectedAmount = Number(appointment.finalPrice || appointment.price || 0);

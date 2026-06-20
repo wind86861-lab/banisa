@@ -11,7 +11,9 @@ export const DEFAULT_CHANNELS: Record<EventType, Channel[]> = {
     // bot channel auto-skips when the user has no TelegramAccount, so this
     // is safe to enable across the board.
     booking_confirmed: ['inapp', 'sms', 'telegram'],
+    booking_ready_for_payment: ['inapp', 'sms', 'telegram'],
     booking_cancelled: ['inapp', 'sms', 'telegram'],
+    booking_payment_expired: ['inapp', 'telegram'],
     booking_reminder_24h: ['inapp', 'sms', 'telegram'],
     booking_reminder_1h: ['inapp', 'sms', 'telegram'],
     payment_received: ['inapp', 'sms', 'telegram'],

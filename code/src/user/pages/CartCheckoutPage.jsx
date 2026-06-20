@@ -116,7 +116,21 @@ export default function CartCheckoutPage() {
                                 </div>
                             </>
                         ) : (
-                            <p className="co-success-lead">To'lov sahifasiga yo'naltirilmoqdasiz...</p>
+                            <>
+                                <p className="co-success-lead">
+                                    Bron <strong>klinika tasdiqi kutilmoqda</strong> bo'limiga qo'shildi.
+                                    Klinika qabul qilgach, sizga <strong>{success.paymentMethod === 'click' ? 'Click' : 'Payme'}</strong> orqali to'lov havolasi yuboriladi (Telegram + sayt notifikatsiyasi orqali).
+                                </p>
+                                <div className="co-success-steps">
+                                    <div className="co-success-step"><span>1</span> Klinika bronni qabul qiladi</div>
+                                    <div className="co-success-step"><span>2</span> Sizga "💳 To'lash" havolasi keladi</div>
+                                    <div className="co-success-step"><span>3</span> Havola bo'yicha o'tib to'laysiz</div>
+                                    <div className="co-success-step"><span>4</span> Belgilangan kuni klinikaga kelasiz</div>
+                                </div>
+                                <p style={{ marginTop: 14, fontSize: 13, color: '#94a3b8' }}>
+                                    ⏰ Eslatma: klinika tasdiqlaganidan keyin <strong>24 soat ichida to'lamasangiz</strong>, bron avtomatik bekor bo'ladi va slot bo'shaydi.
+                                </p>
+                            </>
                         )}
                         <div className="co-success-actions">
                             {success.appointmentId && (
@@ -268,34 +282,19 @@ export default function CartCheckoutPage() {
             // Clear frontend cart
             await refreshCart();
 
-            if (paymentMethod === 'naqd') {
-                // Cash — show success screen with explicit "scan clinic wall QR" guidance.
-                const firstAppt = result.appointments?.[0];
-                setSuccess({ appointmentId: firstAppt?.id, isCash: true });
-                return;
-            } else {
-                // Card/Payme/Click — go to payment page (Click has its own route
-                // because it's a redirect-style provider, not a POST-form one).
-                const firstAppointment = result.appointments?.[0];
-                const target = paymentMethod === 'click' ? '/payment/click' : '/payment';
-                navigate(target, {
-                    state: {
-                        bookingData: {
-                            clinicId: firstAppointment?.clinicId,
-                            clinicName: firstAppointment?.clinic?.nameUz || 'Klinika',
-                            serviceType: firstAppointment?.serviceType || 'DIAGNOSTIC',
-                            serviceName: `Savat buyurtmasi (${result.count} ta)`,
-                            diagnosticServiceId: firstAppointment?.diagnosticServiceId,
-                            surgicalServiceId: firstAppointment?.surgicalServiceId,
-                            scheduledAt,
-                            selectedDate,
-                            price: grandTotal,
-                            appointmentId: firstAppointment?.id,
-                            skipCreate: true,
-                        },
-                    },
-                });
-            }
+            // Both cash AND online checkouts now land on the same success
+            // screen — clinic must accept first. Online payment opens later
+            // via the notification + "💳 To'lash" button on /payment.
+            // (Old flow let the patient pay immediately, which could collide
+            // with a clinic rejection. That's now gated server-side too —
+            // Payme + Click webhooks refuse non-CONFIRMED bookings.)
+            const firstAppt = result.appointments?.[0];
+            setSuccess({
+                appointmentId: firstAppt?.id,
+                isCash: paymentMethod === 'naqd',
+                paymentMethod,
+            });
+            return;
         } catch (err) {
             const status = err.response?.status;
             if (status === 401 || status === 403) {

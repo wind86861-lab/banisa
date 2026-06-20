@@ -90,6 +90,10 @@ const T = {
         smsQueueIsYours: 'navbat sizniki',
         smsNewBooking: 'yangi bron',
         smsPatientArrived: 'keldi',
+        bookingReadyForPayment: "To'lash uchun tayyor",
+        smsBookingReadyForPayment: "klinika tasdiqladi, to'lashingiz mumkin",
+        bookingPaymentExpired: "Bron bekor qilindi (to'lov vaqti tugadi)",
+        payNow: "💳 To'lash",
         dailyReport: 'Kunlik hisobot',
         total: 'Jami bronlar',
         completed: 'Bajarildi',
@@ -124,6 +128,10 @@ const T = {
         smsQueueIsYours: 'ваша очередь',
         smsNewBooking: 'новая бронь',
         smsPatientArrived: 'пришёл',
+        bookingReadyForPayment: 'Готово к оплате',
+        smsBookingReadyForPayment: 'клиника подтвердила, оплатите',
+        bookingPaymentExpired: 'Бронь отменена (время оплаты истекло)',
+        payNow: '💳 Оплатить',
         dailyReport: 'Дневной отчёт',
         total: 'Всего броней',
         completed: 'Выполнено',
@@ -146,6 +154,26 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 body: `${svc}${when ? ` — ${when}` : ''}${event.clinicName ? ` (${event.clinicName})` : ''}`,
                 sms: `${t.smsPrefix} ${t.smsBookingConfirmed}. ${svc}${when ? ` ${when}` : ''}.`,
                 telegram: `✅ <b>${esc(t.bookingConfirmed)}</b>\n${esc(svc)}${when ? `\n📅 ${esc(when)}` : ''}${event.clinicName ? `\n🏥 ${esc(event.clinicName)}` : ''}\n\n👇 Tafsilot uchun pastdagi tugmani bosing`,
+            };
+        }
+        case 'booking_ready_for_payment': {
+            const when = fmtTime(event.appointmentAt, lang);
+            const svc = event.serviceName || t.service;
+            const price = event.finalPrice ? `\n💵 ${fmtPrice(event.finalPrice)} ${t.som}` : '';
+            return {
+                title: `💳 ${t.bookingReadyForPayment}`,
+                body: `${svc}${when ? ` — ${when}` : ''}. ${t.payNow}`,
+                sms: `${t.smsPrefix} ${t.smsBookingReadyForPayment}. ${svc}${when ? ` ${when}` : ''}.`,
+                telegram: `✅ <b>${esc(t.bookingConfirmed)}</b>\n${esc(svc)}${when ? `\n📅 ${esc(when)}` : ''}${event.clinicName ? `\n🏥 ${esc(event.clinicName)}` : ''}${price}\n\n💳 <b>${esc(t.bookingReadyForPayment)}</b> — pastdagi tugmani bosing`,
+            };
+        }
+        case 'booking_payment_expired': {
+            const svc = event.serviceName || t.service;
+            return {
+                title: `⏰ ${t.bookingPaymentExpired}`,
+                body: `${svc} — ${t.bookingPaymentExpired}`,
+                sms: `${t.smsPrefix} ${t.bookingPaymentExpired}.`,
+                telegram: `⏰ <b>${esc(t.bookingPaymentExpired)}</b>\n${esc(svc)}${event.clinicName ? `\n🏥 ${esc(event.clinicName)}` : ''}`,
             };
         }
         case 'booking_cancelled': {
