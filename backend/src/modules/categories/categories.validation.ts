@@ -10,6 +10,11 @@ const categoryBody = z.object({
     icon: z.string().max(10).optional().nullable(),
     imageUrl: z.string().max(500).optional().nullable(),
     sortOrder: z.number().int().optional(),
+    // Fiscal codes for Payme / Click / Alif receipts. Digit-only; empty
+    // string and null both mean "fall back to GlobalFiscalSettings".
+    fiscalMxikCode: z.string().regex(/^\d{1,32}$/, 'MXIK kodi faqat raqamlardan').optional().nullable(),
+    fiscalPackageCode: z.string().regex(/^\d{1,32}$/, 'package_code faqat raqamlardan').optional().nullable(),
+    fiscalVatPercent: z.number().int().min(0).max(100).optional().nullable(),
 });
 
 export const createCategorySchema = z.object({

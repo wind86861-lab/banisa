@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
 import * as adminController from './admin.controller';
+import { getGlobalFiscal, updateGlobalFiscal } from './global-fiscal.controller';
 
 const router = Router();
 
@@ -20,5 +21,11 @@ router.patch('/notifications/:id/read', adminController.markNotificationAsRead);
 
 // Dashboard stats
 router.get('/dashboard/stats', adminController.getDashboardStats);
+
+// Global fiscal defaults (super-admin sets MXIK / package_code / vat_percent
+// used by every Payme receipt unless the per-service override on a
+// clinic-service join row replaces it).
+router.get('/settings/fiscal', getGlobalFiscal);
+router.put('/settings/fiscal', updateGlobalFiscal);
 
 export default router;

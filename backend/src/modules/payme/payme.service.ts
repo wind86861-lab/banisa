@@ -52,16 +52,11 @@ export const checkPerformTransaction = async (params: {
     const appointment = await prisma.appointment.findUnique({
         where: { id: account.order_id },
         include: {
-            diagnosticService: { select: { id: true, nameUz: true } },
-            surgicalService: { select: { id: true, nameUz: true } },
-            clinic: {
-                select: {
-                    id: true, nameUz: true,
-                    fiscalMxikCode: true, fiscalPackageCode: true, fiscalVatPercent: true,
-                },
-            },
+            diagnosticService: { select: { id: true, nameUz: true, categoryId: true } },
+            surgicalService: { select: { id: true, nameUz: true, categoryId: true } },
+            clinic: { select: { id: true, nameUz: true } },
             services: {
-                select: { serviceName: true, finalPrice: true, price: true },
+                select: { serviceType: true, serviceName: true, originalServiceId: true, finalPrice: true, price: true },
             },
         },
     });
@@ -135,18 +130,11 @@ export const checkPerformTransaction = async (params: {
         return { error: PAYME_ERROR.ORDER_BUSY };
     }
 
-    // Build receipt detail for tax (soliq) compliance.
-    // Defaults verified from tasnif.soliq.uz + confirmed by real clinic
-    // receipt — clinic admins can override per-clinic in their profile:
-    //   10902004002000999 = medical/wellness institution services
-    //   1322039 = "xizmat (marta)" / "услуга (раз)"
-    //   12 = QQS 12% (medical institutions)
-    const DEFAULT_MXIK = '10902004002000999';
-    const DEFAULT_PACKAGE = '1322039';
-    const DEFAULT_VAT = 12;
-    const mxik = appointment.clinic.fiscalMxikCode || DEFAULT_MXIK;
-    const pkg = appointment.clinic.fiscalPackageCode || DEFAULT_PACKAGE;
-    const vat = appointment.clinic.fiscalVatPercent ?? DEFAULT_VAT;
+    // Build receipt detail for tax (soliq) compliance — priority chain:
+    //   1. Per-category override (ServiceCategory.fiscalXxx)
+    //   2. GlobalFiscalSettings (super-admin)
+    //   3. Hardcoded medical-clinic defaults (10902004002000999/1322039/12)
+    const fiscal = await resolveFiscal(appointment);
 
     // Cart-style bookings carry per-item rows in AppointmentService — emit
     // one items[] entry per real service. Solo bookings (single-service
@@ -160,21 +148,24 @@ export const checkPerformTransaction = async (params: {
             title: s.serviceName || 'Tibbiy xizmat',
             price: (s.finalPrice || s.price || 0) * 100, // som → tiyin
             count: 1,
-            code: mxik,
-            package_code: pkg,
-            vat_percent: vat,
+            code: fiscal.byServiceKey(s.serviceType as any, s.originalServiceId).code,
+            package_code: fiscal.byServiceKey(s.serviceType as any, s.originalServiceId).package_code,
+            vat_percent: fiscal.byServiceKey(s.serviceType as any, s.originalServiceId).vat_percent,
         }));
     } else {
         const serviceName = appointment.diagnosticService?.nameUz
             || appointment.surgicalService?.nameUz
             || 'Tibbiy xizmat';
+        const codes = appointment.diagnosticService?.categoryId
+            ? fiscal.byCategoryId(appointment.diagnosticService.categoryId)
+            : appointment.surgicalService?.categoryId
+                ? fiscal.byCategoryId(appointment.surgicalService.categoryId)
+                : fiscal.byCategoryId(null);
         items = [{
             title: serviceName,
             price: expectedAmount,
             count: 1,
-            code: mxik,
-            package_code: pkg,
-            vat_percent: vat,
+            ...codes,
         }];
     }
 
@@ -185,6 +176,91 @@ export const checkPerformTransaction = async (params: {
         },
     };
 };
+
+// ─── Fiscal resolver ──────────────────────────────────────────────────────
+// Generic — used by Payme today, ready for Click / Alif / any future
+// payment integration that needs to build a Soliq receipt envelope.
+async function resolveFiscal(appointment: any): Promise<{
+    byServiceKey: (serviceType: string | null, originalServiceId: string | null) => { code: string; package_code: string; vat_percent: number };
+    byCategoryId: (categoryId: string | null) => { code: string; package_code: string; vat_percent: number };
+}> {
+    const DEFAULT_MXIK = '10902004002000999';
+    const DEFAULT_PACKAGE = '1322039';
+    const DEFAULT_VAT = 12;
+    const globalRow = await prisma.globalFiscalSettings.findUnique({ where: { id: 'global' } });
+    const fallback = {
+        code: globalRow?.fiscalMxikCode || DEFAULT_MXIK,
+        package_code: globalRow?.fiscalPackageCode || DEFAULT_PACKAGE,
+        vat_percent: globalRow?.fiscalVatPercent ?? DEFAULT_VAT,
+    };
+
+    // Collect every (serviceType, originalServiceId) tuple we'll need to
+    // resolve and pull all required categories in batched queries.
+    const serviceToCategory = new Map<string, string | null>(); // "TYPE:svcId" → categoryId
+    if (appointment.services?.length) {
+        const ids = { DIAGNOSTIC: new Set<string>(), SURGICAL: new Set<string>(), SANATORIUM: new Set<string>() };
+        for (const s of appointment.services) {
+            if (!s.originalServiceId) continue;
+            const t = s.serviceType as 'DIAGNOSTIC' | 'SURGICAL' | 'SANATORIUM';
+            if (ids[t]) ids[t].add(s.originalServiceId);
+        }
+        const tasks: Array<Promise<void>> = [];
+        if (ids.DIAGNOSTIC.size) tasks.push((async () => {
+            const rows = await prisma.diagnosticService.findMany({
+                where: { id: { in: [...ids.DIAGNOSTIC] } },
+                select: { id: true, categoryId: true },
+            });
+            for (const r of rows) serviceToCategory.set(`DIAGNOSTIC:${r.id}`, r.categoryId);
+        })());
+        if (ids.SURGICAL.size) tasks.push((async () => {
+            const rows = await prisma.surgicalService.findMany({
+                where: { id: { in: [...ids.SURGICAL] } },
+                select: { id: true, categoryId: true },
+            });
+            for (const r of rows) serviceToCategory.set(`SURGICAL:${r.id}`, r.categoryId);
+        })());
+        if (ids.SANATORIUM.size) tasks.push((async () => {
+            const rows = await prisma.sanatoriumService.findMany({
+                where: { id: { in: [...ids.SANATORIUM] } },
+                select: { id: true, categoryId: true },
+            });
+            for (const r of rows) serviceToCategory.set(`SANATORIUM:${r.id}`, r.categoryId);
+        })());
+        await Promise.all(tasks);
+    }
+
+    const allCategoryIds = new Set<string>();
+    for (const v of serviceToCategory.values()) if (v) allCategoryIds.add(v);
+    if (appointment.diagnosticService?.categoryId) allCategoryIds.add(appointment.diagnosticService.categoryId);
+    if (appointment.surgicalService?.categoryId) allCategoryIds.add(appointment.surgicalService.categoryId);
+
+    const catRows = allCategoryIds.size > 0
+        ? await prisma.serviceCategory.findMany({
+            where: { id: { in: [...allCategoryIds] } },
+            select: { id: true, fiscalMxikCode: true, fiscalPackageCode: true, fiscalVatPercent: true },
+        })
+        : [];
+    const categoryFiscal = new Map<string, { mxik: string | null; pkg: string | null; vat: number | null }>();
+    for (const c of catRows) categoryFiscal.set(c.id, {
+        mxik: c.fiscalMxikCode, pkg: c.fiscalPackageCode, vat: c.fiscalVatPercent,
+    });
+
+    const byCategoryId = (categoryId: string | null) => {
+        const cat = categoryId ? categoryFiscal.get(categoryId) : null;
+        return {
+            code: cat?.mxik || fallback.code,
+            package_code: cat?.pkg || fallback.package_code,
+            vat_percent: cat?.vat ?? fallback.vat_percent,
+        };
+    };
+    const byServiceKey = (serviceType: string | null, originalServiceId: string | null) => {
+        if (!serviceType || !originalServiceId) return byCategoryId(null);
+        const catId = serviceToCategory.get(`${serviceType}:${originalServiceId}`) ?? null;
+        return byCategoryId(catId);
+    };
+
+    return { byServiceKey, byCategoryId };
+}
 
 // ─── CreateTransaction ───────────────────────────────────────────────────────
 export const createTransaction = async (params: {

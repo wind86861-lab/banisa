@@ -71,6 +71,14 @@ model ServiceCategory {
   icon               String?
   imageUrl           String?
   sortOrder          Int                 @default(0)
+  // Fiscal codes used by Payme / Click / future Alif and other payment
+  // providers when building the Soliq receipt. Override the global
+  // defaults — services that belong to this category inherit these.
+  // NULL → fall back to GlobalFiscalSettings, then hardcoded medical
+  // default (10902004002000999 / 1322039 / 12).
+  fiscalMxikCode     String?
+  fiscalPackageCode  String?
+  fiscalVatPercent   Int?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   diagnosticServices DiagnosticService[]
@@ -1384,6 +1392,20 @@ enum ServiceType {
   SANATORIUM
   CHECKUP
   AMBULANCE
+}
+
+// Single-row global fiscal defaults edited by super-admin and read by the
+// Payme handler. Per-service overrides on the clinic-service join tables
+// take precedence; this row is the next fallback. If the row itself is
+// missing values, payme.service falls back to verified medical-clinic
+// hardcoded defaults.
+model GlobalFiscalSettings {
+  id                String   @id @default("global")
+  fiscalMxikCode    String?
+  fiscalPackageCode String?
+  fiscalVatPercent  Int?
+  updatedBy         String?
+  updatedAt         DateTime @updatedAt
 }
 
 // ═══════════════════════════════════════════════════════

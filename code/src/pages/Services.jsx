@@ -271,6 +271,13 @@ const Services = () => {
             const payload = {
                 nameUz: catFormData.nameUz,
                 slug: catFormData.nameUz.toLowerCase().replace(/\s+/g, '-'),
+                // Fiskal kodlar — bo'sh string null ga o'tkaziladi (backend
+                // shu yo'l bilan "global default ishlat" tushunadi).
+                fiscalMxikCode: catFormData.fiscalMxikCode || null,
+                fiscalPackageCode: catFormData.fiscalPackageCode || null,
+                fiscalVatPercent: catFormData.fiscalVatPercent === '' || catFormData.fiscalVatPercent == null
+                    ? null
+                    : Number(catFormData.fiscalVatPercent),
             };
 
             if (editCatId) {
@@ -644,7 +651,15 @@ const Services = () => {
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setEditCatId(sub.id);
-                                                                    setCatFormData({ nameUz: sub.nameUz, parentId: group.id, icon: sub.icon || '', imageUrl: sub.imageUrl || '' });
+                                                                    setCatFormData({
+                                                                        nameUz: sub.nameUz,
+                                                                        parentId: group.id,
+                                                                        icon: sub.icon || '',
+                                                                        imageUrl: sub.imageUrl || '',
+                                                                        fiscalMxikCode: sub.fiscalMxikCode || '',
+                                                                        fiscalPackageCode: sub.fiscalPackageCode || '',
+                                                                        fiscalVatPercent: sub.fiscalVatPercent ?? '',
+                                                                    });
                                                                     setShowCatForm(true);
                                                                 }}
                                                             >
@@ -1430,6 +1445,52 @@ const Services = () => {
                                         onChange={(url) => setCatFormData(p => ({ ...p, imageUrl: url }))}
                                     />
                                 </div>
+
+                                {/* Fiskal kodlar — Payme / Click / Alif chekiga ketadigan ma'lumotlar.
+                                    Bo'sh qoldirilsa, super-admin global default ishlatiladi. */}
+                                <div style={{ marginTop: 8, padding: '14px 16px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10 }}>
+                                    <div style={{ fontWeight: 600, color: '#0c4a6e', marginBottom: 4, fontSize: 14 }}>
+                                        Fiskal kodlar (Soliq cheki)
+                                    </div>
+                                    <small style={{ color: '#0369a1', display: 'block', marginBottom: 12 }}>
+                                        Bu kategoriyadagi xizmatlar uchun MXIK / o'lchov / QQS. Bo'sh qoldirsangiz, global default ishlatiladi.
+                                    </small>
+                                    <div className="form-group">
+                                        <label>MXIK kodi</label>
+                                        <input
+                                            type="text"
+                                            placeholder="10902004002000999"
+                                            value={catFormData.fiscalMxikCode || ''}
+                                            onChange={(e) => setCatFormData(p => ({ ...p, fiscalMxikCode: e.target.value.replace(/\D/g, '') }))}
+                                            maxLength={32}
+                                            style={{ fontFamily: 'monospace' }}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>O'lchov birligi (package_code)</label>
+                                        <input
+                                            type="text"
+                                            placeholder="1322039"
+                                            value={catFormData.fiscalPackageCode || ''}
+                                            onChange={(e) => setCatFormData(p => ({ ...p, fiscalPackageCode: e.target.value.replace(/\D/g, '') }))}
+                                            maxLength={32}
+                                            style={{ fontFamily: 'monospace' }}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>QQS foizi</label>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            max={100}
+                                            placeholder="12"
+                                            value={catFormData.fiscalVatPercent ?? ''}
+                                            onChange={(e) => setCatFormData(p => ({ ...p, fiscalVatPercent: e.target.value === '' ? null : Number(e.target.value) }))}
+                                            style={{ width: 140 }}
+                                        />
+                                    </div>
+                                </div>
+
                                 <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
                                     <button className="btn-secondary" onClick={() => {
                                         setShowCatForm(false);
