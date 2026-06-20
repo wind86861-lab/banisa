@@ -68,6 +68,31 @@ export default function CartCheckoutPage() {
         fetchPaymentMethods();
     }, [cart]);
 
+    // Auto-clear time when the new date/working-hours window makes the
+    // currently-selected time invalid. Must live above the early returns so
+    // the hook is called on every render (Rules of Hooks). Computes the
+    // bounds inline from state so deps stay simple.
+    useEffect(() => {
+        if (!selectedTime || !selectedDate) return;
+        if (!cart || cart.length === 0) return;
+        const primaryClinicId = cart[0]?.clinic?.id;
+        const wh = primaryClinicId ? clinicWorkingHours[primaryClinicId] : null;
+        if (!wh) return;
+        const DAY_KEYS_LOCAL = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const dayKey = DAY_KEYS_LOCAL[new Date(selectedDate + 'T00:00').getDay()];
+        const dayInfo = wh[dayKey];
+        if (!dayInfo) return;
+        if (!dayInfo.isAroundClock && !dayInfo.isOpen) {
+            setSelectedTime('');
+            return;
+        }
+        if (dayInfo.isAroundClock) return;
+        const open = dayInfo.openTime;
+        const close = dayInfo.closeTime;
+        if (open && selectedTime < open) setSelectedTime('');
+        else if (close && selectedTime > close) setSelectedTime('');
+    }, [cart, clinicWorkingHours, selectedDate, selectedTime]);
+
     if (submitting) {
         return <BanisaLoader message="Bron yaratilmoqda..." />;
     }
@@ -186,13 +211,6 @@ export default function CartCheckoutPage() {
         return dayOpenTime;
     })();
     const effectiveMaxTime = dayCloseTime || undefined;
-    // Auto-clear time if it falls outside the new window (e.g. after date change).
-    useEffect(() => {
-        if (!selectedTime || !selectedDayHours || !isClinicOpenOnDay) return;
-        if (effectiveMinTime && selectedTime < effectiveMinTime) setSelectedTime('');
-        else if (effectiveMaxTime && selectedTime > effectiveMaxTime) setSelectedTime('');
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedDate, isClinicOpenOnDay, effectiveMinTime, effectiveMaxTime]);
 
     const handleCheckout = async () => {
         if (hasMultipleClinics) {
