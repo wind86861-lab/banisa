@@ -4,7 +4,10 @@ import prisma from './config/database';
 import { startCheckInScheduler } from './modules/appointments/check-in.scheduler';
 import { startReminderScheduler } from './modules/appointments/reminder.scheduler';
 import { startDailySummaryScheduler } from './modules/appointments/daily-summary.scheduler';
-import { startPaymentExpiryScheduler } from './modules/appointments/payment-expiry.scheduler';
+// Payment-expiry scheduler removed: the new flow lets the patient pay any
+// time before check-in, and after check-in the cashier reminder + the
+// PAID-before-IN_PROGRESS gate handle non-payers. Auto-cancelling an
+// unpaid booking after 24h was wrong — patients book days in advance.
 import { getBot, isTelegramConfigured, setupChatMenuButton, setupBotCommands } from './modules/telegram/telegram.bot';
 
 const PORT = env.PORT || 5000;
@@ -23,7 +26,6 @@ async function bootstrap() {
                 startCheckInScheduler();
                 startReminderScheduler();
                 startDailySummaryScheduler();
-                startPaymentExpiryScheduler();
                 setupTelegramWebhook().catch((e) => console.error('[telegram] webhook setup failed:', e));
             } else {
                 console.log(`[scheduler] skipped on instance ${instanceId}`);

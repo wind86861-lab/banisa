@@ -48,6 +48,7 @@ function requiredPermsForEvent(type: NotificationEvent['type']): ClinicPermissio
         case 'clinic_patient_checked_in':    return [ClinicPermission.BOOKING_ACCEPT];
         case 'clinic_cash_pending':          return [ClinicPermission.PAYMENT_CONFIRM_CASH];
         case 'clinic_daily_report':          return [ClinicPermission.REPORTS_DAILY];
+        case 'payment_received':             return [ClinicPermission.PAYMENT_CONFIRM_CASH];
         default:                              return []; // empty → no perm gate; everyone bound gets it
     }
 }

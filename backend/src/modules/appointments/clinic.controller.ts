@@ -165,7 +165,11 @@ export const clinicAppointmentController = {
         }
     },
 
-    // Real-time cashier queue: AWAITING_CASH (CHECKED_IN + UNPAID + CASH).
+    // Real-time cashier queue. Includes ALL CHECKED_IN+UNPAID bookings —
+    // cash (patient must pay at counter) AND online (patient should have
+    // paid already; if they haven't, the cashier sees them and can either
+    // remind the patient or accept cash on the spot). paymentMethod stays
+    // on the row so the UI can label each as 💵 cash or 💳 online.
     cashierQueue: async (req: AuthRequest, res: Response, next: NextFunction) => {
         try {
             const { clinicId } = await resolveClinicActor(req);
@@ -174,7 +178,6 @@ export const clinicAppointmentController = {
                     clinicId,
                     status: 'CHECKED_IN',
                     paymentStatus: 'UNPAID',
-                    paymentMethod: 'CASH',
                 },
                 orderBy: { checkedInAt: 'asc' },
                 include: {

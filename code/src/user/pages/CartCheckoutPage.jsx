@@ -124,11 +124,11 @@ export default function CartCheckoutPage() {
                                 <div className="co-success-steps">
                                     <div className="co-success-step"><span>1</span> Klinika bronni qabul qiladi</div>
                                     <div className="co-success-step"><span>2</span> Sizga "💳 To'lash" havolasi keladi</div>
-                                    <div className="co-success-step"><span>3</span> Havola bo'yicha o'tib to'laysiz</div>
-                                    <div className="co-success-step"><span>4</span> Belgilangan kuni klinikaga kelasiz</div>
+                                    <div className="co-success-step"><span>3</span> Istalgan vaqtda — klinikaga kelganingizgacha — to'laysiz</div>
+                                    <div className="co-success-step"><span>4</span> Belgilangan kuni klinikaga kelib check-in qilasiz va xizmatdan foydalanasiz</div>
                                 </div>
                                 <p style={{ marginTop: 14, fontSize: 13, color: '#94a3b8' }}>
-                                    ⏰ Eslatma: klinika tasdiqlaganidan keyin <strong>24 soat ichida to'lamasangiz</strong>, bron avtomatik bekor bo'ladi va slot bo'shaydi.
+                                    💡 Eslatma: agar klinikaga kelib check-in qilganingizgacha to'lov qilmagan bo'lsangiz, xizmat boshlanmaydi. Kassada to'lashingiz yoki onlayn to'lash tugmasi qoladi.
                                 </p>
                             </>
                         )}

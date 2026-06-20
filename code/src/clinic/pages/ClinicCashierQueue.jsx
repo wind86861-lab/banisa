@@ -69,7 +69,7 @@ export default function ClinicCashierQueue() {
             <header className="cq-header">
                 <div>
                     <h1><Banknote size={22} /> Kassa navbati</h1>
-                    <p>Naqd to'lov kutayotgan bemorlar. Avtomatik yangilanadi (5s).</p>
+                    <p>Check-in qilingan + to'lov kutayotgan barcha bemorlar (naqd va onlayn). Avtomatik yangilanadi (5s).</p>
                 </div>
                 <button className="cq-refresh" onClick={() => refetch()} disabled={isFetching}>
                     <RefreshCw size={16} className={isFetching ? 'cq-spin' : ''} />
@@ -106,12 +106,24 @@ export default function ClinicCashierQueue() {
                             || a.sanatoriumService?.nameUz
                             || 'Xizmat';
                         const finalP = a.finalPrice || a.price || 0;
+                        const isOnline = a.paymentMethod === 'PAYME' || a.paymentMethod === 'CLICK';
+                        const payLabel = isOnline
+                            ? (a.paymentMethod === 'CLICK' ? '💳 Click — to\'lanmagan' : '💳 Payme — to\'lanmagan')
+                            : '💵 Naqd';
                         return (
                             <div key={a.id} data-appt={a.id} className={`cq-row ${cls}`}>
                                 <div className="cq-row-main">
                                     <div className="cq-row-name">
                                         <User size={16} /> {fullName}
                                         <span className="cq-bookno">{shortBookingNo(a.bookingNumber)}</span>
+                                        <span style={{
+                                            marginLeft: 8, fontSize: 11, padding: '2px 8px', borderRadius: 999,
+                                            background: isOnline ? '#fef3c7' : '#dbeafe',
+                                            color: isOnline ? '#92400e' : '#1e40af',
+                                            fontWeight: 600,
+                                        }}>
+                                            {payLabel}
+                                        </span>
                                     </div>
                                     <div className="cq-row-svc">{svc}</div>
                                     <div className="cq-row-meta">
@@ -124,12 +136,17 @@ export default function ClinicCashierQueue() {
                                             <Clock size={13} /> {min} daq kutmoqda
                                         </span>
                                     </div>
+                                    {isOnline && (
+                                        <div style={{ marginTop: 6, fontSize: 12, color: '#92400e' }}>
+                                            Bemor onlayn to'lashi kerak. Kerak bo'lsa qo'ng'iroq qiling yoki kassada naqd qabul qiling.
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="cq-row-right">
                                     <div className="cq-amount">{fmtSum(finalP)} <span>so'm</span></div>
                                     {canConfirmCash && (
                                         <button className="cq-confirm-btn" onClick={() => setConfirmTarget(a)}>
-                                            Tasdiqlash
+                                            {isOnline ? 'Naqd qabul qilish' : 'Tasdiqlash'}
                                         </button>
                                     )}
                                 </div>

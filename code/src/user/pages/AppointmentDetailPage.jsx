@@ -133,6 +133,11 @@ export default function AppointmentDetailPage() {
     const awaitingClinicAccept = data.status === 'PENDING'
         && data.paymentStatus !== 'PAID'
         && (data.paymentMethod === 'PAYME' || data.paymentMethod === 'CLICK');
+    // Checked in at clinic + online + unpaid → urgent: service won't start
+    // until paid. Patient sees a big red reminder above everything else.
+    const urgentPaymentRequired = data.status === 'CHECKED_IN'
+        && data.paymentStatus !== 'PAID'
+        && (data.paymentMethod === 'PAYME' || data.paymentMethod === 'CLICK');
     const mapsUrl = mapsDirectionsUrl(data.clinic);
     const original = Number(data.price || 0);
     const finalP = Number(data.finalPrice || data.price || 0);
@@ -271,6 +276,25 @@ export default function AppointmentDetailPage() {
                                     <strong> "💳 To'lash"</strong> havolasi yuboriladi (Telegram + sayt).
                                     Hozirda to'lov amalga oshirib bo'lmaydi — klinika rad qilsa pul qaytarish muommosi yo'q.
                                 </p>
+                            </div>
+                        )}
+
+                        {urgentPaymentRequired && (
+                            <div className="apd-pay-card" style={{ background: '#fef2f2', border: '2px solid #ef4444', animation: 'pulse 2s ease-in-out infinite' }}>
+                                <div style={{ fontSize: 40 }}>⚠️</div>
+                                <h3 style={{ color: '#991b1b', marginBottom: 8 }}>HOZIR to'lash kerak</h3>
+                                <p style={{ margin: '0 0 14px', color: '#7f1d1d', fontSize: 14, lineHeight: 1.55, fontWeight: 500 }}>
+                                    Siz klinikaga keldingiz va check-in qildingiz, lekin to'lov hali qilinmagan.
+                                    <strong> Xizmat boshlanmaydi</strong> — quyidagi {data.paymentMethod === 'CLICK' ? 'Click' : 'Payme'} tugmasi bilan
+                                    hozir to'lang yoki kassaga borib naqd to'lashingiz mumkin (klinikaning ruxsati bo'lsa).
+                                </p>
+                                <button
+                                    className="apd-pay-btn"
+                                    style={{ background: '#dc2626', fontSize: 16, padding: '14px 20px' }}
+                                    onClick={() => navigate('/payment', { state: { bookingData: { skipCreate: true, appointmentId: data.id, price: finalP, clinicName: data.clinic?.nameUz, serviceName, scheduledAt: data.scheduledAt, selectedDate: data.scheduledAt?.split('T')[0] } } })}
+                                >
+                                    💳 To'lashga o'tish — {fmtSum(finalP)} so'm
+                                </button>
                             </div>
                         )}
 

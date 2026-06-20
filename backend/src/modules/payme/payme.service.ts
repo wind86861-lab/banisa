@@ -430,7 +430,7 @@ export const performTransaction = async (params: { id: string }, ctx: PaymeConte
 
     // Mark the appointment paid. Lifecycle status is not touched — payment
     // is a separate axis in the simplified status model.
-    await prisma.appointment.update({
+    const paidAppt = await prisma.appointment.update({
         where: { id: transaction.orderId },
         data: {
             paymentStatus: 'PAID',
@@ -439,7 +439,28 @@ export const performTransaction = async (params: { id: string }, ctx: PaymeConte
             paidAmount: transaction.amount,
             paymeTransactionId: paymeId,
         },
+        include: {
+            patient: { select: { firstName: true, lastName: true, phone: true } },
+        },
     }).catch(() => null);
+
+    // Tell the clinic the patient just paid online — so the cashier UI
+    // can immediately stop showing the "⚠️ to'lanmagan" badge and the
+    // service can start. Fire-and-forget; never break Payme on notify
+    // failure (Payme spec is strict — must return 200 quickly).
+    if (paidAppt) {
+        try {
+            const { dispatch } = await import('../notifications/notification.dispatcher');
+            dispatch({
+                type: 'payment_received',
+                clinicId: paidAppt.clinicId,
+                appointmentId: paidAppt.id,
+                amount: Math.round(transaction.amount / 100), // tiyin → som
+                priority: 'HIGH',
+                link: `/clinic/bookings?focus=${paidAppt.id}`,
+            }).catch(() => null);
+        } catch { /* never block payme */ }
+    }
 
     return {
         result: {

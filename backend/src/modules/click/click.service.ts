@@ -395,7 +395,9 @@ async function complete(req: ClickRequest, cfg: ResolvedClickConfig) {
 
     touchLastUsed(cfg.configId);
 
-    // Best-effort: tell the patient.
+    // Best-effort: tell the patient AND the clinic. Clinic gets the same
+    // payment_received event with clinicId — cashier UI immediately drops
+    // the "⚠️ to'lanmagan" badge for this booking.
     dispatchNotification({
         type: 'payment_received',
         userId: appointment.patientId,
@@ -403,7 +405,16 @@ async function complete(req: ClickRequest, cfg: ResolvedClickConfig) {
         amount: Math.round(clickAmount),
         priority: 'HIGH',
         link: `/user/appointments/${appointment.id}`,
-    }).catch((e) => console.error('[click.complete] notify failed:', e));
+    }).catch((e) => console.error('[click.complete] notify patient failed:', e));
+
+    dispatchNotification({
+        type: 'payment_received',
+        clinicId: appointment.clinicId,
+        appointmentId: appointment.id,
+        amount: Math.round(clickAmount),
+        priority: 'HIGH',
+        link: `/clinic/bookings?focus=${appointment.id}`,
+    }).catch((e) => console.error('[click.complete] notify clinic failed:', e));
 
     return {
         body: {
