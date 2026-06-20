@@ -80,6 +80,16 @@ export default function ClinicSidebar({ isOpen, toggleSidebar }) {
 
     const clinicName = user?.clinicName || 'Klinika Paneli';
     const userFullName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '';
+    // Adaptive font for the sidebar header logo label and the badge. Long
+    // clinic names ("A'LO KO'Z KLINIKASI", "Medilux Medical Center" …)
+    // were spilling out / clipping; shrink in 3 buckets so anything up
+    // to ~35 chars stays readable without overflowing the sidebar.
+    const headerNameSize =
+        clinicName.length > 32 ? 11 :
+        clinicName.length > 22 ? 13 : 16;
+    const badgeNameSize =
+        clinicName.length > 32 ? 12 :
+        clinicName.length > 22 ? 14 : 16;
 
     return (
         <aside className={`sidebar clinic-sidebar ${!isOpen ? 'closed' : ''}`}>
@@ -98,14 +108,42 @@ export default function ClinicSidebar({ isOpen, toggleSidebar }) {
                             filter: 'drop-shadow(0 0 14px rgba(0,189,224,0.35))',
                         }}
                     />
-                    {isOpen && <span>{clinicName}</span>}
+                    {isOpen && (
+                        <span
+                            title={clinicName}
+                            style={{
+                                fontSize: headerNameSize,
+                                lineHeight: 1.2,
+                                display: 'inline-block',
+                                maxWidth: 180,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {clinicName}
+                        </span>
+                    )}
                 </a>
             </div>
 
             {/* ─── Clinic Info Badge (only when open) ─── */}
             {isOpen && user && (
                 <div className="clinic-badge">
-                    <div className="clinic-badge-name">{clinicName}</div>
+                    <div
+                        className="clinic-badge-name"
+                        title={clinicName}
+                        style={{
+                            fontSize: badgeNameSize,
+                            lineHeight: 1.25,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            display: 'block',
+                        }}
+                    >
+                        {clinicName}
+                    </div>
                     <div className="clinic-badge-status">
                         <span className="status-dot" />
                         Faol klinika

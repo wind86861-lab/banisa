@@ -797,23 +797,53 @@
 }
 
 .xp-grid.list-view .xp-card-body {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0; /* let flex shrink long titles instead of pushing footer offscreen */
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 18px;
 }
 
 .xp-grid.list-view .xp-card-footer {
   border-top: none;
   border-left: 1px solid #f0f4fa;
-  padding: 20px;
-  flex-shrink: 0;
-  display: flex;
+  padding: 16px 20px;
+  flex: 0 0 auto;
+  min-width: 160px;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  justify-content: center;
+  gap: 10px;
+}
+
+.xp-grid.list-view .xp-card-price {
+  display: flex !important;
   flex-direction: column;
   align-items: flex-end;
-  gap: 8px;
+}
+
+.xp-grid.list-view .xp-card-price-num {
+  display: inline-block !important;
+  font-size: 18px !important;
+  color: #031B4E !important;
+}
+
+@media (max-width: 640px) {
+  .xp-grid.list-view .xp-card-footer {
+    min-width: 120px;
+    padding: 12px 14px;
+  }
+  .xp-grid.list-view .xp-card-img {
+    width: 96px;
+    height: 96px;
+  }
+  .xp-grid.list-view .xp-card-price-num {
+    font-size: 15px !important;
+  }
 }
 
 .xp-card-link {
