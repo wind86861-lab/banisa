@@ -144,14 +144,15 @@ export const checkPerformTransaction = async (params: {
         code: string; package_code: string; vat_percent: number;
     }>;
     if (appointment.services && appointment.services.length > 0) {
-        items = appointment.services.map((s) => ({
-            title: s.serviceName || 'Tibbiy xizmat',
-            price: (s.finalPrice || s.price || 0) * 100, // som → tiyin
-            count: 1,
-            code: fiscal.byServiceKey(s.serviceType as any, s.originalServiceId).code,
-            package_code: fiscal.byServiceKey(s.serviceType as any, s.originalServiceId).package_code,
-            vat_percent: fiscal.byServiceKey(s.serviceType as any, s.originalServiceId).vat_percent,
-        }));
+        items = appointment.services.map((s) => {
+            const codes = fiscal.byServiceKey(s.serviceType as any, s.originalServiceId);
+            return {
+                title: s.serviceName || 'Tibbiy xizmat',
+                price: (s.finalPrice || s.price || 0) * 100, // som → tiyin
+                count: 1,
+                ...codes,
+            };
+        });
     } else {
         const serviceName = appointment.diagnosticService?.nameUz
             || appointment.surgicalService?.nameUz
@@ -180,53 +181,89 @@ export const checkPerformTransaction = async (params: {
 // ─── Fiscal resolver ──────────────────────────────────────────────────────
 // Generic — used by Payme today, ready for Click / Alif / any future
 // payment integration that needs to build a Soliq receipt envelope.
+//
+// Resolution chain (each step that yields a truthy value wins):
+//   1. ServiceCategory.fiscalXxx   ← super-admin per-category override
+//   2. GlobalFiscalSettings        ← super-admin platform default
+//   3. Hardcoded medical defaults  ← payment can NEVER break for missing fiscal
+//
+// Every branch is guarded — empty string, null, undefined, even a DB
+// outage all collapse to the hardcoded defaults so Payme always gets a
+// well-formed receipt and patients are never blocked on missing data.
+const HARDCODED_FISCAL = Object.freeze({
+    code: '10902004002000999',  // tibbiy va sog'lomlashtirish muassasalari xizmatlari
+    package_code: '1322039',    // xizmat (marta)
+    vat_percent: 12,            // QQS 12% (tibbiy muassasa)
+});
+
+function pickStr(...candidates: Array<string | null | undefined>): string {
+    for (const c of candidates) {
+        if (typeof c === 'string' && c.trim().length > 0) return c.trim();
+    }
+    return '';
+}
+function pickInt(...candidates: Array<number | null | undefined>): number | null {
+    for (const c of candidates) {
+        if (typeof c === 'number' && Number.isFinite(c)) return c;
+    }
+    return null;
+}
+
 async function resolveFiscal(appointment: any): Promise<{
     byServiceKey: (serviceType: string | null, originalServiceId: string | null) => { code: string; package_code: string; vat_percent: number };
     byCategoryId: (categoryId: string | null) => { code: string; package_code: string; vat_percent: number };
 }> {
-    const DEFAULT_MXIK = '10902004002000999';
-    const DEFAULT_PACKAGE = '1322039';
-    const DEFAULT_VAT = 12;
-    const globalRow = await prisma.globalFiscalSettings.findUnique({ where: { id: 'global' } });
+    // Step 1 — global default. Wrapped in try/catch so a brief DB blip
+    // can't take down the whole CheckPerformTransaction flow.
+    let globalRow: any = null;
+    try {
+        globalRow = await prisma.globalFiscalSettings.findUnique({ where: { id: 'global' } });
+    } catch (e) {
+        console.warn('[fiscal] global lookup failed, falling back to hardcoded:', (e as any)?.message);
+    }
     const fallback = {
-        code: globalRow?.fiscalMxikCode || DEFAULT_MXIK,
-        package_code: globalRow?.fiscalPackageCode || DEFAULT_PACKAGE,
-        vat_percent: globalRow?.fiscalVatPercent ?? DEFAULT_VAT,
+        code: pickStr(globalRow?.fiscalMxikCode) || HARDCODED_FISCAL.code,
+        package_code: pickStr(globalRow?.fiscalPackageCode) || HARDCODED_FISCAL.package_code,
+        vat_percent: pickInt(globalRow?.fiscalVatPercent) ?? HARDCODED_FISCAL.vat_percent,
     };
 
-    // Collect every (serviceType, originalServiceId) tuple we'll need to
-    // resolve and pull all required categories in batched queries.
+    // Step 2 — per-category lookup. Batched: one round-trip per service
+    // type. Empty/missing → keep fallback for that line.
     const serviceToCategory = new Map<string, string | null>(); // "TYPE:svcId" → categoryId
-    if (appointment.services?.length) {
-        const ids = { DIAGNOSTIC: new Set<string>(), SURGICAL: new Set<string>(), SANATORIUM: new Set<string>() };
-        for (const s of appointment.services) {
-            if (!s.originalServiceId) continue;
-            const t = s.serviceType as 'DIAGNOSTIC' | 'SURGICAL' | 'SANATORIUM';
-            if (ids[t]) ids[t].add(s.originalServiceId);
+    try {
+        if (appointment.services?.length) {
+            const ids = { DIAGNOSTIC: new Set<string>(), SURGICAL: new Set<string>(), SANATORIUM: new Set<string>() };
+            for (const s of appointment.services) {
+                if (!s.originalServiceId) continue;
+                const t = s.serviceType as 'DIAGNOSTIC' | 'SURGICAL' | 'SANATORIUM';
+                if (ids[t]) ids[t].add(s.originalServiceId);
+            }
+            const tasks: Array<Promise<void>> = [];
+            if (ids.DIAGNOSTIC.size) tasks.push((async () => {
+                const rows = await prisma.diagnosticService.findMany({
+                    where: { id: { in: [...ids.DIAGNOSTIC] } },
+                    select: { id: true, categoryId: true },
+                });
+                for (const r of rows) serviceToCategory.set(`DIAGNOSTIC:${r.id}`, r.categoryId);
+            })());
+            if (ids.SURGICAL.size) tasks.push((async () => {
+                const rows = await prisma.surgicalService.findMany({
+                    where: { id: { in: [...ids.SURGICAL] } },
+                    select: { id: true, categoryId: true },
+                });
+                for (const r of rows) serviceToCategory.set(`SURGICAL:${r.id}`, r.categoryId);
+            })());
+            if (ids.SANATORIUM.size) tasks.push((async () => {
+                const rows = await prisma.sanatoriumService.findMany({
+                    where: { id: { in: [...ids.SANATORIUM] } },
+                    select: { id: true, categoryId: true },
+                });
+                for (const r of rows) serviceToCategory.set(`SANATORIUM:${r.id}`, r.categoryId);
+            })());
+            await Promise.all(tasks);
         }
-        const tasks: Array<Promise<void>> = [];
-        if (ids.DIAGNOSTIC.size) tasks.push((async () => {
-            const rows = await prisma.diagnosticService.findMany({
-                where: { id: { in: [...ids.DIAGNOSTIC] } },
-                select: { id: true, categoryId: true },
-            });
-            for (const r of rows) serviceToCategory.set(`DIAGNOSTIC:${r.id}`, r.categoryId);
-        })());
-        if (ids.SURGICAL.size) tasks.push((async () => {
-            const rows = await prisma.surgicalService.findMany({
-                where: { id: { in: [...ids.SURGICAL] } },
-                select: { id: true, categoryId: true },
-            });
-            for (const r of rows) serviceToCategory.set(`SURGICAL:${r.id}`, r.categoryId);
-        })());
-        if (ids.SANATORIUM.size) tasks.push((async () => {
-            const rows = await prisma.sanatoriumService.findMany({
-                where: { id: { in: [...ids.SANATORIUM] } },
-                select: { id: true, categoryId: true },
-            });
-            for (const r of rows) serviceToCategory.set(`SANATORIUM:${r.id}`, r.categoryId);
-        })());
-        await Promise.all(tasks);
+    } catch (e) {
+        console.warn('[fiscal] service→category lookup failed, using fallback:', (e as any)?.message);
     }
 
     const allCategoryIds = new Set<string>();
@@ -234,23 +271,27 @@ async function resolveFiscal(appointment: any): Promise<{
     if (appointment.diagnosticService?.categoryId) allCategoryIds.add(appointment.diagnosticService.categoryId);
     if (appointment.surgicalService?.categoryId) allCategoryIds.add(appointment.surgicalService.categoryId);
 
-    const catRows = allCategoryIds.size > 0
-        ? await prisma.serviceCategory.findMany({
-            where: { id: { in: [...allCategoryIds] } },
-            select: { id: true, fiscalMxikCode: true, fiscalPackageCode: true, fiscalVatPercent: true },
-        })
-        : [];
     const categoryFiscal = new Map<string, { mxik: string | null; pkg: string | null; vat: number | null }>();
-    for (const c of catRows) categoryFiscal.set(c.id, {
-        mxik: c.fiscalMxikCode, pkg: c.fiscalPackageCode, vat: c.fiscalVatPercent,
-    });
+    try {
+        if (allCategoryIds.size > 0) {
+            const catRows = await prisma.serviceCategory.findMany({
+                where: { id: { in: [...allCategoryIds] } },
+                select: { id: true, fiscalMxikCode: true, fiscalPackageCode: true, fiscalVatPercent: true },
+            });
+            for (const c of catRows) categoryFiscal.set(c.id, {
+                mxik: c.fiscalMxikCode, pkg: c.fiscalPackageCode, vat: c.fiscalVatPercent,
+            });
+        }
+    } catch (e) {
+        console.warn('[fiscal] category lookup failed, using fallback:', (e as any)?.message);
+    }
 
     const byCategoryId = (categoryId: string | null) => {
         const cat = categoryId ? categoryFiscal.get(categoryId) : null;
         return {
-            code: cat?.mxik || fallback.code,
-            package_code: cat?.pkg || fallback.package_code,
-            vat_percent: cat?.vat ?? fallback.vat_percent,
+            code: pickStr(cat?.mxik) || fallback.code,
+            package_code: pickStr(cat?.pkg) || fallback.package_code,
+            vat_percent: pickInt(cat?.vat) ?? fallback.vat_percent,
         };
     };
     const byServiceKey = (serviceType: string | null, originalServiceId: string | null) => {
