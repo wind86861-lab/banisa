@@ -68,10 +68,14 @@ const CLINIC_SELECT = {
 
 // In-process cache for the heavy public catalog. The endpoint joins 4 large
 // tables with deep includes, and every patient page-load fires it. Each PM2
-// cluster worker keeps its own cache (no shared store), but with a 60s TTL
-// that's still only a couple of DB hits per minute per worker — three orders
-// of magnitude less than uncached.
-const PUBLIC_SERVICES_TTL_MS = 60_000;
+// cluster worker keeps its own cache (no shared store).
+//
+// TTL kept short (10s) so admin uploads / activations propagate to the
+// catalog quickly — under a tight live launch we'd rather pay a few extra
+// DB hits per minute than have admins refresh and see stale data. Even at
+// 10s a single TTL window absorbs every request from 1000+ concurrent
+// patients, so DB load stays trivial.
+const PUBLIC_SERVICES_TTL_MS = 10_000;
 let publicServicesCache: { at: number; payload: any } | null = null;
 // Mutex so concurrent misses don't all run the heavy query in parallel.
 let publicServicesInflight: Promise<any> | null = null;
@@ -80,13 +84,13 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
     try {
         const now = Date.now();
         if (publicServicesCache && now - publicServicesCache.at < PUBLIC_SERVICES_TTL_MS) {
-            res.set('Cache-Control', 'public, max-age=60');
+            res.set('Cache-Control', 'public, max-age=10');
             res.set('X-Cache', 'HIT');
             return res.json(publicServicesCache.payload);
         }
         if (publicServicesInflight) {
             const payload = await publicServicesInflight;
-            res.set('Cache-Control', 'public, max-age=60');
+            res.set('Cache-Control', 'public, max-age=10');
             res.set('X-Cache', 'COALESCED');
             return res.json(payload);
         }
@@ -375,7 +379,7 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
         try {
             const payload = await publicServicesInflight;
             publicServicesCache = { at: Date.now(), payload };
-            res.set('Cache-Control', 'public, max-age=60');
+            res.set('Cache-Control', 'public, max-age=10');
             res.set('X-Cache', 'MISS');
             return res.json(payload);
         } finally {
