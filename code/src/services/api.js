@@ -1,6 +1,10 @@
 // Central API service — all backend calls go through here
 // VULN-03: access token lives in module memory, NOT localStorage
-import axiosInstance, { setAccessToken, getAccessToken, clearAccessToken } from '../shared/api/axios';
+import axiosInstance, {
+    setClinicAccessToken as setAccessToken,
+    getClinicAccessToken as getAccessToken,
+    clearClinicAccessToken as clearAccessToken,
+} from '../shared/api/axios';
 
 const BASE_URL = '/api';
 

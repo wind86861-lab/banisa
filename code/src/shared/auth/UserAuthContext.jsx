@@ -1,5 +1,10 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { setAccessToken, getAccessToken, clearAccessToken, setIsPatientSession } from '../api/axios';
+import {
+    setPatientAccessToken as setAccessToken,
+    getPatientAccessToken as getAccessToken,
+    clearPatientAccessToken as clearAccessToken,
+    setIsPatientSession,
+} from '../api/axios';
 import axiosInstance from '../api/axios';
 import { setPatientAuthResolver, clearPatientAuthResolver } from './patientAuthBridge';
 

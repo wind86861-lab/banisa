@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../../services/api';
-import { setAccessToken } from '../../shared/api/axios';
+import { setClinicAccessToken as setAccessToken } from '../../shared/api/axios';
 
 const AuthContext = createContext(null);
 

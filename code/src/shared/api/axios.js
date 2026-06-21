@@ -2,8 +2,13 @@ import axios from 'axios';
 import { tokenStorage } from '../auth/tokenStorage';
 import { callEnsurePatientAuth } from '../auth/patientAuthBridge';
 
-// VULN-03: access token stored in module memory — not localStorage (XSS-safe)
-let _accessToken = null;
+// VULN-03: access tokens stored in module memory — not localStorage (XSS-safe).
+//
+// Two SEPARATE slots so a clinic admin browsing the Mini App as a patient
+// (or vice-versa) doesn't accidentally send the wrong JWT and 403 their
+// own management endpoints. The request interceptor picks per URL.
+let _clinicAccessToken = null;
+let _patientAccessToken = null;
 // Bootstrap _isPatientSession synchronously from the durable
 // user_had_session flag so a 401 fired before UserAuthContext mounts
 // (e.g., a page query that ran inside another lazy chunk during the
@@ -19,9 +24,54 @@ let _isPatientSession = (() => {
   } catch { return false; }
 })();
 
-export const setAccessToken = (token) => { _accessToken = token; };
-export const getAccessToken = () => _accessToken;
-export const clearAccessToken = () => { _accessToken = null; };
+// URL → slot picker. Keep this list aligned with backend route mounts.
+function pickTokenForUrl(url) {
+  if (!url) return _clinicAccessToken || _patientAccessToken;
+  // Patient-side endpoints — keep the patient JWT even when the clinic
+  // context is also signed in.
+  if (
+    url.startsWith('/cart')
+    || url.startsWith('/user/')
+    || url.startsWith('/oferta')
+    || url.startsWith('/notifications/')      // patient notifications
+  ) {
+    return _patientAccessToken;
+  }
+  // Clinic / super-admin endpoints.
+  if (url.startsWith('/clinic/') || url.startsWith('/admin/')) {
+    return _clinicAccessToken;
+  }
+  // Anything else (e.g. /auth/me, /payme/*, /public/*) — caller-controlled.
+  // Prefer the one matching the session flavour, else any.
+  return _isPatientSession
+    ? (_patientAccessToken || _clinicAccessToken)
+    : (_clinicAccessToken || _patientAccessToken);
+}
+
+// ─── Clinic / admin slot ─────────────────────────────────────────────────
+export const setClinicAccessToken = (token) => { _clinicAccessToken = token; };
+export const clearClinicAccessToken = () => { _clinicAccessToken = null; };
+export const getClinicAccessToken = () => _clinicAccessToken;
+
+// ─── Patient slot ────────────────────────────────────────────────────────
+export const setPatientAccessToken = (token) => { _patientAccessToken = token; };
+export const clearPatientAccessToken = () => { _patientAccessToken = null; };
+export const getPatientAccessToken = () => _patientAccessToken;
+
+// ─── Back-compat aliases ─────────────────────────────────────────────────
+// Old callers used setAccessToken / clearAccessToken without specifying
+// which session. We route by _isPatientSession so existing AuthContext +
+// UserAuthContext code keeps working without touching every callsite.
+export const setAccessToken = (token) => {
+  if (_isPatientSession) _patientAccessToken = token;
+  else _clinicAccessToken = token;
+};
+export const clearAccessToken = () => {
+  if (_isPatientSession) _patientAccessToken = null;
+  else _clinicAccessToken = null;
+};
+export const getAccessToken = () =>
+  _isPatientSession ? _patientAccessToken : _clinicAccessToken;
 export const setIsPatientSession = (val) => { _isPatientSession = !!val; };
 
 const api = axios.create({
@@ -29,10 +79,11 @@ const api = axios.create({
   withCredentials: true, // send HttpOnly refresh-token cookie automatically
 });
 
-// ─── Request interceptor — attach access token to every request ───────────
+// ─── Request interceptor — attach the right access token per URL ─────────
 api.interceptors.request.use((config) => {
-  if (_accessToken) {
-    config.headers.Authorization = `Bearer ${_accessToken}`;
+  const token = pickTokenForUrl(config.url || '');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
@@ -129,7 +180,9 @@ api.interceptors.response.use(
       // race where the patient session flag hasn't flipped yet.
       if (_isPatientSession || inMiniApp) {
         const recoveredUser = await callEnsurePatientAuth();
-        const newToken = _accessToken; // resolver wrote it into module mem
+        // Resolver writes into _patientAccessToken via setAccessToken (the
+        // back-compat alias routes by _isPatientSession=true).
+        const newToken = _patientAccessToken;
         if (recoveredUser && newToken) {
           processQueue(null, newToken);
           original.headers.Authorization = `Bearer ${newToken}`;
@@ -163,7 +216,9 @@ api.interceptors.response.use(
         return Promise.reject(new Error('Role mismatch after refresh'));
       }
 
-      setAccessToken(newToken);
+      // Clinic / admin refresh — write explicitly into the clinic slot so a
+      // concurrent patient session can't poach the token.
+      setClinicAccessToken(newToken);
       tokenStorage.setToken(newToken);
       if (refreshedUser) tokenStorage.setUser(refreshedUser);
       processQueue(null, newToken);

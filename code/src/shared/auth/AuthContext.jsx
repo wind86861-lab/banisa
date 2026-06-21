@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { tokenStorage } from './tokenStorage';
-import { setAccessToken, clearAccessToken, setIsPatientSession } from '../api/axios';
+import {
+    setClinicAccessToken as setAccessToken,
+    clearClinicAccessToken as clearAccessToken,
+    setIsPatientSession,
+} from '../api/axios';
 import axiosInstance from '../api/axios';
 
 const AuthContext = createContext(null);
