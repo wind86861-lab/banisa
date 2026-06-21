@@ -242,7 +242,7 @@ export default function AppointmentDetailPage() {
                                 )}
 
                                 {action.cta === 'pay' && (
-                                    <button className="apd-pay-btn" onClick={() => navigate('/payment', { state: { bookingData: { skipCreate: true, appointmentId: data.id, price: finalP, clinicName: data.clinic?.nameUz, serviceName, scheduledAt: data.scheduledAt, selectedDate: data.scheduledAt?.split('T')[0] } } })}>
+                                    <button className="apd-pay-btn" onClick={() => navigate('/payment', { state: { bookingData: { skipCreate: true, appointmentId: data.id, clinicId: data.clinic?.id || data.clinicId, price: finalP, clinicName: data.clinic?.nameUz, serviceName, scheduledAt: data.scheduledAt, selectedDate: data.scheduledAt?.split('T')[0] } } })}>
                                         To'lash <CreditCard size={16} />
                                     </button>
                                 )}
@@ -291,7 +291,7 @@ export default function AppointmentDetailPage() {
                                 <button
                                     className="apd-pay-btn"
                                     style={{ background: '#dc2626', fontSize: 16, padding: '14px 20px' }}
-                                    onClick={() => navigate('/payment', { state: { bookingData: { skipCreate: true, appointmentId: data.id, price: finalP, clinicName: data.clinic?.nameUz, serviceName, scheduledAt: data.scheduledAt, selectedDate: data.scheduledAt?.split('T')[0] } } })}
+                                    onClick={() => navigate('/payment', { state: { bookingData: { skipCreate: true, appointmentId: data.id, clinicId: data.clinic?.id || data.clinicId, price: finalP, clinicName: data.clinic?.nameUz, serviceName, scheduledAt: data.scheduledAt, selectedDate: data.scheduledAt?.split('T')[0] } } })}
                                 >
                                     💳 To'lashga o'tish — {fmtSum(finalP)} so'm
                                 </button>
@@ -309,7 +309,7 @@ export default function AppointmentDetailPage() {
                                     )}
                                     <div className="apd-price-row apd-total"><span>To'lov:</span><span>{fmtSum(finalP)} so'm</span></div>
                                 </div>
-                                <button className="apd-pay-btn" onClick={() => navigate('/payment', { state: { bookingData: { skipCreate: true, appointmentId: data.id, price: finalP, clinicName: data.clinic?.nameUz, serviceName, scheduledAt: data.scheduledAt, selectedDate: data.scheduledAt?.split('T')[0] } } })}>
+                                <button className="apd-pay-btn" onClick={() => navigate('/payment', { state: { bookingData: { skipCreate: true, appointmentId: data.id, clinicId: data.clinic?.id || data.clinicId, price: finalP, clinicName: data.clinic?.nameUz, serviceName, scheduledAt: data.scheduledAt, selectedDate: data.scheduledAt?.split('T')[0] } } })}>
                                     To'lash <CreditCard size={16} />
                                 </button>
                             </div>
