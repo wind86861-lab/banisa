@@ -334,20 +334,26 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
 
         const checkupPackages = (clinic as any).checkupPackages.map((link: any) => {
             const p = link.package;
-            // The clinic's own price is the final price the patient pays. No further
-            // super-admin discount is applied — that discount is a base-package concept,
-            // already baked into whatever number the clinic chose for clinicPrice.
-            const finalPrice = link.clinicPrice ?? p.recommendedPrice ?? 0;
+            // Clinic's own per-item sum is the base. discountPercent (0..100)
+            // set by the admin trims the base — patient sees both numbers.
+            const base = link.clinicPrice ?? p.recommendedPrice ?? 0;
+            const discountPct = link.discountPercent || 0;
+            const finalPrice = discountPct > 0
+                ? Math.round(base * (1 - discountPct / 100))
+                : base;
             return {
-                id: p.id,
+                // Use the clinic-package link id so the detail page can find
+                // the row directly. p.id (CheckupPackage source id) led to
+                // 404s because the detail endpoint looks up ClinicCheckupPackage.id.
+                id: link.id,
                 type: 'CHECKUP',
                 nameUz: p.nameUz,
                 nameRu: p.nameRu,
                 category: 'Checkup',
                 price: finalPrice,
-                originalPrice: null,
-                discountPercent: null,
-                discountAmount: null,
+                originalPrice: discountPct > 0 ? base : null,
+                discountPercent: discountPct > 0 ? discountPct : null,
+                discountAmount: discountPct > 0 ? base - finalPrice : null,
                 duration: null,
                 image: (link.customizationData as any)?.customImageUrl ?? p.imageUrl ?? null,
                 description: p.shortDescription ?? null,

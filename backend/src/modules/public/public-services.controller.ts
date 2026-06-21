@@ -644,9 +644,15 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
             }
         }
 
-        // Handle checkup packages (ClinicCheckupPackage ID — cuid)
-        const checkupLink = await prisma.clinicCheckupPackage.findUnique({
-            where: { id },
+        // Handle checkup packages. Accept BOTH the clinic-package link id
+        // (cuid — primary) and the source CheckupPackage id (uuid — legacy
+        // links). For the packageId fallback we REQUIRE a clinicId so we
+        // never accidentally return another clinic's version of the same
+        // base package.
+        const checkupLink = await prisma.clinicCheckupPackage.findFirst({
+            where: clinicIdFilter
+                ? { OR: [{ id }, { packageId: id }], clinicId: clinicIdFilter }
+                : { id },
             include: {
                 package: {
                     include: { items: { orderBy: { sortOrder: 'asc' } } },
