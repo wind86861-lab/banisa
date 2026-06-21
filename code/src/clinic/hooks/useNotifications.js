@@ -53,13 +53,22 @@ export function useNotifications({ onNew } = {}) {
     const onNewRef = useRef(onNew);
     onNewRef.current = onNew;
 
+    // Stop polling permanently once auth/perm fails — retry-spam pollutes
+    // the console and the user's role doesn't change without re-login.
+    const deadRef = useRef(false);
+
     const fetchOnce = useCallback(async () => {
+        if (deadRef.current) return;
         if (!navigator.onLine) return;
         try {
             const res = await api.get('/clinic/notifications/unread-count', {
                 headers: etagRef.current ? { 'If-None-Match': etagRef.current } : {},
-                validateStatus: (s) => s === 200 || s === 304,
+                validateStatus: (s) => s === 200 || s === 304 || s === 401 || s === 403,
             });
+            if (res.status === 401 || res.status === 403) {
+                deadRef.current = true;
+                return;
+            }
             if (res.status === 304) return;
 
             const newEtag = res.headers?.etag || res.headers?.ETag;
@@ -92,9 +101,10 @@ export function useNotifications({ onNew } = {}) {
         let stopped = false;
 
         const tick = () => {
-            if (stopped) return;
+            if (stopped || deadRef.current) return;
             const interval = document.hidden ? IDLE_INTERVAL : ACTIVE_INTERVAL;
             fetchOnce();
+            if (deadRef.current) return; // 401/403 inside fetchOnce → stop scheduling
             timer = setTimeout(tick, interval);
         };
         tick();

@@ -297,9 +297,22 @@ export default function PaymeTab() {
         return () => clearTimeout(t);
     }, [toast]);
 
+    // Auth/perm failures (401/403) won't recover by retrying — stop the
+    // interval so the console isn't spammed every 30s.
+    const stopOnAuthError = (failureCount, error) => {
+        const s = error?.response?.status;
+        if (s === 401 || s === 403) return false;
+        return failureCount < 3;
+    };
+    const intervalStopOnAuth = (q) => {
+        const s = q?.state?.error?.response?.status;
+        return s === 401 || s === 403 ? false : 30_000;
+    };
+
     const { data: configData, isLoading: configLoading } = useQuery({
         queryKey: ['clinic', 'payme', 'config'],
         queryFn: async () => (await api.get('/clinic/payments/payme/config')).data?.data,
+        retry: stopOnAuthError,
     });
 
     const config = configData?.config;
@@ -309,14 +322,16 @@ export default function PaymeTab() {
         queryKey: ['clinic', 'payme', 'stats'],
         queryFn: async () => (await api.get('/clinic/payments/payme/stats?range=24h')).data?.data,
         enabled: !!config,
-        refetchInterval: 30_000,
+        retry: stopOnAuthError,
+        refetchInterval: intervalStopOnAuth,
     });
 
     const { data: recent, isLoading: recentLoading } = useQuery({
         queryKey: ['clinic', 'payme', 'recent'],
         queryFn: async () => (await api.get('/clinic/payments/payme/recent?limit=15')).data?.data?.items ?? [],
         enabled: !!config,
-        refetchInterval: 30_000,
+        retry: stopOnAuthError,
+        refetchInterval: intervalStopOnAuth,
     });
 
     const toggleActive = useMutation({

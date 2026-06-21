@@ -49,7 +49,14 @@ export const CartProvider = ({ children }) => {
             return data;
         } catch (err) {
             if (err.name === 'CanceledError' || err.name === 'AbortError') return cart;
-            console.error('Cart fetch error:', err);
+            // 401/403 just mean the current session isn't a patient — keep
+            // an empty cart and stay quiet. Logging here filled the console
+            // with the same line every render for clinic-admin sessions
+            // browsing the mini-app.
+            const status = err?.response?.status;
+            if (status !== 401 && status !== 403) {
+                console.error('Cart fetch error:', err);
+            }
             return cart;
         } finally {
             setLoading(false);
