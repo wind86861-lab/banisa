@@ -66,6 +66,7 @@ export const activatePackageSchema = z.object({
         packageId: z.string().min(1, 'packageId majburiy'),
         itemPrices: z.record(z.string(), z.number().int().min(0)).optional(),
         clinicPrice: z.number().int().min(0).optional(),
+        discountPercent: z.number().int().min(0).max(100).optional(),
         customNotes: z.string().max(2000).optional(),
         customizationData: z.any().optional(),
     }),
@@ -78,6 +79,7 @@ export const updatePackageSchema = z.object({
     body: z.object({
         itemPrices: z.record(z.string(), z.number().int().min(0)).optional(),
         clinicPrice: z.number().int().min(0).optional(),
+        discountPercent: z.number().int().min(0).max(100).optional(),
         isActive: z.boolean().optional(),
         customNotes: z.string().max(2000).optional(),
         customizationData: z.any().optional(),

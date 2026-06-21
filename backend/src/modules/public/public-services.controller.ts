@@ -317,6 +317,13 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                 const p = link.package;
                 const customImage = (link.customizationData as any)?.customImageUrl ?? null;
                 const checkupImg = customImage ?? p.imageUrl ?? null;
+                // Clinic price is the sum of per-item prices the admin entered.
+                // discountPercent (0-100) further reduces that for the patient.
+                const base = link.clinicPrice ?? p.recommendedPrice ?? 0;
+                const discountPercent = (link as any).discountPercent || 0;
+                const finalPrice = discountPercent > 0
+                    ? Math.round(base * (1 - discountPercent / 100))
+                    : base;
                 return {
                     id: link.id,
                     serviceId: p.id,
@@ -325,7 +332,9 @@ export const getPublicServices = async (req: Request, res: Response, next: NextF
                     desc: p.shortDescription ?? '',
                     fullDescription: p.fullDescription ?? p.shortDescription ?? '',
                     specialty: 'Checkup',
-                    price: link.clinicPrice ?? p.recommendedPrice ?? 0,
+                    price: finalPrice,
+                    originalPrice: discountPercent > 0 ? base : null,
+                    discountPercent: discountPercent > 0 ? discountPercent : null,
                     rating: link.clinic.averageRating ?? 0,
                     reviews: link.clinic.reviewCount ?? 0,
                     duration: '1 kun',
@@ -710,6 +719,12 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
                 return { ...i, servicePrice: price };
             });
             const scaledDiscount = 0;
+            // Apply the clinic admin's discount on the package total.
+            const checkupBase = checkupLink.clinicPrice;
+            const checkupDiscountPct = (checkupLink as any).discountPercent || 0;
+            const checkupFinal = checkupDiscountPct > 0
+                ? Math.round(checkupBase * (1 - checkupDiscountPct / 100))
+                : checkupBase;
 
             return res.json({
                 success: true,
@@ -723,10 +738,12 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
                     targetAudience: p.targetAudience,
                     shortDescription: cust.customNotes || p.shortDescription,
                     fullDescription: p.fullDescription || p.shortDescription,
-                    price: checkupLink.clinicPrice,
+                    price: checkupFinal,
+                    originalPrice: checkupDiscountPct > 0 ? checkupBase : null,
+                    discountPercent: checkupDiscountPct > 0 ? checkupDiscountPct : null,
                     priceMin: p.priceMin,
                     priceMax: p.priceMax,
-                    priceRecommended: checkupLink.clinicPrice,
+                    priceRecommended: checkupFinal,
                     discount: scaledDiscount,
                     imageUrl: p.imageUrl,
                     images: p.imageUrl ? [p.imageUrl] : [],
@@ -749,9 +766,9 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
                         reviewCount: c.reviewCount ?? 0,
                         workingHours: c.workingHours,
                         hasOnlineBooking: c.hasOnlineBooking,
-                        price: checkupLink.clinicPrice,
-                        originalPrice: null,
-                        discountPercent: null,
+                        price: checkupFinal,
+                        originalPrice: checkupDiscountPct > 0 ? checkupBase : null,
+                        discountPercent: checkupDiscountPct > 0 ? checkupDiscountPct : null,
                     }],
                 },
             });

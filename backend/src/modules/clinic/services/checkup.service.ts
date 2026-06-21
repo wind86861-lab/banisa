@@ -189,12 +189,19 @@ export class ClinicCheckupService {
         }
     }
 
+    private clampDiscount(v: unknown): number {
+        const n = Number(v ?? 0);
+        if (!Number.isFinite(n) || n < 0) return 0;
+        return Math.min(100, Math.round(n));
+    }
+
     async activatePackage(userId: string, data: {
         packageId: string;
         itemPrices?: Record<string, number>;
         clinicPrice?: number;
         customNotes?: string;
         customizationData?: any;
+        discountPercent?: number;
     }) {
         const clinicId = await this.getClinicId(userId);
 
@@ -206,6 +213,7 @@ export class ClinicCheckupService {
         if (!pkg.isActive) throw new AppError('Bu paket nofaol', 400, ErrorCodes.VALIDATION_ERROR);
 
         const { itemPrices, clinicPrice } = this.normalizePrices(pkg.items, data.itemPrices, data.clinicPrice);
+        const discountPercent = this.clampDiscount(data.discountPercent);
 
         await this.ensureClinicDiagnosticsForItems(clinicId, pkg.items, itemPrices);
 
@@ -220,6 +228,7 @@ export class ClinicCheckupService {
                     isActive: true,
                     clinicPrice,
                     itemPrices: itemPrices ?? undefined,
+                    discountPercent,
                     customNotes: data.customNotes,
                     customizationData: data.customizationData ?? existing.customizationData,
                 },
@@ -232,6 +241,7 @@ export class ClinicCheckupService {
                 packageId: data.packageId,
                 clinicPrice,
                 itemPrices: itemPrices ?? undefined,
+                discountPercent,
                 customNotes: data.customNotes,
                 customizationData: data.customizationData,
             },
@@ -244,6 +254,7 @@ export class ClinicCheckupService {
         isActive?: boolean;
         customNotes?: string;
         customizationData?: any;
+        discountPercent?: number;
     }) {
         const clinicId = await this.getClinicId(userId);
 
@@ -266,6 +277,9 @@ export class ClinicCheckupService {
                 ...priceFields,
                 ...(data.isActive !== undefined && { isActive: data.isActive }),
                 ...(data.customNotes !== undefined && { customNotes: data.customNotes }),
+                ...(data.discountPercent !== undefined && {
+                    discountPercent: this.clampDiscount(data.discountPercent),
+                }),
                 customizationData: data.customizationData
                     ? { ...((cp.customizationData as any) || {}), ...data.customizationData }
                     : cp.customizationData,

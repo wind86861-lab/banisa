@@ -30,6 +30,7 @@ const EMPTY_FORM = {
     customImageUrl: '',
     customImages: [],
     itemPrices: {},
+    discountPercent: 0,  // clinic-set discount off the total package price
 };
 
 const fmt = (n) => Number(n || 0).toLocaleString('uz-UZ');
@@ -300,6 +301,61 @@ function PricesTab({ items, form, setForm, totalPrice }) {
                 </span>
             </div>
 
+            {/* Clinic-set discount on the package total */}
+            <div style={{
+                padding: '12px 14px',
+                background: 'rgba(16,185,129,0.05)',
+                border: '1px solid rgba(16,185,129,0.18)',
+                borderRadius: 10,
+                display: 'grid', gap: 8,
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>
+                        Chegirma foizi (umumiy narxdan)
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={form.discountPercent ?? 0}
+                            onChange={e => {
+                                const v = e.target.value === '' ? 0 : Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                                setForm({ ...form, discountPercent: v });
+                            }}
+                            style={{
+                                width: 80, padding: '6px 10px', fontSize: 14, fontWeight: 700,
+                                border: '1px solid #d1d5db', borderRadius: 8, textAlign: 'right',
+                                fontFamily: 'inherit',
+                            }}
+                        />
+                        <span style={{ fontSize: 14, fontWeight: 700, color: '#059669' }}>%</span>
+                    </div>
+                </div>
+                {(form.discountPercent ?? 0) > 0 && totalPrice > 0 && (
+                    <div style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                        fontSize: 13,
+                    }}>
+                        <div style={{ color: 'var(--text-muted)' }}>
+                            Bemorga ko'rinadigan yakuniy narx:
+                        </div>
+                        <div>
+                            <span style={{ textDecoration: 'line-through', color: '#94a3b8', marginRight: 8 }}>
+                                {fmt(totalPrice)}
+                            </span>
+                            <span style={{ fontSize: 16, fontWeight: 800, color: '#dc2626' }}>
+                                {fmt(Math.round(totalPrice * (1 - (form.discountPercent ?? 0) / 100)))} so'm
+                            </span>
+                        </div>
+                    </div>
+                )}
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    0% chegirma → patient {fmt(totalPrice)} so'm to'laydi. 10% chegirma → {fmt(Math.round(totalPrice * 0.9))} so'm.
+                </div>
+            </div>
+
             {/* Items */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {filteredItems.map((item, idx) => {
@@ -560,7 +616,26 @@ function PreviewTab({ form, items, totalPrice, basePackage }) {
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Paket narxi</span>
-                <span style={{ fontSize: 20, fontWeight: 700, color: '#059669' }}>{fmt(totalPrice)} so'm</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                    {(form.discountPercent ?? 0) > 0 && (
+                        <>
+                            <span style={{ fontSize: 13, textDecoration: 'line-through', color: '#94a3b8' }}>
+                                {fmt(totalPrice)}
+                            </span>
+                            <span style={{
+                                fontSize: 11, fontWeight: 700, color: '#dc2626',
+                                background: '#fee2e2', padding: '2px 6px', borderRadius: 6,
+                            }}>
+                                −{form.discountPercent}%
+                            </span>
+                        </>
+                    )}
+                    <span style={{ fontSize: 20, fontWeight: 700, color: '#059669' }}>
+                        {fmt((form.discountPercent ?? 0) > 0
+                            ? Math.round(totalPrice * (1 - (form.discountPercent ?? 0) / 100))
+                            : totalPrice)} so'm
+                    </span>
+                </div>
             </div>
 
             {fullDesc && (
@@ -698,6 +773,7 @@ export default function CheckupPackageDrawer({
             customTargetAudience: existingCustom.customTargetAudience ?? '',
             customImageUrl: seededImages[0] ?? existingCustom.customImageUrl ?? '',
             customImages: seededImages,
+            discountPercent: Math.max(0, Math.min(100, Number(pkg?.clinicPackage?.discountPercent ?? 0))),
         };
         setForm(next);
         setInitialFormSnapshot(JSON.stringify(next));
@@ -734,6 +810,7 @@ export default function CheckupPackageDrawer({
             await onSave({
                 itemPrices: form.itemPrices,
                 customNotes: form.customNotes || undefined,
+                discountPercent: Math.max(0, Math.min(100, Number(form.discountPercent || 0))),
                 customizationData,
             });
             onClose();

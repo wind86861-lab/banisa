@@ -743,6 +743,9 @@ model ClinicCheckupPackage {
   packageId         String
   clinicPrice       Int
   itemPrices        Json?          // { [packageItemId: string]: priceInUZS } — clinic's per-item prices. Sum == clinicPrice.
+  // Clinic-set discount (0-100). Applied off clinicPrice — patient sees
+  // both the original and discounted final amount in the catalog.
+  discountPercent   Int            @default(0)
   customNotes       String?
   customizationData Json?
   isActive          Boolean        @default(true)
