@@ -915,13 +915,59 @@ export default function CheckupPackageDrawer({
                             borderTop: '1px solid var(--border-color)',
                             padding: '12px 20px', background: 'var(--bg-card)',
                         }}>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Jami paket narxi</span>
-                                <span style={{ fontSize: 18, fontWeight: 700, color: totalPrice > 0 ? '#059669' : '#ef4444' }}>
-                                    {fmt(totalPrice)} UZS
-                                </span>
+                                {(form.discountPercent ?? 0) > 0 && totalPrice > 0 ? (
+                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                                        <span style={{ fontSize: 12, textDecoration: 'line-through', color: '#94a3b8' }}>
+                                            {fmt(totalPrice)}
+                                        </span>
+                                        <span style={{
+                                            fontSize: 10, fontWeight: 700, color: '#dc2626',
+                                            background: '#fee2e2', padding: '1px 5px', borderRadius: 5,
+                                        }}>
+                                            −{form.discountPercent}%
+                                        </span>
+                                        <span style={{ fontSize: 18, fontWeight: 700, color: '#059669' }}>
+                                            {fmt(Math.round(totalPrice * (1 - (form.discountPercent ?? 0) / 100)))} UZS
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <span style={{ fontSize: 18, fontWeight: 700, color: totalPrice > 0 ? '#059669' : '#ef4444' }}>
+                                        {fmt(totalPrice)} UZS
+                                    </span>
+                                )}
                             </div>
-                            <div style={{ display: 'flex', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {/* Always-visible discount input — same field as the Narxlar tab but
+                                    surfaced here so admins don't have to switch tabs to apply
+                                    a quick discount during activation. */}
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: 4,
+                                    padding: '6px 8px', background: 'rgba(16,185,129,0.08)',
+                                    border: '1px solid rgba(16,185,129,0.25)', borderRadius: 8,
+                                }}
+                                    title="Chegirma foizi — umumiy narxdan ushlab qolinadi"
+                                >
+                                    <span style={{ fontSize: 11, color: '#0f172a', fontWeight: 600 }}>Chegirma</span>
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        max={100}
+                                        step={1}
+                                        value={form.discountPercent ?? 0}
+                                        onChange={(e) => {
+                                            const v = e.target.value === '' ? 0 : Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                                            setForm({ ...form, discountPercent: v });
+                                        }}
+                                        style={{
+                                            width: 56, padding: '4px 6px', fontSize: 13, fontWeight: 700,
+                                            border: '1px solid #d1d5db', borderRadius: 6, textAlign: 'right',
+                                            fontFamily: 'inherit',
+                                        }}
+                                    />
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: '#059669' }}>%</span>
+                                </div>
                                 <button className="ca-btn-secondary" onClick={tryClose} disabled={saving}>Bekor qilish</button>
                                 <button
                                     className="ca-btn-primary"
