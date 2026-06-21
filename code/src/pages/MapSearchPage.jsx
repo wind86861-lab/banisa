@@ -395,11 +395,25 @@ function SelectedClinicCard({ clinic, browseMode, onClose, onAdd, onOpenClinic, 
                         <div className="msp-card__price-val">{clinic.matchCount || 0} ta xizmat</div>
                     </div>
                 ) : (
-                    <div>
+                    <div style={{ width: '100%' }}>
                         <div className="msp-card__price-label">
-                            {clinic.title}{clinic.matchCount > 1 ? ` +${clinic.matchCount - 1}` : ''}
+                            {clinic.matchCount > 1
+                                ? `${clinic.matchCount} ta xizmat ${clinic.isTotal ? '— jami' : ''}`
+                                : clinic.title}
                         </div>
                         <div className="msp-card__price-val">{fullPrice(clinic.price)}</div>
+                        {clinic.matchCount > 1 && clinic.matchedServices?.length > 1 && (
+                            <ul className="msp-card__breakdown">
+                                {clinic.matchedServices.map((m) => (
+                                    <li key={m.id || m.serviceId}>
+                                        <span className="msp-card__break-name">{m.title}</span>
+                                        <span className="msp-card__break-price">
+                                            {m.price != null ? fullPrice(m.price) : '—'}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
                 )}
             </div>
@@ -424,7 +438,8 @@ function SelectedClinicCard({ clinic, browseMode, onClose, onAdd, onOpenClinic, 
                     </button>
                 ) : (
                     <button className="msp-card__btn msp-card__btn--primary" onClick={() => onAdd(clinic)} disabled={adding}>
-                        {adding ? <Loader2 size={14} className="msp-spin" /> : <ShoppingCart size={14} />} Band qilish
+                        {adding ? <Loader2 size={14} className="msp-spin" /> : <ShoppingCart size={14} />}
+                        {clinic.matchCount > 1 ? `Band qilish (${clinic.matchCount})` : 'Band qilish'}
                     </button>
                 )}
             </div>
@@ -553,52 +568,132 @@ export default function MapSearchPage() {
         return allServices.filter(s => set.has(s.serviceId || s.id));
     }, [allServices, selectedServiceIds, browseMode]);
 
-    // Group services by clinic: one row per clinic with the cheapest matching
-    // service surfaced. In browse mode we still surface the clinic's cheapest
-    // service overall, so the pin/list has a meaningful representative entry.
-    const clinicsAll = useMemo(() => {
-        if (!coords) return [];
-        const byClinic = new Map();
+    // Resolve selected-service titles for breakdown rendering and partial-
+    // match messaging.
+    const selectedServicesMeta = useMemo(() => {
+        const set = new Set(selectedServiceIds);
+        const found = new Map();
+        for (const s of allServices) {
+            const id = s.serviceId || s.id;
+            if (set.has(id) && !found.has(id)) {
+                found.set(id, { id, title: s.title, category: s.category });
+            }
+        }
+        return selectedServiceIds.map(id => found.get(id) || { id, title: '?', category: '' });
+    }, [allServices, selectedServiceIds]);
+
+    // Build per-clinic entries. In multi-select service mode the requirement is
+    // AND (clinic must offer EVERY selected service) — anything less goes to
+    // `partialClinics` for the empty-state fallback. Per-clinic price becomes
+    // the sum of the cheapest variant of each required service.
+    const { clinicsAll, partialClinics } = useMemo(() => {
+        if (!coords) return { clinicsAll: [], partialClinics: [] };
+
+        // clinicId -> { clinicMeta, services: Map<serviceId, cheapestRowForThatService> }
+        const clinicMap = new Map();
         for (const s of matched) {
             if (!s.clinic?.id) continue;
             const cid = s.clinic.id;
-            const cur = byClinic.get(cid);
-            if (!cur) {
-                byClinic.set(cid, { rep: s, count: 1, totalPrice: s.price ?? null });
-            } else {
-                cur.count += 1;
-                if ((s.price ?? Infinity) < (cur.rep.price ?? Infinity)) cur.rep = s;
+            const sid = s.serviceId || s.id;
+            if (!clinicMap.has(cid)) {
+                clinicMap.set(cid, { clinicMeta: s.clinic, services: new Map() });
+            }
+            const bucket = clinicMap.get(cid);
+            const prev = bucket.services.get(sid);
+            if (!prev || (s.price ?? Infinity) < (prev.price ?? Infinity)) {
+                bucket.services.set(sid, s);
             }
         }
-        return Array.from(byClinic.values()).map(({ rep, count }) => {
-            const lat = rep.clinic?.latitude;
-            const lng = rep.clinic?.longitude;
+
+        const selectedSet = new Set(selectedServiceIds);
+        const requireAll = !browseMode && selectedSet.size > 0;
+
+        const buildEntry = (clinicMeta, matchedRows, missingTitles) => {
+            if (matchedRows.length === 0) return null;
+            let totalPrice = 0;
+            let allPricesKnown = true;
+            for (const m of matchedRows) {
+                if (m.price == null) allPricesKnown = false;
+                else totalPrice += m.price;
+            }
+            const rep = matchedRows.reduce((acc, cur) =>
+                (acc == null || (cur.price ?? Infinity) < (acc.price ?? Infinity)) ? cur : acc, null);
+            if (!rep) return null;
+            const lat = clinicMeta.latitude;
+            const lng = clinicMeta.longitude;
             const distanceKm = (lat != null && lng != null)
                 ? haversineKm(coords.lat, coords.lng, lat, lng)
                 : null;
-            const ws = workingStatus(rep.clinic?.workingHours);
+            const ws = workingStatus(clinicMeta.workingHours);
+            // In multi-select service mode the displayed price is the TOTAL
+            // for the selected basket. In browse / single-service mode it
+            // stays as the single cheapest price.
+            const showTotal = requireAll && selectedSet.size > 1 && allPricesKnown;
             return {
                 serviceRowId: rep.id,
                 serviceId: rep.serviceId || rep.id,
                 category: rep.category,
                 title: rep.title,
-                price: rep.price,
-                matchCount: count,
-                rating: rep.clinic?.rating ?? rep.rating ?? 0,
-                reviewCount: rep.clinic?.reviewCount ?? rep.reviews ?? 0,
-                clinicId: rep.clinic?.id,
-                clinicName: rep.clinic?.name,
-                address: rep.clinic?.address,
-                phones: rep.clinic?.phones ?? [],
-                logo: rep.clinic?.logo ?? null,
-                workingHours: rep.clinic?.workingHours ?? null,
+                price: showTotal ? totalPrice : rep.price,
+                isTotal: showTotal,
+                allPricesKnown,
+                matchCount: matchedRows.length,
+                missingCount: missingTitles?.length || 0,
+                missingTitles: missingTitles || [],
+                matchedServices: matchedRows.map(m => ({
+                    id: m.id,
+                    serviceId: m.serviceId || m.id,
+                    title: m.title,
+                    category: m.category,
+                    price: m.price,
+                })),
+                rating: clinicMeta.rating ?? rep.rating ?? 0,
+                reviewCount: clinicMeta.reviewCount ?? rep.reviews ?? 0,
+                clinicId: clinicMeta.id,
+                clinicName: clinicMeta.name,
+                address: clinicMeta.address,
+                phones: clinicMeta.phones ?? [],
+                logo: clinicMeta.logo ?? null,
+                workingHours: clinicMeta.workingHours ?? null,
                 isOpenNow: ws.isOpen,
                 lat, lng,
                 distanceKm,
                 onMap: lat != null && lng != null,
             };
-        });
-    }, [matched, coords]);
+        };
+
+        const full = [];
+        const partial = [];
+        for (const [, { clinicMeta, services }] of clinicMap) {
+            if (browseMode) {
+                const e = buildEntry(clinicMeta, Array.from(services.values()), []);
+                if (e) full.push(e);
+                continue;
+            }
+            // service mode — at least one selected service.
+            const matchedRows = [];
+            const missingTitles = [];
+            for (const meta of selectedServicesMeta) {
+                const row = services.get(meta.id);
+                if (row) matchedRows.push(row);
+                else missingTitles.push(meta.title);
+            }
+            if (matchedRows.length === selectedSet.size) {
+                const e = buildEntry(clinicMeta, matchedRows, []);
+                if (e) full.push(e);
+            } else if (matchedRows.length > 0 && requireAll && selectedSet.size > 1) {
+                // Partial: at least one of the selected services is offered.
+                // Used only when full list is empty (suggested as alternative).
+                const e = buildEntry(clinicMeta, matchedRows, missingTitles);
+                if (e) partial.push(e);
+            }
+        }
+        // Best partials surface first: more matched services, then closer.
+        partial.sort((a, b) =>
+            (b.matchCount - a.matchCount) ||
+            ((a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity)));
+        return { clinicsAll: full, partialClinics: partial };
+    }, [matched, coords, selectedServiceIds, browseMode, selectedServicesMeta]);
 
     const cheapestPrice = useMemo(() => {
         const ps = clinicsAll.map(c => c.price).filter(p => p != null);
@@ -655,14 +750,24 @@ export default function MapSearchPage() {
         }
         if (!c.clinicId) return;
         setAdding(true);
-        let serviceType = 'DIAGNOSTIC';
-        if (c.category === 'operatsiya') serviceType = 'SURGICAL';
-        else if (c.category === 'sanatoriya') serviceType = 'SANATORIUM';
-        else if (c.category === 'checkup') serviceType = 'CHECKUP';
-        const res = await addToCart(c.clinicId, serviceType, c.serviceId, 1);
-        setAdding(false);
-        if (res?.success) navigate('/user/cart');
-        else if (res?.message) alert(res.message);
+        try {
+            const rows = (c.matchedServices && c.matchedServices.length > 0)
+                ? c.matchedServices
+                : [{ serviceId: c.serviceId, category: c.category }];
+            let lastErr = null;
+            for (const row of rows) {
+                let serviceType = 'DIAGNOSTIC';
+                if (row.category === 'operatsiya') serviceType = 'SURGICAL';
+                else if (row.category === 'sanatoriya') serviceType = 'SANATORIUM';
+                else if (row.category === 'checkup') serviceType = 'CHECKUP';
+                const res = await addToCart(c.clinicId, serviceType, row.serviceId, 1);
+                if (!res?.success) lastErr = res?.message || 'Xato';
+            }
+            if (lastErr) alert(lastErr);
+            else navigate('/user/cart');
+        } finally {
+            setAdding(false);
+        }
     };
 
     const handleResetView = () => {
@@ -835,11 +940,69 @@ export default function MapSearchPage() {
                         </>
                     ) : clinics.length === 0 ? (
                         <div className="msp-empty">
-                            {openOnly || radius
-                                ? "Filtr bo'yicha klinika topilmadi. Filtrlarni o'chirib ko'ring."
-                                : browseMode
-                                    ? "Klinikalar topilmadi"
-                                    : "Tanlangan xizmatni taklif qilayotgan klinika topilmadi"}
+                            {openOnly || radius ? (
+                                "Filtr bo'yicha klinika topilmadi. Filtrlarni o'chirib ko'ring."
+                            ) : browseMode ? (
+                                "Klinikalar topilmadi"
+                            ) : selectedServiceIds.length > 1 ? (
+                                <>
+                                    <div className="msp-empty__title">
+                                        Hech qaysi klinikada tanlangan {selectedServiceIds.length} ta xizmat ham yo'q
+                                    </div>
+                                    <div className="msp-empty__sub">
+                                        Pastdagilar tanlovning bir qismini taklif qiladi:
+                                    </div>
+                                    {partialClinics.length > 0 && (
+                                        <div className="msp-partial">
+                                            {partialClinics.slice(0, 8).map(p => (
+                                                <button
+                                                    key={p.clinicId}
+                                                    type="button"
+                                                    className="msp-partial__row"
+                                                    onClick={() => handleOpenClinic(p)}
+                                                >
+                                                    {p.logo ? (
+                                                        <img src={p.logo} alt="" className="msp-partial__logo" />
+                                                    ) : (
+                                                        <div className="msp-partial__logo msp-partial__logo--ph">
+                                                            {(p.clinicName || '?').slice(0, 1)}
+                                                        </div>
+                                                    )}
+                                                    <div className="msp-partial__body">
+                                                        <div className="msp-partial__name">{p.clinicName}</div>
+                                                        <div className="msp-partial__meta">
+                                                            {p.matchCount}/{selectedServiceIds.length} ta mavjud
+                                                            {p.missingTitles.length > 0 && (
+                                                                <span className="msp-partial__missing">
+                                                                    {' '} · Yo'q: {p.missingTitles.slice(0, 2).join(', ')}
+                                                                    {p.missingTitles.length > 2 && ` +${p.missingTitles.length - 2}`}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {p.distanceKm != null && (
+                                                        <span className="msp-partial__dist">{p.distanceKm.toFixed(1)} km</span>
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div className="msp-empty__actions">
+                                        {selectedServicesMeta.map(s => (
+                                            <button
+                                                key={s.id}
+                                                type="button"
+                                                className="msp-empty__btn"
+                                                onClick={() => writeSelected([s.id])}
+                                            >
+                                                Faqat "{s.title}"
+                                            </button>
+                                        ))}
+                                    </div>
+                                </>
+                            ) : (
+                                "Tanlangan xizmatni taklif qilayotgan klinika topilmadi"
+                            )}
                         </div>
                     ) : (
                         clinics.map(c => {
@@ -877,7 +1040,11 @@ export default function MapSearchPage() {
                                             ) : (
                                                 <>
                                                     <strong className="msp-item__price">{fullPrice(c.price)}</strong>
-                                                    {c.matchCount > 1 && <span className="msp-item__more">+{c.matchCount - 1}</span>}
+                                                    {c.matchCount > 1 && (
+                                                        <span className="msp-item__more">
+                                                            {c.isTotal ? `Jami ${c.matchCount} ta` : `${c.matchCount} ta`}
+                                                        </span>
+                                                    )}
                                                     {isCheapest && <span className="msp-item__cheapest">Eng arzon</span>}
                                                 </>
                                             )}
@@ -910,7 +1077,8 @@ export default function MapSearchPage() {
                                                 onClick={(e) => { e.stopPropagation(); handleAddToCart(c); }}
                                                 disabled={adding}
                                             >
-                                                <ShoppingCart size={13} /> Band qilish
+                                                <ShoppingCart size={13} />
+                                                {c.matchCount > 1 ? ` Band qilish (${c.matchCount})` : ' Band qilish'}
                                             </button>
                                         )}
                                     </div>
