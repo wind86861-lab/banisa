@@ -510,7 +510,17 @@ export class CartService {
             const toAppointmentEnum = (t: string): 'DIAGNOSTIC' | 'SURGICAL' | 'OTHER' =>
                 t === 'DIAGNOSTIC' ? 'DIAGNOSTIC' : t === 'SURGICAL' ? 'SURGICAL' : 'OTHER';
 
-            const isCash = (data.paymentMethod || 'naqd') === 'naqd' || data.paymentMethod === 'CASH';
+            // Map the cart's payment-method token to the Appointment enum
+            // value. Previously only CASH was persisted (others fell to
+            // undefined), so clinic admins saw "To'lov turi: —" for every
+            // online booking even though the patient clearly picked
+            // Payme/Click. Now every choice round-trips correctly.
+            const raw = String(data.paymentMethod || 'naqd').toLowerCase();
+            const paymentMethod =
+                raw === 'payme' ? 'PAYME' :
+                raw === 'click' ? 'CLICK' :
+                'CASH';
+            const isCash = paymentMethod === 'CASH';
             const appointmentData: any = {
                 patientId: userId,
                 clinicId,
@@ -523,7 +533,7 @@ export class CartService {
                 // accepts before the booking becomes CONFIRMED. Payment
                 // mode is tracked separately in paymentMethod.
                 status: 'PENDING',
-                paymentMethod: isCash ? 'CASH' : undefined,
+                paymentMethod,
                 bookingNumber,
                 qrToken,
                 ofertaVersionId,
