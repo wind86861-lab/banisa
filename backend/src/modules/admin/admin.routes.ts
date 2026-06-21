@@ -22,6 +22,9 @@ router.patch('/notifications/:id/read', adminController.markNotificationAsRead);
 // Dashboard stats
 router.get('/dashboard/stats', adminController.getDashboardStats);
 
+// User list (includes TelegramAccount join for source/last-seen).
+router.get('/users', adminController.listUsers);
+
 // Global fiscal defaults (super-admin sets MXIK / package_code / vat_percent
 // used by every Payme receipt unless the per-service override on a
 // clinic-service join row replaces it).

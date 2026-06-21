@@ -1,63 +1,96 @@
-import { useState } from 'react';
-import { Search, Filter, Download, UserPlus, MoreVertical, Edit, Trash2, Ban, CheckCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Search, Filter, Send, Globe, RefreshCw, Phone, MessageCircle, Copy, ChevronLeft, ChevronRight } from 'lucide-react';
+import api from '../shared/api/axios';
 import './Users.css';
 
+function fmtDate(d) {
+    if (!d) return '—';
+    try {
+        const dt = new Date(d);
+        return dt.toLocaleString('uz-UZ', {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit',
+        });
+    } catch { return String(d); }
+}
+
+function fmtRelative(d) {
+    if (!d) return '';
+    const diff = Date.now() - new Date(d).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return 'hozir';
+    if (m < 60) return `${m} daq oldin`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h} soat oldin`;
+    const day = Math.floor(h / 24);
+    if (day < 30) return `${day} kun oldin`;
+    return fmtDate(d);
+}
+
+function copyText(text) {
+    try { navigator.clipboard?.writeText(text); } catch { /* ignore */ }
+}
+
 export default function Users() {
-    const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [q, setQ] = useState('');
+    const [source, setSource] = useState('ALL');  // ALL | telegram | web
+    const [page, setPage] = useState(1);
+    const limit = 50;
 
-    // Mock data - ONLY PATIENT users (clinic admins are managed separately)
-    const allUsers = [
-        { id: '1', firstName: 'John', lastName: 'Doe', email: 'john@example.com', phone: '+998901234567', role: 'PATIENT', isActive: true, createdAt: '2024-01-15' },
-        { id: '3', firstName: 'Bob', lastName: 'Johnson', email: 'bob@example.com', phone: '+998909876543', role: 'PATIENT', isActive: false, createdAt: '2024-03-10' },
-        { id: '4', firstName: 'Alice', lastName: 'Williams', email: 'alice@example.com', phone: '+998905551234', role: 'PATIENT', isActive: true, createdAt: '2024-01-20' },
-        { id: '5', firstName: 'Charlie', lastName: 'Brown', email: 'charlie@example.com', phone: '+998905559876', role: 'PATIENT', isActive: true, createdAt: '2024-02-10' },
-    ];
+    const params = useMemo(() => {
+        const p = { page, limit };
+        if (q.trim()) p.q = q.trim();
+        if (source !== 'ALL') p.source = source;
+        return p;
+    }, [q, source, page]);
 
-    // Filter to ONLY show PATIENT role users
-    const users = allUsers.filter(u => u.role === 'PATIENT');
-
-    const filteredUsers = users.filter(user => {
-        const matchesSearch =
-            user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.phone.includes(searchTerm);
-
-        const matchesStatus = statusFilter === 'ALL' ||
-            (statusFilter === 'ACTIVE' && user.isActive) ||
-            (statusFilter === 'INACTIVE' && !user.isActive);
-
-        return matchesSearch && matchesStatus;
+    const { data, isLoading, isFetching, refetch } = useQuery({
+        queryKey: ['admin-users', params],
+        queryFn: async () => (await api.get('/admin/users', { params })).data.data,
+        keepPreviousData: true,
     });
 
-    const getRoleBadge = (role) => {
-        const badges = {
-            SUPER_ADMIN: { label: 'Super Admin', color: '#dc2626' },
-            CLINIC_ADMIN: { label: 'Clinic Admin', color: '#2563eb' },
-            PENDING_CLINIC: { label: 'Pending Clinic', color: '#f59e0b' },
-            PATIENT: { label: 'Patient', color: '#10b981' },
-        };
-        const badge = badges[role] || { label: role, color: '#6b7280' };
-        return <span className="role-badge" style={{ backgroundColor: badge.color }}>{badge.label}</span>;
-    };
+    const items = data?.items ?? [];
+    const meta = data?.meta ?? { total: 0, telegramCount: 0, webCount: 0, pages: 1 };
 
     return (
         <div className="users-page">
             <div className="users-header">
                 <div className="header-left">
-                    <h1>Patient Users</h1>
-                    <p className="subtitle">Manage patient accounts and registrations</p>
+                    <h1>Bemorlar</h1>
+                    <p className="subtitle">Sayt va Telegram orqali ro'yxatdan o'tgan barcha foydalanuvchilar</p>
                 </div>
                 <div className="header-actions">
-                    <button className="btn-secondary">
-                        <Download size={18} />
-                        Export
+                    <button className="btn-secondary" onClick={() => refetch()} disabled={isFetching}>
+                        <RefreshCw size={16} className={isFetching ? 'spin' : ''} />
+                        Yangilash
                     </button>
-                    <button className="btn-primary">
-                        <UserPlus size={18} />
-                        Add User
-                    </button>
+                </div>
+            </div>
+
+            <div className="users-stats">
+                <div className="stat-card">
+                    <div className="stat-label">Jami</div>
+                    <div className="stat-value">{meta.total}</div>
+                </div>
+                <div className="stat-card stat-card--tg">
+                    <div className="stat-label"><Send size={11} /> Telegram orqali</div>
+                    <div className="stat-value">{meta.telegramCount}</div>
+                </div>
+                <div className="stat-card stat-card--web">
+                    <div className="stat-label"><Globe size={11} /> Sayt orqali</div>
+                    <div className="stat-value">{meta.webCount}</div>
+                </div>
+                <div className="stat-card">
+                    <div className="stat-label">Bugun</div>
+                    <div className="stat-value">
+                        {items.filter(u => {
+                            const d = new Date(u.createdAt);
+                            const today = new Date();
+                            return d.toDateString() === today.toDateString();
+                        }).length}
+                    </div>
                 </div>
             </div>
 
@@ -66,37 +99,18 @@ export default function Users() {
                     <Search size={18} className="search-icon" />
                     <input
                         type="text"
-                        placeholder="Search by name, email, or phone..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Telefon, ism, Telegram username..."
+                        value={q}
+                        onChange={(e) => { setQ(e.target.value); setPage(1); }}
                     />
                 </div>
                 <div className="filter-group">
                     <Filter size={18} />
-                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                        <option value="ALL">All Status</option>
-                        <option value="ACTIVE">Active</option>
-                        <option value="INACTIVE">Inactive</option>
+                    <select value={source} onChange={(e) => { setSource(e.target.value); setPage(1); }}>
+                        <option value="ALL">Barcha manbalar</option>
+                        <option value="telegram">Faqat Telegram</option>
+                        <option value="web">Faqat sayt</option>
                     </select>
-                </div>
-            </div>
-
-            <div className="users-stats">
-                <div className="stat-card">
-                    <div className="stat-label">Total Patients</div>
-                    <div className="stat-value">{users.length}</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-label">Active Patients</div>
-                    <div className="stat-value">{users.filter(u => u.isActive).length}</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-label">Inactive Patients</div>
-                    <div className="stat-value">{users.filter(u => !u.isActive).length}</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-label">New This Month</div>
-                    <div className="stat-value">{users.filter(u => new Date(u.createdAt).getMonth() === new Date().getMonth()).length}</div>
                 </div>
             </div>
 
@@ -104,69 +118,145 @@ export default function Users() {
                 <table className="users-table">
                     <thead>
                         <tr>
-                            <th>User</th>
-                            <th>Contact</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                            <th>Joined</th>
-                            <th>Actions</th>
+                            <th>Foydalanuvchi</th>
+                            <th>Telefon</th>
+                            <th>Manba</th>
+                            <th>Telegram</th>
+                            <th>Ro'yxatdan o'tgan</th>
+                            <th>Faollik</th>
+                            <th>Holat</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredUsers.length === 0 ? (
-                            <tr>
-                                <td colSpan="6" className="empty-state">
-                                    <div className="empty-icon">👥</div>
-                                    <h3>No users found</h3>
-                                    <p>Try adjusting your search or filters</p>
-                                </td>
-                            </tr>
+                        {isLoading ? (
+                            <tr><td colSpan="7" className="empty-state">Yuklanmoqda...</td></tr>
+                        ) : items.length === 0 ? (
+                            <tr><td colSpan="7" className="empty-state">
+                                <div className="empty-icon">👥</div>
+                                <h3>Foydalanuvchi topilmadi</h3>
+                                <p>Qidiruv yoki filtrlarni o'zgartiring</p>
+                            </td></tr>
                         ) : (
-                            filteredUsers.map(user => (
-                                <tr key={user.id}>
-                                    <td>
-                                        <div className="user-info">
-                                            <div className="user-avatar">
-                                                {user.firstName[0]}{user.lastName[0]}
+                            items.map(u => {
+                                const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || '—';
+                                const initials = (u.firstName?.[0] || u.phone?.slice(-2) || '?').toUpperCase();
+                                const isTg = u.source === 'telegram';
+                                return (
+                                    <tr key={u.id}>
+                                        <td>
+                                            <div className="user-info">
+                                                <div className="user-avatar" style={{ background: isTg ? '#0088cc' : '#6b7280' }}>
+                                                    {initials}
+                                                </div>
+                                                <div>
+                                                    <div className="user-name">{name}</div>
+                                                    <div className="user-id">{u.email || `ID: ${u.id.slice(0, 8)}`}</div>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <div className="user-name">{user.firstName} {user.lastName}</div>
-                                                <div className="user-id">ID: {user.id}</div>
+                                        </td>
+                                        <td>
+                                            <div className="phone-cell">
+                                                <a href={`tel:${u.phone}`} className="phone-link">
+                                                    <Phone size={11} /> {u.phone}
+                                                </a>
+                                                <button className="copy-btn" onClick={() => copyText(u.phone)} title="Nusxalash">
+                                                    <Copy size={11} />
+                                                </button>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div className="contact-info">
-                                            <div>{user.email}</div>
-                                            <div className="phone">{user.phone}</div>
-                                        </div>
-                                    </td>
-                                    <td>{getRoleBadge(user.role)}</td>
-                                    <td>
-                                        <span className={`status-badge ${user.isActive ? 'active' : 'inactive'}`}>
-                                            {user.isActive ? 'Active' : 'Inactive'}
-                                        </span>
-                                    </td>
-                                    <td>{new Date(user.createdAt).toLocaleDateString()}</td>
-                                    <td>
-                                        <div className="action-buttons">
-                                            <button className="btn-icon" title="Edit">
-                                                <Edit size={16} />
-                                            </button>
-                                            <button className="btn-icon" title={user.isActive ? 'Deactivate' : 'Activate'}>
-                                                {user.isActive ? <Ban size={16} /> : <CheckCircle size={16} />}
-                                            </button>
-                                            <button className="btn-icon" title="More">
-                                                <MoreVertical size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
+                                        </td>
+                                        <td>
+                                            {isTg ? (
+                                                <span className="source-badge source-badge--tg">
+                                                    <Send size={11} /> Telegram
+                                                </span>
+                                            ) : (
+                                                <span className="source-badge source-badge--web">
+                                                    <Globe size={11} /> Sayt
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            {u.telegram ? (
+                                                <div className="tg-cell">
+                                                    {u.telegram.username ? (
+                                                        <a
+                                                            href={`https://t.me/${u.telegram.username}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="tg-username"
+                                                        >
+                                                            @{u.telegram.username}
+                                                        </a>
+                                                    ) : (
+                                                        <span className="tg-username tg-username--noname">@yo'q</span>
+                                                    )}
+                                                    {u.telegram.chatId && (
+                                                        <a
+                                                            href={`tg://user?id=${u.telegram.telegramUserId}`}
+                                                            className="tg-write"
+                                                            title="Yozish"
+                                                        >
+                                                            <MessageCircle size={11} />
+                                                        </a>
+                                                    )}
+                                                    {u.telegram.language && (
+                                                        <span className="tg-lang">{u.telegram.language.toUpperCase()}</span>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span className="tg-none">—</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <div className="date-cell">
+                                                <div>{fmtDate(u.createdAt)}</div>
+                                                <div className="date-relative">{fmtRelative(u.createdAt)}</div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {u.telegram?.lastSeenAt ? (
+                                                <div className="date-cell">
+                                                    <div>{fmtRelative(u.telegram.lastSeenAt)}</div>
+                                                </div>
+                                            ) : <span className="tg-none">—</span>}
+                                        </td>
+                                        <td>
+                                            <span className={`status-badge ${u.isActive ? 'active' : 'inactive'}`}>
+                                                {u.isActive ? 'Faol' : 'Faolsiz'}
+                                            </span>
+                                            {u.telegram?.isBlocked && (
+                                                <span className="status-badge inactive" style={{ marginLeft: 4 }}>
+                                                    Bot bloklangan
+                                                </span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>
             </div>
+
+            {meta.pages > 1 && (
+                <div className="users-pagination">
+                    <button
+                        className="page-btn"
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page <= 1}
+                    >
+                        <ChevronLeft size={14} /> Oldingi
+                    </button>
+                    <span className="page-info">{page} / {meta.pages}</span>
+                    <button
+                        className="page-btn"
+                        onClick={() => setPage(p => Math.min(meta.pages, p + 1))}
+                        disabled={page >= meta.pages}
+                    >
+                        Keyingi <ChevronRight size={14} />
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
