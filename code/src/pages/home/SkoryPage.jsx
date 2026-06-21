@@ -7,12 +7,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Ambulance, Phone, MapPin, X, AlertTriangle,
     Activity, CheckCircle2, Wrench, Power, Users, Heart, Baby,
-    Sparkles, Navigation as NavIcon, Wallet,
+    Sparkles, Navigation as NavIcon, Wallet, Clock, Edit3, Crosshair,
 } from 'lucide-react';
 import api from '../../shared/api/axios';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
 import Footer from './Footer';
+import SkoryLocationPicker from './SkoryLocationPicker';
 import './css/SkoryPage.css';
 
 const TASHKENT_CENTER = [41.2995, 69.2401];
@@ -33,10 +34,15 @@ const STATUS_META = {
     OFFLINE:   { label: "O'chiq", color: '#94a3b8' },
 };
 
-function ambulanceIcon(status, type, distanceKm) {
+function ambulanceIcon(status, type, distanceKm, durationMin) {
     const sc = STATUS_META[status]?.color || '#94a3b8';
     const tc = TYPE_META[type]?.color || '#06b6d4';
     const pulse = status === 'AVAILABLE' ? 'sky-pulse' : '';
+    // Prefer real driving time over straight-line distance — that's what a
+    // dispatcher actually cares about.
+    const badge = durationMin != null
+        ? `${durationMin} daq`
+        : (distanceKm != null ? `${distanceKm.toFixed(1)} km` : '');
     return L.divIcon({
         className: 'sky-pin',
         html: `
@@ -44,7 +50,7 @@ function ambulanceIcon(status, type, distanceKm) {
                 <div class="sky-pin__core" style="background:${sc};box-shadow:0 6px 16px -4px ${sc}88;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 10H6"/><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="8" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
                 </div>
-                ${distanceKm != null ? `<div class="sky-pin__dist">${distanceKm.toFixed(1)}km</div>` : ''}
+                ${badge ? `<div class="sky-pin__dist">${badge}</div>` : ''}
             </div>
         `,
         iconSize: [60, 50],
@@ -132,10 +138,18 @@ function AmbulanceDetailModal({ amb, onClose }) {
                                 <div className="sky-modal__lbl">Davlat raqami</div>
                                 <div className="sky-modal__val">{amb.licensePlate || '—'}</div>
                             </div>
-                            {amb.distanceKm != null && (
+                            {amb.durationMin != null && (
+                                <div className="sky-modal__mini">
+                                    <div className="sky-modal__lbl">Yetib kelish</div>
+                                    <div className="sky-modal__val"><Clock size={13} /> ~ {amb.durationMin} daq</div>
+                                </div>
+                            )}
+                            {(amb.routeDistanceKm != null || amb.distanceKm != null) && (
                                 <div className="sky-modal__mini">
                                     <div className="sky-modal__lbl">Masofa</div>
-                                    <div className="sky-modal__val"><NavIcon size={13} /> {amb.distanceKm.toFixed(1)} km</div>
+                                    <div className="sky-modal__val">
+                                        <NavIcon size={13} /> {(amb.routeDistanceKm ?? amb.distanceKm).toFixed(1)} km
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -205,6 +219,8 @@ function AmbulanceDetailModal({ amb, onClose }) {
 export default function SkoryPage() {
     const [userCoords, setUserCoords] = useState(null);
     const [geoDenied, setGeoDenied] = useState(false);
+    const [manualLoc, setManualLoc] = useState(null);  // { lat, lng, label }
+    const [pickerOpen, setPickerOpen] = useState(false);
     const [radius, setRadius] = useState(0);          // km, 0 = no limit
     const [maxBaseFee, setMaxBaseFee] = useState(0);  // som, 0 = no limit
     const [selected, setSelected] = useState(null);
@@ -221,16 +237,23 @@ export default function SkoryPage() {
         );
     }, []);
 
+    // Manual pick wins over browser geolocation — emergencies often happen at
+    // an address other than the device's current location ("calling for my
+    // dad", "accident around the corner").
+    const effectiveCoords = manualLoc
+        ? { lat: manualLoc.lat, lng: manualLoc.lng }
+        : userCoords;
+
     const queryParams = useMemo(() => {
         const p = {};
-        if (userCoords) {
-            p.lat = userCoords.lat;
-            p.lng = userCoords.lng;
+        if (effectiveCoords) {
+            p.lat = effectiveCoords.lat;
+            p.lng = effectiveCoords.lng;
         }
         if (radius > 0) p.radius = radius;
         if (maxBaseFee > 0) p.maxBaseFee = maxBaseFee;
         return p;
-    }, [userCoords, radius, maxBaseFee]);
+    }, [effectiveCoords?.lat, effectiveCoords?.lng, radius, maxBaseFee]);
 
     const { data, isLoading } = useQuery({
         queryKey: ['public', 'ambulances', queryParams],
@@ -281,17 +304,49 @@ export default function SkoryPage() {
                                 <div className="sky-hero__stat-val">{data?.total ?? 0}</div>
                                 <div className="sky-hero__stat-lbl">Jami</div>
                             </div>
-                            {userCoords && (
-                                <div className="sky-hero__stat">
-                                    <div className="sky-hero__stat-val">
-                                        <NavIcon size={14} /> Yoqildi
-                                    </div>
-                                    <div className="sky-hero__stat-lbl">Joylashuv</div>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </motion.header>
+
+                <div className="sky-loc-bar">
+                    <div className="sky-loc-bar__main">
+                        <div className={`sky-loc-bar__icon ${manualLoc ? 'sky-loc-bar__icon--manual' : ''}`}>
+                            {manualLoc ? <MapPin size={15} /> : <Crosshair size={15} />}
+                        </div>
+                        <div className="sky-loc-bar__text">
+                            <div className="sky-loc-bar__lbl">
+                                {manualLoc ? 'Tanlangan manzil' : (userCoords ? 'Sizning joyingiz' : 'Joylashuv aniqlanmadi')}
+                            </div>
+                            <div className="sky-loc-bar__val">
+                                {manualLoc
+                                    ? manualLoc.label
+                                    : (userCoords
+                                        ? `${userCoords.lat.toFixed(4)}, ${userCoords.lng.toFixed(4)}`
+                                        : 'Manzilni qo\'lda tanlang')}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="sky-loc-bar__actions">
+                        {manualLoc && (
+                            <button
+                                type="button"
+                                className="sky-loc-bar__reset"
+                                onClick={() => setManualLoc(null)}
+                                title="Mening joyimga qaytish"
+                            >
+                                <X size={13} />
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            className="sky-loc-bar__pick"
+                            onClick={() => setPickerOpen(true)}
+                        >
+                            <Edit3 size={13} />
+                            <span>{manualLoc ? 'O\'zgartirish' : 'Boshqa manzil'}</span>
+                        </button>
+                    </div>
+                </div>
 
                 <div className="sky-filters">
                     <div className="sky-filters__group">
@@ -307,15 +362,15 @@ export default function SkoryPage() {
                                     key={r}
                                     className={`sky-chip ${radius === r ? 'sky-chip--on' : ''}`}
                                     onClick={() => setRadius(r)}
-                                    disabled={!userCoords}
+                                    disabled={!effectiveCoords}
                                 >
                                     {r} km
                                 </button>
                             ))}
                         </div>
-                        {!userCoords && (
+                        {!effectiveCoords && (
                             <div className="sky-filters__hint">
-                                Masofa filteri uchun joylashuvni yoqing
+                                Masofa filteri uchun joylashuvni yoqing yoki manzilni qo'lda tanlang
                             </div>
                         )}
                     </div>
@@ -350,7 +405,7 @@ export default function SkoryPage() {
                 <div className="sky-grid">
                     <div className="sky-map-wrap">
                         <MapContainer
-                            center={userCoords ? [userCoords.lat, userCoords.lng] : TASHKENT_CENTER}
+                            center={effectiveCoords ? [effectiveCoords.lat, effectiveCoords.lng] : TASHKENT_CENTER}
                             zoom={12}
                             scrollWheelZoom
                             style={{ height: '100%', width: '100%' }}
@@ -360,18 +415,18 @@ export default function SkoryPage() {
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                             />
-                            {userCoords && (
-                                <Marker position={[userCoords.lat, userCoords.lng]} icon={userIcon} />
+                            {effectiveCoords && (
+                                <Marker position={[effectiveCoords.lat, effectiveCoords.lng]} icon={userIcon} />
                             )}
                             {validForMap.map((a) => (
                                 <Marker
                                     key={a.id}
                                     position={[a.latitude, a.longitude]}
-                                    icon={ambulanceIcon(a.status, a.type, a.distanceKm)}
+                                    icon={ambulanceIcon(a.status, a.type, a.distanceKm, a.durationMin)}
                                     eventHandlers={{ click: () => setSelected(a) }}
                                 />
                             ))}
-                            <FitBounds items={validForMap} userCoords={userCoords} />
+                            <FitBounds items={validForMap} userCoords={effectiveCoords} />
                         </MapContainer>
                     </div>
 
@@ -404,7 +459,9 @@ export default function SkoryPage() {
                                                 <div className="sky-row__call">{a.callSign}</div>
                                                 <div className="sky-row__meta">
                                                     {tm.label}
-                                                    {a.distanceKm != null && <> · {a.distanceKm.toFixed(1)} km</>}
+                                                    {a.durationMin != null
+                                                        ? <> · <Clock size={10} style={{ verticalAlign: 'text-bottom' }} /> ~ {a.durationMin} daq</>
+                                                        : (a.distanceKm != null && <> · {a.distanceKm.toFixed(1)} km</>)}
                                                 </div>
                                                 <div className="sky-row__clinic">{a.clinic.name}</div>
                                             </div>
@@ -423,6 +480,14 @@ export default function SkoryPage() {
             <Footer />
 
             <AmbulanceDetailModal amb={selected} onClose={() => setSelected(null)} />
+
+            <SkoryLocationPicker
+                open={pickerOpen}
+                onClose={() => setPickerOpen(false)}
+                onPick={(loc) => { setManualLoc(loc); setPickerOpen(false); }}
+                initial={manualLoc}
+                userCoords={userCoords}
+            />
         </div>
     );
 }
