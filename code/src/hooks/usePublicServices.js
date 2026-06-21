@@ -12,6 +12,10 @@ export const usePublicServices = () => {
             const { data } = await publicApi.get('/public/services');
             return data.data || [];
         },
-        staleTime: 5 * 60 * 1000,
+        // 60s instead of 5min — clinic admins activate/deactivate / change
+        // prices in real time and patients shouldn't have to wait up to
+        // five minutes to see a fresh listing.
+        staleTime: 60 * 1000,
+        refetchOnWindowFocus: true,
     });
 };

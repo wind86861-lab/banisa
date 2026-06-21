@@ -244,6 +244,10 @@ export class ClinicCheckupService {
                 discountPercent,
                 customNotes: data.customNotes,
                 customizationData: data.customizationData,
+                // Explicit — schema default is already true, but stating
+                // it here protects future schema changes from silently
+                // creating inactive rows that disappear from the catalog.
+                isActive: true,
             },
         });
     }
