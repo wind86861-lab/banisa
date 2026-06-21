@@ -857,8 +857,16 @@ export default function XizmatlarPage() {
         };
     }, [searchQuery, selectedSpecialties, selectedAvailability, selectedLocations, minRating, effectivePriceMax, effectivePriceMin, metaFilters]);
 
+    // When the patient has typed a non-trivial search query, treat search
+    // as the authoritative filter and ignore the sidebar restrictions
+    // (price/specialty/location/rating/meta) — otherwise a stale filter
+    // from a previous browse hides the very service they're looking for.
+    // The root category tab still applies as a coarse partition.
+    const isExplicitSearch = (searchQuery || '').trim().length >= 2;
+
     const passes = useMemo(() => (s, skipDim, skipMetaKey) => {
         if (skipDim !== 'search' && !preds.search(s)) return false;
+        if (isExplicitSearch) return true; // search beats other dims
         if (skipDim !== 'specialty' && !preds.specialty(s)) return false;
         if (skipDim !== 'availability' && !preds.availability(s)) return false;
         if (skipDim !== 'location' && !preds.location(s)) return false;
@@ -869,7 +877,7 @@ export default function XizmatlarPage() {
             if (!preds.metaPred(s, k)) return false;
         }
         return true;
-    }, [preds, metaKeys]);
+    }, [preds, metaKeys, isExplicitSearch]);
 
     const facetCounts = useMemo(() => {
         const tally = (skipDim, pick) => {
@@ -931,8 +939,12 @@ export default function XizmatlarPage() {
 
     /* ── FILTERED + SORTED result list ── */
     const filtered = useMemo(() => {
+        // Explicit search transcends the active category tab too — typing
+        // "Ajralmalar..." while sitting on the Operatsiya tab should still
+        // find the diagnostic service.
+        const source = isExplicitSearch ? SERVICES_DATA : categoryPool;
         // `.filter` returns a fresh array, so the in-place sort is safe.
-        const list = categoryPool.filter(s => passes(s, null, null));
+        const list = source.filter(s => passes(s, null, null));
         switch (sortBy) {
             case 'price_asc': list.sort((a, b) => a.price - b.price); break;
             case 'price_desc': list.sort((a, b) => b.price - a.price); break;
@@ -941,7 +953,7 @@ export default function XizmatlarPage() {
             default: list.sort((a, b) => b.reviews - a.reviews);
         }
         return list;
-    }, [categoryPool, passes, sortBy]);
+    }, [categoryPool, SERVICES_DATA, passes, sortBy, isExplicitSearch]);
 
     /* ── pagination ── */
     const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
