@@ -185,6 +185,14 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
         const clinic = await prisma.clinic.findFirst({
             where: { id: clinicId, status: ClinicStatus.APPROVED, isActive: true },
             include: {
+                // Payme merchant id is public (it's already in the form
+                // POST to checkout.paycom.uz). Expose it so the patient
+                // form sends THIS clinic's merchant id, not a hardcoded
+                // one — otherwise Payme routes to the wrong webhook URL
+                // and the right clinic's order can never be found.
+                paymeConfig: {
+                    select: { merchantId: true, isActive: true, isTestMode: true },
+                },
                 diagnosticServices: {
                     where: { isActive: true },
                     include: {
@@ -404,6 +412,12 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
             parkingAvailable: (clinic as any).parkingAvailable,
             amenities: (clinic as any).amenities,
             paymentMethods: (clinic as any).paymentMethods,
+            paymeMerchantId: (clinic as any).paymeConfig?.isActive
+                ? (clinic as any).paymeConfig?.merchantId ?? null
+                : null,
+            paymeIsTestMode: (clinic as any).paymeConfig?.isActive
+                ? Boolean((clinic as any).paymeConfig?.isTestMode)
+                : null,
             insuranceAccepted: (clinic as any).insuranceAccepted,
             averageRating: (clinic as any).averageRating ?? 0,
             reviewCount: (clinic as any).reviewCount ?? 0,

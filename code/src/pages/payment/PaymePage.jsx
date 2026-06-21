@@ -9,8 +9,12 @@ import axiosInstance from '../../shared/api/axios';
 import { friendlyApiError } from '../../shared/utils/apiError';
 import './PaymePage.css';
 
-const MERCHANT_ID = '69e72340adc989d99c87540a';
-const PAYME_CHECKOUT = 'https://checkout.paycom.uz';
+// Checkout host depends on the clinic's Payme mode (live → checkout.paycom.uz,
+// sandbox → checkout.test.paycom.uz). Merchant id is loaded from the clinic
+// itself — using a hardcoded one routed every clinic's payment to Medilux's
+// webhook URL.
+const PAYME_CHECKOUT_LIVE = 'https://checkout.paycom.uz';
+const PAYME_CHECKOUT_TEST = 'https://checkout.test.paycom.uz';
 
 const fmt = (n) => new Intl.NumberFormat('uz-UZ').format(Number(n));
 
@@ -25,6 +29,8 @@ export default function PaymePage() {
     const [creatingAppointment, setCreatingAppointment] = useState(false);
     const [error, setError] = useState('');
     const [clinicPaymentMethods, setClinicPaymentMethods] = useState([]);
+    const [paymeMerchantId, setPaymeMerchantId] = useState('');
+    const [paymeIsTestMode, setPaymeIsTestMode] = useState(false);
     const [checkingClinic, setCheckingClinic] = useState(true);
 
     // Check if clinic supports Payme
@@ -39,9 +45,13 @@ export default function PaymePage() {
                 const clinic = res.data.data;
                 const methods = Array.isArray(clinic.paymentMethods) ? clinic.paymentMethods : [];
                 setClinicPaymentMethods(methods);
+                setPaymeMerchantId(clinic.paymeMerchantId || '');
+                setPaymeIsTestMode(Boolean(clinic.paymeIsTestMode));
 
                 if (!methods.includes('PAYME')) {
                     setError('Bu klinika onlayn to\'lovni qo\'llab-quvvatlamaydi. Iltimos, naqd to\'lov usulini tanlang.');
+                } else if (!clinic.paymeMerchantId) {
+                    setError('Klinikaning Payme sozlamasi to\'liq emas. Klinika administratoriga murojaat qiling.');
                 }
             })
             .catch(err => {
@@ -237,8 +247,8 @@ export default function PaymePage() {
                         </div>
 
                         {/* POST form — field names per official Payme docs */}
-                        <form method="POST" action={PAYME_CHECKOUT}>
-                            <input type="hidden" name="merchant" value={MERCHANT_ID} />
+                        <form method="POST" action={paymeIsTestMode ? PAYME_CHECKOUT_TEST : PAYME_CHECKOUT_LIVE}>
+                            <input type="hidden" name="merchant" value={paymeMerchantId} />
                             <input type="hidden" name="amount" value={amountTiyin} />
                             <input type="hidden" name="account[order_id]" value={orderId} />
                             <input type="hidden" name="lang" value="uz" />
@@ -246,7 +256,7 @@ export default function PaymePage() {
                             <button
                                 type="submit"
                                 className="pay-btn"
-                                disabled={!ready}
+                                disabled={!ready || !paymeMerchantId}
                             >
                                 {fmt(amountUZS)} so'm to'lash
                             </button>
