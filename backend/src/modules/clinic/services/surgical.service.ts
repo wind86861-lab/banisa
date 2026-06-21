@@ -97,7 +97,7 @@ export class ClinicSurgicalService {
         }
 
         return prisma.clinicSurgicalService.create({
-            data: { clinicId, surgicalServiceId: serviceId },
+            data: { clinicId, surgicalServiceId: serviceId, isActive: true },
         });
     }
 

@@ -298,6 +298,10 @@ export class CheckupPackagesService {
                 itemPrices: itemPrices ?? undefined,
                 customNotes: data.customNotes,
                 customizationData: data.customizationData,
+                // Same defensive rule as the clinic-side activate path:
+                // we are explicitly creating an ACTIVATED link, so don't
+                // rely on the schema default.
+                isActive: true,
             }
         });
     }
