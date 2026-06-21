@@ -66,8 +66,14 @@ export async function registerOrLoginViaContact(input: ContactRegisterInput): Pr
     const lang = input.language === 'ru' ? 'ru' : 'uz';
 
     try {
+        // Phone is unique across ALL roles in the schema, so we have to look
+        // it up role-agnostically. Filtering by role: 'PATIENT' (the old
+        // behavior) silently misses existing DOCTOR / CLINIC_ADMIN / etc.
+        // accounts and then the create() below crashes on the unique
+        // constraint — that was the bug behind the live "Произошла ошибка"
+        // shown to users sharing their contact via the bot.
         let user = await prisma.user.findFirst({
-            where: { phone, role: 'PATIENT' as any },
+            where: { phone },
             select: { id: true, phone: true, firstName: true, lastName: true, role: true, isActive: true },
         });
 
@@ -79,21 +85,34 @@ export async function registerOrLoginViaContact(input: ContactRegisterInput): Pr
             // SMS/forgot-password if they ever want phone+password login.
             const randomPassword = randomBytes(24).toString('base64url');
             const passwordHash = await bcrypt.hash(randomPassword, BCRYPT_ROUNDS);
-            const fresh = await prisma.user.create({
-                data: {
-                    phone,
-                    passwordHash,
-                    firstName: input.firstName || null,
-                    lastName: input.lastName || null,
-                    email: null,
-                    role: 'PATIENT' as any,
-                    isActive: true,
-                    status: 'APPROVED' as any,
-                },
-                select: { id: true, phone: true, firstName: true, lastName: true, role: true, isActive: true },
-            });
-            user = fresh;
-            created = true;
+            try {
+                user = await prisma.user.create({
+                    data: {
+                        phone,
+                        passwordHash,
+                        firstName: input.firstName || null,
+                        lastName: input.lastName || null,
+                        email: null,
+                        role: 'PATIENT' as any,
+                        isActive: true,
+                        status: 'APPROVED' as any,
+                    },
+                    select: { id: true, phone: true, firstName: true, lastName: true, role: true, isActive: true },
+                });
+                created = true;
+            } catch (e: any) {
+                // P2002 = unique constraint. Lost a race with another
+                // concurrent contact-share for the same phone — just re-read.
+                if (e?.code === 'P2002') {
+                    user = await prisma.user.findFirst({
+                        where: { phone },
+                        select: { id: true, phone: true, firstName: true, lastName: true, role: true, isActive: true },
+                    });
+                    if (!user) throw e;
+                } else {
+                    throw e;
+                }
+            }
         } else if (!user.isActive) {
             return { success: false, code: 'db_error' };
         }
