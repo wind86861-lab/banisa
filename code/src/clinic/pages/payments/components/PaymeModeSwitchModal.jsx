@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, FlaskConical, ShieldCheck, X } from 'lucide-react';
+import { FlaskConical, ShieldCheck, X } from 'lucide-react';
 
 export default function PaymeModeSwitchModal({ open, currentIsTest, onClose, onConfirm }) {
     const goingLive = currentIsTest;
@@ -57,13 +57,6 @@ export default function PaymeModeSwitchModal({ open, currentIsTest, onClose, onC
                                 ? "Bundan keyin bemorlar real pul to'laydi. Bron yaratish va to'lov bir-biriga bog'lanadi."
                                 : "Bundan keyin bemorlar Payme tugmasini bossa Payme sandbox'iga uzatiladi. Real pul yechilmaydi."}
                         </p>
-
-                        {goingLive && (
-                            <div className="pay-key-warn" style={{ marginBottom: 16 }}>
-                                <AlertTriangle size={14} />
-                                Avval test rejimda bir nechta sinov o'tkazganingizga ishonchingiz komilmi?
-                            </div>
-                        )}
 
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                             <button className="pay-btn pay-btn--ghost" onClick={onClose}>
