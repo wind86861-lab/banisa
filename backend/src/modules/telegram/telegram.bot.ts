@@ -28,6 +28,11 @@ import {
     sendSkoryMenu, handleNearestPrompt, handleCheapest, handleLocationReceived,
     handleAddToCart, isAwaitingLocation, clearAwaitingLocation,
 } from './skory.handlers';
+import {
+    registerSkoryHandlers,
+    handleSkoryPickup,
+    handleSkoryDescription,
+} from './skory.bot';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const PUBLIC_BASE = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').replace(/\/+$/, '');
@@ -426,6 +431,18 @@ async function handleWizardText(ctx: any, ctxCl: ClinicCtx, wizard: any, text: s
     const reply = async (t: string, kb: any) => ctx.reply(t, { parse_mode: 'HTML', reply_markup: kb });
     const chatId = ctx.chat?.id;
 
+    // Skoriy wizard owns description text on step 4.
+    if (wizard.kind === 'skory' && wizard.data?.step === 4) {
+        try {
+            await handleSkoryDescription(ctx, text);
+        } catch (e) {
+            console.error('[bot] skory description failed:', e);
+            if (chatId) await setWizardState(chatId, null);
+            await ctx.reply('Wizard xato — qaytadan boshlang');
+        }
+        return;
+    }
+
     if (wizard.kind === 'search') {
         const r = await runPatientSearch(ctxCl, text);
         if (chatId) await setWizardState(chatId, null);
@@ -567,6 +584,12 @@ export async function getBotUsername(): Promise<string | null> {
 }
 
 function registerHandlers(bot: Bot) {
+    // Skoriy dispatch — wizard + accept/decline callbacks. Registered
+    // BEFORE existing skory:nearest/skory:cheapest so the more specific
+    // patterns (skory:start, skory:dest:..., skory:offer:accept:...) take
+    // priority over any catch-alls.
+    registerSkoryHandlers(bot);
+
     bot.command('start', async (ctx) => {
         const token = ctx.match?.trim();
         const tgUser = ctx.from;
@@ -1483,13 +1506,37 @@ function registerHandlers(bot: Bot) {
     bot.on('message:location', async (ctx) => {
         const chatId = ctx.chat?.id;
         if (!chatId || ctx.chat?.type !== 'private') return;
+        const loc = ctx.message.location;
+        if (!loc) return;
+
+        // Skoriy wizard takes priority over the older "nearest/cheapest"
+        // location-prompt flow — if a dispatch wizard is mid-step 1, the
+        // shared location becomes its pickup, not a filter for the listing.
+        const wiz = await getWizardState(chatId);
+        if ((wiz as any).kind === 'skory' && wiz.data?.step === 1) {
+            try {
+                await handleSkoryPickup(ctx, { latitude: loc.latitude, longitude: loc.longitude });
+            } catch (e) {
+                console.error('[bot skory wizard location] failed:', e);
+                await ctx.reply('Xatolik. Qayta urinib koʻring.');
+            }
+            // Restore persistent reply keyboard.
+            const accW = await (prisma as any).telegramAccount.findUnique({
+                where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
+            });
+            const langW: Lang = accW?.language === 'ru' ? 'ru' : 'uz';
+            try {
+                const kbW = await smartKeyboard(accW?.userId ?? null, langW, Boolean(accW?.userId), Number(chatId));
+                await ctx.reply(LABELS[langW].menuTitle, { reply_markup: kbW });
+            } catch { /* */ }
+            return;
+        }
+
         if (!isAwaitingLocation(Number(chatId))) return;
         const acc = await (prisma as any).telegramAccount.findUnique({
             where: { chatId: BigInt(chatId) }, select: { language: true, userId: true },
         });
         const lang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
-        const loc = ctx.message.location;
-        if (!loc) return;
         try {
             await handleLocationReceived(ctx, lang, { latitude: loc.latitude, longitude: loc.longitude });
         } catch (e) {
@@ -1542,6 +1589,17 @@ function registerHandlers(bot: Bot) {
         if (linked) {
             const wizard = await getWizardState(chatId);
             if (wizard.kind) {
+                // Patient-side skoriy wizard doesn't need a ClinicCtx —
+                // anyone with a linked telegram can run it.
+                if (wizard.kind === 'skory' && wizard.data?.step === 4) {
+                    try { await handleSkoryDescription(ctx, text); }
+                    catch (e) {
+                        console.error('[bot] skory desc failed:', e);
+                        await setWizardState(chatId, null);
+                        await ctx.reply('Wizard xato — qaytadan boshlang');
+                    }
+                    return;
+                }
                 const ctxCl = await loadClinicCtx(chatId);
                 if (ctxCl) {
                     try { await handleWizardText(ctx, ctxCl, wizard, text); }

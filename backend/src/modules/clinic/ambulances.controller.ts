@@ -7,6 +7,31 @@ async function resolveClinicId(userId: string): Promise<string | null> {
     return user?.clinicId ?? null;
 }
 
+function normalizePhone(raw: string | null | undefined): string | null {
+    if (!raw) return null;
+    let s = String(raw).trim().replace(/[\s\-()]/g, '');
+    if (!s) return null;
+    if (!s.startsWith('+') && /^\d{9,15}$/.test(s)) s = '+' + s;
+    return /^\+\d{9,15}$/.test(s) ? s : null;
+}
+
+/**
+ * Match a dispatcher phone to a real User (any role). Returns the userId or
+ * null. We DON'T auto-create a user here — the dispatcher has to be a real
+ * person who has signed up via the bot or web, otherwise we have no
+ * telegramAccount to send offers to. The phone is still stored on the
+ * Ambulance row so when the dispatcher does sign up later, a separate
+ * background job (or the next ambulance edit) can resolve them.
+ */
+async function resolveDispatcherUser(phone: string | null): Promise<string | null> {
+    if (!phone) return null;
+    const u = await prisma.user.findFirst({
+        where: { phone },
+        select: { id: true },
+    });
+    return u?.id ?? null;
+}
+
 const AMBULANCE_TYPES = ['BASIC', 'INTENSIVE_CARE', 'NEONATAL', 'CARDIAC', 'TRAUMA', 'OBSTETRIC'] as const;
 const AMBULANCE_STATUSES = ['AVAILABLE', 'BUSY', 'MAINTENANCE', 'OFFLINE'] as const;
 type AmbStatus = typeof AMBULANCE_STATUSES[number];
@@ -31,7 +56,7 @@ export const createAmbulance = async (req: AuthRequest, res: Response) => {
     const {
         callSign, type, vehicleModel, licensePlate, capacity,
         equipment, baseLatitude, baseLongitude, baseFee, pricePerKm,
-        dispatchPhone, photoUrl, notes, status,
+        dispatchPhone, dispatcherPhone, photoUrl, notes, status,
     } = req.body || {};
 
     if (typeof callSign !== 'string' || callSign.trim().length < 1) {
@@ -43,6 +68,9 @@ export const createAmbulance = async (req: AuthRequest, res: Response) => {
     if (status && !AMBULANCE_STATUSES.includes(status)) {
         return res.status(400).json({ success: false, message: 'status noto\'g\'ri' });
     }
+
+    const dispatcherPhoneNorm = normalizePhone(dispatcherPhone);
+    const dispatcherUserId = await resolveDispatcherUser(dispatcherPhoneNorm);
 
     try {
         const created = await prisma.ambulance.create({
@@ -59,6 +87,8 @@ export const createAmbulance = async (req: AuthRequest, res: Response) => {
                 baseFee: Number.isFinite(baseFee) ? baseFee : null,
                 pricePerKm: Number.isFinite(pricePerKm) ? pricePerKm : null,
                 dispatchPhone: dispatchPhone?.trim() || null,
+                dispatcherPhone: dispatcherPhoneNorm,
+                dispatcherUserId,
                 photoUrl: photoUrl?.trim() || null,
                 notes: notes?.trim() || null,
                 status: (status || 'OFFLINE') as any,
@@ -88,7 +118,7 @@ export const updateAmbulance = async (req: AuthRequest, res: Response) => {
     const {
         callSign, type, vehicleModel, licensePlate, capacity,
         equipment, baseLatitude, baseLongitude, baseFee, pricePerKm,
-        dispatchPhone, photoUrl, notes, isActive,
+        dispatchPhone, dispatcherPhone, photoUrl, notes, isActive,
     } = req.body || {};
     const data: any = {};
     if (typeof callSign === 'string' && callSign.trim().length >= 1) data.callSign = callSign.trim();
@@ -102,6 +132,13 @@ export const updateAmbulance = async (req: AuthRequest, res: Response) => {
     if (Number.isFinite(baseFee) || baseFee === null) data.baseFee = baseFee;
     if (Number.isFinite(pricePerKm) || pricePerKm === null) data.pricePerKm = pricePerKm;
     if (typeof dispatchPhone === 'string') data.dispatchPhone = dispatchPhone.trim() || null;
+    if (typeof dispatcherPhone === 'string') {
+        const norm = normalizePhone(dispatcherPhone);
+        data.dispatcherPhone = norm;
+        // Re-resolve every edit — admin may have entered a different number
+        // OR the previously-unresolved dispatcher might have signed up since.
+        data.dispatcherUserId = await resolveDispatcherUser(norm);
+    }
     if (typeof photoUrl === 'string') data.photoUrl = photoUrl.trim() || null;
     if (typeof notes === 'string') data.notes = notes.trim() || null;
     if (typeof isActive === 'boolean') data.isActive = isActive;

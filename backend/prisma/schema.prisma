@@ -40,6 +40,9 @@ model User {
   clinicMemberships     ClinicMembership[]
   clinicMembershipsInvited ClinicMembership[] @relation("InvitedBy")
   clinicAuditEntries    ClinicAuditLog[]   @relation("ClinicAuditActor")
+  ambulancesAsDispatcher Ambulance[]       @relation("AmbulanceDispatcher")
+  ambulanceRequests     AmbulanceRequest[] @relation("PatientAmbulanceRequests")
+  dispatchOffers        DispatchOffer[]    @relation("DispatcherOffers")
 
   @@index([phone])
   @@index([status])
@@ -299,6 +302,7 @@ model Clinic {
   clickTransactions      ClickTransaction[]
   doctorClinics          DoctorClinic[]
   ambulances             Ambulance[]
+  ambulanceRequestsAsDest AmbulanceRequest[] @relation("AmbulanceRequestDestClinic")
   memberships            ClinicMembership[]
   roles                  ClinicRole[]
   auditLog               ClinicAuditLog[]
@@ -1556,17 +1560,103 @@ model Ambulance {
   photoUrl        String?
   notes           String?
   isActive        Boolean          @default(true)
+  // Online dispatch: each ambulance has exactly one user who receives the
+  // bot offer messages. The clinic admin sets dispatcherPhone when creating
+  // the ambulance; we resolve it to dispatcherUserId when that user shows
+  // up in our User table (via web sign-up or bot contact-share).
+  dispatcherPhone   String?
+  dispatcherUserId  String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
-  clinic       Clinic                @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  statusLogs   AmbulanceStatusLog[]
+  clinic         Clinic                @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  dispatcher     User?                 @relation("AmbulanceDispatcher", fields: [dispatcherUserId], references: [id], onDelete: SetNull)
+  statusLogs     AmbulanceStatusLog[]
+  requests       AmbulanceRequest[]
+  dispatchOffers DispatchOffer[]
 
   @@index([clinicId])
   @@index([status])
   @@index([type])
   @@index([isActive])
+  @@index([dispatcherUserId])
   @@unique([clinicId, callSign])
+}
+
+// Patient-initiated tez-yordam request. Lives until a dispatcher accepts
+// (transitions to DISPATCHED) or the patient cancels. No hard timeout —
+// status of every still-PENDING request is shown to dispatchers indefinitely.
+model AmbulanceRequest {
+  id                  String                @id @default(uuid())
+  patientId           String
+  status              AmbulanceRequestStatus @default(PENDING)
+  pickupLat           Float
+  pickupLng           Float
+  pickupAddress       String?
+  destLat             Float?
+  destLng             Float?
+  destAddress         String?
+  destClinicId        String?
+  priceMaxSom         Int?                  // null = cheklovsiz
+  estimatedDistanceKm Float?
+  estimatedDurationMin Int?
+  description         String?
+  acceptedAmbulanceId String?
+  acceptedAt          DateTime?
+  cancelledAt         DateTime?
+  cancelReason        String?
+  completedAt         DateTime?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  patient            User              @relation("PatientAmbulanceRequests", fields: [patientId], references: [id])
+  acceptedAmbulance  Ambulance?        @relation(fields: [acceptedAmbulanceId], references: [id])
+  destClinic         Clinic?           @relation("AmbulanceRequestDestClinic", fields: [destClinicId], references: [id])
+  offers             DispatchOffer[]
+
+  @@index([patientId])
+  @@index([status])
+  @@index([acceptedAmbulanceId])
+  @@index([createdAt])
+}
+
+// One fanout entry per (request, ambulance dispatcher). Holds the Telegram
+// message id so we can edit it in place when the request is won/cancelled.
+model DispatchOffer {
+  id                String              @id @default(uuid())
+  requestId         String
+  ambulanceId       String
+  dispatcherUserId  String
+  status            DispatchOfferStatus @default(SHOWN)
+  telegramChatId    BigInt?
+  telegramMessageId BigInt?
+  sentAt            DateTime            @default(now())
+  respondedAt       DateTime?
+
+  request    AmbulanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  ambulance  Ambulance        @relation(fields: [ambulanceId], references: [id], onDelete: Cascade)
+  dispatcher User             @relation("DispatcherOffers", fields: [dispatcherUserId], references: [id])
+
+  @@unique([requestId, ambulanceId])
+  @@index([requestId])
+  @@index([dispatcherUserId])
+  @@index([status])
+}
+
+enum AmbulanceRequestStatus {
+  PENDING       // ko'rsatildi, hech kim qabul qilmadi
+  DISPATCHED    // ambulans qabul qildi, yo'lda
+  ON_ROUTE      // bemor tomon harakatda (manual update)
+  ARRIVED       // bemor oldida
+  COMPLETED     // bemor manzilga yetkazildi
+  CANCELLED     // bemor yoki dispatcher bekor qildi
+}
+
+enum DispatchOfferStatus {
+  SHOWN     // yuborildi, javob kutilmoqda
+  ACCEPTED  // ushbu offer g'olib bo'ldi
+  LOST      // boshqa offer qabul qilindi
+  DECLINED  // dispatcher rad etdi
 }
 
 // Audit + history of status transitions (for stale detection + compliance)

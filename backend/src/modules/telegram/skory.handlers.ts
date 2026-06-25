@@ -143,7 +143,9 @@ export function clearAwaitingLocation(chatId: number): void { skoryAwaitingLocat
 /** Entry point — called when the patient taps "🆘 Tez yordam" reply button. */
 export async function sendSkoryMenu(ctx: any, lang: SkoryLang): Promise<void> {
     const t = L[lang];
+    const callLabel = lang === 'ru' ? '🚑 Вызвать скорую (онлайн)' : '🚑 Tez yordam chaqirish (onlayn)';
     const kb = new InlineKeyboard()
+        .text(callLabel, 'skory:start').row()
         .text(t.btnNearest, 'skory:nearest').row()
         .text(t.btnCheapest, 'skory:cheapest').row()
         .url(t.btnMiniapp, startAppLink('skory'));

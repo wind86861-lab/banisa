@@ -39,7 +39,7 @@ function normalizePhone(raw: string | null | undefined): string | null {
 }
 
 export interface WizardState {
-    kind: 'search' | 'reschedule' | 'booking' | null;
+    kind: 'search' | 'reschedule' | 'booking' | 'skory' | null;
     data?: any;
 }
 

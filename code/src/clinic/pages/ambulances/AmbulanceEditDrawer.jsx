@@ -46,6 +46,8 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
     const [baseFee, setBaseFee] = useState(existing?.baseFee ?? '');
     const [pricePerKm, setPricePerKm] = useState(existing?.pricePerKm ?? '');
     const [dispatchPhone, setDispatchPhone] = useState(existing?.dispatchPhone || '');
+    const [dispatcherPhone, setDispatcherPhone] = useState(existing?.dispatcherPhone || '');
+    const dispatcherLinked = Boolean(existing?.dispatcherUserId);
     const [notes, setNotes] = useState(existing?.notes || '');
     const [photoUrl, setPhotoUrl] = useState(existing?.photoUrl || '');
     const [status, setStatus] = useState(existing?.status || 'OFFLINE');
@@ -80,6 +82,7 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
                 baseFee: baseFee === '' ? null : Number(baseFee),
                 pricePerKm: pricePerKm === '' ? null : Number(pricePerKm),
                 dispatchPhone: dispatchPhone || null,
+                dispatcherPhone: dispatcherPhone || null,
                 photoUrl: photoUrl || null,
                 notes: notes || null,
             };
@@ -170,6 +173,22 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
                                 onChange={(e) => setDispatchPhone(e.target.value)}
                                 placeholder="+998 71 ..."
                             />
+                        </div>
+
+                        <div className="cab-field" style={{ gridColumn: 'span 2' }}>
+                            <label>
+                                🤖 Dispatcher Telegram (mas'ul shaxs telefoni)
+                            </label>
+                            <input
+                                value={dispatcherPhone}
+                                onChange={(e) => setDispatcherPhone(e.target.value)}
+                                placeholder="+998 90 ..."
+                            />
+                            <div style={{ fontSize: 11, marginTop: 4, color: dispatcherLinked ? '#059669' : '#94a3b8' }}>
+                                {dispatcherLinked
+                                    ? '✅ Bog\'langan — bu shaxs Telegram bot orqali tez yordam so\'rovlarini qabul qiladi'
+                                    : 'Bu raqamga ega shaxs Banisa botiga /start bossa, avtomatik ulanadi'}
+                            </div>
                         </div>
 
                         <div className="cab-field" style={{ gridColumn: 'span 2' }}>
