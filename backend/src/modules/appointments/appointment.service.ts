@@ -939,17 +939,24 @@ export class AppointmentService {
             );
         }
 
+        // Confirming cash also closes out the booking — clinic-admin asked
+        // for one-tap "to'lov qabul → yakunlandi", no intermediate
+        // CHECKED_IN/IN_PROGRESS state lingering after payment.
+        const now = new Date();
         const updated = await prisma.appointment.update({
             where: { id: appointmentId },
             data: {
                 paymentStatus: 'PAID',
                 paymentMethod: 'CASH',
                 paidAmount: payload.amount,
-                paidAt: new Date(),
+                paidAt: now,
                 cashConfirmedById: actor.userId,
-                cashConfirmedAt: new Date(),
+                cashConfirmedAt: now,
                 cashReceivedAmount: payload.amount,
                 cashAdjustmentNote: payload.note ?? null,
+                status: 'COMPLETED',
+                completedAt: now,
+                completedById: actor.userId,
             } as any,
             include: INCLUDE_FULL,
         });
@@ -958,7 +965,7 @@ export class AppointmentService {
             appointmentId,
             action: 'CASH_CONFIRMED',
             oldStatus: appt.status,
-            newStatus: appt.status,
+            newStatus: 'COMPLETED',
             userId: actor.userId,
             userRole: 'CLINIC',
             userName: actor.name,

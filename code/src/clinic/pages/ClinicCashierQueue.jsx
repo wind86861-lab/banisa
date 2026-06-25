@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { Banknote, Clock, Phone, User, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react';
+import { Banknote, Clock, Phone, User, RefreshCw, CheckCircle2, Loader2, Package, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../../shared/api/axios';
 import { fmtSum, shortBookingNo } from '../../shared/utils/format';
 import CashConfirmModal from '../components/CashConfirmModal';
@@ -25,6 +25,12 @@ export default function ClinicCashierQueue() {
     const focusId = searchParams.get('focus');
     const [confirmTarget, setConfirmTarget] = useState(null);
     const [tick, setTick] = useState(0);
+    const [expanded, setExpanded] = useState(() => new Set());
+    const toggleExpand = (id) => setExpanded(prev => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        return next;
+    });
     const { can } = useMyClinicMembership();
     const canConfirmCash = can('PAYMENT_CONFIRM_CASH');
 
@@ -100,11 +106,18 @@ export default function ClinicCashierQueue() {
                         const min = waitedMinutes(a.checkedInAt);
                         const cls = urgencyClass(min);
                         const fullName = [a.patient?.firstName, a.patient?.lastName].filter(Boolean).join(' ') || a.patient?.phone || 'Bemor';
-                        const svc = a.diagnosticService?.nameUz
-                            || a.surgicalService?.nameUz
-                            || a.checkupPackage?.nameUz
-                            || a.sanatoriumService?.nameUz
-                            || 'Xizmat';
+                        // Cart-style services come on `a.services`. Prefer them when
+                        // present so multi-line bookings (e.g. checkup paketi + qo'shimcha
+                        // xizmat) all surface, not just the first relation.
+                        const cartSvcs = Array.isArray(a.services) ? a.services : [];
+                        const checkupSvcs = cartSvcs.filter(s => s.serviceType === 'CHECKUP');
+                        const svc = cartSvcs.length > 0
+                            ? cartSvcs.map(s => s.serviceName).join(' + ')
+                            : (a.diagnosticService?.nameUz
+                                || a.surgicalService?.nameUz
+                                || 'Xizmat');
+                        const hasCheckupItems = checkupSvcs.some(s => (s.checkupItems?.length || 0) > 0);
+                        const isOpen = expanded.has(a.id);
                         const finalP = a.finalPrice || a.price || 0;
                         const isOnline = a.paymentMethod === 'PAYME' || a.paymentMethod === 'CLICK';
                         const payLabel = isOnline
@@ -125,7 +138,43 @@ export default function ClinicCashierQueue() {
                                             {payLabel}
                                         </span>
                                     </div>
-                                    <div className="cq-row-svc">{svc}</div>
+                                    <div className="cq-row-svc">
+                                        {svc}
+                                        {hasCheckupItems && (
+                                            <button
+                                                type="button"
+                                                className="cq-expand"
+                                                onClick={() => toggleExpand(a.id)}
+                                                title="Checkup tarkibini ko'rsatish"
+                                            >
+                                                <Package size={12} />
+                                                {isOpen ? 'Yashirish' : `Tarkibi (${checkupSvcs.reduce((n, s) => n + (s.checkupItems?.length || 0), 0)} ta)`}
+                                                {isOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                                            </button>
+                                        )}
+                                    </div>
+                                    {isOpen && hasCheckupItems && (
+                                        <div className="cq-checkup-items">
+                                            {checkupSvcs.map(s => (
+                                                <div key={s.id} className="cq-checkup-block">
+                                                    <div className="cq-checkup-title">
+                                                        <Package size={11} /> {s.serviceName}
+                                                    </div>
+                                                    <ul className="cq-checkup-list">
+                                                        {(s.checkupItems || []).map(it => (
+                                                            <li key={it.id}>
+                                                                <span className="cq-ck-name">
+                                                                    {it.serviceName}
+                                                                    {it.quantity > 1 && <span className="cq-ck-qty"> × {it.quantity}</span>}
+                                                                </span>
+                                                                {it.notes && <span className="cq-ck-note">{it.notes}</span>}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                     <div className="cq-row-meta">
                                         {a.patient?.phone && (
                                             <a href={`tel:${a.patient.phone}`} className="cq-phone">
@@ -146,7 +195,8 @@ export default function ClinicCashierQueue() {
                                     <div className="cq-amount">{fmtSum(finalP)} <span>so'm</span></div>
                                     {canConfirmCash && (
                                         <button className="cq-confirm-btn" onClick={() => setConfirmTarget(a)}>
-                                            {isOnline ? 'Naqd qabul qilish' : 'Tasdiqlash'}
+                                            <CheckCircle2 size={14} />
+                                            {isOnline ? 'Naqd qabul + yakunlash' : 'To\'lov qabul + yakunlash'}
                                         </button>
                                     )}
                                 </div>

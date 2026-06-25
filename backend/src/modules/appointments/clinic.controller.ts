@@ -184,9 +184,54 @@ export const clinicAppointmentController = {
                     patient: { select: { id: true, firstName: true, lastName: true, phone: true } },
                     diagnosticService: { select: { id: true, nameUz: true } },
                     surgicalService: { select: { id: true, nameUz: true } },
+                    services: true,
                 },
             });
-            sendSuccess(res, items, { total: items.length });
+
+            // For every CHECKUP cart-row, expand into the package items the
+            // clinic admin needs to physically run — without this the cashier
+            // can't tell what's inside "Kardiologik skrining №1" before
+            // accepting payment.
+            const checkupPackageIds = Array.from(new Set(
+                items.flatMap((a: any) => (a.services || [])
+                    .filter((s: any) => s.serviceType === 'CHECKUP' && s.originalServiceId)
+                    .map((s: any) => s.originalServiceId as string))
+            ));
+
+            const packageItemsByPkg = new Map<string, any[]>();
+            if (checkupPackageIds.length > 0) {
+                const pkgs = await prisma.checkupPackage.findMany({
+                    where: { id: { in: checkupPackageIds } },
+                    select: {
+                        id: true,
+                        nameUz: true,
+                        items: {
+                            orderBy: { sortOrder: 'asc' },
+                            select: {
+                                id: true,
+                                serviceName: true,
+                                servicePrice: true,
+                                quantity: true,
+                                isRequired: true,
+                                notes: true,
+                            },
+                        },
+                    },
+                });
+                for (const pkg of pkgs) packageItemsByPkg.set(pkg.id, pkg.items);
+            }
+
+            const enriched = items.map((a: any) => ({
+                ...a,
+                services: (a.services || []).map((s: any) => ({
+                    ...s,
+                    checkupItems: s.serviceType === 'CHECKUP' && s.originalServiceId
+                        ? (packageItemsByPkg.get(s.originalServiceId) || [])
+                        : undefined,
+                })),
+            }));
+
+            sendSuccess(res, enriched, { total: enriched.length });
         } catch (err) {
             next(err);
         }

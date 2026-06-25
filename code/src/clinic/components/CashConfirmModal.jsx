@@ -213,7 +213,7 @@ export default function CashConfirmModal({ booking, onClose, onSuccess }) {
                         }}
                     >
                         <Check size={16} />
-                        {confirmCash.isPending ? 'Saqlanmoqda...' : 'Tasdiqlash'}
+                        {confirmCash.isPending ? 'Saqlanmoqda...' : 'Tasdiqlash va yakunlash'}
                     </button>
                 </div>
             </div>
