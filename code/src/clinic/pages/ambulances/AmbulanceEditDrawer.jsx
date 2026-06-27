@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
     X, Ambulance, Loader2, AlertTriangle, CheckCircle2,
-    MapPin, Heart, Activity, Stethoscope, Zap,
+    Heart, Activity, Stethoscope, Zap,
 } from 'lucide-react';
 import api from '../../../shared/api/axios';
 import ImageUpload from '../../../shared/components/ImageUpload';
@@ -41,8 +41,6 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
     const [licensePlate, setLicensePlate] = useState(existing?.licensePlate || '');
     const [capacity, setCapacity] = useState(existing?.capacity ?? 1);
     const [equipment, setEquipment] = useState(existing?.equipment || []);
-    const [baseLatitude, setBaseLatitude] = useState(existing?.baseLatitude ?? '');
-    const [baseLongitude, setBaseLongitude] = useState(existing?.baseLongitude ?? '');
     const [baseFee, setBaseFee] = useState(existing?.baseFee ?? '');
     const [pricePerKm, setPricePerKm] = useState(existing?.pricePerKm ?? '');
     const [dispatchPhone, setDispatchPhone] = useState(existing?.dispatchPhone || '');
@@ -56,18 +54,6 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
         setEquipment((cur) => cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]);
     };
 
-    const useMyLocation = () => {
-        if (!navigator.geolocation) return;
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                setBaseLatitude(pos.coords.latitude.toFixed(6));
-                setBaseLongitude(pos.coords.longitude.toFixed(6));
-            },
-            (err) => console.warn('geo:', err.message),
-            { enableHighAccuracy: true, timeout: 8000 },
-        );
-    };
-
     const save = useMutation({
         mutationFn: async () => {
             const body = {
@@ -77,8 +63,6 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
                 licensePlate: licensePlate || null,
                 capacity: Number(capacity) || 1,
                 equipment,
-                baseLatitude: baseLatitude === '' ? null : Number(baseLatitude),
-                baseLongitude: baseLongitude === '' ? null : Number(baseLongitude),
                 baseFee: baseFee === '' ? null : Number(baseFee),
                 pricePerKm: pricePerKm === '' ? null : Number(pricePerKm),
                 dispatchPhone: dispatchPhone || null,
@@ -212,38 +196,6 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
                                         {eq.label}
                                     </button>
                                 ))}
-                            </div>
-                        </div>
-
-                        <div className="cab-field" style={{ gridColumn: 'span 2' }}>
-                            <label>
-                                Baza joylashuvi
-                                <button
-                                    type="button"
-                                    className="cab-link-btn"
-                                    onClick={useMyLocation}
-                                >
-                                    <MapPin size={11} /> Mening joylashuvim
-                                </button>
-                            </label>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                                <input
-                                    type="number"
-                                    step="0.000001"
-                                    value={baseLatitude}
-                                    onChange={(e) => setBaseLatitude(e.target.value)}
-                                    placeholder="Latitude"
-                                />
-                                <input
-                                    type="number"
-                                    step="0.000001"
-                                    value={baseLongitude}
-                                    onChange={(e) => setBaseLongitude(e.target.value)}
-                                    placeholder="Longitude"
-                                />
-                            </div>
-                            <div className="cab-hint">
-                                Bemorlar xaritada ko'rishadi. Belgilanmasa — klinika joylashuvi ishlatiladi.
                             </div>
                         </div>
 

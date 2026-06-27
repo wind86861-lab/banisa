@@ -950,3 +950,9 @@
     .sky-pick-bg { padding: 0; }
     .sky-pick__map-wrap { min-height: 0; }
 }
+
+@keyframes sky-live-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); }
+    70%  { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
+    100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+}

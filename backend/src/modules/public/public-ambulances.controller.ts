@@ -105,12 +105,15 @@ export const listPublicAmbulances = async (req: Request, res: Response) => {
         },
     });
 
+    const nowMs = Date.now();
     let items = rows.map((a) => {
         const useLat = a.currentLatitude ?? a.baseLatitude ?? a.clinic.latitude;
         const useLng = a.currentLongitude ?? a.baseLongitude ?? a.clinic.longitude;
         const distanceKm = hasOrigin && Number.isFinite(useLat) && Number.isFinite(useLng)
             ? haversine(lat, lng, useLat!, useLng!)
             : null;
+        const isLive = !!a.liveLocationUntil && a.liveLocationUntil.getTime() > nowMs
+            && a.currentLatitude != null && a.currentLongitude != null;
         return {
             id: a.id,
             callSign: a.callSign,
@@ -123,6 +126,8 @@ export const listPublicAmbulances = async (req: Request, res: Response) => {
             status: a.status,
             latitude: useLat,
             longitude: useLng,
+            isLive,
+            liveLocationUntil: a.liveLocationUntil,
             baseFee: a.baseFee,
             pricePerKm: a.pricePerKm,
             dispatchPhone: a.dispatchPhone,

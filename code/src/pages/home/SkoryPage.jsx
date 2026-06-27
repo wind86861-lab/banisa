@@ -35,22 +35,25 @@ const STATUS_META = {
     OFFLINE:   { label: "O'chiq", color: '#94a3b8' },
 };
 
-function ambulanceIcon(status, type, distanceKm, durationMin) {
+function ambulanceIcon(status, type, distanceKm, durationMin, isLive) {
     const sc = STATUS_META[status]?.color || '#94a3b8';
-    const tc = TYPE_META[type]?.color || '#06b6d4';
     const pulse = status === 'AVAILABLE' ? 'sky-pulse' : '';
     // Prefer real driving time over straight-line distance — that's what a
     // dispatcher actually cares about.
     const badge = durationMin != null
         ? `${durationMin} daq`
         : (distanceKm != null ? `${distanceKm.toFixed(1)} km` : '');
+    const liveDot = isLive
+        ? '<div style="position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#ef4444;border:2px solid #fff;box-shadow:0 0 0 0 rgba(239,68,68,0.7);animation:sky-live-pulse 1.4s ease-out infinite;"></div>'
+        : '';
     return L.divIcon({
         className: 'sky-pin',
         html: `
-            <div class="sky-pin__wrap ${pulse}">
+            <div class="sky-pin__wrap ${pulse}" style="position:relative;">
                 <div class="sky-pin__core" style="background:${sc};box-shadow:0 6px 16px -4px ${sc}88;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 10H6"/><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="8" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
                 </div>
+                ${liveDot}
                 ${badge ? `<div class="sky-pin__dist">${badge}</div>` : ''}
             </div>
         `,
@@ -447,7 +450,7 @@ export default function SkoryPage() {
                                 <Marker
                                     key={a.id}
                                     position={[a.latitude, a.longitude]}
-                                    icon={ambulanceIcon(a.status, a.type, a.distanceKm, a.durationMin)}
+                                    icon={ambulanceIcon(a.status, a.type, a.distanceKm, a.durationMin, a.isLive)}
                                     eventHandlers={{ click: () => setSelected(a) }}
                                 />
                             ))}

@@ -919,8 +919,119 @@ function startPendingExpiryWorker(bot: Bot): void {
 // Callback registration
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Telegram Live Location handler. When an ambulance dispatcher shares a live
+ * location (initial send OR every periodic update), we look up the ambulance
+ * by their user id and write the coords + the live-period expiry to the
+ * Ambulance row. Public maps and findCandidates() will then pick up the
+ * fresh coordinate via Ambulance.currentLatitude/Longitude.
+ *
+ * Telegram sends:
+ *   • message:location with live_period > 0       — first share
+ *   • edited_message:location                     — periodic updates (~every 2-5s
+ *                                                   while moving)
+ * Both are routed here.
+ */
+async function handleDispatcherLiveLocation(ctx: any): Promise<void> {
+    const chatId = ctx.chat?.id;
+    const msg = ctx.editedMessage ?? ctx.message;
+    const loc = msg?.location;
+    if (!chatId || !loc) return;
+    // Only care if it's a live share (single-shot pickup is for patient wizard)
+    const livePeriod = loc.live_period as number | undefined;
+    if (!livePeriod || livePeriod <= 0) {
+        // Could still be a one-shot location share — if so we just ignore it
+        // here; the patient wizard handler in telegram.bot.ts already owns
+        // single-shot location messages.
+        return;
+    }
+    // Resolve dispatcher → ambulance
+    const acc = await (prisma as any).telegramAccount.findUnique({
+        where: { chatId: BigInt(chatId) },
+        select: { userId: true },
+    });
+    if (!acc?.userId) return;
+    const ambulance = await prisma.ambulance.findFirst({
+        where: { dispatcherUserId: acc.userId, isActive: true },
+        select: { id: true },
+    });
+    if (!ambulance) return;
+    // edit_date (sec since epoch) is when Telegram pushed this update; fall
+    // back to now() if the field is absent.
+    const editSec = (msg.edit_date ?? msg.date ?? Math.floor(Date.now() / 1000)) as number;
+    const expiresAt = new Date((editSec + livePeriod) * 1000);
+    try {
+        await prisma.ambulance.update({
+            where: { id: ambulance.id },
+            data: {
+                currentLatitude: loc.latitude,
+                currentLongitude: loc.longitude,
+                liveLocationUntil: expiresAt,
+                lastStatusAt: new Date(),
+            },
+        });
+    } catch (e) {
+        console.warn('[skory] live location update failed', { ambulanceId: ambulance.id }, e);
+    }
+}
+
 export function registerSkoryHandlers(bot: Bot): void {
     startPendingExpiryWorker(bot);
+
+    // Dispatcher: short how-to for enabling Live Location share.
+    bot.command('livelocation', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        const lang: Lang = chatId ? await lookupLang(chatId) : 'uz';
+        const acc = chatId ? await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { userId: true },
+        }) : null;
+        const amb = acc?.userId ? await prisma.ambulance.findFirst({
+            where: { dispatcherUserId: acc.userId, isActive: true },
+            select: { id: true, callSign: true, liveLocationUntil: true },
+        }) : null;
+        if (!amb) {
+            await ctx.reply(lang === 'ru'
+                ? 'Этот чат не привязан ни к одной машине скорой.'
+                : 'Bu chat hech qaysi ambulansga biriktirilmagan.');
+            return;
+        }
+        const liveOn = amb.liveLocationUntil && amb.liveLocationUntil > new Date();
+        const statusLine = liveOn
+            ? (lang === 'ru' ? `🔴 Live: до ${amb.liveLocationUntil!.toLocaleTimeString('ru')}` : `🔴 Live yoqilgan: ${amb.liveLocationUntil!.toLocaleTimeString('uz-UZ')} gacha`)
+            : (lang === 'ru' ? '⚪ Live выключен' : '⚪ Live o\'chiq');
+        const howTo = lang === 'ru'
+            ? '<b>Как включить Live Location:</b>\n\n' +
+              '1. Нажмите 📎 (скрепка)\n' +
+              '2. Выберите «Геопозиция»\n' +
+              '3. Нажмите «Транслировать геопозицию» (Share My Live Location)\n' +
+              '4. Выберите длительность: 15 мин / 1 ч / 8 ч\n\n' +
+              'Бот будет получать ваши координаты каждые ~5 секунд, ' +
+              'и пациенты увидят машину в реальном времени на карте.'
+            : '<b>Live Location\'ni yoqish:</b>\n\n' +
+              '1. 📎 (klip) tugmasini bosing\n' +
+              '2. "Joylashuv" (Location) ni tanlang\n' +
+              '3. "Mening joriy joyimni efirga uzatish" (Share My Live Location) ni bosing\n' +
+              '4. Davomiylikni tanlang: 15 daq / 1 soat / 8 soat\n\n' +
+              'Bot har ~5 soniyada koordinatangizni oladi, ' +
+              'va bemorlar sizning ambulansingizni xaritada real vaqt rejimida ko\'radi.';
+        await ctx.reply(`🚑 <b>${esc(amb.callSign)}</b>\n${statusLine}\n\n${howTo}`, {
+            parse_mode: 'HTML',
+        });
+    });
+
+    // Live location updates from dispatchers (initial share + periodic edits)
+    bot.on('edited_message:location', handleDispatcherLiveLocation);
+    bot.on('message:location', async (ctx, next) => {
+        // Only swallow live shares — single-shot pickups belong to the
+        // patient wizard router in telegram.bot.ts. We detect live via
+        // live_period; otherwise call next() so the other handler runs.
+        const lp = ctx.message?.location?.live_period as number | undefined;
+        if (lp && lp > 0) {
+            await handleDispatcherLiveLocation(ctx);
+            return;
+        }
+        await next();
+    });
     // Start wizard from any "skoriy chaqirish" button
     bot.callbackQuery('skory:start', async (ctx) => {
         await ctx.answerCallbackQuery();

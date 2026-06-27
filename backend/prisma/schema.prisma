@@ -1550,10 +1550,14 @@ model Ambulance {
   // Base location — where the ambulance is parked when idle
   baseLatitude    Float?
   baseLongitude   Float?
-  // Optional current location (manually entered for now, GPS in Phase 2)
-  currentLatitude Float?
+  // Real-time location pushed by the dispatcher's Telegram Live Location
+  // share (handled by skory.bot.ts's edited_message:location handler).
+  // liveLocationUntil = when Telegram says the share expires; the bot
+  // refreshes this on every incoming live update.
+  currentLatitude  Float?
   currentLongitude Float?
-  lastStatusAt    DateTime?
+  liveLocationUntil DateTime?
+  lastStatusAt     DateTime?
   // Pricing (optional, info only)
   baseFee         Int?             // som — chaqiruv narxi
   pricePerKm      Int?             // som per km
