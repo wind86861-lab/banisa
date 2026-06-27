@@ -428,6 +428,86 @@ export async function cancelRequest(requestId: string, patientId: string, reason
 }
 
 /**
+ * Cheap (haversine-only) market price-range estimate for the wizard's
+ * "step 3" preview. Aggregates `baseFee + pricePerKm × distance` across
+ * every active ambulance within 25 km of the pickup that has both pricing
+ * fields populated. Returns null if no priced ambulances exist nearby.
+ *
+ * Distance basis:
+ *   • If destination known → pickup→destination (the trip the patient pays for)
+ *   • Otherwise → ambulance→pickup (best we can say without a dropoff)
+ */
+export async function getMarketPriceRange(input: {
+    pickupLat: number;
+    pickupLng: number;
+    destLat?: number | null;
+    destLng?: number | null;
+}): Promise<{ min: number; max: number; sampleCount: number; tripKm: number | null } | null> {
+    const ambulances = await prisma.ambulance.findMany({
+        where: {
+            isActive: true,
+            baseFee: { not: null },
+            pricePerKm: { not: null },
+        },
+        select: {
+            baseFee: true, pricePerKm: true,
+            baseLatitude: true, baseLongitude: true,
+            clinic: { select: { latitude: true, longitude: true } },
+        },
+    });
+    if (ambulances.length === 0) return null;
+
+    const RADIUS_KM = 25;
+    const tripKm = input.destLat != null && input.destLng != null
+        ? haversineKm(input.pickupLat, input.pickupLng, input.destLat, input.destLng)
+        : null;
+
+    const prices: number[] = [];
+    for (const a of ambulances) {
+        const lat = a.baseLatitude ?? a.clinic?.latitude;
+        const lng = a.baseLongitude ?? a.clinic?.longitude;
+        if (lat == null || lng == null) continue;
+        const distToPickup = haversineKm(input.pickupLat, input.pickupLng, lat, lng);
+        if (distToPickup > RADIUS_KM) continue;
+        const billableKm = tripKm ?? distToPickup;
+        const price = (a.baseFee ?? 0) + Math.round(billableKm * (a.pricePerKm ?? 0));
+        prices.push(price);
+    }
+    if (prices.length === 0) return null;
+    prices.sort((a, b) => a - b);
+    return {
+        min: prices[0],
+        max: prices[prices.length - 1],
+        sampleCount: prices.length,
+        tripKm: tripKm != null ? Number(tripKm.toFixed(1)) : null,
+    };
+}
+
+/**
+ * 10 nearest approved clinics to a coordinate (haversine). Used by the bot's
+ * "qaysi shifoxonaga" step so the patient picks an exact destination
+ * instead of letting us auto-guess.
+ */
+export async function getNearbyClinics(lat: number, lng: number, take = 10) {
+    const clinics = await prisma.clinic.findMany({
+        where: {
+            status: 'APPROVED',
+            isActive: true,
+            latitude: { not: null },
+            longitude: { not: null },
+        },
+        select: { id: true, nameUz: true, nameRu: true, latitude: true, longitude: true, addressUz: true },
+    });
+    return clinics
+        .map((c) => ({
+            ...c,
+            distanceKm: haversineKm(lat, lng, c.latitude!, c.longitude!),
+        }))
+        .sort((a, b) => a.distanceKm - b.distanceKm)
+        .slice(0, take);
+}
+
+/**
  * Look up a patient's still-active PENDING request, if any. Used by the bot
  * to prevent the same patient from spamming new requests while one is alive.
  */

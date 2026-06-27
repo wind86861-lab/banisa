@@ -32,6 +32,7 @@ import {
     registerSkoryHandlers,
     handleSkoryPickup,
     handleSkoryDescription,
+    handleSkoryPriceText,
 } from './skory.bot';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
@@ -437,6 +438,18 @@ async function handleWizardText(ctx: any, ctxCl: ClinicCtx, wizard: any, text: s
             await handleSkoryDescription(ctx, text);
         } catch (e) {
             console.error('[bot] skory description failed:', e);
+            if (chatId) await setWizardState(chatId, null);
+            await ctx.reply('Wizard xato — qaytadan boshlang');
+        }
+        return;
+    }
+
+    // Skoriy wizard owns price text on step 3 with sub:'await_price'.
+    if (wizard.kind === 'skory' && wizard.data?.step === 3 && wizard.data?.sub === 'await_price') {
+        try {
+            await handleSkoryPriceText(ctx, text);
+        } catch (e) {
+            console.error('[bot] skory price text failed:', e);
             if (chatId) await setWizardState(chatId, null);
             await ctx.reply('Wizard xato — qaytadan boshlang');
         }
@@ -1513,7 +1526,7 @@ function registerHandlers(bot: Bot) {
         // location-prompt flow — if a dispatch wizard is mid-step 1, the
         // shared location becomes its pickup, not a filter for the listing.
         const wiz = await getWizardState(chatId);
-        if ((wiz as any).kind === 'skory' && wiz.data?.step === 1) {
+        if ((wiz as any).kind === 'skory' && (wiz.data?.step === 1 || (wiz.data?.step === 2 && wiz.data?.sub === 'await_dropoff'))) {
             try {
                 await handleSkoryPickup(ctx, { latitude: loc.latitude, longitude: loc.longitude });
             } catch (e) {

@@ -34,6 +34,8 @@ import {
     expirePendingRequest,
     updateRequestStatus,
     submitReview,
+    getMarketPriceRange,
+    getNearbyClinics,
     type CandidateAmbulance,
     type DispatcherStatus,
 } from '../skory/skory.service';
@@ -43,8 +45,6 @@ type Lang = 'uz' | 'ru';
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
-
-const PRICE_TIERS_SOM = [100_000, 200_000, 500_000];
 
 function fmtSom(n: number | null | undefined): string {
     if (n == null) return '—';
@@ -136,6 +136,31 @@ const L = {
         reviewThanks: '🙏 Rahmat! Sharhingiz qabul qilindi.',
         // Wizard back button
         back: '⬅️ Orqaga',
+        // ─── Wizard v2: hospital list + price range + edit chips ───
+        destPickHospital: '🏥 Shifoxonaga olib boring',
+        destShareDropoff: '🗺 Boshqa joy (xaritada belgilash)',
+        destSkipNew: '⏭ Hozircha kerakmas',
+        destShareDropoffPrompt: '🗺 <b>Borish joyini ulashing</b>\n\nXaritada nuqtani belgilab "Joylashuvni jo\'natish" ni bosing.',
+        destClinicHeader: '🏥 <b>Qaysi shifoxonaga olib boriladi?</b>\n\nEng yaqin 10 ta klinika ko\'rsatilgan:',
+        destChosen: (label: string) => `✅ Manzil: <b>${label}</b>`,
+        priceRangeIntro: (min: string, max: string, n: number, km: number | null) =>
+            (km != null
+                ? `Bu masofa uchun (~${km} km) <b>${n} ta</b> klinikada narxlar:\n`
+                : `Yaqin atrofdagi <b>${n} ta</b> klinikada chaqiruv narxlari:\n`) +
+            `💰 <b>${min} – ${max} so'm</b>\n\n` +
+            'Maksimal narxni kiriting yoki <b>Hammasini qabul</b> tugmasini bosing:',
+        priceRangeNone: 'Yaqin atrofda narxlar ma\'lumoti yo\'q. Maksimal narxni kiriting yoki <b>Hammasini qabul</b>:',
+        priceAcceptAll: '✅ Hammasini qabul (limit yo\'q)',
+        priceEnterText: '💬 Narxni so\'mda yozing',
+        priceEnterPrompt: 'Maksimal narxni faqat raqamlar bilan yozing (so\'m). Masalan: <b>150000</b>',
+        priceInvalid: '⚠️ Faqat raqam yuboring (masalan: 150000)',
+        // Confirm step — per-field edit buttons
+        editPickup: '✏️ Joyim',
+        editDest: '✏️ Manzil',
+        editPrice: '✏️ Narx',
+        editDesc: '✏️ Tafsilot',
+        confirmHeader: '✅ <b>Hammasi tayyor — yuborilsinmi?</b>\n',
+        confirmDistanceLine: (km: number, min: number) => `📏 Masofa: <b>~${km} km</b> · <b>~${min} daq</b>`,
     },
     ru: {
         startTitle: '🚑 <b>Вызов скорой помощи</b>',
@@ -207,6 +232,29 @@ const L = {
         reviewAsk: '⭐ Пожалуйста, оцените машину скорой:',
         reviewThanks: '🙏 Спасибо! Ваш отзыв получен.',
         back: '⬅️ Назад',
+        destPickHospital: '🏥 Везти в больницу',
+        destShareDropoff: '🗺 Другое место (указать на карте)',
+        destSkipNew: '⏭ Пока не нужно',
+        destShareDropoffPrompt: '🗺 <b>Поделитесь местом назначения</b>\n\nОтметьте точку на карте и отправьте "Отправить местоположение".',
+        destClinicHeader: '🏥 <b>В какую больницу везти?</b>\n\nПоказаны 10 ближайших:',
+        destChosen: (label: string) => `✅ Адрес: <b>${label}</b>`,
+        priceRangeIntro: (min: string, max: string, n: number, km: number | null) =>
+            (km != null
+                ? `Для этого расстояния (~${km} км) у <b>${n}</b> клиник цены:\n`
+                : `Ближайшие <b>${n}</b> клиник имеют цены вызова:\n`) +
+            `💰 <b>${min} – ${max} сум</b>\n\n` +
+            'Введите максимальную цену или нажмите <b>Принять все</b>:',
+        priceRangeNone: 'Данных о ценах поблизости нет. Введите максимальную цену или нажмите <b>Принять все</b>:',
+        priceAcceptAll: '✅ Принять все (без лимита)',
+        priceEnterText: '💬 Ввести цену',
+        priceEnterPrompt: 'Введите максимальную цену только цифрами (сум). Например: <b>150000</b>',
+        priceInvalid: '⚠️ Отправьте только число (например: 150000)',
+        editPickup: '✏️ Откуда',
+        editDest: '✏️ Куда',
+        editPrice: '✏️ Цена',
+        editDesc: '✏️ Детали',
+        confirmHeader: '✅ <b>Всё готово — отправить?</b>\n',
+        confirmDistanceLine: (km: number, min: number) => `📏 Расстояние: <b>~${km} км</b> · <b>~${min} мин</b>`,
     },
 } as const;
 
@@ -243,34 +291,48 @@ function pickupKeyboard(lang: Lang): Keyboard {
 
 function destKeyboard(lang: Lang): InlineKeyboard {
     return new InlineKeyboard()
-        .text(L[lang].destNearest, 'skory:dest:nearest').row()
-        .text(L[lang].destSkip, 'skory:dest:skip').row()
+        .text(L[lang].destPickHospital, 'skory:dest:hospital').row()
+        .text(L[lang].destShareDropoff, 'skory:dest:custom').row()
+        .text(L[lang].destSkipNew, 'skory:dest:skip').row()
         .text(L[lang].back, 'skory:back:1')
         .text(L[lang].cancel, 'skory:cancel');
 }
 
-function priceKeyboard(lang: Lang): InlineKeyboard {
+function clinicListKeyboard(
+    lang: Lang,
+    clinics: Array<{ id: string; nameUz: string; nameRu: string | null; distanceKm: number }>,
+): InlineKeyboard {
     const kb = new InlineKeyboard();
-    for (const p of PRICE_TIERS_SOM) {
-        kb.text(`≤ ${fmtSom(p)} so'm`, `skory:price:${p}`).row();
+    for (const c of clinics) {
+        const name = lang === 'ru' ? (c.nameRu || c.nameUz) : c.nameUz;
+        const label = `🏥 ${name} · ${c.distanceKm.toFixed(1)} km`;
+        kb.text(label.length > 64 ? label.slice(0, 61) + '…' : label, `skory:clinic:${c.id}`).row();
     }
-    kb.text(L[lang].priceUnlimited, 'skory:price:0').row();
     kb.text(L[lang].back, 'skory:back:2')
       .text(L[lang].cancel, 'skory:cancel');
     return kb;
+}
+
+function priceKeyboard(lang: Lang): InlineKeyboard {
+    return new InlineKeyboard()
+        .text(L[lang].priceAcceptAll, 'skory:price:all').row()
+        .text(L[lang].priceEnterText, 'skory:price:enter').row()
+        .text(L[lang].back, 'skory:back:2')
+        .text(L[lang].cancel, 'skory:cancel');
+}
+
+function customDropoffKeyboard(lang: Lang): Keyboard {
+    return new Keyboard()
+        .requestLocation(L[lang].sharePickup).row()
+        .text(L[lang].cancel).row()
+        .resized()
+        .oneTime();
 }
 
 function descKeyboard(lang: Lang): InlineKeyboard {
     return new InlineKeyboard()
         .text(L[lang].descSkip, 'skory:desc:skip').row()
         .text(L[lang].back, 'skory:back:3')
-        .text(L[lang].cancel, 'skory:cancel');
-}
-
-function confirmKeyboard(lang: Lang): InlineKeyboard {
-    return new InlineKeyboard()
-        .text(L[lang].confirmSend, 'skory:confirm').row()
-        .text(L[lang].back, 'skory:back:4')
         .text(L[lang].cancel, 'skory:cancel');
 }
 
@@ -303,18 +365,35 @@ export async function startSkoryWizard(ctx: any): Promise<void> {
 }
 
 /**
- * Called from telegram.bot.ts when an inbound message has `location` AND the
- * current wizard is 'skory' step 1. Advances to step 2.
+ * Inbound `location` message routing. Two flavours:
+ *   • Step 1 — patient's pickup → advances to dest picker (step 2)
+ *   • Step 2 with sub='await_dropoff' — patient's custom dropoff → fills
+ *     dest.{lat,lng,label} and advances to price step (3)
  */
 export async function handleSkoryPickup(ctx: any, location: { latitude: number; longitude: number }): Promise<void> {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
     const lang = await lookupLang(chatId);
     const wiz = await getWizardState(chatId);
-    if ((wiz as any).kind !== 'skory' || wiz.data?.step !== 1) return;
+    if ((wiz as any).kind !== 'skory') return;
+    const data = (wiz as any).data || {};
 
-    // Best-effort reverse geocode so dispatcher sees a human-readable address
-    // instead of raw coords. Don't block the wizard on a slow call.
+    // Dropoff branch (custom map-pin in step 2)
+    if (data.step === 2 && data.sub === 'await_dropoff') {
+        const dropAddress = await reverseGeocode(location.latitude, location.longitude);
+        const dest = {
+            lat: location.latitude,
+            lng: location.longitude,
+            label: dropAddress || `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`,
+        };
+        await setWizardState(chatId, { kind: 'skory' as any, data: { ...data, sub: undefined, dest, step: 3 } });
+        try { await ctx.reply('✓', { reply_markup: { remove_keyboard: true } }); } catch { /* */ }
+        await sendPriceStep(ctx, lang, { ...data, dest });
+        return;
+    }
+
+    // Pickup branch (step 1)
+    if (data.step !== 1) return;
     const address = await reverseGeocode(location.latitude, location.longitude);
 
     await setWizardState(chatId, {
@@ -324,15 +403,57 @@ export async function handleSkoryPickup(ctx: any, location: { latitude: number; 
             pickup: { lat: location.latitude, lng: location.longitude, address },
         },
     });
-    // Clear the request-location keyboard immediately (oneTime isn't always
-    // honored by clients) — then send the inline next-step.
-    try {
-        await ctx.reply('✓', { reply_markup: { remove_keyboard: true } });
-    } catch { /* */ }
+    try { await ctx.reply('✓', { reply_markup: { remove_keyboard: true } }); } catch { /* */ }
     await ctx.reply(L[lang].step2Title, {
         parse_mode: 'HTML',
         reply_markup: destKeyboard(lang),
     });
+}
+
+/**
+ * Step 3 price text input — runs when handleWizardText sees step:3 + sub:'await_price'.
+ * Parses an integer (sum), validates, stores priceMaxSom, and advances to step 4.
+ */
+export async function handleSkoryPriceText(ctx: any, text: string): Promise<void> {
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+    const lang = await lookupLang(chatId);
+    const wiz = await getWizardState(chatId);
+    const data = (wiz as any).data;
+    if ((wiz as any).kind !== 'skory' || data?.step !== 3 || data?.sub !== 'await_price') return;
+    const digits = text.replace(/[\s,.]/g, '');
+    const n = parseInt(digits, 10);
+    if (!Number.isFinite(n) || n <= 0 || n > 100_000_000) {
+        await ctx.reply(L[lang].priceInvalid);
+        return;
+    }
+    const nextData = { ...data, sub: undefined, priceMaxSom: n, step: 4 };
+    await setWizardState(chatId, { kind: 'skory' as any, data: nextData });
+    await ctx.reply(L[lang].step4Title, { parse_mode: 'HTML', reply_markup: descKeyboard(lang) });
+}
+
+async function sendPriceStep(ctx: any, lang: Lang, data: any): Promise<void> {
+    const t = L[lang];
+    let header = t.step3Title + '\n\n';
+    try {
+        const range = await getMarketPriceRange({
+            pickupLat: data.pickup.lat,
+            pickupLng: data.pickup.lng,
+            destLat: data.dest?.lat ?? null,
+            destLng: data.dest?.lng ?? null,
+        });
+        if (range && range.min !== range.max) {
+            header += t.priceRangeIntro(fmtSom(range.min), fmtSom(range.max), range.sampleCount, range.tripKm);
+        } else if (range) {
+            header += t.priceRangeIntro(fmtSom(range.min), fmtSom(range.max), range.sampleCount, range.tripKm);
+        } else {
+            header += t.priceRangeNone;
+        }
+    } catch (e) {
+        console.warn('[skory] price range fetch failed', e);
+        header += t.priceRangeNone;
+    }
+    await ctx.reply(header, { parse_mode: 'HTML', reply_markup: priceKeyboard(lang) });
 }
 
 /**
@@ -352,19 +473,48 @@ export async function handleSkoryDescription(ctx: any, text: string): Promise<vo
 }
 
 async function showConfirm(ctx: any, lang: Lang, data: any): Promise<void> {
-    const summary: string[] = [];
-    if (data.pickup?.address) summary.push(`📍 ${esc(data.pickup.address)}`);
-    else summary.push(L[lang].sumYourLocation);
-    if (data.dest?.label) summary.push(L[lang].sumDestLabel(esc(data.dest.label)));
-    else if (data.dest?.lat) summary.push(L[lang].sumDestCoord);
-    const priceStr = data.priceMaxSom ? `${fmtSom(data.priceMaxSom)} so'm` : L[lang].priceUnlimited;
-    summary.push(L[lang].sumPrice(priceStr));
-    if (data.description) summary.push(L[lang].sumDesc(esc(data.description)));
+    const t = L[lang];
+    const summary: string[] = [t.confirmHeader];
+    summary.push(data.pickup?.address ? `📍 ${esc(data.pickup.address)}` : t.sumYourLocation);
+    if (data.dest?.label) summary.push(t.sumDestLabel(esc(data.dest.label)));
+    else if (data.dest?.lat) summary.push(t.sumDestCoord);
 
-    await ctx.reply(`${L[lang].confirmIntro}${summary.join('\n')}`, {
+    // Distance preview if we have a destination
+    if (data.pickup && data.dest?.lat != null && data.dest?.lng != null) {
+        try {
+            const range = await getMarketPriceRange({
+                pickupLat: data.pickup.lat,
+                pickupLng: data.pickup.lng,
+                destLat: data.dest.lat,
+                destLng: data.dest.lng,
+            });
+            const km = range?.tripKm ?? null;
+            if (km != null) {
+                const eta = Math.max(1, Math.round(km * 2));
+                summary.push(t.confirmDistanceLine(km, eta));
+            }
+        } catch { /* */ }
+    }
+
+    const priceStr = data.priceMaxSom ? `${fmtSom(data.priceMaxSom)} so'm` : L[lang].priceUnlimited;
+    summary.push(t.sumPrice(priceStr));
+    if (data.description) summary.push(t.sumDesc(esc(data.description)));
+
+    await ctx.reply(summary.join('\n'), {
         parse_mode: 'HTML',
-        reply_markup: confirmKeyboard(lang),
+        reply_markup: confirmKeyboardV2(lang),
     });
+}
+
+function confirmKeyboardV2(lang: Lang): InlineKeyboard {
+    const t = L[lang];
+    return new InlineKeyboard()
+        .text(t.confirmSend, 'skory:confirm').row()
+        .text(t.editPickup, 'skory:edit:1')
+        .text(t.editDest, 'skory:edit:2').row()
+        .text(t.editPrice, 'skory:edit:3')
+        .text(t.editDesc, 'skory:edit:4').row()
+        .text(t.cancel, 'skory:cancel');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -775,12 +925,14 @@ export function registerSkoryHandlers(bot: Bot): void {
         else if (target <= 4) { delete newData.description; }
         newData.step = target;
         await setWizardState(chatId, { kind: 'skory' as any, data: newData });
-        const title = target === 2 ? t.step2Title
-            : target === 3 ? t.step3Title
-            : t.step4Title;
-        const kb = target === 2 ? destKeyboard(lang)
-            : target === 3 ? priceKeyboard(lang)
-            : descKeyboard(lang);
+        if (target === 3) {
+            // Price step renders the live market range — needs its own helper.
+            try { await ctx.editMessageReplyMarkup({ reply_markup: undefined }); } catch { /* */ }
+            await sendPriceStep(ctx, lang, newData);
+            return;
+        }
+        const title = target === 2 ? t.step2Title : t.step4Title;
+        const kb = target === 2 ? destKeyboard(lang) : descKeyboard(lang);
         try {
             await ctx.editMessageText(title, { parse_mode: 'HTML', reply_markup: kb });
         } catch {
@@ -797,8 +949,8 @@ export function registerSkoryHandlers(bot: Bot): void {
         try { await ctx.editMessageText(L[lang].cancelled); } catch { /* */ }
     });
 
-    // Destination chips
-    bot.callbackQuery(/^skory:dest:(nearest|skip)$/, async (ctx) => {
+    // Destination — top-level choice (hospital | custom map | skip)
+    bot.callbackQuery(/^skory:dest:(hospital|custom|skip)$/, async (ctx) => {
         const chatId = ctx.chat?.id;
         if (!chatId) return;
         const lang = await lookupLang(chatId);
@@ -808,40 +960,79 @@ export function registerSkoryHandlers(bot: Bot): void {
             return;
         }
         const choice = ctx.match![1];
-        let dest: any = null;
-        if (choice === 'nearest') {
-            // Pick nearest active clinic by haversine.
-            const clinics = await prisma.clinic.findMany({
-                where: { status: 'APPROVED', isActive: true, latitude: { not: null }, longitude: { not: null } },
-                select: { id: true, nameUz: true, latitude: true, longitude: true },
-            });
-            const px = wiz.data.pickup.lat;
-            const py = wiz.data.pickup.lng;
-            let best: { id: string; nameUz: string; lat: number; lng: number; d: number } | null = null;
-            for (const c of clinics) {
-                if (c.latitude == null || c.longitude == null) continue;
-                const dLat = (c.latitude - px) * Math.PI / 180;
-                const dLng = (c.longitude - py) * Math.PI / 180;
-                const a = Math.sin(dLat / 2) ** 2 + Math.cos(px * Math.PI / 180) * Math.cos(c.latitude * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-                const d = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                if (!best || d < best.d) best = { id: c.id, nameUz: c.nameUz, lat: c.latitude, lng: c.longitude, d };
-            }
-            if (best) dest = { clinicId: best.id, label: best.nameUz, lat: best.lat, lng: best.lng };
-        }
-        await setWizardState(chatId, { kind: 'skory' as any, data: { ...wiz.data, step: 3, dest } });
         await ctx.answerCallbackQuery();
-        try {
-            await ctx.editMessageText(L[lang].step3Title, {
-                parse_mode: 'HTML',
-                reply_markup: priceKeyboard(lang),
-            });
-        } catch { /* fall back to new message */
-            await ctx.reply(L[lang].step3Title, { parse_mode: 'HTML', reply_markup: priceKeyboard(lang) });
+
+        if (choice === 'hospital') {
+            const clinics = await getNearbyClinics(wiz.data.pickup.lat, wiz.data.pickup.lng, 10);
+            if (clinics.length === 0) {
+                await ctx.reply(L[lang].noCandidates, { parse_mode: 'HTML' });
+                return;
+            }
+            try {
+                await ctx.editMessageText(L[lang].destClinicHeader, {
+                    parse_mode: 'HTML',
+                    reply_markup: clinicListKeyboard(lang, clinics),
+                });
+            } catch {
+                await ctx.reply(L[lang].destClinicHeader, {
+                    parse_mode: 'HTML', reply_markup: clinicListKeyboard(lang, clinics),
+                });
+            }
+            return;
         }
+
+        if (choice === 'custom') {
+            await setWizardState(chatId, {
+                kind: 'skory' as any,
+                data: { ...wiz.data, sub: 'await_dropoff' },
+            });
+            try { await ctx.editMessageReplyMarkup({ reply_markup: undefined }); } catch { /* */ }
+            await ctx.reply(L[lang].destShareDropoffPrompt, {
+                parse_mode: 'HTML',
+                reply_markup: customDropoffKeyboard(lang),
+            });
+            return;
+        }
+
+        // skip
+        await setWizardState(chatId, { kind: 'skory' as any, data: { ...wiz.data, step: 3, dest: null } });
+        try { await ctx.deleteMessage(); } catch { /* */ }
+        await sendPriceStep(ctx, lang, { ...wiz.data, dest: null });
     });
 
-    // Price chips
-    bot.callbackQuery(/^skory:price:(\d+)$/, async (ctx) => {
+    // Destination — a specific hospital from the list
+    bot.callbackQuery(/^skory:clinic:(.+)$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const lang = await lookupLang(chatId);
+        const wiz = await getWizardState(chatId);
+        if ((wiz as any).kind !== 'skory' || wiz.data?.step !== 2) {
+            await ctx.answerCallbackQuery();
+            return;
+        }
+        const clinicId = ctx.match![1];
+        const clinic = await prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { id: true, nameUz: true, latitude: true, longitude: true, addressUz: true },
+        });
+        if (!clinic || clinic.latitude == null || clinic.longitude == null) {
+            await ctx.answerCallbackQuery('—');
+            return;
+        }
+        const dest = {
+            clinicId: clinic.id,
+            label: clinic.nameUz,
+            lat: clinic.latitude,
+            lng: clinic.longitude,
+        };
+        await setWizardState(chatId, { kind: 'skory' as any, data: { ...wiz.data, step: 3, dest } });
+        await ctx.answerCallbackQuery(`✅ ${clinic.nameUz}`);
+        try { await ctx.deleteMessage(); } catch { /* */ }
+        await sendPriceStep(ctx, lang, { ...wiz.data, dest });
+    });
+
+    // Price — accept-all (no ceiling)
+    bot.callbackQuery('skory:price:all', async (ctx) => {
         const chatId = ctx.chat?.id;
         if (!chatId) return;
         const lang = await lookupLang(chatId);
@@ -850,20 +1041,72 @@ export function registerSkoryHandlers(bot: Bot): void {
             await ctx.answerCallbackQuery();
             return;
         }
-        const priceMaxSom = parseInt(ctx.match![1], 10) || null;
         await setWizardState(chatId, {
             kind: 'skory' as any,
-            data: { ...wiz.data, step: 4, priceMaxSom },
+            data: { ...wiz.data, sub: undefined, step: 4, priceMaxSom: null },
         });
         await ctx.answerCallbackQuery();
         try {
             await ctx.editMessageText(L[lang].step4Title, {
-                parse_mode: 'HTML',
-                reply_markup: descKeyboard(lang),
+                parse_mode: 'HTML', reply_markup: descKeyboard(lang),
             });
         } catch {
             await ctx.reply(L[lang].step4Title, { parse_mode: 'HTML', reply_markup: descKeyboard(lang) });
         }
+    });
+
+    // Price — enter custom max
+    bot.callbackQuery('skory:price:enter', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const lang = await lookupLang(chatId);
+        const wiz = await getWizardState(chatId);
+        if ((wiz as any).kind !== 'skory' || wiz.data?.step !== 3) {
+            await ctx.answerCallbackQuery();
+            return;
+        }
+        await setWizardState(chatId, {
+            kind: 'skory' as any,
+            data: { ...wiz.data, sub: 'await_price' },
+        });
+        await ctx.answerCallbackQuery();
+        await ctx.reply(L[lang].priceEnterPrompt, { parse_mode: 'HTML' });
+    });
+
+    // Confirm-screen edit chips — re-show step N's UI without stripping
+    // other fields. (Re-doing that step naturally overwrites just that field.)
+    bot.callbackQuery(/^skory:edit:([1-4])$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const lang = await lookupLang(chatId);
+        const wiz = await getWizardState(chatId);
+        if ((wiz as any).kind !== 'skory' || !wiz.data) {
+            await ctx.answerCallbackQuery();
+            return;
+        }
+        await ctx.answerCallbackQuery();
+        const target = parseInt(ctx.match![1], 10);
+        const t = L[lang];
+        const newData = { ...wiz.data, step: target, sub: undefined };
+        await setWizardState(chatId, { kind: 'skory' as any, data: newData });
+        try { await ctx.editMessageReplyMarkup({ reply_markup: undefined }); } catch { /* */ }
+
+        if (target === 1) {
+            await ctx.reply(`${t.startTitle}\n\n${t.startHelp}`, {
+                parse_mode: 'HTML', reply_markup: pickupKeyboard(lang),
+            });
+            return;
+        }
+        if (target === 2) {
+            await ctx.reply(t.step2Title, { parse_mode: 'HTML', reply_markup: destKeyboard(lang) });
+            return;
+        }
+        if (target === 3) {
+            await sendPriceStep(ctx, lang, newData);
+            return;
+        }
+        // target === 4
+        await ctx.reply(t.step4Title, { parse_mode: 'HTML', reply_markup: descKeyboard(lang) });
     });
 
     // Description: skip
