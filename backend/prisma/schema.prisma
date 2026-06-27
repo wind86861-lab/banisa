@@ -42,6 +42,7 @@ model User {
   clinicAuditEntries    ClinicAuditLog[]   @relation("ClinicAuditActor")
   ambulancesAsDispatcher Ambulance[]       @relation("AmbulanceDispatcher")
   ambulanceRequests     AmbulanceRequest[] @relation("PatientAmbulanceRequests")
+  ambulanceReviews      AmbulanceReview[]  @relation("PatientAmbulanceReviews")
   dispatchOffers        DispatchOffer[]    @relation("DispatcherOffers")
 
   @@index([phone])
@@ -303,6 +304,7 @@ model Clinic {
   doctorClinics          DoctorClinic[]
   ambulances             Ambulance[]
   ambulanceRequestsAsDest AmbulanceRequest[] @relation("AmbulanceRequestDestClinic")
+  ambulanceReviews        AmbulanceReview[]  @relation("ClinicAmbulanceReviews")
   memberships            ClinicMembership[]
   roles                  ClinicRole[]
   auditLog               ClinicAuditLog[]
@@ -1574,6 +1576,7 @@ model Ambulance {
   statusLogs     AmbulanceStatusLog[]
   requests       AmbulanceRequest[]
   dispatchOffers DispatchOffer[]
+  reviews        AmbulanceReview[]
 
   @@index([clinicId])
   @@index([status])
@@ -1613,6 +1616,7 @@ model AmbulanceRequest {
   acceptedAmbulance  Ambulance?        @relation(fields: [acceptedAmbulanceId], references: [id])
   destClinic         Clinic?           @relation("AmbulanceRequestDestClinic", fields: [destClinicId], references: [id])
   offers             DispatchOffer[]
+  review             AmbulanceReview?
 
   @@index([patientId])
   @@index([status])
@@ -1689,6 +1693,29 @@ enum AmbulanceStatus {
   BUSY        // chaqiruvda
   MAINTENANCE // texnik xizmat
   OFFLINE     // smenadan tashqari
+}
+
+// Patient review left after a completed ambulance trip. One review per
+// request; the patient owns it. Rating 1-5 + optional comment.
+model AmbulanceReview {
+  id          String   @id @default(uuid())
+  requestId   String   @unique
+  patientId   String
+  ambulanceId String
+  clinicId    String
+  rating      Int      // 1-5
+  comment     String?
+  createdAt   DateTime @default(now())
+
+  request   AmbulanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  patient   User             @relation("PatientAmbulanceReviews", fields: [patientId], references: [id])
+  ambulance Ambulance        @relation(fields: [ambulanceId], references: [id], onDelete: Cascade)
+  clinic    Clinic           @relation("ClinicAmbulanceReviews", fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([ambulanceId])
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([createdAt])
 }
 
 // ─── Clinic team / RBAC ──────────────────────────────────────────────────────

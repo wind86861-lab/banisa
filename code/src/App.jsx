@@ -47,6 +47,7 @@ import ClinicBookings from './clinic/pages/ClinicBookings';
 import ClinicPayments from './clinic/pages/ClinicPayments';
 import ClinicDoctors from './clinic/pages/ClinicDoctors';
 import ClinicAmbulances from './clinic/pages/ClinicAmbulances';
+import ClinicSkoryRequests from './clinic/pages/ClinicSkoryRequests';
 import AdminPaymeOversight from './admin/pages/AdminPaymeOversight';
 import AdminSpecialties from './admin/pages/AdminSpecialties';
 import FiscalSettings from './admin/pages/FiscalSettings';
@@ -211,6 +212,7 @@ function App() {
                                         <Route path="payments" element={<ClinicPayments />} />
                                         <Route path="doctors" element={<ClinicDoctors />} />
                                         <Route path="ambulances" element={<ClinicAmbulances />} />
+                                        <Route path="skory-requests" element={<ClinicSkoryRequests />} />
                                         <Route path="team" element={<ClinicTeam />} />
                                         <Route path="reports" element={<ClinicReports />} />
                                         <Route path="notifications" element={<ClinicNotifications />} />

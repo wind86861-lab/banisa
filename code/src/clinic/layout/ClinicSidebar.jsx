@@ -25,6 +25,7 @@ const NAV_GROUPS = [
             { key: 'services', label: 'Xizmatlar', path: '/clinic/services', icon: <Briefcase size={20} /> },
             { key: 'bookings', label: 'Bronlar', path: '/clinic/bookings', icon: <Calendar size={20} /> },
             { key: 'cashier', label: 'Kassa navbati', path: '/clinic/cashier', icon: <Banknote size={20} /> },
+            { key: 'skory-requests', label: 'Tez yordam', path: '/clinic/skory-requests', icon: <Ambulance size={20} /> },
             { key: 'checkin-qr', label: 'Check-in QR', path: '/clinic/checkin-qr', icon: <Printer size={20} /> },
             { key: 'payments', label: "To'lov tizimi", path: '/clinic/payments', icon: <CreditCard size={20} /> },
         ],

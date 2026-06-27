@@ -466,6 +466,126 @@ export async function expirePendingRequest(requestId: string) {
     });
 }
 
+/**
+ * Dispatcher-driven status updates after accept. Validates ownership +
+ * monotonic forward transitions (DISPATCHED → ON_ROUTE → ARRIVED → COMPLETED).
+ * On COMPLETED, releases the ambulance back to AVAILABLE and stamps
+ * completedAt. All in a transaction so we never half-update on failure.
+ */
+export type DispatcherStatus = 'ON_ROUTE' | 'ARRIVED' | 'COMPLETED';
+
+const STATUS_ORDER: Record<string, number> = {
+    PENDING: 0,
+    DISPATCHED: 1,
+    ON_ROUTE: 2,
+    ARRIVED: 3,
+    COMPLETED: 4,
+    CANCELLED: 99,
+};
+
+export async function updateRequestStatus(
+    requestId: string,
+    dispatcherUserId: string,
+    newStatus: DispatcherStatus,
+) {
+    const req = await prisma.ambulanceRequest.findUnique({
+        where: { id: requestId },
+        include: { acceptedAmbulance: { select: { id: true, dispatcherUserId: true, status: true } } },
+    });
+    if (!req) throw new AppError('So\'rov topilmadi', 404, ErrorCodes.NOT_FOUND);
+    if (!req.acceptedAmbulance || req.acceptedAmbulance.dispatcherUserId !== dispatcherUserId) {
+        throw new AppError('Bu so\'rov sizniki emas', 403, ErrorCodes.FORBIDDEN);
+    }
+    if (req.status === 'CANCELLED' || req.status === 'COMPLETED') {
+        return { ok: false as const, reason: 'terminal' as const, request: req };
+    }
+    const cur = STATUS_ORDER[req.status] ?? -1;
+    const nxt = STATUS_ORDER[newStatus] ?? -1;
+    if (nxt <= cur) {
+        return { ok: false as const, reason: 'not_forward' as const, request: req };
+    }
+
+    await prisma.$transaction(async (tx) => {
+        await tx.ambulanceRequest.update({
+            where: { id: requestId },
+            data: {
+                status: newStatus,
+                ...(newStatus === 'COMPLETED' ? { completedAt: new Date() } : {}),
+            },
+        });
+        if (newStatus === 'COMPLETED' && req.acceptedAmbulance) {
+            await tx.ambulance.update({
+                where: { id: req.acceptedAmbulance.id },
+                data: { status: 'AVAILABLE', lastStatusAt: new Date() },
+            });
+            await tx.ambulanceStatusLog.create({
+                data: {
+                    ambulanceId: req.acceptedAmbulance.id,
+                    fromStatus: 'BUSY',
+                    toStatus: 'AVAILABLE',
+                    changedBy: dispatcherUserId,
+                    reason: `skory completed: ${requestId}`,
+                },
+            });
+        }
+    });
+
+    const fresh = await prisma.ambulanceRequest.findUnique({
+        where: { id: requestId },
+        include: {
+            acceptedAmbulance: { include: { clinic: { select: { nameUz: true } } } },
+            patient: { select: { telegramAccount: { select: { chatId: true, language: true } } } },
+        },
+    });
+    return { ok: true as const, request: fresh! };
+}
+
+/**
+ * Patient submits a 1-5 review after a COMPLETED request. One per request
+ * (unique requestId); upsert on conflict so the patient can update their
+ * rating if they tap the stars again before closing the bot.
+ */
+export async function submitReview(input: {
+    requestId: string;
+    patientId: string;
+    rating: number;
+    comment?: string | null;
+}) {
+    const req = await prisma.ambulanceRequest.findUnique({
+        where: { id: input.requestId },
+        select: {
+            id: true, patientId: true, status: true,
+            acceptedAmbulanceId: true,
+            acceptedAmbulance: { select: { clinicId: true } },
+        },
+    });
+    if (!req) throw new AppError('So\'rov topilmadi', 404, ErrorCodes.NOT_FOUND);
+    if (req.patientId !== input.patientId) {
+        throw new AppError('Bu so\'rov sizniki emas', 403, ErrorCodes.FORBIDDEN);
+    }
+    if (req.status !== 'COMPLETED') {
+        throw new AppError('Sharhi faqat yakunlangan chaqiruvga qoldirish mumkin', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    if (!req.acceptedAmbulanceId || !req.acceptedAmbulance?.clinicId) {
+        throw new AppError('Ambulans biriktirilmagan', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    const rating = Math.max(1, Math.min(5, Math.round(input.rating)));
+    const comment = input.comment ? input.comment.trim().slice(0, 500) : null;
+
+    return prisma.ambulanceReview.upsert({
+        where: { requestId: req.id },
+        create: {
+            requestId: req.id,
+            patientId: input.patientId,
+            ambulanceId: req.acceptedAmbulanceId,
+            clinicId: req.acceptedAmbulance.clinicId,
+            rating,
+            comment,
+        },
+        update: { rating, comment },
+    });
+}
+
 export async function getPendingOffersByDispatcher(dispatcherUserId: string) {
     return prisma.dispatchOffer.findMany({
         where: {

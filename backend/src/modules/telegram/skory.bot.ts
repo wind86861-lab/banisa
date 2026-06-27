@@ -32,7 +32,10 @@ import {
     reverseGeocode,
     getActivePendingForPatient,
     expirePendingRequest,
+    updateRequestStatus,
+    submitReview,
     type CandidateAmbulance,
+    type DispatcherStatus,
 } from '../skory/skory.service';
 
 type Lang = 'uz' | 'ru';
@@ -118,6 +121,21 @@ const L = {
         patientExpired: '⌛ <b>So\'rov vaqti tugadi.</b>\n\nHech bir ambulans javob bermadi. Iltimos <b>103</b> raqamiga qo\'ng\'iroq qiling.',
         patientAlreadyPending: '⚠️ Sizda allaqachon yuborilgan so\'rov bor. Avval uni bekor qiling.',
         noneReceived: '😔 Texnik sabab tufayli birorta ambulans habar olmadi. Iltimos <b>103</b> ga qo\'ng\'iroq qiling.',
+        // Status update (dispatcher → patient)
+        actOnRoute: '🚦 Yo\'lga chiqdim',
+        actArrived: '📍 Yetib keldim',
+        actCompleted: '✅ Yakunlandi',
+        statusOnRouteDisp: '🚦 Holat: <b>YO\'LDA</b>. Bemorga xabar yuborildi.',
+        statusArrivedDisp: '📍 Holat: <b>BEMOR OLDIDA</b>. Bemorga xabar yuborildi.',
+        statusCompletedDisp: '✅ <b>Yakunlandi.</b> Ambulans yana bo\'shadi.',
+        statusOnRoutePat: '🚦 <b>Ambulans yo\'lga chiqdi</b>\n\nKutib turing — yetib keladi.',
+        statusArrivedPat: '📍 <b>Ambulans yetib keldi!</b>\n\nIltimos, tashqariga chiqing.',
+        statusCompletedPat: '✅ <b>Chaqiruv yakunlandi.</b>\n\nTez tuzalishingizni tilaymiz!',
+        // Reviews
+        reviewAsk: '⭐ Iltimos, ambulansga baho bering:',
+        reviewThanks: '🙏 Rahmat! Sharhingiz qabul qilindi.',
+        // Wizard back button
+        back: '⬅️ Orqaga',
     },
     ru: {
         startTitle: '🚑 <b>Вызов скорой помощи</b>',
@@ -177,6 +195,18 @@ const L = {
         patientExpired: '⌛ <b>Время ожидания истекло.</b>\n\nНи одна машина не ответила. Пожалуйста, звоните <b>103</b>.',
         patientAlreadyPending: '⚠️ У вас уже есть активный запрос. Сначала отмените его.',
         noneReceived: '😔 По техническим причинам ни одна машина не получила уведомление. Пожалуйста, звоните <b>103</b>.',
+        actOnRoute: '🚦 В пути',
+        actArrived: '📍 На месте',
+        actCompleted: '✅ Завершить',
+        statusOnRouteDisp: '🚦 Статус: <b>В ПУТИ</b>. Пациент уведомлён.',
+        statusArrivedDisp: '📍 Статус: <b>НА МЕСТЕ</b>. Пациент уведомлён.',
+        statusCompletedDisp: '✅ <b>Завершено.</b> Машина снова свободна.',
+        statusOnRoutePat: '🚦 <b>Машина выехала</b>\n\nПодождите — скоро прибудет.',
+        statusArrivedPat: '📍 <b>Машина прибыла!</b>\n\nПожалуйста, выходите.',
+        statusCompletedPat: '✅ <b>Вызов завершён.</b>\n\nСкорейшего выздоровления!',
+        reviewAsk: '⭐ Пожалуйста, оцените машину скорой:',
+        reviewThanks: '🙏 Спасибо! Ваш отзыв получен.',
+        back: '⬅️ Назад',
     },
 } as const;
 
@@ -215,6 +245,7 @@ function destKeyboard(lang: Lang): InlineKeyboard {
     return new InlineKeyboard()
         .text(L[lang].destNearest, 'skory:dest:nearest').row()
         .text(L[lang].destSkip, 'skory:dest:skip').row()
+        .text(L[lang].back, 'skory:back:1')
         .text(L[lang].cancel, 'skory:cancel');
 }
 
@@ -224,19 +255,22 @@ function priceKeyboard(lang: Lang): InlineKeyboard {
         kb.text(`≤ ${fmtSom(p)} so'm`, `skory:price:${p}`).row();
     }
     kb.text(L[lang].priceUnlimited, 'skory:price:0').row();
-    kb.text(L[lang].cancel, 'skory:cancel');
+    kb.text(L[lang].back, 'skory:back:2')
+      .text(L[lang].cancel, 'skory:cancel');
     return kb;
 }
 
 function descKeyboard(lang: Lang): InlineKeyboard {
     return new InlineKeyboard()
         .text(L[lang].descSkip, 'skory:desc:skip').row()
+        .text(L[lang].back, 'skory:back:3')
         .text(L[lang].cancel, 'skory:cancel');
 }
 
 function confirmKeyboard(lang: Lang): InlineKeyboard {
     return new InlineKeyboard()
         .text(L[lang].confirmSend, 'skory:confirm').row()
+        .text(L[lang].back, 'skory:back:4')
         .text(L[lang].cancel, 'skory:cancel');
 }
 
@@ -582,6 +616,61 @@ async function notifyPatientWon(bot: Bot, requestId: string): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Dispatcher post-accept status workflow (DISPATCHED → ON_ROUTE → ARRIVED → COMPLETED)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function dispatcherStatusKeyboard(lang: Lang, requestId: string, next: DispatcherStatus): InlineKeyboard {
+    const t = L[lang];
+    const kb = new InlineKeyboard();
+    if (next === 'ON_ROUTE') kb.text(t.actOnRoute, `skory:status:ON_ROUTE:${requestId}`);
+    if (next === 'ARRIVED') kb.text(t.actArrived, `skory:status:ARRIVED:${requestId}`);
+    if (next === 'COMPLETED') kb.text(t.actCompleted, `skory:status:COMPLETED:${requestId}`);
+    return kb;
+}
+
+function nextDispatcherStatus(cur: string): DispatcherStatus | null {
+    if (cur === 'DISPATCHED') return 'ON_ROUTE';
+    if (cur === 'ON_ROUTE') return 'ARRIVED';
+    if (cur === 'ARRIVED') return 'COMPLETED';
+    return null;
+}
+
+function reviewKeyboard(requestId: string): InlineKeyboard {
+    const kb = new InlineKeyboard();
+    for (let s = 1; s <= 5; s++) kb.text('⭐'.repeat(s), `skory:review:${s}:${requestId}`);
+    return kb;
+}
+
+async function notifyPatientStatus(bot: Bot, requestId: string, status: DispatcherStatus): Promise<void> {
+    const req = await prisma.ambulanceRequest.findUnique({
+        where: { id: requestId },
+        include: { patient: { select: { telegramAccount: { select: { chatId: true, language: true } } } } },
+    });
+    const chatId = req?.patient.telegramAccount?.chatId;
+    if (!chatId) return;
+    const lang: Lang = req!.patient.telegramAccount!.language === 'ru' ? 'ru' : 'uz';
+    const t = L[lang];
+    const msg = status === 'ON_ROUTE' ? t.statusOnRoutePat
+        : status === 'ARRIVED' ? t.statusArrivedPat
+        : t.statusCompletedPat;
+    try {
+        await bot.api.sendMessage(Number(chatId), msg, { parse_mode: 'HTML' });
+        // On COMPLETED, follow up with a review prompt — best-effort so we don't
+        // care if the second send fails.
+        if (status === 'COMPLETED') {
+            try {
+                await bot.api.sendMessage(Number(chatId), t.reviewAsk, {
+                    parse_mode: 'HTML',
+                    reply_markup: reviewKeyboard(requestId),
+                });
+            } catch { /* */ }
+        }
+    } catch (e) {
+        console.error('[skory] notifyPatientStatus failed', { requestId, status }, e);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Pending expiry worker — auto-cancels PENDING requests no dispatcher
 // accepted within the SLA. Notifies the patient + edits dispatcher messages
 // in place to "⌛ request expired".
@@ -654,6 +743,49 @@ export function registerSkoryHandlers(bot: Bot): void {
     bot.callbackQuery('skory:start', async (ctx) => {
         await ctx.answerCallbackQuery();
         await startSkoryWizard(ctx);
+    });
+
+    // Wizard back: re-show the previous step's keyboard inline.
+    bot.callbackQuery(/^skory:back:([1-4])$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) { await ctx.answerCallbackQuery(); return; }
+        const lang = await lookupLang(chatId);
+        const wiz = await getWizardState(chatId);
+        if ((wiz as any).kind !== 'skory' || !wiz.data) {
+            await ctx.answerCallbackQuery();
+            return;
+        }
+        await ctx.answerCallbackQuery();
+        const target = parseInt(ctx.match![1], 10);
+        const t = L[lang];
+        const newData: any = { ...wiz.data };
+        // Strip downstream fields when going back so user actually re-enters
+        if (target <= 1) {
+            // back to step 1 — re-prompt for location via reply keyboard
+            await setWizardState(chatId, { kind: 'skory' as any, data: { step: 1 } });
+            try { await ctx.deleteMessage(); } catch { /* */ }
+            await ctx.reply(`${t.startTitle}\n\n${t.startHelp}`, {
+                parse_mode: 'HTML',
+                reply_markup: pickupKeyboard(lang),
+            });
+            return;
+        }
+        if (target <= 2) { delete newData.dest; delete newData.priceMaxSom; delete newData.description; }
+        else if (target <= 3) { delete newData.priceMaxSom; delete newData.description; }
+        else if (target <= 4) { delete newData.description; }
+        newData.step = target;
+        await setWizardState(chatId, { kind: 'skory' as any, data: newData });
+        const title = target === 2 ? t.step2Title
+            : target === 3 ? t.step3Title
+            : t.step4Title;
+        const kb = target === 2 ? destKeyboard(lang)
+            : target === 3 ? priceKeyboard(lang)
+            : descKeyboard(lang);
+        try {
+            await ctx.editMessageText(title, { parse_mode: 'HTML', reply_markup: kb });
+        } catch {
+            await ctx.reply(title, { parse_mode: 'HTML', reply_markup: kb });
+        }
     });
 
     // Wizard cancel (from anywhere)
@@ -821,12 +953,15 @@ export function registerSkoryHandlers(bot: Bot): void {
             return;
         }
         await ctx.answerCallbackQuery();
-        try { await ctx.editMessageReplyMarkup({ reply_markup: undefined }); } catch { /* */ }
         if (result.won) {
             try {
                 await ctx.editMessageText(
                     `${ctx.callbackQuery?.message?.text || ''}\n\n${L[lang].acceptedByMe}`,
-                    { parse_mode: 'HTML', link_preview_options: { is_disabled: true } },
+                    {
+                        parse_mode: 'HTML',
+                        link_preview_options: { is_disabled: true },
+                        reply_markup: dispatcherStatusKeyboard(lang, result.request.id, 'ON_ROUTE'),
+                    },
                 );
             } catch { /* */ }
             // Run side-effects after responding to the dispatcher.
@@ -835,10 +970,73 @@ export function registerSkoryHandlers(bot: Bot): void {
                 notifyPatientWon(bot, result.request.id),
             ]);
         } else {
+            try { await ctx.editMessageReplyMarkup({ reply_markup: undefined }); } catch { /* */ }
             try {
                 await ctx.editMessageText(L[lang].acceptedByOther);
             } catch { /* */ }
         }
+    });
+
+    // Dispatcher post-accept status updates (ON_ROUTE → ARRIVED → COMPLETED)
+    bot.callbackQuery(/^skory:status:(ON_ROUTE|ARRIVED|COMPLETED):(.+)$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const lang = await lookupLang(chatId);
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) },
+            select: { userId: true },
+        });
+        if (!acc?.userId) { await ctx.answerCallbackQuery(); return; }
+        const newStatus = ctx.match![1] as DispatcherStatus;
+        const requestId = ctx.match![2];
+        let result;
+        try {
+            result = await updateRequestStatus(requestId, acc.userId, newStatus);
+        } catch (e: any) {
+            await ctx.answerCallbackQuery(e?.message || 'Xato');
+            return;
+        }
+        await ctx.answerCallbackQuery();
+        const t = L[lang];
+        const dispLine = newStatus === 'ON_ROUTE' ? t.statusOnRouteDisp
+            : newStatus === 'ARRIVED' ? t.statusArrivedDisp
+            : t.statusCompletedDisp;
+        const nxt = nextDispatcherStatus(newStatus);
+        try {
+            await ctx.editMessageText(
+                `${ctx.callbackQuery?.message?.text || ''}\n\n${dispLine}`,
+                {
+                    parse_mode: 'HTML',
+                    link_preview_options: { is_disabled: true },
+                    reply_markup: nxt ? dispatcherStatusKeyboard(lang, requestId, nxt) : undefined,
+                },
+            );
+        } catch { /* */ }
+        if (result.ok) await notifyPatientStatus(bot, requestId, newStatus);
+    });
+
+    // Patient leaves a 1-5 star review on a completed request.
+    bot.callbackQuery(/^skory:review:([1-5]):(.+)$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const lang = await lookupLang(chatId);
+        const patient = await resolvePatient(chatId);
+        if (!patient) { await ctx.answerCallbackQuery(); return; }
+        const rating = parseInt(ctx.match![1], 10);
+        const requestId = ctx.match![2];
+        try {
+            await submitReview({ requestId, patientId: patient.userId, rating });
+        } catch (e: any) {
+            await ctx.answerCallbackQuery(e?.message || 'Xato');
+            return;
+        }
+        await ctx.answerCallbackQuery();
+        try {
+            await ctx.editMessageText(
+                `${L[lang].reviewThanks}\n\n${'⭐'.repeat(rating)}`,
+                { parse_mode: 'HTML' },
+            );
+        } catch { /* */ }
     });
 
     // Dispatcher decline
