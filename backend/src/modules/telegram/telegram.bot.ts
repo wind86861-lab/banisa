@@ -90,6 +90,10 @@ const LABELS: Record<Lang, Record<string, string>> = {
         clinicSwitch: '🔄 Klinikani almashtirish',
         clinicSearch: '🔍 Bemor qidirish',
         clinicNewBooking: '➕ Yangi bron',
+        // ─ Dispatcher (ambulance driver linked via Ambulance.dispatcherUserId)
+        dispMyAmb: '🚑 Mening ambulansim',
+        dispLive: '🔴 Live Location',
+        dispHistory: '📋 So\'rovlar tarixi',
     },
     ru: {
         services: '🩺 Услуги',
@@ -126,6 +130,10 @@ const LABELS: Record<Lang, Record<string, string>> = {
         clinicSwitch: '🔄 Сменить клинику',
         clinicSearch: '🔍 Поиск пациента',
         clinicNewBooking: '➕ Новая бронь',
+        // ─ Dispatcher
+        dispMyAmb: '🚑 Моя машина',
+        dispLive: '🔴 Live Location',
+        dispHistory: '📋 История вызовов',
     },
 };
 
@@ -259,11 +267,122 @@ async function loadClinicCtx(chatId: number): Promise<ClinicCtx | null> {
 }
 
 /** Patient + (optionally) clinic keyboard stacked together. */
+/**
+ * True if this user is the dispatcher for at least one active ambulance.
+ * Drives a separate keyboard variant so dispatchers don't see patient
+ * ordering rows (they receive offers, they don't place them).
+ */
+async function isAmbulanceDispatcher(userId: string): Promise<boolean> {
+    try {
+        const hit = await prisma.ambulance.findFirst({
+            where: { dispatcherUserId: userId, isActive: true },
+            select: { id: true },
+        });
+        return !!hit;
+    } catch { return false; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dispatcher native views (rendered inline when reply-keyboard button is tapped)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AMB_STATUS_LABEL: Record<string, { uz: string; ru: string }> = {
+    AVAILABLE:  { uz: "🟢 Bo'sh",        ru: '🟢 Свободна' },
+    BUSY:       { uz: '🟡 Bandda',       ru: '🟡 Занята' },
+    MAINTENANCE:{ uz: '🔧 Texnik xizmat', ru: '🔧 Техобслуживание' },
+    OFFLINE:    { uz: "⚪ O'chiq",        ru: '⚪ Не на смене' },
+};
+
+async function renderDispatcherMyAmbulance(userId: string, lang: Lang) {
+    const amb = await prisma.ambulance.findFirst({
+        where: { dispatcherUserId: userId, isActive: true },
+        include: { clinic: { select: { nameUz: true, phones: true } } },
+    });
+    if (!amb) {
+        return {
+            text: lang === 'ru' ? 'Машина не привязана.' : 'Ambulans biriktirilmagan.',
+            keyboard: undefined as any,
+        };
+    }
+    const status = AMB_STATUS_LABEL[amb.status]?.[lang] ?? amb.status;
+    const liveOn = amb.liveLocationUntil && amb.liveLocationUntil > new Date();
+    const liveLine = liveOn
+        ? (lang === 'ru'
+            ? `🔴 Live ON · до ${amb.liveLocationUntil!.toLocaleTimeString('ru')}`
+            : `🔴 Live yoqilgan · ${amb.liveLocationUntil!.toLocaleTimeString('uz-UZ')} gacha`)
+        : (lang === 'ru' ? '⚪ Live выключен' : '⚪ Live o\'chiq');
+    const lines = [
+        `🚑 <b>${amb.callSign}</b>${amb.vehicleModel ? ` · ${amb.vehicleModel}` : ''}`,
+        `🏥 ${amb.clinic?.nameUz}`,
+        `Status: ${status}`,
+        liveLine,
+    ];
+    if (amb.licensePlate) lines.push(`Davlat raqami: ${amb.licensePlate}`);
+    if (amb.lastStatusAt) {
+        const ago = Math.round((Date.now() - amb.lastStatusAt.getTime()) / 60000);
+        lines.push(lang === 'ru' ? `Последнее обновление: ${ago} мин назад` : `Oxirgi yangilanish: ${ago} daq oldin`);
+    }
+    return { text: lines.join('\n'), keyboard: undefined as any };
+}
+
+async function renderDispatcherLiveHelp(userId: string, lang: Lang) {
+    const amb = await prisma.ambulance.findFirst({
+        where: { dispatcherUserId: userId, isActive: true },
+        select: { liveLocationUntil: true },
+    });
+    const liveOn = amb?.liveLocationUntil && amb.liveLocationUntil > new Date();
+    const status = liveOn
+        ? (lang === 'ru' ? '🔴 Live: ВКЛ' : '🔴 Live: YOQILGAN')
+        : (lang === 'ru' ? '⚪ Live: ВЫКЛ' : '⚪ Live: O\'CHIQ');
+    const howTo = lang === 'ru'
+        ? '<b>Как поделиться Live Location:</b>\n\n' +
+          '1. Нажмите 📎 (скрепка)\n' +
+          '2. «Геопозиция» → «Транслировать»\n' +
+          '3. Выберите длительность (15 мин / 1 ч / 8 ч)\n\n' +
+          'Бот будет обновлять позицию машины автоматически.'
+        : '<b>Live Location\'ni yoqish:</b>\n\n' +
+          '1. 📎 (klip) tugmasini bosing\n' +
+          '2. "Joylashuv" → "Live Location"\n' +
+          '3. Davomiylikni tanlang (15 daq / 1 soat / 8 soat)\n\n' +
+          'Bot avtomatik ravishda ambulansingiz joyini yangilab boradi.';
+    return { text: `${status}\n\n${howTo}` };
+}
+
+async function renderDispatcherHistory(userId: string, lang: Lang) {
+    const amb = await prisma.ambulance.findFirst({
+        where: { dispatcherUserId: userId, isActive: true },
+        select: { id: true },
+    });
+    if (!amb) {
+        return { text: lang === 'ru' ? 'Машина не привязана.' : 'Ambulans biriktirilmagan.' };
+    }
+    const requests = await prisma.ambulanceRequest.findMany({
+        where: { acceptedAmbulanceId: amb.id },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        include: { patient: { select: { firstName: true, lastName: true, phone: true } } },
+    });
+    if (requests.length === 0) {
+        return { text: lang === 'ru' ? 'Пока нет принятых вызовов.' : 'Hozircha qabul qilingan chaqiruvlar yo\'q.' };
+    }
+    const title = lang === 'ru' ? '📋 <b>Последние 10 вызовов</b>' : '📋 <b>Oxirgi 10 chaqiruv</b>';
+    const lines = [title, ''];
+    for (const r of requests) {
+        const name = [r.patient?.firstName, r.patient?.lastName].filter(Boolean).join(' ') || (lang === 'ru' ? 'Пациент' : 'Bemor');
+        const dt = r.createdAt.toLocaleString(lang === 'ru' ? 'ru' : 'uz-UZ', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const km = r.estimatedDistanceKm != null ? ` · ${r.estimatedDistanceKm.toFixed(1)} km` : '';
+        const status = AMB_STATUS_LABEL[r.status as any]?.[lang] ?? r.status;
+        lines.push(`• ${dt} — <b>${name}</b>${km} · ${status}`);
+    }
+    return { text: lines.join('\n') };
+}
+
 async function smartKeyboard(userId: string | null, lang: Lang, linked: boolean, chatId: number): Promise<Keyboard> {
     if (!linked || !userId) return replyKeyboard(lang, linked, 0);
-    const [count, ctx] = await Promise.all([
+    const [count, ctx, isDispatcher] = await Promise.all([
         getCartCount(userId).catch(() => 0),
         loadClinicCtx(chatId),
+        isAmbulanceDispatcher(userId),
     ]);
     const L = LABELS[lang];
     const kb = new Keyboard();
@@ -273,6 +392,12 @@ async function smartKeyboard(userId: string | null, lang: Lang, linked: boolean,
           .text(L.clinicCashier).text(L.clinicReport).row()
           .text(L.clinicSearch).text(L.clinicNewBooking).row()
           .text(L.clinicTeam).text(L.profile).row();
+    } else if (isDispatcher) {
+        // Dispatcher: receive-only role. No services/clinics/skory/cart —
+        // patient ordering happens on banisa.uz or via a different account.
+        kb.text(L.dispMyAmb).text(L.dispLive).row()
+          .text(L.dispHistory).text(L.profile).row()
+          .text(L.notifs).row();
     } else {
         kb.text(L.services).text(L.clinics).row()
           .text(L.doctors).text(L.skory).row()
@@ -292,7 +417,7 @@ async function smartKeyboard(userId: string | null, lang: Lang, linked: boolean,
  */
 type ReplyRoute =
     | { kind: 'url'; param: string; label: string }
-    | { kind: 'view'; view: 'bookings' | 'cart' | 'profile' | 'notifs'; label: string };
+    | { kind: 'view'; view: 'bookings' | 'cart' | 'profile' | 'notifs' | 'disp-my-amb' | 'disp-live' | 'disp-history'; label: string };
 
 function routeReplyLabel(lang: Lang, text: string): ReplyRoute | null {
     const L = LABELS[lang];
@@ -311,14 +436,20 @@ function routeReplyLabel(lang: Lang, text: string): ReplyRoute | null {
     };
     if (urls[text]) return { kind: 'url', ...urls[text] };
 
-    const views: Record<string, { view: 'bookings' | 'cart' | 'profile' | 'notifs'; label: string }> = {
-        [LABELS.uz.bookings]: { view: 'bookings', label: L.bookings },
-        [LABELS.ru.bookings]: { view: 'bookings', label: L.bookings },
-        [LABELS.uz.cart]:     { view: 'cart',     label: L.cart },
-        [LABELS.ru.cart]:     { view: 'cart',     label: L.cart },
-        [LABELS.uz.profile]:  { view: 'profile',  label: L.profile },
-        [LABELS.ru.profile]:  { view: 'profile',  label: L.profile },
-        [LABELS.uz.notifs]:   { view: 'notifs',   label: L.notifs },
+    const views: Record<string, { view: 'bookings' | 'cart' | 'profile' | 'notifs' | 'disp-my-amb' | 'disp-live' | 'disp-history'; label: string }> = {
+        [LABELS.uz.bookings]:  { view: 'bookings',     label: L.bookings },
+        [LABELS.ru.bookings]:  { view: 'bookings',     label: L.bookings },
+        [LABELS.uz.cart]:      { view: 'cart',         label: L.cart },
+        [LABELS.ru.cart]:      { view: 'cart',         label: L.cart },
+        [LABELS.uz.profile]:   { view: 'profile',      label: L.profile },
+        [LABELS.ru.profile]:   { view: 'profile',      label: L.profile },
+        [LABELS.uz.notifs]:    { view: 'notifs',       label: L.notifs },
+        [LABELS.uz.dispMyAmb]: { view: 'disp-my-amb',  label: L.dispMyAmb },
+        [LABELS.ru.dispMyAmb]: { view: 'disp-my-amb',  label: L.dispMyAmb },
+        [LABELS.uz.dispLive]:  { view: 'disp-live',    label: L.dispLive },
+        [LABELS.ru.dispLive]:  { view: 'disp-live',    label: L.dispLive },
+        [LABELS.uz.dispHistory]: { view: 'disp-history', label: L.dispHistory },
+        [LABELS.ru.dispHistory]: { view: 'disp-history', label: L.dispHistory },
         [LABELS.ru.notifs]:   { view: 'notifs',   label: L.notifs },
     };
     if (views[text]) return { kind: 'view', ...views[text] };
@@ -1687,6 +1818,15 @@ function registerHandlers(bot: Bot) {
                     startApp('notifications'),
                 );
                 await ctx.reply(route.label, { reply_markup: kb });
+            } else if (route.view === 'disp-my-amb') {
+                const r = await renderDispatcherMyAmbulance(acc.userId, lang);
+                await ctx.reply(r.text, { parse_mode: 'HTML', reply_markup: r.keyboard });
+            } else if (route.view === 'disp-live') {
+                const r = await renderDispatcherLiveHelp(acc.userId, lang);
+                await ctx.reply(r.text, { parse_mode: 'HTML' });
+            } else if (route.view === 'disp-history') {
+                const r = await renderDispatcherHistory(acc.userId, lang);
+                await ctx.reply(r.text, { parse_mode: 'HTML' });
             }
         } catch (e) {
             console.error('[telegram] view render failed:', e);
