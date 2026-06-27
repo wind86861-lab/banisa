@@ -11,7 +11,7 @@
  * left off (e.g., dispatcher accepted while patient was on another page).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -498,6 +498,8 @@ function WaitingScreen({ active, onCancelled }) {
 
 export default function SkoryOrderPage() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const targetAmbulanceId = searchParams.get('ambulanceId') || null;
     const { user, isLoading: authLoading } = useUserAuth();
 
     // The active-request poll. While anything non-terminal exists we lock the
@@ -518,7 +520,7 @@ export default function SkoryOrderPage() {
 
     const submit = useMutation({
         mutationFn: async () => (await api.post('/skory/request', {
-            pickup, dest, priceMaxSom, description,
+            pickup, dest, priceMaxSom, description, targetAmbulanceId,
         })).data,
         onSuccess: (res) => {
             if (res?.success) {
@@ -591,6 +593,20 @@ export default function SkoryOrderPage() {
                         <div key={n} className={`skoo__step ${n === step ? 'skoo__step--active' : n < step ? 'skoo__step--done' : ''}`} />
                     ))}
                 </div>
+
+                {targetAmbulanceId && (
+                    <div style={{
+                        background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 10,
+                        padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#78350f',
+                        display: 'flex', alignItems: 'center', gap: 8,
+                    }}>
+                        <Ambulance size={16} />
+                        <div>
+                            <b>Faqat tanlangan ambulansga so'rov yuboriladi</b><br />
+                            Boshqalarga emas. Agar u javob bermasa — qaytadan boshlash kerak.
+                        </div>
+                    </div>
+                )}
 
                 {step === 1 && <PickupStep pickup={pickup} onChange={setPickup} onNext={() => goTo(2)} />}
                 {step === 2 && pickup && (

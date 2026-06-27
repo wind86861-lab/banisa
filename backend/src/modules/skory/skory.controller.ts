@@ -40,6 +40,9 @@ export const createSkoryRequest = async (req: AuthRequest, res: Response) => {
     const description = typeof b.description === 'string' && b.description.trim()
         ? b.description.trim().slice(0, 500)
         : null;
+    const targetAmbulanceId = typeof b.targetAmbulanceId === 'string' && b.targetAmbulanceId.length > 0
+        ? b.targetAmbulanceId
+        : null;
 
     // Server-side cooldown: one active PENDING per patient
     const existing = await getActivePendingForPatient(patientId);
@@ -62,6 +65,7 @@ export const createSkoryRequest = async (req: AuthRequest, res: Response) => {
         destClinicId: dest?.clinicId ?? null,
         priceMaxSom,
         description,
+        targetAmbulanceId,
     });
 
     if (candidates.length === 0) {

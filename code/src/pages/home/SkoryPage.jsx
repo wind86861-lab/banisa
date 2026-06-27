@@ -86,7 +86,7 @@ function FitBounds({ items, userCoords }) {
 }
 
 
-function AmbulanceDetailModal({ amb, onClose }) {
+function AmbulanceDetailModal({ amb, onClose, onRequest }) {
     if (!amb) return null;
     const tm = TYPE_META[amb.type] || TYPE_META.BASIC;
     const sm = STATUS_META[amb.status] || STATUS_META.OFFLINE;
@@ -194,8 +194,38 @@ function AmbulanceDetailModal({ amb, onClose }) {
                             </div>
                         )}
 
+                        <button
+                            onClick={() => onRequest?.(amb)}
+                            disabled={amb.status !== 'AVAILABLE'}
+                            style={{
+                                width: '100%',
+                                marginTop: 8,
+                                marginBottom: 12,
+                                padding: '13px 16px',
+                                borderRadius: 12,
+                                border: 0,
+                                background: amb.status === 'AVAILABLE'
+                                    ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
+                                    : '#cbd5e1',
+                                color: '#fff',
+                                fontWeight: 700,
+                                fontSize: 15,
+                                cursor: amb.status === 'AVAILABLE' ? 'pointer' : 'not-allowed',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 8,
+                                boxShadow: amb.status === 'AVAILABLE' ? '0 6px 16px rgba(220,38,38,0.3)' : 'none',
+                            }}
+                        >
+                            <Ambulance size={16} />
+                            {amb.status === 'AVAILABLE'
+                                ? 'Shu ambulansga so\'rov yuborish'
+                                : 'Hozir bo\'sh emas'}
+                        </button>
+
                         <div className="sky-cta-note">
-                            <Phone size={12} /> Klinikaga to'g'ridan-to'g'ri qo'ng'iroq qiling
+                            <Phone size={12} /> Yoki to'g'ridan-to'g'ri qo'ng'iroq qiling
                         </div>
 
                         <div className="sky-call-list">
@@ -507,7 +537,14 @@ export default function SkoryPage() {
 
             <Footer />
 
-            <AmbulanceDetailModal amb={selected} onClose={() => setSelected(null)} />
+            <AmbulanceDetailModal
+                amb={selected}
+                onClose={() => setSelected(null)}
+                onRequest={(a) => {
+                    setSelected(null);
+                    navigate(`/skory/order?ambulanceId=${a.id}`);
+                }}
+            />
 
             <SkoryLocationPicker
                 open={pickerOpen}

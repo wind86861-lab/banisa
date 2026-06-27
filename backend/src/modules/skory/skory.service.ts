@@ -104,6 +104,10 @@ export interface CreateRequestInput {
     destClinicId?: string | null;
     priceMaxSom?: number | null;
     description?: string | null;
+    // When set, restrict fanout to ONLY this ambulance (patient picked it
+    // explicitly from the public map). Distance/price/eligibility checks
+    // still run — if it fails them, the call ends with NO_CANDIDATES.
+    targetAmbulanceId?: string | null;
 }
 
 export interface CandidateAmbulance {
@@ -140,6 +144,7 @@ export async function findCandidates(input: CreateRequestInput): Promise<Candida
             isActive: true,
             status: 'AVAILABLE',
             dispatcherUserId: { not: null },
+            ...(input.targetAmbulanceId ? { id: input.targetAmbulanceId } : {}),
         },
         include: {
             clinic: {
