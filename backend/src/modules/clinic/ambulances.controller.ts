@@ -36,6 +36,25 @@ const AMBULANCE_TYPES = ['BASIC', 'INTENSIVE_CARE', 'NEONATAL', 'CARDIAC', 'TRAU
 const AMBULANCE_STATUSES = ['AVAILABLE', 'BUSY', 'MAINTENANCE', 'OFFLINE'] as const;
 type AmbStatus = typeof AMBULANCE_STATUSES[number];
 
+/**
+ * If a clinic submits an ambulance without per-vehicle pricing, fall back
+ * to the SUPER_ADMIN-set global defaults so the row is valid for dispatch.
+ * Returns the resolved values (which may still be null if the admin hasn't
+ * configured defaults either — callers then refuse activation).
+ */
+async function resolvePricing(input: {
+    baseFee: number | null;
+    pricePerKm: number | null;
+}): Promise<{ baseFee: number | null; pricePerKm: number | null }> {
+    const need = input.baseFee == null || input.pricePerKm == null;
+    if (!need) return { baseFee: input.baseFee, pricePerKm: input.pricePerKm };
+    const g = await prisma.globalAmbulanceSettings.findFirst({ orderBy: { createdAt: 'asc' } });
+    return {
+        baseFee: input.baseFee ?? g?.defaultBaseFee ?? null,
+        pricePerKm: input.pricePerKm ?? g?.defaultPricePerKm ?? null,
+    };
+}
+
 // ─── GET /api/clinic/ambulances ──────────────────────────────────────────────
 export const listAmbulances = async (req: AuthRequest, res: Response) => {
     const clinicId = await resolveClinicId(req.user!.id);
@@ -72,6 +91,19 @@ export const createAmbulance = async (req: AuthRequest, res: Response) => {
     const dispatcherPhoneNorm = normalizePhone(dispatcherPhone);
     const dispatcherUserId = await resolveDispatcherUser(dispatcherPhoneNorm);
 
+    const pricing = await resolvePricing({
+        baseFee: Number.isFinite(baseFee) ? baseFee : null,
+        pricePerKm: Number.isFinite(pricePerKm) ? pricePerKm : null,
+    });
+
+    const requestedStatus = (status || 'OFFLINE') as AmbStatus;
+    if (requestedStatus === 'AVAILABLE' && pricing.pricePerKm == null) {
+        return res.status(400).json({
+            success: false,
+            message: '1 km narxini kiriting (yoki admin global default qo\'ymaguncha ambulansni AVAILABLE qila olmaysiz)',
+        });
+    }
+
     try {
         const created = await prisma.ambulance.create({
             data: {
@@ -84,14 +116,14 @@ export const createAmbulance = async (req: AuthRequest, res: Response) => {
                 equipment: Array.isArray(equipment) ? equipment : [],
                 baseLatitude: Number.isFinite(baseLatitude) ? baseLatitude : null,
                 baseLongitude: Number.isFinite(baseLongitude) ? baseLongitude : null,
-                baseFee: Number.isFinite(baseFee) ? baseFee : null,
-                pricePerKm: Number.isFinite(pricePerKm) ? pricePerKm : null,
+                baseFee: pricing.baseFee,
+                pricePerKm: pricing.pricePerKm,
                 dispatchPhone: dispatchPhone?.trim() || null,
                 dispatcherPhone: dispatcherPhoneNorm,
                 dispatcherUserId,
                 photoUrl: photoUrl?.trim() || null,
                 notes: notes?.trim() || null,
-                status: (status || 'OFFLINE') as any,
+                status: requestedStatus as any,
                 lastStatusAt: new Date(),
             },
         });
@@ -131,6 +163,16 @@ export const updateAmbulance = async (req: AuthRequest, res: Response) => {
     if (Number.isFinite(baseLongitude) || baseLongitude === null) data.baseLongitude = baseLongitude;
     if (Number.isFinite(baseFee) || baseFee === null) data.baseFee = baseFee;
     if (Number.isFinite(pricePerKm) || pricePerKm === null) data.pricePerKm = pricePerKm;
+    // Auto-fill from global default whenever the caller cleared / didn't set
+    // a price field on a row that also has no per-vehicle override.
+    if (data.baseFee == null || data.pricePerKm == null) {
+        const pricing = await resolvePricing({
+            baseFee: data.baseFee ?? existing.baseFee ?? null,
+            pricePerKm: data.pricePerKm ?? existing.pricePerKm ?? null,
+        });
+        if ('baseFee' in data || existing.baseFee == null) data.baseFee = pricing.baseFee;
+        if ('pricePerKm' in data || existing.pricePerKm == null) data.pricePerKm = pricing.pricePerKm;
+    }
     if (typeof dispatchPhone === 'string') data.dispatchPhone = dispatchPhone.trim() || null;
     if (typeof dispatcherPhone === 'string') {
         const norm = normalizePhone(dispatcherPhone);
@@ -171,6 +213,16 @@ export const changeStatus = async (req: AuthRequest, res: Response) => {
     }
     if (existing.status === status) {
         return res.json({ success: true, data: existing });
+    }
+
+    // Activation guard: AVAILABLE requires a price (own override OR the
+    // global admin default — which is auto-stamped onto baseFee/pricePerKm
+    // at create/update time, so this should already be non-null by now).
+    if (status === 'AVAILABLE' && existing.pricePerKm == null) {
+        return res.status(400).json({
+            success: false,
+            message: 'AVAILABLE qilish uchun 1 km narxi kerak. Ambulansni tahrirlab narxni kiriting.',
+        });
     }
 
     const [updated] = await prisma.$transaction([

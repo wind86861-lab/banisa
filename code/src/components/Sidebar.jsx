@@ -4,7 +4,7 @@ import {
     FileText, Briefcase, Layout, Shield, Lock,
     MoreHorizontal, ChevronRight, Building2,
     PieChart, Phone, Grid, Calendar, Globe, Database, CreditCard,
-    Stethoscope, FileCheck,
+    Stethoscope, FileCheck, Ambulance,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -74,6 +74,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                 { key: 'oferta', icon: <FileText size={20} />, label: 'Ommaviy oferta', path: '/admin/oferta' },
                 { key: 'payments', icon: <CreditCard size={20} />, label: 'Payme nazorat', path: '/admin/payments' },
                 { key: 'fiscal', icon: <FileCheck size={20} />, label: 'Fiskal kodlar', path: '/admin/fiscal' },
+                { key: 'ambulance-settings', icon: <Ambulance size={20} />, label: 'Ambulans narxlari', path: '/admin/ambulance-settings' },
             ]
         },
         {

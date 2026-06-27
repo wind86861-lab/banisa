@@ -1699,6 +1699,20 @@ enum AmbulanceStatus {
   OFFLINE     // smenadan tashqari
 }
 
+// Singleton (one row) global defaults set by SUPER_ADMIN. Used when a
+// clinic creates an ambulance without filling its own price fields —
+// the missing values are back-filled from here before the row is saved.
+// If neither this nor the clinic's own value is set, the ambulance cannot
+// be activated (status=AVAILABLE).
+model GlobalAmbulanceSettings {
+  id                  String   @id @default(uuid())
+  defaultPricePerKm   Int?     // som per km
+  defaultBaseFee      Int?     // som — chaqiruv narxi
+  updatedBy           String?
+  updatedAt           DateTime @updatedAt
+  createdAt           DateTime @default(now())
+}
+
 // Patient review left after a completed ambulance trip. One review per
 // request; the patient owns it. Rating 1-5 + optional comment.
 model AmbulanceReview {
