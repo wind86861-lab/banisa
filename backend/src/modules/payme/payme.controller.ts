@@ -34,15 +34,17 @@ export const handleMerchantApi = async (req: Request, res: Response) => {
     console.log(`[${tag}] method=${method} test=${ctx.isTestMode} order=${params?.account?.order_id ?? '-'}`);
 
     // Methods that move money / mutate transaction state. When the integration
-    // is paused (isActive=false), refuse these — auth succeeded so we know
-    // the key matches, but the clinic admin has turned the integration off.
-    // Read-only methods (CheckPerformTransaction, CheckTransaction,
-    // GetStatement) still run so self-test loops can validate the config.
+    // is paused (isActive=false) AND the caller is using the LIVE key, refuse —
+    // auth succeeded so we know the key matches, but the clinic admin has
+    // turned the integration off. TEST-key callers (the Payme sandbox at
+    // test.paycom.uz) are allowed through so onboarding's full flow can be
+    // validated end-to-end BEFORE going live — no real money moves on a test
+    // key, so the "paused" guard isn't protecting anything there.
     const STATE_MUTATING = new Set(['CreateTransaction', 'PerformTransaction', 'CancelTransaction']);
 
     let outcome: { result?: any; error?: any } = {};
     try {
-        if ((ctx as any).isInactive && STATE_MUTATING.has(method)) {
+        if ((ctx as any).isInactive && !ctx.isTestMode && STATE_MUTATING.has(method)) {
             outcome = { error: { code: -31008, message: 'Integration paused by clinic admin', data: null } };
         } else {
             switch (method) {
