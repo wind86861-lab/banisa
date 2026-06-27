@@ -47,7 +47,7 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
     const [pricePerKm, setPricePerKm] = useState(existing?.pricePerKm ?? '');
     const [dispatchPhone, setDispatchPhone] = useState(existing?.dispatchPhone || '');
     const [dispatcherPhone, setDispatcherPhone] = useState(existing?.dispatcherPhone || '');
-    const dispatcherLinked = Boolean(existing?.dispatcherUserId);
+    const [dispatcherLinked, setDispatcherLinked] = useState(Boolean(existing?.dispatcherUserId));
     const [notes, setNotes] = useState(existing?.notes || '');
     const [photoUrl, setPhotoUrl] = useState(existing?.photoUrl || '');
     const [status, setStatus] = useState(existing?.status || 'OFFLINE');
@@ -91,7 +91,13 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
             }
             return (await api.post('/clinic/ambulances', { ...body, status })).data;
         },
-        onSuccess: onSaved,
+        onSuccess: (res) => {
+            // Refresh the linked indicator in-place so admin sees the result
+            // without closing+reopening the drawer.
+            const updated = res?.data;
+            if (updated) setDispatcherLinked(Boolean(updated.dispatcherUserId));
+            onSaved?.(res);
+        },
     });
 
     const canSubmit = callSign.trim().length >= 1;
@@ -167,17 +173,18 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
                             />
                         </div>
                         <div className="cab-field">
-                            <label>Tezkor telefon</label>
+                            <label>📞 Klinika qabul telefoni</label>
                             <input
                                 value={dispatchPhone}
                                 onChange={(e) => setDispatchPhone(e.target.value)}
                                 placeholder="+998 71 ..."
                             />
+                            <div className="cab-hint">Bemorlar ko'radigan asosiy aloqa raqami</div>
                         </div>
 
                         <div className="cab-field" style={{ gridColumn: 'span 2' }}>
                             <label>
-                                🤖 Dispatcher Telegram (mas'ul shaxs telefoni)
+                                🤖 Dispatcher Telegram (mas'ul shaxs)
                             </label>
                             <input
                                 value={dispatcherPhone}
@@ -187,7 +194,7 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
                             <div style={{ fontSize: 11, marginTop: 4, color: dispatcherLinked ? '#059669' : '#94a3b8' }}>
                                 {dispatcherLinked
                                     ? '✅ Bog\'langan — bu shaxs Telegram bot orqali tez yordam so\'rovlarini qabul qiladi'
-                                    : 'Bu raqamga ega shaxs Banisa botiga /start bossa, avtomatik ulanadi'}
+                                    : '⚠️ Hali bog\'lanmagan. Bu raqamga ega shaxs Banisa botiga /start bossa, avtomatik ulanadi. Bunisiz ambulans onlayn so\'rovlarni olmaydi.'}
                             </div>
                         </div>
 

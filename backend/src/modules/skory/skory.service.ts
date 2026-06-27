@@ -16,6 +16,40 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 }
 
 const OSRM_BASE = process.env.OSRM_BASE_URL || 'https://router.project-osrm.org';
+if (OSRM_BASE.includes('router.project-osrm.org')) {
+    console.warn('[skory] Using public OSRM demo server. Set OSRM_BASE_URL to a self-hosted instance for production.');
+}
+
+const NOMINATIM_BASE = process.env.NOMINATIM_BASE_URL || 'https://nominatim.openstreetmap.org';
+
+/**
+ * Reverse-geocode a coordinate to a human-readable address. Best-effort —
+ * returns null on timeout/failure so callers can fall back to raw coords.
+ */
+export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+    try {
+        const url = `${NOMINATIM_BASE}/reverse?lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}&format=json&accept-language=uz,ru,en&zoom=18`;
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 3000);
+        try {
+            const r = await fetch(url, {
+                signal: ctrl.signal,
+                headers: { 'User-Agent': 'banisa.uz/1.0 (skory dispatch; admin@banisa.uz)' },
+            });
+            if (!r.ok) return null;
+            const j: any = await r.json();
+            const name: string | null = j?.display_name || null;
+            if (!name) return null;
+            // Trim very long Nominatim strings to first 3 components.
+            const parts = name.split(',').map((s: string) => s.trim()).filter(Boolean);
+            return parts.slice(0, 3).join(', ');
+        } finally {
+            clearTimeout(t);
+        }
+    } catch {
+        return null;
+    }
+}
 
 /**
  * One-to-one OSRM driving route. Returns { km, minutes } or null on failure.
@@ -136,6 +170,13 @@ export async function findCandidates(input: CreateRequestInput): Promise<Candida
         .sort((x, y) => x.distanceKm - y.distanceKm)
         .slice(0, 20);  // cap OSRM calls
 
+    // pickup→destination is the SAME for every candidate — compute once.
+    let onwardKm: number | null = null;
+    if (input.destLat != null && input.destLng != null) {
+        const onward = await osrmRoute(input.pickupLat, input.pickupLng, input.destLat, input.destLng);
+        if (onward) onwardKm = onward.km;
+    }
+
     // Real driving distance for each survivor.
     const enriched = await Promise.all(rough.map(async ({ a, lat, lng, distanceKm, chatId }) => {
         const route = await osrmRoute(input.pickupLat, input.pickupLng, lat, lng)
@@ -144,11 +185,7 @@ export async function findCandidates(input: CreateRequestInput): Promise<Candida
         const pricePerKm = a.pricePerKm ?? 0;
         // If patient also gave a destination, factor in pickup→drop driving km
         // for the price ceiling (more honest than ambulance→pickup alone).
-        let billableKm = route.km;
-        if (input.destLat != null && input.destLng != null) {
-            const onward = await osrmRoute(input.pickupLat, input.pickupLng, input.destLat, input.destLng);
-            if (onward) billableKm = onward.km;
-        }
+        const billableKm = onwardKm ?? route.km;
         const estimatedPrice = baseFee + Math.round(billableKm * pricePerKm);
 
         const candidate: CandidateAmbulance = {
@@ -227,9 +264,14 @@ export async function createRequest(
 }
 
 /**
- * Atomic accept: only the first call that finds acceptedAmbulanceId IS NULL
- * wins. Returns { won: true, request, offer } for the winner; { won: false }
- * for losers. Caller is responsible for editing telegram messages.
+ * Atomic accept. Two race guards in a single transaction:
+ *   1. Request must still be PENDING with no acceptedAmbulanceId
+ *   2. Ambulance must still be AVAILABLE (otherwise same ambulance
+ *      could "win" two different requests fanned out simultaneously)
+ *
+ * If either guard fails the transaction rolls back and we report `lost`.
+ * Also writes an AmbulanceStatusLog row for the AVAILABLE→BUSY transition
+ * so klinika admin sees skory-driven status changes in history.
  */
 export async function acceptOffer(offerId: string, dispatcherUserId: string) {
     const offer = await prisma.dispatchOffer.findUnique({
@@ -243,43 +285,82 @@ export async function acceptOffer(offerId: string, dispatcherUserId: string) {
     if (offer.request.status !== 'PENDING') {
         return { won: false as const, offer, request: offer.request, reason: 'not_pending' as const };
     }
-
-    // Atomic UPDATE ... WHERE acceptedAmbulanceId IS NULL — Prisma updateMany
-    // returns the count actually changed. If 0, someone else won.
-    const claim = await prisma.ambulanceRequest.updateMany({
-        where: { id: offer.requestId, status: 'PENDING', acceptedAmbulanceId: null },
-        data: {
-            status: 'DISPATCHED',
-            acceptedAmbulanceId: offer.ambulanceId,
-            acceptedAt: new Date(),
-        },
-    });
-
-    if (claim.count === 0) {
+    if (offer.ambulance.status !== 'AVAILABLE') {
         await prisma.dispatchOffer.update({
             where: { id: offerId },
             data: { status: 'LOST', respondedAt: new Date() },
         });
-        const fresh = await prisma.ambulanceRequest.findUnique({ where: { id: offer.requestId } });
-        return { won: false as const, offer, request: fresh!, reason: 'lost' as const };
+        return { won: false as const, offer, request: offer.request, reason: 'ambulance_busy' as const };
     }
 
-    // Mark this offer ACCEPTED, the rest LOST.
-    await prisma.$transaction([
-        prisma.dispatchOffer.update({
-            where: { id: offerId },
-            data: { status: 'ACCEPTED', respondedAt: new Date() },
-        }),
-        prisma.dispatchOffer.updateMany({
-            where: { requestId: offer.requestId, id: { not: offerId }, status: 'SHOWN' },
-            data: { status: 'LOST' },
-        }),
-        // Ambulance flips to BUSY for the duration of the call.
-        prisma.ambulance.update({
-            where: { id: offer.ambulanceId },
-            data: { status: 'BUSY', lastStatusAt: new Date() },
-        }),
-    ]);
+    // We need the accepting candidate's own distance/duration so the patient
+    // sees an honest ETA (not "fastest available" which may be a different
+    // dispatcher). Recompute via haversine here as a fallback — OSRM data
+    // was computed at fanout time but isn't persisted per-offer.
+    const ambLat = offer.ambulance.currentLatitude ?? offer.ambulance.baseLatitude;
+    const ambLng = offer.ambulance.currentLongitude ?? offer.ambulance.baseLongitude;
+    let acceptedKm: number | null = null;
+    let acceptedMin: number | null = null;
+    if (ambLat != null && ambLng != null) {
+        const hav = haversineKm(offer.request.pickupLat, offer.request.pickupLng, ambLat, ambLng);
+        const osrm = await osrmRoute(ambLat, ambLng, offer.request.pickupLat, offer.request.pickupLng);
+        acceptedKm = osrm?.km ?? hav;
+        acceptedMin = osrm?.minutes ?? Math.max(1, Math.round(hav * 2));
+    }
+
+    try {
+        await prisma.$transaction(async (tx) => {
+            // 1. Claim the ambulance row (status guard)
+            const ambClaim = await tx.ambulance.updateMany({
+                where: { id: offer.ambulanceId, status: 'AVAILABLE' },
+                data: { status: 'BUSY', lastStatusAt: new Date() },
+            });
+            if (ambClaim.count === 0) throw new Error('__race_ambulance__');
+
+            // 2. Claim the request row (status guard)
+            const reqClaim = await tx.ambulanceRequest.updateMany({
+                where: { id: offer.requestId, status: 'PENDING', acceptedAmbulanceId: null },
+                data: {
+                    status: 'DISPATCHED',
+                    acceptedAmbulanceId: offer.ambulanceId,
+                    acceptedAt: new Date(),
+                    estimatedDistanceKm: acceptedKm,
+                    estimatedDurationMin: acceptedMin,
+                },
+            });
+            if (reqClaim.count === 0) throw new Error('__race_request__');
+
+            // 3. Mark offers + write status log
+            await tx.dispatchOffer.update({
+                where: { id: offerId },
+                data: { status: 'ACCEPTED', respondedAt: new Date() },
+            });
+            await tx.dispatchOffer.updateMany({
+                where: { requestId: offer.requestId, id: { not: offerId }, status: 'SHOWN' },
+                data: { status: 'LOST' },
+            });
+            await tx.ambulanceStatusLog.create({
+                data: {
+                    ambulanceId: offer.ambulanceId,
+                    fromStatus: 'AVAILABLE',
+                    toStatus: 'BUSY',
+                    changedBy: dispatcherUserId,
+                    reason: `skory accept: ${offer.requestId}`,
+                },
+            });
+        });
+    } catch (e: any) {
+        if (e?.message === '__race_ambulance__' || e?.message === '__race_request__') {
+            await prisma.dispatchOffer.update({
+                where: { id: offerId },
+                data: { status: 'LOST', respondedAt: new Date() },
+            });
+            const fresh = await prisma.ambulanceRequest.findUnique({ where: { id: offer.requestId } });
+            const reason = e.message === '__race_ambulance__' ? 'ambulance_busy' as const : 'lost' as const;
+            return { won: false as const, offer, request: fresh!, reason };
+        }
+        throw e;
+    }
 
     const winnerRequest = await prisma.ambulanceRequest.findUnique({
         where: { id: offer.requestId },
@@ -327,6 +408,15 @@ export async function cancelRequest(requestId: string, patientId: string, reason
                     where: { id: req.acceptedAmbulanceId! },
                     data: { status: 'AVAILABLE', lastStatusAt: new Date() },
                 }),
+                prisma.ambulanceStatusLog.create({
+                    data: {
+                        ambulanceId: req.acceptedAmbulanceId!,
+                        fromStatus: 'BUSY',
+                        toStatus: 'AVAILABLE',
+                        changedBy: patientId,
+                        reason: `skory cancelled: ${reason ?? 'no reason'}`,
+                    },
+                }),
             ]
             : []),
     ]);
@@ -334,6 +424,45 @@ export async function cancelRequest(requestId: string, patientId: string, reason
     return prisma.ambulanceRequest.findUnique({
         where: { id: requestId },
         include: { offers: true, acceptedAmbulance: true },
+    });
+}
+
+/**
+ * Look up a patient's still-active PENDING request, if any. Used by the bot
+ * to prevent the same patient from spamming new requests while one is alive.
+ */
+export async function getActivePendingForPatient(patientId: string) {
+    return prisma.ambulanceRequest.findFirst({
+        where: { patientId, status: 'PENDING' },
+        orderBy: { createdAt: 'desc' },
+    });
+}
+
+/**
+ * System-driven expiry: marks a PENDING request CANCELLED if no dispatcher
+ * accepted within the SLA window. Called by the expiry worker in skory.bot.ts.
+ * Returns the cancelled request rows so the bot can notify patient + edit
+ * dispatcher messages.
+ */
+export async function expirePendingRequest(requestId: string) {
+    // Atomic claim — only one cluster worker can win the expire.
+    const claim = await prisma.ambulanceRequest.updateMany({
+        where: { id: requestId, status: 'PENDING' },
+        data: { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: 'timeout' },
+    });
+    if (claim.count === 0) return null;
+
+    await prisma.dispatchOffer.updateMany({
+        where: { requestId, status: 'SHOWN' },
+        data: { status: 'LOST' },
+    });
+
+    return prisma.ambulanceRequest.findUnique({
+        where: { id: requestId },
+        include: {
+            offers: { where: { telegramMessageId: { not: null } } },
+            patient: { select: { telegramAccount: { select: { chatId: true, language: true } } } },
+        },
     });
 }
 

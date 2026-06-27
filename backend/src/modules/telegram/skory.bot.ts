@@ -29,6 +29,9 @@ import {
     acceptOffer,
     declineOffer,
     cancelRequest,
+    reverseGeocode,
+    getActivePendingForPatient,
+    expirePendingRequest,
     type CandidateAmbulance,
 } from '../skory/skory.service';
 
@@ -90,14 +93,31 @@ const L = {
             return lines.join('\n');
         },
         patientCancelled: '✅ So\'rov bekor qilindi.',
+        // Confirm summary
+        sumYourLocation: '📍 Joyingiz olinadi',
+        sumDestCoord: '🏥 Manzil: tanlangan koordinata',
+        sumDestLabel: (l: string) => `🏥 Manzil: ${l}`,
+        sumPrice: (v: string) => `💰 Maksimal narx: ${v}`,
+        sumDesc: (d: string) => `📝 ${d}`,
         // Dispatcher messages
         offerTitle: '🚨 <b>YANGI TEZ YORDAM SO\'ROVI</b>',
+        offerPatient: 'Bemor',
+        offerPickup: 'Olib ketish',
+        offerDest: 'Manzil',
+        offerDistance: 'Masofa',
+        offerEta: 'ETA',
+        offerPrice: 'Taxminiy narx',
+        offerMaxPrice: 'Bemor maks',
         accept: '✅ Qabul qilaman',
         decline: '❌ O\'tkazib yuborish',
         acceptedByMe: '✅ Siz qabul qildingiz. Bemorga xabar yuborildi.',
         acceptedByOther: '❌ Bu chaqiruvni boshqa ambulans qabul qildi.',
         declinedByMe: 'O\'tkazib yuborildi.',
         requestCancelled: '❌ Bemor so\'rovni bekor qildi.',
+        requestExpired: '⌛ So\'rov vaqti tugadi (hech kim qabul qilmadi).',
+        patientExpired: '⌛ <b>So\'rov vaqti tugadi.</b>\n\nHech bir ambulans javob bermadi. Iltimos <b>103</b> raqamiga qo\'ng\'iroq qiling.',
+        patientAlreadyPending: '⚠️ Sizda allaqachon yuborilgan so\'rov bor. Avval uni bekor qiling.',
+        noneReceived: '😔 Texnik sabab tufayli birorta ambulans habar olmadi. Iltimos <b>103</b> ga qo\'ng\'iroq qiling.',
     },
     ru: {
         startTitle: '🚑 <b>Вызов скорой помощи</b>',
@@ -134,13 +154,29 @@ const L = {
             return lines.join('\n');
         },
         patientCancelled: '✅ Запрос отменён.',
+        sumYourLocation: '📍 Ваше местоположение будет передано',
+        sumDestCoord: '🏥 Адрес: выбранные координаты',
+        sumDestLabel: (l: string) => `🏥 Адрес: ${l}`,
+        sumPrice: (v: string) => `💰 Максимальная цена: ${v}`,
+        sumDesc: (d: string) => `📝 ${d}`,
         offerTitle: '🚨 <b>НОВЫЙ ВЫЗОВ СКОРОЙ</b>',
+        offerPatient: 'Пациент',
+        offerPickup: 'Забрать',
+        offerDest: 'Адрес',
+        offerDistance: 'Расстояние',
+        offerEta: 'ETA',
+        offerPrice: 'Примерная цена',
+        offerMaxPrice: 'Макс. цена пациента',
         accept: '✅ Принимаю',
         decline: '❌ Пропустить',
         acceptedByMe: '✅ Вы приняли. Пациенту отправлено уведомление.',
         acceptedByOther: '❌ Этот вызов принят другой машиной.',
         declinedByMe: 'Пропущено.',
         requestCancelled: '❌ Пациент отменил запрос.',
+        requestExpired: '⌛ Время ожидания истекло (никто не принял).',
+        patientExpired: '⌛ <b>Время ожидания истекло.</b>\n\nНи одна машина не ответила. Пожалуйста, звоните <b>103</b>.',
+        patientAlreadyPending: '⚠️ У вас уже есть активный запрос. Сначала отмените его.',
+        noneReceived: '😔 По техническим причинам ни одна машина не получила уведомление. Пожалуйста, звоните <b>103</b>.',
     },
 } as const;
 
@@ -243,14 +279,22 @@ export async function handleSkoryPickup(ctx: any, location: { latitude: number; 
     const wiz = await getWizardState(chatId);
     if ((wiz as any).kind !== 'skory' || wiz.data?.step !== 1) return;
 
+    // Best-effort reverse geocode so dispatcher sees a human-readable address
+    // instead of raw coords. Don't block the wizard on a slow call.
+    const address = await reverseGeocode(location.latitude, location.longitude);
+
     await setWizardState(chatId, {
         kind: 'skory' as any,
         data: {
             step: 2,
-            pickup: { lat: location.latitude, lng: location.longitude },
+            pickup: { lat: location.latitude, lng: location.longitude, address },
         },
     });
-    // Replace the live-geo keyboard with the normal reply keyboard.
+    // Clear the request-location keyboard immediately (oneTime isn't always
+    // honored by clients) — then send the inline next-step.
+    try {
+        await ctx.reply('✓', { reply_markup: { remove_keyboard: true } });
+    } catch { /* */ }
     await ctx.reply(L[lang].step2Title, {
         parse_mode: 'HTML',
         reply_markup: destKeyboard(lang),
@@ -275,11 +319,13 @@ export async function handleSkoryDescription(ctx: any, text: string): Promise<vo
 
 async function showConfirm(ctx: any, lang: Lang, data: any): Promise<void> {
     const summary: string[] = [];
-    summary.push(`📍 Joyingiz olinadi`);
-    if (data.dest?.lat) summary.push(`🏥 Manzil: tanlangan koordinata`);
-    else if (data.dest?.label) summary.push(`🏥 Manzil: ${esc(data.dest.label)}`);
-    summary.push(`💰 Maksimal narx: ${data.priceMaxSom ? `${fmtSom(data.priceMaxSom)} so'm` : L[lang].priceUnlimited}`);
-    if (data.description) summary.push(`📝 ${esc(data.description)}`);
+    if (data.pickup?.address) summary.push(`📍 ${esc(data.pickup.address)}`);
+    else summary.push(L[lang].sumYourLocation);
+    if (data.dest?.label) summary.push(L[lang].sumDestLabel(esc(data.dest.label)));
+    else if (data.dest?.lat) summary.push(L[lang].sumDestCoord);
+    const priceStr = data.priceMaxSom ? `${fmtSom(data.priceMaxSom)} so'm` : L[lang].priceUnlimited;
+    summary.push(L[lang].sumPrice(priceStr));
+    if (data.description) summary.push(L[lang].sumDesc(esc(data.description)));
 
     await ctx.reply(`${L[lang].confirmIntro}${summary.join('\n')}`, {
         parse_mode: 'HTML',
@@ -305,20 +351,22 @@ function renderOfferText(lang: Lang, ctx: {
     priceMaxSom: number | null;
     description: string | null;
 }): string {
+    const t = L[lang];
+    const minLabel = lang === 'ru' ? 'мин' : 'daq';
     const lines = [
-        L[lang].offerTitle,
+        t.offerTitle,
         '',
-        `👤 Bemor: <b>${esc(ctx.patientName || 'Bemor')}</b>`,
+        `👤 ${t.offerPatient}: <b>${esc(ctx.patientName || t.offerPatient)}</b>`,
     ];
     if (ctx.patientPhone) lines.push(`📞 <a href="tel:${ctx.patientPhone}">${esc(ctx.patientPhone)}</a>`);
     lines.push('');
-    lines.push(`📍 Olib ketish: ${esc(ctx.pickupAddress || `${ctx.pickupLat.toFixed(5)}, ${ctx.pickupLng.toFixed(5)}`)}`);
-    if (ctx.destAddress) lines.push(`🏥 Manzil: ${esc(ctx.destAddress)}`);
+    lines.push(`📍 ${t.offerPickup}: ${esc(ctx.pickupAddress || `${ctx.pickupLat.toFixed(5)}, ${ctx.pickupLng.toFixed(5)}`)}`);
+    if (ctx.destAddress) lines.push(`🏥 ${t.offerDest}: ${esc(ctx.destAddress)}`);
     lines.push('');
-    lines.push(`📏 Masofa: <b>${ctx.distanceKm.toFixed(1)} km</b>`);
-    lines.push(`⏱ ETA: <b>~${ctx.durationMin} daq</b>`);
-    lines.push(`💵 Taxminiy narx: <b>${fmtSom(ctx.estimatedPrice)} so'm</b>`);
-    if (ctx.priceMaxSom) lines.push(`💰 Bemor maks: ${fmtSom(ctx.priceMaxSom)} so'm`);
+    lines.push(`📏 ${t.offerDistance}: <b>${ctx.distanceKm.toFixed(1)} km</b>`);
+    lines.push(`⏱ ${t.offerEta}: <b>~${ctx.durationMin} ${minLabel}</b>`);
+    lines.push(`💵 ${t.offerPrice}: <b>${fmtSom(ctx.estimatedPrice)} so'm</b>`);
+    if (ctx.priceMaxSom) lines.push(`💰 ${t.offerMaxPrice}: ${fmtSom(ctx.priceMaxSom)} so'm`);
     if (ctx.description) {
         lines.push('');
         lines.push(`📝 ${esc(ctx.description)}`);
@@ -343,6 +391,17 @@ async function dispatchRequestFromWizard(bot: Bot, ctx: any, lang: Lang, data: a
     const patient = await resolvePatient(chatId);
     if (!patient) return;
 
+    // Server-side cooldown: only one PENDING request at a time per patient.
+    const existing = await getActivePendingForPatient(patient.userId);
+    if (existing) {
+        await ctx.reply(L[lang].patientAlreadyPending, {
+            parse_mode: 'HTML',
+            reply_markup: patientPendingKeyboard(lang, existing.id),
+        });
+        await setWizardState(chatId, null);
+        return;
+    }
+
     // Pull patient name/phone for the offer message
     const userRow = await prisma.user.findUnique({
         where: { id: patient.userId },
@@ -355,6 +414,7 @@ async function dispatchRequestFromWizard(bot: Bot, ctx: any, lang: Lang, data: a
         patientId: patient.userId,
         pickupLat: data.pickup.lat,
         pickupLng: data.pickup.lng,
+        pickupAddress: data.pickup.address ?? null,
         priceMaxSom: data.priceMaxSom ?? null,
         description: data.description ?? null,
         destLat: data.dest?.lat ?? null,
@@ -374,6 +434,7 @@ async function dispatchRequestFromWizard(bot: Bot, ctx: any, lang: Lang, data: a
             patientId: patient.userId,
             pickupLat: data.pickup.lat,
             pickupLng: data.pickup.lng,
+            pickupAddress: data.pickup.address ?? null,
             priceMaxSom: data.priceMaxSom ?? null,
             description: data.description ?? null,
             destLat: data.dest?.lat ?? null,
@@ -388,20 +449,16 @@ async function dispatchRequestFromWizard(bot: Bot, ctx: any, lang: Lang, data: a
     // patient already committed.
     await setWizardState(chatId, null);
 
-    // Confirm to patient.
-    await ctx.reply(
-        `${L[lang].sentTitle}\n\n${L[lang].sentDesc(candidates.length)}`,
-        { parse_mode: 'HTML', reply_markup: patientPendingKeyboard(lang, request.id) },
-    );
-
-    // Send to dispatchers. Map by ambulanceId for quick lookup.
+    // Map candidates by ambulanceId for fanout lookup.
     const candidateByAmbId = new Map<string, CandidateAmbulance>();
     for (const c of candidates) candidateByAmbId.set(c.ambulanceId, c);
 
-    for (const offer of offers) {
+    // PARALLEL fanout. allSettled so one bad chat (blocked/deleted) doesn't
+    // poison the rest. Each task: sendLocation pin → sendMessage → store msg id.
+    const sendTasks = offers.map(async (offer) => {
         const c = candidateByAmbId.get(offer.ambulanceId);
-        if (!c || !c.dispatcherChatId) continue;
-        const dispatcherLang = c.dispatcherLanguage === 'ru' ? 'ru' : 'uz';
+        if (!c || !c.dispatcherChatId) return false;
+        const dispatcherLang: Lang = c.dispatcherLanguage === 'ru' ? 'ru' : 'uz';
         const text = renderOfferText(dispatcherLang, {
             bookingId: request.id,
             patientName,
@@ -417,21 +474,46 @@ async function dispatchRequestFromWizard(bot: Bot, ctx: any, lang: Lang, data: a
             description: data.description ?? null,
         });
         try {
-            // Forward pickup live location to dispatcher first (one-tap nav).
-            await bot.api.sendLocation(Number(c.dispatcherChatId), data.pickup.lat, data.pickup.lng);
+            // Pin first so the offer message can reply_to it (visual grouping).
+            const pin = await bot.api.sendLocation(Number(c.dispatcherChatId), data.pickup.lat, data.pickup.lng);
             const sent = await bot.api.sendMessage(Number(c.dispatcherChatId), text, {
                 parse_mode: 'HTML',
                 link_preview_options: { is_disabled: true },
+                reply_parameters: { message_id: pin.message_id, allow_sending_without_reply: true },
                 reply_markup: offerKeyboard(dispatcherLang, offer.id),
             });
             await prisma.dispatchOffer.update({
                 where: { id: offer.id },
                 data: { telegramMessageId: BigInt(sent.message_id) },
             });
+            return true;
         } catch (e) {
             console.error('[skory] sendOffer failed', { offerId: offer.id, chatId: c.dispatcherChatId }, e);
+            return false;
         }
+    });
+
+    const results = await Promise.allSettled(sendTasks);
+    const delivered = results.filter((r) => r.status === 'fulfilled' && r.value === true).length;
+
+    // If all sends failed — be honest with the patient and roll the request
+    // back to CANCELLED so they're not stuck staring at "searching...".
+    if (delivered === 0) {
+        try {
+            await prisma.ambulanceRequest.update({
+                where: { id: request.id },
+                data: { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: 'no_dispatcher_received' },
+            });
+        } catch { /* */ }
+        await ctx.reply(L[lang].noneReceived, { parse_mode: 'HTML' });
+        return;
     }
+
+    // Confirm to patient with the ACTUAL delivered count, not the candidate count.
+    await ctx.reply(
+        `${L[lang].sentTitle}\n\n${L[lang].sentDesc(delivered)}`,
+        { parse_mode: 'HTML', reply_markup: patientPendingKeyboard(lang, request.id) },
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -500,10 +582,74 @@ async function notifyPatientWon(bot: Bot, requestId: string): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Pending expiry worker — auto-cancels PENDING requests no dispatcher
+// accepted within the SLA. Notifies the patient + edits dispatcher messages
+// in place to "⌛ request expired".
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PENDING_TIMEOUT_MS = Number(process.env.SKORY_PENDING_TIMEOUT_MS) || 5 * 60 * 1000; // 5 min
+const EXPIRY_TICK_MS = 30_000;
+let expiryWorkerStarted = false;
+
+function startPendingExpiryWorker(bot: Bot): void {
+    if (expiryWorkerStarted) return;
+    expiryWorkerStarted = true;
+    const tick = async () => {
+        try {
+            const cutoff = new Date(Date.now() - PENDING_TIMEOUT_MS);
+            const stale = await prisma.ambulanceRequest.findMany({
+                where: { status: 'PENDING', createdAt: { lt: cutoff } },
+                select: { id: true },
+            });
+            for (const r of stale) {
+                try {
+                    const expired = await expirePendingRequest(r.id);
+                    if (!expired) continue;
+                    // Notify patient
+                    const chatId = expired.patient.telegramAccount?.chatId;
+                    if (chatId) {
+                        const lang: Lang = expired.patient.telegramAccount?.language === 'ru' ? 'ru' : 'uz';
+                        try {
+                            await bot.api.sendMessage(Number(chatId), L[lang].patientExpired, { parse_mode: 'HTML' });
+                        } catch { /* */ }
+                    }
+                    // Edit dispatcher messages
+                    for (const o of expired.offers) {
+                        if (!o.telegramChatId || !o.telegramMessageId) continue;
+                        try {
+                            // Best-effort: lookup dispatcher's lang to localize
+                            const acc = await (prisma as any).telegramAccount.findUnique({
+                                where: { chatId: o.telegramChatId },
+                                select: { language: true },
+                            });
+                            const dLang: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+                            await bot.api.editMessageText(
+                                Number(o.telegramChatId),
+                                Number(o.telegramMessageId),
+                                L[dLang].requestExpired,
+                                { parse_mode: 'HTML' },
+                            );
+                        } catch { /* */ }
+                    }
+                } catch (e) {
+                    console.error('[skory] expire request failed', r.id, e);
+                }
+            }
+        } catch (e) {
+            console.error('[skory] expiry tick failed', e);
+        }
+    };
+    setInterval(tick, EXPIRY_TICK_MS);
+    // First tick on bot startup to mop up any stale rows from a previous run.
+    setTimeout(tick, 5_000);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Callback registration
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function registerSkoryHandlers(bot: Bot): void {
+    startPendingExpiryWorker(bot);
     // Start wizard from any "skoriy chaqirish" button
     bot.callbackQuery('skory:start', async (ctx) => {
         await ctx.answerCallbackQuery();
