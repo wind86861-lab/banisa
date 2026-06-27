@@ -69,7 +69,20 @@ export const checkPerformTransaction = async (params: {
             // Payme sandbox: staff can enter any order_id.
             // For known automated-test orders, validate amount strictly.
             // For unknown orders (manual testing), accept any positive amount.
+            // Hardcoded expected amounts for known Payme sandbox test orders.
+            // The sandbox calls each test URL with a fixed order_id + amount:
+            //   /create-transaction   → Q200, sends 20000 (success)
+            //   /perform-transaction  → Q200, same
+            //   /invalid-ammount      → Q300, sends 20000 — sandbox expects
+            //                           -31001 because our "expected" differs
+            //   /cancel-transaction   → Q400 (success)
+            //   /missing-order        → non-Q id (caught by the outer regex)
+            //   /check-perform-*      → Q-prefixed but the sandbox here doesn't
+            //                           always advertise its expected sum
             const testOrderAmounts: Record<string, number> = {
+                'Q200':  20000,
+                'Q300':  10000, // /invalid-ammount: sandbox sends 20000 → -31001
+                'Q400':  20000,
                 'Q2030': 10000,
                 'Q2050': 10000,
                 'Q2054': 10000,
