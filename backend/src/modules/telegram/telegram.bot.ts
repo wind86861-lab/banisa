@@ -334,18 +334,12 @@ async function renderDispatcherLiveHelp(userId: string, lang: Lang) {
     const status = liveOn
         ? (lang === 'ru' ? '🔴 Live: ВКЛ' : '🔴 Live: YOQILGAN')
         : (lang === 'ru' ? '⚪ Live: ВЫКЛ' : '⚪ Live: O\'CHIQ');
-    const howTo = lang === 'ru'
-        ? '<b>Как поделиться Live Location:</b>\n\n' +
-          '1. Нажмите 📎 (скрепка)\n' +
-          '2. «Геопозиция» → «Транслировать»\n' +
-          '3. Выберите длительность (15 мин / 1 ч / 8 ч)\n\n' +
-          'Бот будет обновлять позицию машины автоматически.'
-        : '<b>Live Location\'ni yoqish:</b>\n\n' +
-          '1. 📎 (klip) tugmasini bosing\n' +
-          '2. "Joylashuv" → "Live Location"\n' +
-          '3. Davomiylikni tanlang (15 daq / 1 soat / 8 soat)\n\n' +
-          'Bot avtomatik ravishda ambulansingiz joyini yangilab boradi.';
-    return { text: `${status}\n\n${howTo}` };
+    const hint = lang === 'ru'
+        ? 'Нажмите кнопку <b>🔴 Live Location</b> внизу → выберите <b>«Транслировать геопозицию»</b> → 8 часов.\n\n' +
+          'Если кнопка открывает только карту (на компьютере), используйте Telegram на телефоне — там появится опция Live.'
+        : 'Pastdagi <b>🔴 Live Location</b> tugmasini bosing → <b>"Mening joriy joyimni efirga uzatish"</b> ni tanlang → 8 soat.\n\n' +
+          'Agar tugma faqat xaritani ko\'rsatsa (kompyuterda), telefon Telegram\'da oching — u yerda Live opsiyasi chiqadi.';
+    return { text: `${status}\n\n${hint}` };
 }
 
 async function renderDispatcherHistory(userId: string, lang: Lang) {
@@ -395,7 +389,12 @@ async function smartKeyboard(userId: string | null, lang: Lang, linked: boolean,
     } else if (isDispatcher) {
         // Dispatcher: receive-only role. No services/clinics/skory/cart —
         // patient ordering happens on banisa.uz or via a different account.
-        kb.text(L.dispMyAmb).text(L.dispLive).row()
+        // Live Location is a requestLocation button so a single tap opens
+        // Telegram's location-share dialog (which on mobile includes
+        // "Share My Live Location" with 15min/1h/8h options). Desktop
+        // clients fall through to the disp-live native view with text
+        // instructions.
+        kb.text(L.dispMyAmb).requestLocation(L.dispLive).row()
           .text(L.dispHistory).text(L.profile).row()
           .text(L.notifs).row();
     } else {
