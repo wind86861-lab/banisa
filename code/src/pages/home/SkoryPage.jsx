@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { MapContainer, TileLayer, Marker, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -217,6 +218,7 @@ function AmbulanceDetailModal({ amb, onClose }) {
 }
 
 export default function SkoryPage() {
+    const navigate = useNavigate();
     const [userCoords, setUserCoords] = useState(null);
     const [geoDenied, setGeoDenied] = useState(false);
     const [manualLoc, setManualLoc] = useState(null);  // { lat, lng, label }
@@ -307,6 +309,29 @@ export default function SkoryPage() {
                         </div>
                     </div>
                 </motion.header>
+
+                <button
+                    onClick={() => navigate('/skory/order')}
+                    style={{
+                        width: '100%',
+                        margin: '14px 0 20px',
+                        padding: '16px 18px',
+                        borderRadius: 14,
+                        border: 0,
+                        background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: 16,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 10,
+                        boxShadow: '0 8px 24px rgba(220,38,38,0.35)',
+                    }}
+                >
+                    <Ambulance size={20} /> 🚨 Tez yordam chaqirish
+                </button>
 
                 <div className="sky-loc-bar">
                     <div className="sky-loc-bar__main">

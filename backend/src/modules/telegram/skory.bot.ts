@@ -565,6 +565,74 @@ function offerKeyboard(lang: Lang, offerId: string): InlineKeyboard {
 }
 
 /**
+ * Push offer messages to every candidate's dispatcher in parallel. Returns
+ * the count that actually got through. Shared between the bot wizard and
+ * the mini-app REST controller so both paths emit identical offers.
+ *
+ * Caller is responsible for: createRequest having run, request+offers
+ * persisted, candidates list mapping 1:1 with offers by ambulanceId.
+ */
+export async function fanoutOffersViaTelegram(
+    bot: Bot,
+    request: { id: string },
+    offers: Array<{ id: string; ambulanceId: string }>,
+    candidates: CandidateAmbulance[],
+    payload: {
+        patientName: string | null;
+        patientPhone: string | null;
+        pickupLat: number;
+        pickupLng: number;
+        pickupAddress: string | null;
+        destAddress: string | null;
+        priceMaxSom: number | null;
+        description: string | null;
+    },
+): Promise<number> {
+    const candidateByAmbId = new Map<string, CandidateAmbulance>();
+    for (const c of candidates) candidateByAmbId.set(c.ambulanceId, c);
+
+    const sendTasks = offers.map(async (offer) => {
+        const c = candidateByAmbId.get(offer.ambulanceId);
+        if (!c || !c.dispatcherChatId) return false;
+        const dispatcherLang: Lang = c.dispatcherLanguage === 'ru' ? 'ru' : 'uz';
+        const text = renderOfferText(dispatcherLang, {
+            bookingId: request.id,
+            patientName: payload.patientName,
+            patientPhone: payload.patientPhone,
+            pickupAddress: payload.pickupAddress,
+            pickupLat: payload.pickupLat,
+            pickupLng: payload.pickupLng,
+            destAddress: payload.destAddress,
+            distanceKm: c.distanceKm,
+            durationMin: c.durationMin,
+            estimatedPrice: c.estimatedPrice,
+            priceMaxSom: payload.priceMaxSom,
+            description: payload.description,
+        });
+        try {
+            const pin = await bot.api.sendLocation(Number(c.dispatcherChatId), payload.pickupLat, payload.pickupLng);
+            const sent = await bot.api.sendMessage(Number(c.dispatcherChatId), text, {
+                parse_mode: 'HTML',
+                link_preview_options: { is_disabled: true },
+                reply_parameters: { message_id: pin.message_id, allow_sending_without_reply: true },
+                reply_markup: offerKeyboard(dispatcherLang, offer.id),
+            });
+            await prisma.dispatchOffer.update({
+                where: { id: offer.id },
+                data: { telegramMessageId: BigInt(sent.message_id) },
+            });
+            return true;
+        } catch (e) {
+            console.error('[skory] sendOffer failed', { offerId: offer.id, chatId: c.dispatcherChatId }, e);
+            return false;
+        }
+    });
+
+    const results = await Promise.allSettled(sendTasks);
+    return results.filter((r) => r.status === 'fulfilled' && r.value === true).length;
+}
+
+/**
  * Called from "Yuborish" confirm handler. Validates, runs the dispatch
  * engine, creates request + offers, then pushes a message to every
  * dispatcher and records the resulting telegram message ids.
@@ -633,52 +701,16 @@ async function dispatchRequestFromWizard(bot: Bot, ctx: any, lang: Lang, data: a
     // patient already committed.
     await setWizardState(chatId, null);
 
-    // Map candidates by ambulanceId for fanout lookup.
-    const candidateByAmbId = new Map<string, CandidateAmbulance>();
-    for (const c of candidates) candidateByAmbId.set(c.ambulanceId, c);
-
-    // PARALLEL fanout. allSettled so one bad chat (blocked/deleted) doesn't
-    // poison the rest. Each task: sendLocation pin → sendMessage → store msg id.
-    const sendTasks = offers.map(async (offer) => {
-        const c = candidateByAmbId.get(offer.ambulanceId);
-        if (!c || !c.dispatcherChatId) return false;
-        const dispatcherLang: Lang = c.dispatcherLanguage === 'ru' ? 'ru' : 'uz';
-        const text = renderOfferText(dispatcherLang, {
-            bookingId: request.id,
-            patientName,
-            patientPhone,
-            pickupAddress: data.pickup.address ?? null,
-            pickupLat: data.pickup.lat,
-            pickupLng: data.pickup.lng,
-            destAddress: data.dest?.label ?? null,
-            distanceKm: c.distanceKm,
-            durationMin: c.durationMin,
-            estimatedPrice: c.estimatedPrice,
-            priceMaxSom: data.priceMaxSom ?? null,
-            description: data.description ?? null,
-        });
-        try {
-            // Pin first so the offer message can reply_to it (visual grouping).
-            const pin = await bot.api.sendLocation(Number(c.dispatcherChatId), data.pickup.lat, data.pickup.lng);
-            const sent = await bot.api.sendMessage(Number(c.dispatcherChatId), text, {
-                parse_mode: 'HTML',
-                link_preview_options: { is_disabled: true },
-                reply_parameters: { message_id: pin.message_id, allow_sending_without_reply: true },
-                reply_markup: offerKeyboard(dispatcherLang, offer.id),
-            });
-            await prisma.dispatchOffer.update({
-                where: { id: offer.id },
-                data: { telegramMessageId: BigInt(sent.message_id) },
-            });
-            return true;
-        } catch (e) {
-            console.error('[skory] sendOffer failed', { offerId: offer.id, chatId: c.dispatcherChatId }, e);
-            return false;
-        }
+    const delivered = await fanoutOffersViaTelegram(bot, request, offers, candidates, {
+        patientName,
+        patientPhone,
+        pickupLat: data.pickup.lat,
+        pickupLng: data.pickup.lng,
+        pickupAddress: data.pickup.address ?? null,
+        destAddress: data.dest?.label ?? null,
+        priceMaxSom: data.priceMaxSom ?? null,
+        description: data.description ?? null,
     });
-
-    const results = await Promise.allSettled(sendTasks);
-    const delivered = results.filter((r) => r.status === 'fulfilled' && r.value === true).length;
 
     // If all sends failed — be honest with the patient and roll the request
     // back to CANCELLED so they're not stuck staring at "searching...".
