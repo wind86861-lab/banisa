@@ -335,10 +335,20 @@ async function renderDispatcherLiveHelp(userId: string, lang: Lang) {
         ? (lang === 'ru' ? '🔴 Live: ВКЛ' : '🔴 Live: YOQILGAN')
         : (lang === 'ru' ? '⚪ Live: ВЫКЛ' : '⚪ Live: O\'CHIQ');
     const hint = lang === 'ru'
-        ? 'Нажмите кнопку <b>🔴 Live Location</b> внизу → выберите <b>«Транслировать геопозицию»</b> → 8 часов.\n\n' +
-          'Если кнопка открывает только карту (на компьютере), используйте Telegram на телефоне — там появится опция Live.'
-        : 'Pastdagi <b>🔴 Live Location</b> tugmasini bosing → <b>"Mening joriy joyimni efirga uzatish"</b> ni tanlang → 8 soat.\n\n' +
-          'Agar tugma faqat xaritani ko\'rsatsa (kompyuterda), telefon Telegram\'da oching — u yerda Live opsiyasi chiqadi.';
+        ? '<b>Как включить Live Location (8 часов):</b>\n\n' +
+          '1️⃣  Нажмите 📎 (скрепка) внизу чата\n' +
+          '2️⃣  Выберите <b>Геопозиция</b> (Location)\n' +
+          '3️⃣  Нажмите <b>Транслировать мою геопозицию</b>\n' +
+          '4️⃣  Выберите <b>8 часов</b>\n\n' +
+          '✅ Бот сразу подхватит координаты и будет получать обновления каждые ~5 сек.\n\n' +
+          '⚠️ Только на телефоне (iOS/Android). На компьютере Live недоступен.'
+        : '<b>Live Location\'ni yoqish (8 soat):</b>\n\n' +
+          '1️⃣  Chat pastida 📎 (klip) tugmasini bosing\n' +
+          '2️⃣  <b>Joylashuv</b> (Location) ni tanlang\n' +
+          '3️⃣  <b>Mening joriy joyimni efirga uzatish</b> ni bosing\n' +
+          '4️⃣  <b>8 soat</b> ni tanlang\n\n' +
+          '✅ Bot darhol koordinatangizni oladi va har ~5 soniyada yangilab boradi.\n\n' +
+          '⚠️ Faqat telefonda (iOS/Android) ishlaydi. Kompyuter Telegram\'da Live opsiyasi yo\'q.';
     return { text: `${status}\n\n${hint}` };
 }
 
@@ -389,12 +399,11 @@ async function smartKeyboard(userId: string | null, lang: Lang, linked: boolean,
     } else if (isDispatcher) {
         // Dispatcher: receive-only role. No services/clinics/skory/cart —
         // patient ordering happens on banisa.uz or via a different account.
-        // Live Location is a requestLocation button so a single tap opens
-        // Telegram's location-share dialog (which on mobile includes
-        // "Share My Live Location" with 15min/1h/8h options). Desktop
-        // clients fall through to the disp-live native view with text
-        // instructions.
-        kb.text(L.dispMyAmb).requestLocation(L.dispLive).row()
+        // Note: tried requestLocation for the Live button, but Telegram
+        // only offers single-shot share through that path on every client
+        // we tested — the live-share modal is only reachable via the 📎
+        // attach menu, so we stay with a text button + step-by-step help.
+        kb.text(L.dispMyAmb).text(L.dispLive).row()
           .text(L.dispHistory).text(L.profile).row()
           .text(L.notifs).row();
     } else {
