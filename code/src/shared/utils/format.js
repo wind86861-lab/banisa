@@ -50,6 +50,18 @@ export function shortBookingNo(bookingNumber) {
     return `#${last.slice(-6).padStart(6, '0')}`;
 }
 
+// Backend-served upload paths come back as `/uploads/...`. In prod the SPA
+// shares an origin with the API so a leading slash is enough; in dev Vite
+// proxies `/uploads` to the backend (see vite.config.js). Either way, never
+// hardcode `https://banisa.uz` — that broke local/staging image rendering.
+// Passes through absolute http(s) URLs untouched.
+export function imgUrl(src) {
+    if (!src) return null;
+    if (src.startsWith('http://') || src.startsWith('https://')) return src;
+    if (src.startsWith('/')) return src;
+    return `/${src}`;
+}
+
 // Google Maps directions URL from clinic record (lat/lng preferred, else address).
 export function mapsDirectionsUrl(clinic) {
     if (!clinic) return null;

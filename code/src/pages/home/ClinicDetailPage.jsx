@@ -15,6 +15,7 @@ import TopBar from './TopBar';
 import Navigation from './Navigation';
 import Footer from './Footer';
 import BanisaLoader from '../../shared/components/BanisaLoader';
+import { imgUrl } from '../../shared/utils/format';
 import './css/ClinicDetailPage.css';
 
 const CLINIC_TYPE_LABELS = {
@@ -103,12 +104,6 @@ function getTodayHours(workingHours) {
         open: day.open ?? day.start ?? day.openTime ?? '08:00',
         close: day.close ?? day.end ?? day.closeTime ?? '18:00',
     };
-}
-
-function imgUrl(src) {
-    if (!src) return null;
-    if (src.startsWith('/uploads')) return `https://banisa.uz${src}`;
-    return src;
 }
 
 const UZ_DAY_MAP_DP = {

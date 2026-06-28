@@ -8,6 +8,7 @@ import TopBar from './TopBar';
 import Navigation from './Navigation';
 import Footer from './Footer';
 import BanisaLoader from '../../shared/components/BanisaLoader';
+import { imgUrl } from '../../shared/utils/format';
 import './css/ClinicsPage.css';
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
@@ -44,12 +45,6 @@ const RATING_OPTIONS = [
     { value: 4, label: '4+ yulduz' },
     { value: 4.5, label: '4.5+ yulduz' },
 ];
-
-function imgUrl(src) {
-    if (!src) return null;
-    if (src.startsWith('/uploads')) return `https://banisa.uz${src}`;
-    return src;
-}
 
 const UZ_DAY_MAP = {
     'dushanba': 'monday', 'seshanba': 'tuesday', 'chorshanba': 'wednesday',

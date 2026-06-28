@@ -16,6 +16,7 @@ import Navigation from './Navigation';
 import Footer from './Footer';
 import BanisaLoader from '../../shared/components/BanisaLoader';
 import ReviewSection from '../../components/ReviewSection';
+import { imgUrl } from '../../shared/utils/format';
 import './css/base.css';
 import './css/XizmatDetailPage.css';
 
@@ -162,10 +163,7 @@ export default function XizmatDetailPage() {
 
     const clinics = svc.clinics || [];
     const related = svc.relatedServices || [];
-    // Fix image URLs - prepend backend URL if they start with /uploads
-    const images = (svc.images || []).map(img =>
-        img.startsWith('/uploads') ? `https://banisa.uz${img}` : img
-    );
+    const images = (svc.images || []).map(imgUrl);
     const catName = svc.category?.nameUz || 'Diagnostika';
     const parentCat = svc.category?.parent?.nameUz || '';
 
@@ -940,13 +938,7 @@ export default function XizmatDetailPage() {
                     onClose={() => setShowAuthModal(false)}
                     onSuccess={() => {
                         setShowAuthModal(false);
-                        navigate(`/user/book/${id}`, {
-                            state: {
-                                serviceType: 'DIAGNOSTIC',
-                                serviceData: svc,
-                                selectedClinic: activeClinic,
-                            },
-                        });
+                        handleBooking();
                     }}
                 />
             )}

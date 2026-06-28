@@ -14,6 +14,7 @@ import { usePublicServices } from '../../hooks/usePublicServices';
 import { useCart } from '../../contexts/CartContext';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import { useFavoriteIds, useToggleFavorite } from '../../user/hooks/useFavorites';
+import { imgUrl } from '../../shared/utils/format';
 import './css/base.css';
 import './css/XizmatlarPage.css';
 
@@ -84,9 +85,7 @@ function ServiceCard({ service, listView, onAddToCart, isLoggedIn, favoriteIds, 
         ? service.images[0]
         : (FALLBACK_IMAGES[service.category] || FALLBACK_IMAGES.diagnostika);
 
-    if (imgSrc && imgSrc.startsWith('/uploads')) {
-        imgSrc = `https://banisa.uz${imgSrc}`;
-    }
+    imgSrc = imgUrl(imgSrc) || imgSrc;
 
     const rating = typeof service.rating === 'number' ? service.rating : 0;
 
@@ -485,7 +484,7 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
                 <div className="xp-hub-carousel-track" ref={trackRef}>
                     {list.map(s => {
                         let img = (s.images?.[0]) || FALLBACK_IMAGES[s.category] || FALLBACK_IMAGES.diagnostika;
-                        if (img?.startsWith('/uploads')) img = `https://banisa.uz${img}`;
+                        img = imgUrl(img) || img;
                         return (
                             <Link key={s.id} to={`/xizmatlar/${s.id}`} className="xp-hub-mini-card">
                                 <div className="xp-hub-mini-img">
@@ -527,7 +526,7 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
                     {clinics.map(c => {
                         // Clinic logo / cover only — never fall back to a service image
                         let img = c.logo || c.coverImage || CLINIC_PLACEHOLDER;
-                        if (img?.startsWith('/uploads')) img = `https://banisa.uz${img}`;
+                        img = imgUrl(img) || img;
                         const hasLogo = !!c.logo;
                         return (
                             <Link key={c.id} to={`/klinikalar/${c.id}`} className="xp-hub-mini-card">
@@ -654,18 +653,27 @@ export default function XizmatlarPage() {
         }
     }, [location.state]);
 
-    // Read ?search= and ?category= from the URL so links from the hero / nav /
-    // anywhere actually pre-fill the filter state instead of being ignored.
+    // Read ?search=, ?category=, ?region= from the URL so links from the
+    // hero / nav / anywhere actually pre-fill the filter state instead of
+    // being ignored.
     useEffect(() => {
         const p = new URLSearchParams(location.search);
         const s = p.get('search');
         const cat = p.get('category');
+        const reg = p.get('region');
         if (s) {
             setSearchQuery(s);
             setCurrentPage(1);
         }
         if (cat && CATEGORIES.some(c => c.id === cat)) {
             setActiveCategory(cat);
+        }
+        // clinic.region is a free-form String in DB; hero passes the label
+        // exactly as it should match. Feed it straight into the location
+        // filter so the engine picks up matching services.
+        if (reg) {
+            setSelectedLocations(prev => prev.includes(reg) ? prev : [...prev, reg]);
+            setCurrentPage(1);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location.search]);

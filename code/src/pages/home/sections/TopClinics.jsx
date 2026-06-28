@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Star, MapPin, ArrowRight } from 'lucide-react';
+import { imgUrl } from '../../../shared/utils/format';
 
 const REGION_LABEL = {
     tashkent_city: 'Toshkent',
@@ -29,8 +30,8 @@ export default function TopClinics({ clinics = [] }) {
                 <div className="hn-clinics-grid">
                     {clinics.slice(0, 6).map((c) => {
                         const initial = (c.nameUz || 'K').charAt(0).toUpperCase();
-                        const cover = c.coverImage ? (c.coverImage.startsWith('/') ? `https://banisa.uz${c.coverImage}` : c.coverImage) : null;
-                        const logo = c.logo ? (c.logo.startsWith('/') ? `https://banisa.uz${c.logo}` : c.logo) : null;
+                        const cover = imgUrl(c.coverImage);
+                        const logo = imgUrl(c.logo);
 
                         return (
                             <div key={c.id} className="hn-clinic-card" onClick={() => navigate(`/klinikalar/${c.id}`)}>

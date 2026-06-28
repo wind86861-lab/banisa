@@ -4,6 +4,7 @@ import { X, Loader2, Phone, MapPin, Clock, Star } from 'lucide-react';
 import { usePublicClinicDetail } from '../../hooks/usePublicClinics';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import UserAuthModal from './UserAuthModal';
+import { imgUrl } from '../../shared/utils/format';
 import './css/ClinicDetailDrawer.css';
 
 const CLINIC_TYPE_LABELS = {
@@ -83,12 +84,6 @@ function normalizeWHCDD(raw) {
     }
     return normalized;
 }
-function imgUrl(src) {
-    if (!src) return null;
-    if (src.startsWith('/uploads')) return `https://banisa.uz${src}`;
-    return src;
-}
-
 // ── STAR ROW ────────────────────────────────────────────────────────────────
 function StarRow({ rating = 0, onRate, size = 16, readonly = false }) {
     const [hover, setHover] = useState(0);
@@ -563,13 +558,7 @@ export default function ClinicDetailDrawer({ clinicId, onClose }) {
             setShowAuthModal(true);
             return;
         }
-        navigate(`/user/book/${service.id}`, {
-            state: {
-                clinicId: clinic.id,
-                serviceType: serviceType.toUpperCase(),
-                serviceData: service,
-            },
-        });
+        navigate(`/xizmatlar/${service.id}?clinicId=${clinic.id}`);
         onClose();
     };
 
@@ -685,13 +674,7 @@ export default function ClinicDetailDrawer({ clinicId, onClose }) {
                     onSuccess={() => {
                         setShowAuthModal(false);
                         if (pendingBooking && clinic) {
-                            navigate(`/user/book/${pendingBooking.service.id}`, {
-                                state: {
-                                    clinicId: clinic.id,
-                                    serviceType: pendingBooking.serviceType.toUpperCase(),
-                                    serviceData: pendingBooking.service,
-                                },
-                            });
+                            navigate(`/xizmatlar/${pendingBooking.service.id}?clinicId=${clinic.id}`);
                             onClose();
                         }
                     }}

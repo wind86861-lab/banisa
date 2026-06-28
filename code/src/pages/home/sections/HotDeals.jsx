@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Flame, ShoppingCart, Check, Star, ArrowRight, Stethoscope } from 'lucide-react';
 import { useCart } from '../../../contexts/CartContext';
 import { useUserAuth } from '../../../shared/auth/UserAuthContext';
+import { imgUrl } from '../../../shared/utils/format';
 
 const fmt = (n) => Number(n || 0).toLocaleString('en-US').replace(/,/g, ' ');
 
@@ -52,7 +53,7 @@ export default function HotDeals({ deals = [] }) {
                             >
                                 <div className="hn-svc-image">
                                     {deal.image ? (
-                                        <img src={deal.image.startsWith('/') ? `https://banisa.uz${deal.image}` : deal.image} alt={deal.nameUz} />
+                                        <img src={imgUrl(deal.image)} alt={deal.nameUz} />
                                     ) : (
                                         <div className="hn-svc-image-placeholder"><Stethoscope size={56} /></div>
                                     )}
@@ -67,7 +68,7 @@ export default function HotDeals({ deals = [] }) {
                                         <div className="hn-svc-clinic">
                                             <div className="hn-svc-clinic-logo">
                                                 {deal.clinic.logo ? (
-                                                    <img src={deal.clinic.logo.startsWith('/') ? `https://banisa.uz${deal.clinic.logo}` : deal.clinic.logo} alt="" />
+                                                    <img src={imgUrl(deal.clinic.logo)} alt="" />
                                                 ) : <span style={{ fontSize: 12 }}>🏥</span>}
                                             </div>
                                             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

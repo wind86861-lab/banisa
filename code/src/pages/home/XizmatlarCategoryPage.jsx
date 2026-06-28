@@ -10,6 +10,7 @@ import Footer from './Footer';
 import { usePublicServices } from '../../hooks/usePublicServices';
 import { useCart } from '../../contexts/CartContext';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
+import { imgUrl } from '../../shared/utils/format';
 import './css/base.css';
 import './css/XizmatlarCategoryPage.css';
 
@@ -53,7 +54,7 @@ function fmt(n) { return (n || 0).toLocaleString('uz-UZ'); }
 
 function ServiceCard({ service, onAddToCart, inCart, busy }) {
     let imgSrc = (service.images?.[0]) || FALLBACK_IMAGES[service.category] || FALLBACK_IMAGES.diagnostika;
-    if (imgSrc?.startsWith('/uploads')) imgSrc = `https://banisa.uz${imgSrc}`;
+    imgSrc = imgUrl(imgSrc) || imgSrc;
     const rating = typeof service.rating === 'number' ? service.rating : 0;
 
     return (

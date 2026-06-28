@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, ChevronDown, Shield, Wallet, Clock } from 'lucide-react';
 import { useHomeAutocomplete } from '../../../hooks/useHomeData';
+import { imgUrl } from '../../../shared/utils/format';
 
 const REGIONS = [
     { id: 'all', label: 'Butun O\'zbekiston' },
@@ -53,7 +54,9 @@ export default function HeroNew({ stats }) {
     const handleSearch = () => {
         const params = new URLSearchParams();
         if (q.trim()) params.set('search', q.trim());
-        if (region.id !== 'all') params.set('region', region.id);
+        // Pass the human-readable label — XizmatlarPage matches it against
+        // clinic.region (free-form String in DB), not against this dict's id.
+        if (region.id !== 'all') params.set('region', region.label);
         navigate(`/xizmatlar?${params.toString()}`);
     };
 
@@ -180,7 +183,7 @@ export default function HeroNew({ stats }) {
                                         >
                                             <div className="hn-search-ac-icon">
                                                 {c.logo
-                                                    ? <img src={c.logo.startsWith('/') ? `https://banisa.uz${c.logo}` : c.logo} alt="" />
+                                                    ? <img src={imgUrl(c.logo)} alt="" />
                                                     : <span style={{ fontSize: 16 }}>🏥</span>}
                                             </div>
                                             <div className="hn-search-ac-text">
