@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link, useLocation } from 'react-router-dom';
 import {
     ShieldCheck, Lock, ArrowLeft, CheckCircle2,
@@ -63,29 +63,40 @@ export default function PaymePage() {
             });
     }, [bookingData?.clinicId]);
 
-    // Create appointment first, then use its real ID for Payme
-    // If skipCreate is true (cart checkout already created it), use the provided appointmentId
+    // Create appointment first, then use its real ID for Payme. If
+    // skipCreate is true (cart checkout already created it), reuse the
+    // provided appointmentId. The deps array used to include
+    // creatingAppointment + error, both written inside this effect — that
+    // race re-fired the effect mid-POST and could create duplicate
+    // bookings when the network was slow. A ref guards against re-entry
+    // instead so the effect only depends on the inputs that should
+    // genuinely retrigger it.
+    const createdOnceRef = useRef(false);
     useEffect(() => {
-        if (bookingData && !orderId && !creatingAppointment && !error) {
-            if (bookingData.skipCreate && bookingData.appointmentId) {
-                setOrderId(bookingData.appointmentId);
-                return;
-            }
-            setCreatingAppointment(true);
-            axiosInstance.post('/user/appointments', {
-                clinicId: bookingData.clinicId,
-                serviceType: bookingData.serviceType || 'DIAGNOSTIC',
-                diagnosticServiceId: bookingData.diagnosticServiceId,
-                surgicalServiceId: bookingData.surgicalServiceId,
-                scheduledAt: bookingData.scheduledAt,
-                notes: bookingData.notes || undefined,
-                price: Number(bookingData.price),
-            })
-                .then(res => { setOrderId(res.data.data.id); })
-                .catch(err => { setError(friendlyApiError(err, 'Bron yaratishda xatolik yuz berdi')); })
-                .finally(() => { setCreatingAppointment(false); });
+        if (!bookingData || orderId || createdOnceRef.current) return;
+        if (bookingData.skipCreate && bookingData.appointmentId) {
+            createdOnceRef.current = true;
+            setOrderId(bookingData.appointmentId);
+            return;
         }
-    }, [bookingData, orderId, creatingAppointment, error, checkingClinic]);
+        createdOnceRef.current = true;
+        setCreatingAppointment(true);
+        axiosInstance.post('/user/appointments', {
+            clinicId: bookingData.clinicId,
+            serviceType: bookingData.serviceType || 'DIAGNOSTIC',
+            diagnosticServiceId: bookingData.diagnosticServiceId,
+            surgicalServiceId: bookingData.surgicalServiceId,
+            scheduledAt: bookingData.scheduledAt,
+            notes: bookingData.notes || undefined,
+            price: Number(bookingData.price),
+        })
+            .then(res => { setOrderId(res.data.data.id); })
+            .catch(err => {
+                createdOnceRef.current = false; // allow retry on a fresh mount
+                setError(friendlyApiError(err, 'Bron yaratishda xatolik yuz berdi'));
+            })
+            .finally(() => { setCreatingAppointment(false); });
+    }, [bookingData, orderId]);
 
     const amountUZS = bookingData?.price || parseInt(params.get('amount') || '0', 10);
     const amountTiyin = amountUZS * 100;

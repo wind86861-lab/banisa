@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import {
     CheckCircle2, XCircle, Clock, AlertTriangle, Loader2,
@@ -10,6 +10,9 @@ import './PaymePage.css';
 
 const fmt = (n) => new Intl.NumberFormat('uz-UZ').format(Number(n));
 
+const MAX_POLLS = 15;
+const POLL_INTERVAL_MS = 1000;
+
 export default function PaymentResultPage() {
     const [params] = useSearchParams();
     const navigate = useNavigate();
@@ -19,47 +22,76 @@ export default function PaymentResultPage() {
     const [appointment, setAppointment] = useState(null);
     const [error, setError] = useState('');
     const [pollCount, setPollCount] = useState(0);
+    const pollCountRef = useRef(0);
     const pollTimerRef = useRef(null);
+    const cancelledRef = useRef(false);
 
-    // Smart polling: check status every 1s for up to 15s
+    // Hits the lightweight /payment-status endpoint; the full appointment
+    // is fetched once after polling resolves so we have data for the
+    // result screen.
+    const fetchFullAppointment = useCallback(async () => {
+        try {
+            const res = await axiosInstance.get(`/user/appointments/${orderId}`);
+            if (!cancelledRef.current) setAppointment(res.data.data);
+        } catch (err) {
+            if (!cancelledRef.current) {
+                setError(err.response?.data?.error?.message || 'Buyurtma topilmadi');
+            }
+        }
+    }, [orderId]);
+
+    // Stable polling loop. Earlier this lived inside a useEffect whose deps
+    // included pollCount — every tick re-mounted the effect, cleared its
+    // own setTimeout, and immediately fired the next request without
+    // waiting POLL_INTERVAL_MS. Result: the page hammered the backend
+    // 5-10×/sec instead of 1×/sec. The pollCount lives in a ref now so it
+    // can be read without forcing a re-render, and the timer is the only
+    // thing that schedules the next call.
     useEffect(() => {
         if (!orderId) {
             setError('Buyurtma raqami topilmadi');
             setPolling(false);
             return;
         }
+        cancelledRef.current = false;
+        pollCountRef.current = 0;
 
-        const checkStatus = () => {
-            axiosInstance.get(`/user/appointments/${orderId}`)
-                .then(res => {
-                    const appt = res.data.data;
-                    setAppointment(appt);
-                    setPollCount(prev => prev + 1);
+        const tick = async () => {
+            if (cancelledRef.current) return;
+            try {
+                const res = await axiosInstance.get(`/user/appointments/${orderId}/payment-status`);
+                const status = res.data.data;
+                pollCountRef.current += 1;
+                setPollCount(pollCountRef.current);
 
-                    // Stop polling if payment completed/failed or max attempts reached.
-                    // Payment is tracked on `paymentStatus` (not `status`) in
-                    // the simplified appointment model.
-                    if (appt.paymentStatus === 'PAID' || appt.status === 'CANCELLED' || pollCount >= 15) {
-                        setPolling(false);
-                        if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-                    } else {
-                        // Continue polling
-                        pollTimerRef.current = setTimeout(checkStatus, 1000);
-                    }
-                })
-                .catch(err => {
-                    setError(err.response?.data?.error?.message || 'Buyurtma topilmadi');
-                    setPolling(false);
-                    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-                });
+                const done = status.paymentStatus === 'PAID'
+                    || status.status === 'CANCELLED'
+                    || pollCountRef.current >= MAX_POLLS;
+                if (done) {
+                    // Fetch full payload once for the final render.
+                    await fetchFullAppointment();
+                    if (!cancelledRef.current) setPolling(false);
+                    return;
+                }
+                pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS);
+            } catch (err) {
+                if (cancelledRef.current) return;
+                setError(err.response?.data?.error?.message || 'Buyurtma topilmadi');
+                setPolling(false);
+            }
         };
 
-        checkStatus();
+        tick();
 
         return () => {
+            cancelledRef.current = true;
             if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
         };
-    }, [orderId, pollCount]);
+    }, [orderId, fetchFullAppointment]);
+
+    const handleManualRefresh = useCallback(async () => {
+        await fetchFullAppointment();
+    }, [fetchFullAppointment]);
 
     const handleRetry = () => {
         if (!appointment) return;
@@ -90,6 +122,13 @@ export default function PaymentResultPage() {
     const isPaid = appointment?.paymentStatus === 'PAID';
     const isCancelled = appointment?.status === 'CANCELLED';
     const isPending = appointment && !isPaid && !isCancelled;
+    // Show the post-discount amount the customer was charged. Falls back
+    // to the gross `price` only when finalPrice is missing (older bookings
+    // pre-dating the column).
+    const chargedAmount = appointment?.finalPrice ?? appointment?.price ?? 0;
+    // Footer text + branding follow whichever provider the booking used.
+    const providerLabel = appointment?.paymentMethod === 'CLICK' ? 'CLICK' : 'Payme';
+    const providerHost = appointment?.paymentMethod === 'CLICK' ? 'my.click.uz' : 'paycom.uz';
 
     const serviceName = appointment?.diagnosticService?.nameUz || appointment?.surgicalService?.nameUz || 'Xizmat';
     const clinicName = appointment?.clinic?.nameUz || '';
@@ -118,7 +157,7 @@ export default function PaymentResultPage() {
                             </div>
                         )}
                     </div>
-                    <p className="pay-footer">Banisa Medical · Payme to'lov tizimi</p>
+                    <p className="pay-footer">Banisa Medical · {providerLabel} to'lov tizimi ({providerHost})</p>
                 </div>
             </div>
         );
@@ -141,7 +180,7 @@ export default function PaymentResultPage() {
                             </Link>
                         </div>
                     </div>
-                    <p className="pay-footer">Banisa Medical · Payme to'lov tizimi</p>
+                    <p className="pay-footer">Banisa Medical · {providerLabel} to'lov tizimi ({providerHost})</p>
                 </div>
             </div>
         );
@@ -193,7 +232,7 @@ export default function PaymentResultPage() {
                             <div className="pay-result-row pay-result-row--highlight">
                                 <CreditCard size={16} />
                                 <span className="pay-result-label">To'lov summasi</span>
-                                <span className="pay-result-value pay-result-amount">{fmt(appointment.price)} so'm</span>
+                                <span className="pay-result-value pay-result-amount">{fmt(chargedAmount)} so'm</span>
                             </div>
                             <div className="pay-result-row">
                                 <span className="pay-result-label">To'lov usuli</span>
@@ -212,7 +251,7 @@ export default function PaymentResultPage() {
                             </Link>
                         </div>
                     </div>
-                    <p className="pay-footer">Banisa Medical · Payme to'lov tizimi</p>
+                    <p className="pay-footer">Banisa Medical · {providerLabel} to'lov tizimi ({providerHost})</p>
                 </div>
             </div>
         );
@@ -250,7 +289,7 @@ export default function PaymentResultPage() {
                             <div className="pay-result-row">
                                 <CreditCard size={16} />
                                 <span className="pay-result-label">Summa</span>
-                                <span className="pay-result-value">{fmt(appointment.price)} so'm</span>
+                                <span className="pay-result-value">{fmt(chargedAmount)} so'm</span>
                             </div>
                         </div>
 
@@ -263,7 +302,7 @@ export default function PaymentResultPage() {
                             </Link>
                         </div>
                     </div>
-                    <p className="pay-footer">Banisa Medical · Payme to'lov tizimi</p>
+                    <p className="pay-footer">Banisa Medical · {providerLabel} to'lov tizimi ({providerHost})</p>
                 </div>
             </div>
         );
@@ -297,12 +336,12 @@ export default function PaymentResultPage() {
                         <div className="pay-result-row">
                             <CreditCard size={16} />
                             <span className="pay-result-label">Summa</span>
-                            <span className="pay-result-value">{fmt(appointment.price)} so'm</span>
+                            <span className="pay-result-value">{fmt(chargedAmount)} so'm</span>
                         </div>
                     </div>
 
                     <div className="pay-result-actions">
-                        <button onClick={() => window.location.reload()} className="pay-result-btn pay-result-btn--primary">
+                        <button onClick={handleManualRefresh} className="pay-result-btn pay-result-btn--primary">
                             <RefreshCw size={16} /> Holatni yangilash
                         </button>
                         <Link to="/profile/appointments" className="pay-result-btn pay-result-btn--ghost">

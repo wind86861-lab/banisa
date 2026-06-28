@@ -171,6 +171,24 @@ export default function AppointmentDetailPage() {
     const discount = Math.max(0, original - finalP);
     const discountPct = data.discountPercent || (original > 0 ? Math.round((discount / original) * 100) : 0);
 
+    // Route the "To'lash" CTAs to the right provider page. /payment is the
+    // Payme POST-form page and refuses bookings whose clinic doesn't list
+    // PAYME among its supported methods — so CLICK users tapping it ended
+    // up staring at "Bu klinika onlayn to'lovni qo'llab-quvvatlamaydi".
+    const payTarget = data.paymentMethod === 'CLICK' ? '/payment/click' : '/payment';
+    const payState = {
+        bookingData: {
+            skipCreate: true,
+            appointmentId: data.id,
+            clinicId: data.clinic?.id || data.clinicId,
+            price: finalP,
+            clinicName: data.clinic?.nameUz,
+            serviceName,
+            scheduledAt: data.scheduledAt,
+            selectedDate: data.scheduledAt?.split('T')[0],
+        },
+    };
+
     return (
         <div className="home-page">
             <TopBar />
@@ -269,7 +287,7 @@ export default function AppointmentDetailPage() {
                                 )}
 
                                 {action.cta === 'pay' && (
-                                    <button className="apd-pay-btn" onClick={() => navigate('/payment', { state: { bookingData: { skipCreate: true, appointmentId: data.id, clinicId: data.clinic?.id || data.clinicId, price: finalP, clinicName: data.clinic?.nameUz, serviceName, scheduledAt: data.scheduledAt, selectedDate: data.scheduledAt?.split('T')[0] } } })}>
+                                    <button className="apd-pay-btn" onClick={() => navigate(payTarget, { state: payState })}>
                                         To'lash <CreditCard size={16} />
                                     </button>
                                 )}
@@ -317,7 +335,7 @@ export default function AppointmentDetailPage() {
                                 </p>
                                 <button
                                     className="apd-pay-btn apd-pay-btn--danger"
-                                    onClick={() => navigate('/payment', { state: { bookingData: { skipCreate: true, appointmentId: data.id, clinicId: data.clinic?.id || data.clinicId, price: finalP, clinicName: data.clinic?.nameUz, serviceName, scheduledAt: data.scheduledAt, selectedDate: data.scheduledAt?.split('T')[0] } } })}
+                                    onClick={() => navigate(payTarget, { state: payState })}
                                 >
                                     💳 To'lashga o'tish — {fmtSum(finalP)} so'm
                                 </button>
@@ -335,7 +353,7 @@ export default function AppointmentDetailPage() {
                                     )}
                                     <div className="apd-price-row apd-total"><span>To'lov:</span><span>{fmtSum(finalP)} so'm</span></div>
                                 </div>
-                                <button className="apd-pay-btn" onClick={() => navigate('/payment', { state: { bookingData: { skipCreate: true, appointmentId: data.id, clinicId: data.clinic?.id || data.clinicId, price: finalP, clinicName: data.clinic?.nameUz, serviceName, scheduledAt: data.scheduledAt, selectedDate: data.scheduledAt?.split('T')[0] } } })}>
+                                <button className="apd-pay-btn" onClick={() => navigate(payTarget, { state: payState })}>
                                     To'lash <CreditCard size={16} />
                                 </button>
                             </div>
