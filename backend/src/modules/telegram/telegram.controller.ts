@@ -3,6 +3,7 @@ import { createLinkToken, getLinkStatus, unlink } from './telegram.service';
 import { isTelegramConfigured } from './telegram.bot';
 import { miniAppLogin } from './miniapp.auth';
 import { widgetLogin, WidgetPayload } from './widget.auth';
+import { env } from '../../config/env';
 
 // auth.middleware.ts puts the authenticated user on req.user as
 // { id, role }. The earlier signature on this file said `userId` — that
@@ -68,7 +69,7 @@ export const miniAppLoginHandler = async (req: Request, res: Response) => {
 
     res.cookie('user_refreshToken', result.refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: env.NODE_ENV === 'production',
         sameSite: 'strict',
         maxAge: 7 * 24 * 60 * 60 * 1000,
         path: '/api/user/auth',
@@ -108,7 +109,7 @@ export const widgetLoginHandler = async (req: Request, res: Response) => {
 
     res.cookie('user_refreshToken', result.refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: env.NODE_ENV === 'production',
         sameSite: 'strict',
         maxAge: 7 * 24 * 60 * 60 * 1000,
         path: '/api/user/auth',

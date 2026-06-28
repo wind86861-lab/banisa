@@ -82,6 +82,32 @@ async function postSms(token: string, phone: string, message: string): Promise<{
     });
 }
 
+/**
+ * Low-level SMS sender for flows that do NOT yet have a User.id (password
+ * reset link to a phone — the resolver can be running before login). Skips
+ * the per-user daily budget on purpose; callers must impose their own
+ * throttle. Reuses the same Eskiz token cache as the channel.
+ */
+export async function sendRawSms(rawPhone: string, message: string): Promise<{ ok: boolean; externalId?: string; error?: string }> {
+    const phone = normalizePhone(rawPhone);
+    if (!phone) return { ok: false, error: 'invalid phone' };
+    const token = await getToken();
+    if (!token) return { ok: false, error: 'no token' };
+    try {
+        let { status, body } = await postSms(token, phone, message.slice(0, 160));
+        if (status === 401) {
+            cachedToken = null;
+            const t2 = await getToken();
+            if (!t2) return { ok: false, error: 'auth retry failed' };
+            ({ status, body } = await postSms(t2, phone, message.slice(0, 160)));
+        }
+        if (status >= 400) return { ok: false, error: body?.message || `sms http ${status}` };
+        return { ok: true, externalId: String(body?.id || body?.data?.id || '') };
+    } catch (e: any) {
+        return { ok: false, error: e?.message || 'sms unexpected error' };
+    }
+}
+
 export const eskizChannel: NotificationChannel = {
     name: 'sms',
     async send(event: NotificationEvent): Promise<DeliveryResult> {

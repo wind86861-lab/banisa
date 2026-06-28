@@ -37,10 +37,7 @@ export default function UserForgotPasswordPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', textAlign: 'center' }}>
                             <CheckCircle2 size={42} style={{ color: '#16a34a' }} />
                             <p className="auth-form-sub">
-                                Agar bu raqam Telegram bot bilan bog'langan bo'lsa, parol tiklash havolasi botga yuborildi. Havola 15 daqiqa amal qiladi.
-                            </p>
-                            <p className="auth-form-sub" style={{ fontSize: 12 }}>
-                                Telegram chatga kiring va <strong>@banisauzbot</strong> dan kelgan xabarni oching.
+                                Agar bu raqam tizimda mavjud bo'lsa, parol tiklash havolasi yuborildi. Telegram bot bilan bog'langan bo'lsangiz — botga, aks holda SMS orqali. Havola 15 daqiqa amal qiladi.
                             </p>
                             <Link to="/user/login" className="auth-submit" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                                 Kirish sahifasiga qaytish
@@ -49,7 +46,7 @@ export default function UserForgotPasswordPage() {
                     ) : (
                         <>
                             <p className="auth-form-sub">
-                                Telefon raqamingizni kiriting. Agar Telegram bot bilan bog'langan bo'lsa, parol tiklash havolasini botga yuboramiz.
+                                Telefon raqamingizni kiriting. Parol tiklash havolasini Telegram bot orqali (agar bog'langan bo'lsa) yoki SMS orqali yuboramiz.
                             </p>
 
                             <form className="auth-form" onSubmit={handleSubmit}>
@@ -76,12 +73,12 @@ export default function UserForgotPasswordPage() {
                                 <button type="submit" className="auth-submit" disabled={submitting || !phone}>
                                     {submitting
                                         ? <><Loader2 size={18} className="auth-spin" /> Yuborilmoqda...</>
-                                        : <><Send size={16} /> Telegram orqali yuborish</>}
+                                        : <><Send size={16} /> Havola yuborish</>}
                                 </button>
                             </form>
 
                             <div className="auth-footer">
-                                Telegram bog'lanmaganmi? Saytda telefon orqali kiring va sozlamalardan botni bog'lang.
+                                Eslatma: SMS havola 1 ta xabar hajmida bo'lib, qisqartirilgan formada keladi. Telegram bot bog'langanlar batafsil xabar oladi.
                             </div>
                         </>
                     )}

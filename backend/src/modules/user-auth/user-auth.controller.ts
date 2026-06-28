@@ -3,6 +3,7 @@ import { registerUser, loginUser, getUserProfile, refreshAccessToken, changeUser
 import { requestPasswordReset, validateResetToken, consumeResetToken } from './password-reset.service';
 import { sendSuccess } from '../../utils/response';
 import { AuthRequest } from '../../middleware/auth.middleware';
+import { env } from '../../config/env';
 
 // ─── USER REGISTRATION ──────────────────────────────────────────────────────
 export const register = async (req: Request, res: Response, next: NextFunction) => {
@@ -22,7 +23,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         // Set refresh token as HttpOnly cookie — path restricted to user-auth only
         res.cookie('user_refreshToken', result.refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: env.NODE_ENV === 'production',
             sameSite: 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
             path: '/api/user/auth',
@@ -67,7 +68,7 @@ export const refresh = async (req: Request, res: Response, next: NextFunction) =
         // Rotate refresh token cookie
         res.cookie('user_refreshToken', result.refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: env.NODE_ENV === 'production',
             sameSite: 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
             path: '/api/user/auth',

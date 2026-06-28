@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto';
 import prisma from '../../config/database';
 import { AppError, ErrorCodes } from '../../utils/errors';
 import { sendMessage } from '../telegram/telegram.service';
+import { sendRawSms } from '../notifications/channels/eskiz.channel';
 
 const TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const BCRYPT_ROUNDS = 12;
@@ -30,7 +31,7 @@ function normalizePhone(raw: string | undefined): string | null {
  * normalized phone receives the same 200 response so this can't be used
  * to enumerate accounts.
  */
-export async function requestPasswordReset(rawPhone: string, ipAddress?: string): Promise<{ sent: boolean; channel: 'telegram' | 'none' }> {
+export async function requestPasswordReset(rawPhone: string, ipAddress?: string): Promise<{ sent: boolean; channel: 'telegram' | 'sms' | 'none' }> {
     const phone = normalizePhone(rawPhone);
     if (!phone) {
         throw new AppError('Telefon raqami noto\'g\'ri', 400, ErrorCodes.VALIDATION_ERROR);
@@ -41,14 +42,6 @@ export async function requestPasswordReset(rawPhone: string, ipAddress?: string)
         select: { id: true },
     });
     if (!user) return { sent: false, channel: 'none' };
-
-    // Telegram delivery: do nothing else here unless the patient has bound
-    // their bot — without a chat we can't reach them yet (SMS to come).
-    const tg = await (prisma as any).telegramAccount.findUnique({
-        where: { userId: user.id },
-        select: { chatId: true, language: true, isBlocked: true },
-    });
-    if (!tg || tg.isBlocked) return { sent: false, channel: 'none' };
 
     // Invalidate any previous live reset tokens for this user so the patient
     // can't get confused by older links sitting in their chat.
@@ -66,13 +59,31 @@ export async function requestPasswordReset(rawPhone: string, ipAddress?: string)
 
     const base = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').replace(/\/+$/, '');
     const link = `${base}/user/reset-password?token=${encodeURIComponent(token)}`;
-    const lang = tg.language === 'ru' ? 'ru' : 'uz';
-    const body = lang === 'ru'
-        ? '🔐 *Сброс пароля*\n\nНажмите кнопку ниже, чтобы задать новый пароль. Срок действия — 15 минут.\n\nЕсли вы не запрашивали сброс, проигнорируйте это сообщение.'
-        : '🔐 *Parolni tiklash*\n\nYangi parol o\'rnatish uchun pastdagi tugmani bosing. Havola 15 daqiqa amal qiladi.\n\nAgar siz so\'ramagan bo\'lsangiz — e\'tibor bermang.';
-    await sendMessage(BigInt(tg.chatId), body, link);
 
-    return { sent: true, channel: 'telegram' };
+    // Channel pick: Telegram-bound patients get the rich bot message; everyone
+    // else falls back to SMS. Without this fallback, password-less recovery
+    // was impossible for the majority of patients (no bot link).
+    const tg = await (prisma as any).telegramAccount.findUnique({
+        where: { userId: user.id },
+        select: { chatId: true, language: true, isBlocked: true },
+    });
+
+    if (tg && !tg.isBlocked) {
+        const lang = tg.language === 'ru' ? 'ru' : 'uz';
+        const body = lang === 'ru'
+            ? '🔐 *Сброс пароля*\n\nНажмите кнопку ниже, чтобы задать новый пароль. Срок действия — 15 минут.\n\nЕсли вы не запрашивали сброс, проигнорируйте это сообщение.'
+            : '🔐 *Parolni tiklash*\n\nYangi parol o\'rnatish uchun pastdagi tugmani bosing. Havola 15 daqiqa amal qiladi.\n\nAgar siz so\'ramagan bo\'lsangiz — e\'tibor bermang.';
+        await sendMessage(BigInt(tg.chatId), body, link);
+        return { sent: true, channel: 'telegram' };
+    }
+
+    // SMS fallback — keep the message tight so it stays within one Latin
+    // segment (160 chars). The link itself is ~80 chars depending on host.
+    const smsText = `Banisa: parolni tiklash uchun ${link} (15 daqiqa).`;
+    const smsResult = await sendRawSms(phone, smsText);
+    if (smsResult.ok) return { sent: true, channel: 'sms' };
+
+    return { sent: false, channel: 'none' };
 }
 
 /**
