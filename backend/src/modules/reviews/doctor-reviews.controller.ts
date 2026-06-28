@@ -20,7 +20,10 @@ export const getEligibility = async (req: AuthRequest, res: Response) => {
         select: {
             id: true, patientId: true, doctorId: true, clinicId: true, status: true,
             scheduledAt: true,
-            doctor: { select: { id: true, firstName: true, lastName: true, photoUrl: true } },
+            // Pull middleName for the patient-facing modal subtitle —
+            // post-Doctor-refactor the UZ greeting form expects "Karimov
+            // Bahodir Akmalovich".
+            doctor: { select: { id: true, firstName: true, lastName: true, middleName: true, photoUrl: true } },
         },
     });
     if (!appt) return res.status(404).json({ success: false, message: 'Topilmadi' });

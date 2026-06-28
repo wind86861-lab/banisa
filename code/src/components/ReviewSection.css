@@ -532,3 +532,18 @@
         align-items: flex-start;
     }
 }
+/* Inline error banner for the write form — replaces the old window.alert
+   that was suppressed in some Mini App embeds. */
+.rs-form-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    color: #991b1b;
+    font-size: 13px;
+    font-weight: 500;
+}

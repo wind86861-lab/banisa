@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { reviewsController } from './reviews.controller';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
+import { validate } from '../../middleware/validate.middleware';
 import { createReviewSchema, moderateReviewSchema, getReviewsQuerySchema } from './reviews.validation';
 
 const router = Router();
@@ -10,8 +11,18 @@ const router = Router();
 router.get('/services/:serviceId', reviewsController.getReviewsByService);
 
 // ─── AUTHENTICATED USER ROUTES ──────────────────────────────────────────────
-// Create a review (requires authentication)
-router.post('/', requireAuth, reviewsController.createReview);
+// Create a review — patient only, and now actually wired through the
+// Zod schema (createReviewSchema was imported but never installed,
+// which left rating min/max and the 1000-char comment cap unenforced).
+// Clinic admins are excluded so a clinic can't pad its own rating from
+// their own admin account.
+router.post(
+    '/',
+    requireAuth,
+    requireRole(['PATIENT']),
+    validate(createReviewSchema),
+    reviewsController.createReview,
+);
 
 // Get user's own review for a service
 router.get('/my-review/:serviceId', requireAuth, reviewsController.getUserReviewForService);

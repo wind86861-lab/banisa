@@ -18,7 +18,11 @@ export class ReviewsController {
                 comment ? String(comment) : undefined
             );
 
-            sendSuccess(res, review, undefined, 'Sharhingiz muvaffaqiyatli yuborildi. Moderatsiyadan o\'tgandan keyin ko\'rsatiladi', 201);
+            // Service writes APPROVED directly (no moderation queue), so
+            // the old "Moderatsiyadan o'tgandan keyin ko'rsatiladi" line
+            // was a lie that left patients expecting a delay before their
+            // review appeared. Tell them what actually happens.
+            sendSuccess(res, review, undefined, "Sharhingiz qabul qilindi va xizmat sahifasida e'lon qilindi", 201);
         } catch (error) {
             next(error);
         }

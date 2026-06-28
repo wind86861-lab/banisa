@@ -67,7 +67,7 @@ export default function DoctorReviewModal({ appointmentId, open, onClose }) {
                     <button className="drm-close" onClick={onClose}><X size={18} /></button>
 
                     {checkingEligibility ? (
-                        <div style={{ padding: 40, textAlign: 'center' }}>
+                        <div className="drm-checking">
                             <Loader2 size={24} className="drm-spin" color="#06b6d4" />
                         </div>
                     ) : !eligibility?.canReview ? (
@@ -106,7 +106,11 @@ export default function DoctorReviewModal({ appointmentId, open, onClose }) {
                                     <div className="drm-title">Doktorga baho</div>
                                     {doctor && (
                                         <div className="drm-subtitle">
-                                            {doctor.firstName} {doctor.lastName}
+                                            {/* UZ greeting form: Last First Patronymic.
+                                                Falls back gracefully when middleName is missing. */}
+                                            {[doctor.lastName, doctor.firstName, doctor.middleName]
+                                                .filter(Boolean)
+                                                .join(' ')}
                                         </div>
                                     )}
                                 </div>

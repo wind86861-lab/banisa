@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Star, ThumbsUp, MessageSquare, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { useServiceReviews, useMyReview, useSubmitReview } from '../hooks/useReviews';
-import { useAuth } from '../shared/auth/AuthContext';
 import { useUserAuth } from '../shared/auth/UserAuthContext';
 import './ReviewSection.css';
 
@@ -93,13 +92,18 @@ function ReviewForm({ serviceId, serviceType, onSuccess }) {
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
     const [showForm, setShowForm] = useState(false);
+    // Inline validation / submit error display — replaces the alert()
+    // calls that were silently dropped in some Mini App embeds and
+    // looked alien on the page.
+    const [formError, setFormError] = useState('');
     const submitReview = useSubmitReview();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setFormError('');
 
         if (rating === 0) {
-            alert('Iltimos, baho bering');
+            setFormError('Iltimos, baho bering');
             return;
         }
 
@@ -116,8 +120,11 @@ function ReviewForm({ serviceId, serviceType, onSuccess }) {
             setShowForm(false);
             if (onSuccess) onSuccess();
         } catch (error) {
-            const errorMsg = error.response?.data?.error || 'Sharh yuborishda xatolik yuz berdi';
-            alert(errorMsg);
+            const errorMsg = error.response?.data?.error?.message
+                || error.response?.data?.error
+                || error.response?.data?.message
+                || 'Sharh yuborishda xatolik yuz berdi';
+            setFormError(String(errorMsg));
         }
     };
 
@@ -155,6 +162,12 @@ function ReviewForm({ serviceId, serviceType, onSuccess }) {
                 )}
             </div>
 
+            {formError && (
+                <div className="rs-form-error">
+                    <AlertCircle size={14} /> {formError}
+                </div>
+            )}
+
             <div className="rs-form-actions">
                 <button
                     type="button"
@@ -188,9 +201,13 @@ function ReviewForm({ serviceId, serviceType, onSuccess }) {
 }
 
 export default function ReviewSection({ serviceId, serviceType }) {
-    const { user: clinicUser } = useAuth();
-    const { user: patientUser } = useUserAuth();
-    const user = patientUser || clinicUser;
+    // Only patients can write service reviews. Previously this fell back
+    // to the clinic-admin AuthContext, so a clinic admin browsing the
+    // public page saw the "Sharh qoldirish" form, filled it in, and
+    // hit a 403 on submit (backend now refuses non-PATIENT explicitly).
+    // Gate the form at the source so the misleading affordance never
+    // shows in the first place.
+    const { user } = useUserAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const { data: reviewsData, isLoading } = useServiceReviews(serviceId, serviceType);
@@ -222,11 +239,15 @@ export default function ReviewSection({ serviceId, serviceType }) {
                     </h2>
                 </div>
 
-                {/* Overall Rating Summary */}
+                {/* Overall Rating Summary — show "—" instead of "0.0"
+                    when nobody has reviewed yet. A fake zero average looks
+                    like a real bad rating to a glancing patient. */}
                 <div className="rs-summary">
                     <div className="rs-summary-left">
-                        <div className="rs-avg-rating">{averageRating.toFixed(1)}</div>
-                        <StarRating rating={Math.round(averageRating)} readonly />
+                        <div className="rs-avg-rating">
+                            {totalReviews > 0 ? averageRating.toFixed(1) : '—'}
+                        </div>
+                        <StarRating rating={totalReviews > 0 ? Math.round(averageRating) : 0} readonly />
                         <p className="rs-total-reviews">{totalReviews} ta sharh</p>
                     </div>
                     <div className="rs-summary-right">

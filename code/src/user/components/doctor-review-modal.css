@@ -188,3 +188,8 @@
 
 .drm-spin { animation: drm-spin 1s linear infinite; }
 @keyframes drm-spin { to { transform: rotate(360deg); } }
+
+.drm-checking {
+    padding: 40px;
+    text-align: center;
+}
