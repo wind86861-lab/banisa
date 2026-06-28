@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useCart } from '../contexts/CartContext';
-import { ShoppingCart, Trash2, Plus, Minus, X, MapPin, Phone, Package, ArrowRight, ArrowLeft, Building2, ChevronRight, Activity, Stethoscope, Leaf, Heart } from 'lucide-react';
+import { ShoppingCart, Trash2, Plus, Minus, X, MapPin, Phone, Package, ArrowRight, ArrowLeft, Building2, ChevronRight, Activity, Stethoscope, Leaf, Heart, AlertCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import TopBar from './home/TopBar';
 import Navigation from './home/Navigation';
@@ -17,24 +17,32 @@ const QUICK_CATS = [
 const CartPage = () => {
     const { cart, loading, removeFromCart, updateQuantity, clearCart } = useCart();
     const navigate = useNavigate();
+    const [confirmingClear, setConfirmingClear] = useState(false);
+    const [opError, setOpError] = useState('');
 
     const handleRemove = async (itemId) => {
+        setOpError('');
         const result = await removeFromCart(itemId);
         if (!result.success) {
-            alert(result.message);
+            setOpError(result.message);
         }
     };
 
     const handleUpdateQuantity = async (itemId, newQuantity) => {
         if (newQuantity < 1) return;
-        await updateQuantity(itemId, newQuantity);
+        setOpError('');
+        const result = await updateQuantity(itemId, newQuantity);
+        if (result && result.success === false) {
+            setOpError('Miqdorni o\'zgartirib bo\'lmadi');
+        }
     };
 
     const handleClearCart = async () => {
-        if (!window.confirm('Savatdagi barcha xizmatlarni o\'chirmoqchimisiz?')) return;
+        setOpError('');
         const result = await clearCart();
-        if (result.success) {
-            alert(result.message);
+        setConfirmingClear(false);
+        if (!result.success) {
+            setOpError(result.message);
         }
     };
 
@@ -139,11 +147,35 @@ const CartPage = () => {
                             <p className="cart-summary">{totalItems} ta xizmat, {cart.length} ta klinika</p>
                         </div>
                     </div>
-                    <button onClick={handleClearCart} className="btn-clear-cart">
+                    <button onClick={() => setConfirmingClear(true)} className="btn-clear-cart">
                         <Trash2 size={18} />
                         Hammasini o'chirish
                     </button>
                 </div>
+
+                {opError && (
+                    <div className="cart-op-error">
+                        <AlertCircle size={16} /> {opError}
+                        <button type="button" onClick={() => setOpError('')} aria-label="Yopish"><X size={14} /></button>
+                    </div>
+                )}
+
+                {confirmingClear && (
+                    <div className="cart-confirm-overlay" onClick={() => setConfirmingClear(false)}>
+                        <div className="cart-confirm-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+                            <h3>Savatni tozalashni tasdiqlaysizmi?</h3>
+                            <p>Savatdagi barcha xizmatlar o'chiriladi. Bu amalni qaytarib bo'lmaydi.</p>
+                            <div className="cart-confirm-actions">
+                                <button type="button" className="cart-confirm-cancel" onClick={() => setConfirmingClear(false)}>
+                                    Yo'q, qoldirish
+                                </button>
+                                <button type="button" className="cart-confirm-danger" onClick={handleClearCart}>
+                                    Ha, o'chirish
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="cart-content">
                     <div className="cart-items-section">

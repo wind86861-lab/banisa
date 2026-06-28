@@ -837,3 +837,89 @@
         height: 40px;
     }
 }
+
+/* Inline error banner — replaces the old window.alert that fired on a
+   failed remove / clear. Stays at the top of the cart until dismissed. */
+.cart-op-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0;
+    padding: 10px 14px;
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    border-radius: 10px;
+    color: #991b1b;
+    font-size: 13px;
+    font-weight: 500;
+}
+.cart-op-error button {
+    margin-left: auto;
+    background: transparent;
+    border: 0;
+    color: #991b1b;
+    cursor: pointer;
+    padding: 4px;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Confirm modal for the "Hammasini o'chirish" button. Native window.confirm
+   was blocked in some Mini App embeds and looked foreign against the page. */
+.cart-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.cart-confirm-modal {
+    background: #fff;
+    border-radius: 14px;
+    max-width: 400px;
+    width: 100%;
+    padding: 22px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.25);
+}
+.cart-confirm-modal h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+    color: #1a1a2e;
+}
+.cart-confirm-modal p {
+    margin: 0 0 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #475569;
+}
+.cart-confirm-actions {
+    display: flex;
+    gap: 8px;
+}
+.cart-confirm-actions button {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.cart-confirm-cancel {
+    background: #fff;
+    color: #475569;
+    border-color: #cbd5e1;
+}
+.cart-confirm-cancel:hover {
+    background: #f8fafc;
+}
+.cart-confirm-danger {
+    background: #dc2626;
+    color: #fff;
+}
+.cart-confirm-danger:hover {
+    filter: brightness(0.93);
+}

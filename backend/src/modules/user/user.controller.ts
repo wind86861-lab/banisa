@@ -37,9 +37,11 @@ export class UserController {
      */
     getAppointments = async (req: AuthRequest, res: Response, next: NextFunction) => {
         try {
-            const { status, page, limit } = req.query;
+            const { status, statuses, search, page, limit } = req.query;
             const result = await userService.getUserAppointments(req.user!.id, {
                 status: status as string,
+                statuses: statuses as string,
+                search: search as string,
                 page: page ? parseInt(page as string) : undefined,
                 limit: limit ? parseInt(limit as string) : undefined,
             });

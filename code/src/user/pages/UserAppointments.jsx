@@ -35,13 +35,29 @@ export default function UserAppointments() {
     const [page, setPage] = useState(1);
     const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
+    // Debounce search so each keystroke doesn't fire a request. 300 ms is
+    // the same window we use elsewhere (XizmatlarPage facet inputs).
+    const [debouncedSearch, setDebouncedSearch] = useState(search);
+    useEffect(() => {
+        const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+        return () => clearTimeout(t);
+    }, [search]);
+
     const { data, isLoading } = useQuery({
-        queryKey: ['user', 'appointments', statusFilter, page],
+        queryKey: ['user', 'appointments', statusFilter, page, debouncedSearch],
         queryFn: async () => {
             const params = new URLSearchParams();
-            if (statusFilter !== 'all' && !['active', 'past', 'action'].includes(statusFilter)) {
+            // "active" / "past" / "action" → multi-status filter handled
+            // server-side via ?statuses=. Single statuses still go through
+            // ?status= for back-compat with bookmarked links.
+            if (statusFilter === 'active') {
+                params.set('statuses', ACTIVE_STATUSES.join(','));
+            } else if (statusFilter === 'past') {
+                params.set('statuses', PAST_STATUSES.join(','));
+            } else if (statusFilter !== 'all' && statusFilter !== 'action') {
                 params.set('status', statusFilter);
             }
+            if (debouncedSearch) params.set('search', debouncedSearch);
             params.set('page', page.toString());
             params.set('limit', '20');
             const res = await api.get(`/user/appointments?${params}`);
@@ -56,21 +72,16 @@ export default function UserAppointments() {
     const appointments = data?.data || [];
     const meta = data?.meta || {};
 
+    // "Harakat kerak" can't be expressed as a single status query (it's a
+    // derived predicate on top of status + paymentStatus + payment method),
+    // so this preset still filters client-side. Otherwise the list is
+    // authoritative from the server.
     const filtered = useMemo(() => {
-        let list = appointments;
-        if (statusFilter === 'active') list = list.filter(a => ACTIVE_STATUSES.includes(a.status));
-        else if (statusFilter === 'past') list = list.filter(a => PAST_STATUSES.includes(a.status));
-        else if (statusFilter === 'action') list = list.filter(a => canCheckIn(a) || awaitingCashier(a));
-        if (search.trim()) {
-            const q = search.toLowerCase();
-            list = list.filter(a =>
-                (a.clinic?.nameUz || '').toLowerCase().includes(q) ||
-                serviceNameOf(a).toLowerCase().includes(q) ||
-                (a.bookingNumber || '').toLowerCase().includes(q)
-            );
+        if (statusFilter === 'action') {
+            return appointments.filter(a => canCheckIn(a) || awaitingCashier(a));
         }
-        return list;
-    }, [appointments, statusFilter, search]);
+        return appointments;
+    }, [appointments, statusFilter]);
 
     const stats = useMemo(() => {
         const total = appointments.length;
@@ -87,20 +98,26 @@ export default function UserAppointments() {
         { value: 'past', label: 'Yakunlangan', count: appointments.filter(a => PAST_STATUSES.includes(a.status)).length },
     ];
 
+    // "Today" / "Tomorrow" are anchored to Asia/Tashkent — clinic working
+    // hours and check-in QRs are all keyed to that timezone, and a patient
+    // browsing from a different TZ would otherwise see the morning slot
+    // in Tashkent labelled "Tomorrow" (or vice versa). We project both
+    // sides into Tashkent local YYYY-MM-DD strings and compare those.
     const groups = useMemo(() => {
         const g = { today: [], tomorrow: [], upcoming: [], past: [] };
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        const tmr = new Date(now);
-        tmr.setDate(tmr.getDate() + 1);
+        const TZ = 'Asia/Tashkent';
+        const ymdInTashkent = (d) => d.toLocaleDateString('en-CA', { timeZone: TZ });
+        const today = ymdInTashkent(new Date());
+        const tomorrowDate = new Date();
+        tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+        const tomorrow = ymdInTashkent(tomorrowDate);
         for (const a of filtered) {
-            const d = new Date(a.scheduledAt);
-            d.setHours(0, 0, 0, 0);
-            if (PAST_STATUSES.includes(a.status) || d < now) {
+            const dStr = ymdInTashkent(new Date(a.scheduledAt));
+            if (PAST_STATUSES.includes(a.status) || dStr < today) {
                 g.past.push(a);
-            } else if (d.getTime() === now.getTime()) {
+            } else if (dStr === today) {
                 g.today.push(a);
-            } else if (d.getTime() === tmr.getTime()) {
+            } else if (dStr === tomorrow) {
                 g.tomorrow.push(a);
             } else {
                 g.upcoming.push(a);

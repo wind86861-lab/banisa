@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
     ArrowLeft, CheckCircle2, Clock, CreditCard, Building2, Phone, MapPin,
     Calendar, FileText, AlertCircle, Loader2, Navigation as NavIcon
@@ -18,13 +18,24 @@ import { useQuery as useRq } from '@tanstack/react-query';
 import { Star } from 'lucide-react';
 import './css/AppointmentDetailPage.css';
 
-const POLL_MS = 5000;
+// Active poll cadence — 5 s while cashier confirmation is realistically
+// imminent. After STALE_AFTER_MS the patient has clearly been waiting; we
+// back off to 30 s to spare battery without losing freshness completely.
+const POLL_MS_ACTIVE = 5000;
+const POLL_MS_STALE = 30000;
+const STALE_AFTER_MS = 2 * 60 * 1000;
 // How long to wait for cashier confirmation before showing the "call clinic" fallback.
 const CASHIER_WAIT_MS = 3 * 60 * 1000;
 
 export default function AppointmentDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
+
+    // Track when this view first mounted so we can downgrade the poll
+    // cadence once the patient has been hanging on the page longer than
+    // STALE_AFTER_MS without resolution. Stored in a ref so re-renders
+    // don't reset the start time.
+    const mountedAtRef = useRef(Date.now());
 
     const { data, isLoading, error, refetch } = useQuery({
         queryKey: ['appointment', id, 'v3'],
@@ -34,13 +45,22 @@ export default function AppointmentDetailPage() {
         },
         retry: false,
         // Live poll while the patient is mid-flow so cashier-side updates land
-        // without a manual refresh. Idle terminal states stop polling.
+        // without a manual refresh. Idle terminal states stop polling. We
+        // also halt completely when the tab is hidden — React Query
+        // refetchOnWindowFocus brings us back when the tab returns, so
+        // background tabs aren't burning the server.
         refetchInterval: (q) => {
             const a = q.state.data;
             if (!a) return false;
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+                return false;
+            }
             const live = ['CONFIRMED', 'CHECKED_IN'];
-            return live.includes(a.status) && a.paymentStatus !== 'PAID' ? POLL_MS : false;
+            if (!live.includes(a.status) || a.paymentStatus === 'PAID') return false;
+            const elapsed = Date.now() - mountedAtRef.current;
+            return elapsed < STALE_AFTER_MS ? POLL_MS_ACTIVE : POLL_MS_STALE;
         },
+        refetchIntervalInBackground: false,
         refetchOnWindowFocus: true,
     });
 
@@ -275,10 +295,10 @@ export default function AppointmentDetailPage() {
                         )}
 
                         {awaitingClinicAccept && (
-                            <div className="apd-pay-card" style={{ background: '#fffbeb', border: '1px solid #fcd34d' }}>
-                                <div style={{ fontSize: 28 }}>⏳</div>
-                                <h3 style={{ color: '#92400e' }}>Klinika tasdiqi kutilmoqda</h3>
-                                <p style={{ marginTop: 6, marginBottom: 0, color: '#78350f', fontSize: 13, lineHeight: 1.5 }}>
+                            <div className="apd-pay-card apd-pay-card--awaiting">
+                                <div className="apd-pay-card-emoji">⏳</div>
+                                <h3>Klinika tasdiqi kutilmoqda</h3>
+                                <p>
                                     Klinika sizning bronni qabul qilgach, sizga {data.paymentMethod === 'CLICK' ? 'Click' : 'Payme'} orqali
                                     <strong> "💳 To'lash"</strong> havolasi yuboriladi (Telegram + sayt).
                                     Hozirda to'lov amalga oshirib bo'lmaydi — klinika rad qilsa pul qaytarish muommosi yo'q.
@@ -287,17 +307,16 @@ export default function AppointmentDetailPage() {
                         )}
 
                         {urgentPaymentRequired && (
-                            <div className="apd-pay-card" style={{ background: '#fef2f2', border: '2px solid #ef4444', animation: 'pulse 2s ease-in-out infinite' }}>
-                                <div style={{ fontSize: 40 }}>⚠️</div>
-                                <h3 style={{ color: '#991b1b', marginBottom: 8 }}>HOZIR to'lash kerak</h3>
-                                <p style={{ margin: '0 0 14px', color: '#7f1d1d', fontSize: 14, lineHeight: 1.55, fontWeight: 500 }}>
+                            <div className="apd-pay-card apd-pay-card--urgent">
+                                <div className="apd-pay-card-emoji apd-pay-card-emoji--lg">⚠️</div>
+                                <h3>HOZIR to'lash kerak</h3>
+                                <p>
                                     Siz klinikaga keldingiz va check-in qildingiz, lekin to'lov hali qilinmagan.
                                     <strong> Xizmat boshlanmaydi</strong> — quyidagi {data.paymentMethod === 'CLICK' ? 'Click' : 'Payme'} tugmasi bilan
                                     hozir to'lang yoki kassaga borib naqd to'lashingiz mumkin (klinikaning ruxsati bo'lsa).
                                 </p>
                                 <button
-                                    className="apd-pay-btn"
-                                    style={{ background: '#dc2626', fontSize: 16, padding: '14px 20px' }}
+                                    className="apd-pay-btn apd-pay-btn--danger"
                                     onClick={() => navigate('/payment', { state: { bookingData: { skipCreate: true, appointmentId: data.id, clinicId: data.clinic?.id || data.clinicId, price: finalP, clinicName: data.clinic?.nameUz, serviceName, scheduledAt: data.scheduledAt, selectedDate: data.scheduledAt?.split('T')[0] } } })}
                                 >
                                     💳 To'lashga o'tish — {fmtSum(finalP)} so'm

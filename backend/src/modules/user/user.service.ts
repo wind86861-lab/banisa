@@ -67,10 +67,19 @@ export class UserService {
     }
 
     /**
-     * Get user appointments (for PATIENT role)
+     * Get user appointments (for PATIENT role).
+     *
+     * filters.statuses lets the SPA pass multi-status presets ("active",
+     * "past", etc.) as a comma-joined string without each preset hitting
+     * the database in N round-trips. filters.search is matched
+     * case-insensitively against the clinic name and booking number — the
+     * previous client-side filter ran AFTER pagination, so the result count
+     * disagreed with the page total whenever a search hid any rows.
      */
     async getUserAppointments(userId: string, filters: {
         status?: string;
+        statuses?: string;
+        search?: string;
         page?: number;
         limit?: number;
     }) {
@@ -81,6 +90,17 @@ export class UserService {
         const where: any = { patientId: userId };
         if (filters.status) {
             where.status = filters.status;
+        } else if (filters.statuses) {
+            const arr = filters.statuses.split(',').map(s => s.trim()).filter(Boolean);
+            if (arr.length > 0) where.status = { in: arr };
+        }
+        const search = filters.search?.trim();
+        if (search) {
+            where.OR = [
+                { bookingNumber: { contains: search, mode: 'insensitive' } },
+                { clinic: { nameUz: { contains: search, mode: 'insensitive' } } },
+                { clinic: { nameRu: { contains: search, mode: 'insensitive' } } },
+            ];
         }
 
         const [appointments, total] = await Promise.all([

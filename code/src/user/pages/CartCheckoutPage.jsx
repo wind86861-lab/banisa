@@ -38,34 +38,39 @@ export default function CartCheckoutPage() {
         return () => { cancelled = true; };
     }, []);
 
-    // Fetch payment methods + cash discount for all clinics in cart
+    // Fetch payment methods + cash discount + working hours for the cart's
+    // clinic. Cart is hard-capped at one clinic (server- and client-side
+    // both block multi-clinic), so the previous per-group loop was an N+1
+    // that could only ever fire once in practice. Single fetch keeps the
+    // checkout fast even on slow connections; if a future multi-clinic
+    // policy lands, replace this with a batched /public/clinics?ids= call.
     useEffect(() => {
-        if (!cart || cart.length === 0) return;
+        const clinicId = cart?.[0]?.clinic?.id;
+        if (!clinicId) return;
 
-        const fetchPaymentMethods = async () => {
-            const methods = {};
-            const discounts = {};
-            const hours = {};
-            for (const group of cart) {
-                try {
-                    const res = await axiosInstance.get(`/public/clinics/${group.clinic.id}`);
-                    const clinic = res.data.data;
-                    methods[group.clinic.id] = Array.isArray(clinic.paymentMethods) ? clinic.paymentMethods : [];
-                    discounts[group.clinic.id] = Number(clinic.defaultDiscountPercent) || 0;
-                    hours[group.clinic.id] = clinic.workingHours || null;
-                } catch (err) {
-                    console.error(`Failed to fetch payment methods for clinic ${group.clinic.id}:`, err);
-                    methods[group.clinic.id] = ['CASH'];
-                    discounts[group.clinic.id] = 0;
-                    hours[group.clinic.id] = null;
-                }
-            }
-            setClinicPaymentMethods(methods);
-            setClinicDiscounts(discounts);
-            setClinicWorkingHours(hours);
-        };
-
-        fetchPaymentMethods();
+        let cancelled = false;
+        axiosInstance.get(`/public/clinics/${clinicId}`)
+            .then((res) => {
+                if (cancelled) return;
+                const clinic = res.data.data;
+                setClinicPaymentMethods({
+                    [clinicId]: Array.isArray(clinic.paymentMethods) ? clinic.paymentMethods : [],
+                });
+                setClinicDiscounts({
+                    [clinicId]: Number(clinic.defaultDiscountPercent) || 0,
+                });
+                setClinicWorkingHours({ [clinicId]: clinic.workingHours || null });
+            })
+            .catch((err) => {
+                if (cancelled) return;
+                console.error(`Failed to fetch clinic ${clinicId}:`, err);
+                // Safe defaults — cash always available, no discount, no
+                // working-hours clamp (server still validates on checkout).
+                setClinicPaymentMethods({ [clinicId]: ['CASH'] });
+                setClinicDiscounts({ [clinicId]: 0 });
+                setClinicWorkingHours({ [clinicId]: null });
+            });
+        return () => { cancelled = true; };
     }, [cart]);
 
     // Auto-clear time when the new date/working-hours window makes the

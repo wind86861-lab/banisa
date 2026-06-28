@@ -4,6 +4,98 @@ import { dispatch as dispatchNotification } from '../notifications/notification.
 import { broadcastBookingById } from '../telegram/admin-broadcast.service';
 import { assertWithinWorkingHours } from '../clinics/working-hours.util';
 
+type CartServiceType = 'DIAGNOSTIC' | 'SURGICAL' | 'SANATORIUM' | 'CHECKUP' | 'AMBULANCE';
+
+/**
+ * Look up the catalog row + clinic customization for one cart line.
+ * Centralizes the per-type fan-out so getCart and checkout don't keep
+ * drifting apart — the previous duplicated switch statements had subtly
+ * different fallback shapes for the same service type.
+ */
+async function resolveCartLine(clinicId: string, serviceType: CartServiceType, serviceId: string): Promise<{
+    service: any;
+    customization: { customPrice: number | null; discountPercent: number | null } | null;
+}> {
+    switch (serviceType) {
+        case 'DIAGNOSTIC': {
+            const service = await prisma.diagnosticService.findUnique({
+                where: { id: serviceId },
+                include: { category: { select: { nameUz: true, nameRu: true } } },
+            });
+            const link = await prisma.clinicDiagnosticService.findUnique({
+                where: { clinicId_diagnosticServiceId: { clinicId, diagnosticServiceId: serviceId } },
+                include: { customization: { select: { customPrice: true, discountPercent: true } } },
+            });
+            const customization = link?.customization
+                ? { customPrice: link.customization.customPrice, discountPercent: link.customization.discountPercent }
+                : null;
+            return { service, customization };
+        }
+        case 'SURGICAL': {
+            const service = await prisma.surgicalService.findUnique({
+                where: { id: serviceId },
+                include: { category: { select: { nameUz: true, nameRu: true } } },
+            });
+            const link = await prisma.clinicSurgicalService.findUnique({
+                where: { clinicId_surgicalServiceId: { clinicId, surgicalServiceId: serviceId } },
+            });
+            const cust = (link as any)?.customizationData || {};
+            const customization = link
+                ? { customPrice: cust.customPrice ?? null, discountPercent: cust.discountPercent ?? null }
+                : null;
+            return { service, customization };
+        }
+        case 'SANATORIUM': {
+            const service = await prisma.sanatoriumService.findUnique({
+                where: { id: serviceId },
+                include: { category: { select: { nameUz: true, nameRu: true } } },
+            });
+            const link = await prisma.clinicSanatoriumService.findUnique({
+                where: { clinicId_sanatoriumServiceId: { clinicId, sanatoriumServiceId: serviceId } },
+            });
+            const customization = link
+                ? { customPrice: link.clinicPrice ?? null, discountPercent: link.discountPercent ?? null }
+                : null;
+            return { service, customization };
+        }
+        case 'CHECKUP': {
+            const service = await prisma.checkupPackage.findUnique({ where: { id: serviceId } });
+            const link = await prisma.clinicCheckupPackage.findUnique({
+                where: { clinicId_packageId: { clinicId, packageId: serviceId } },
+            });
+            const customization = link
+                ? { customPrice: link.clinicPrice ?? null, discountPercent: null }
+                : null;
+            return { service, customization };
+        }
+        case 'AMBULANCE': {
+            const amb = await prisma.ambulance.findUnique({ where: { id: serviceId } });
+            if (!amb || amb.clinicId !== clinicId) return { service: null, customization: null };
+            // Synthesize a service-shaped row so common pricing code below
+            // works untouched. Per-km billing happens after dispatch.
+            const service = {
+                id: amb.id,
+                nameUz: `🆘 Tez yordam — ${amb.callSign}${amb.vehicleModel ? ' (' + amb.vehicleModel + ')' : ''}`,
+                nameRu: `🆘 Скорая — ${amb.callSign}${amb.vehicleModel ? ' (' + amb.vehicleModel + ')' : ''}`,
+                priceRecommended: amb.baseFee || 0,
+                shortDescription: amb.type,
+                imageUrl: amb.photoUrl,
+            } as any;
+            return { service, customization: null };
+        }
+    }
+}
+
+/** Apply per-clinic customization to a base price. Tiyin-free maths. */
+function effectivePrice(basePrice: number, customization: { customPrice: number | null; discountPercent: number | null } | null) {
+    const customPrice = customization?.customPrice ?? basePrice;
+    const discount = customization?.discountPercent ?? 0;
+    const finalPrice = discount > 0
+        ? Math.round(customPrice * (1 - discount / 100))
+        : customPrice;
+    return { customPrice, discount, finalPrice };
+}
+
 export class CartService {
     async addToCart(userId: string, data: {
         clinicId: string;
@@ -94,126 +186,14 @@ export class CartService {
 
         const itemsWithServices = await Promise.all(
             cartItems.map(async (item) => {
-                let service: any;
-                let customization: { customPrice: number | null; discountPercent: number | null } | null = null;
-
-                switch (item.serviceType) {
-                    case 'DIAGNOSTIC':
-                        service = await prisma.diagnosticService.findUnique({
-                            where: { id: item.serviceId },
-                            include: { category: { select: { nameUz: true, nameRu: true } } },
-                        });
-                        // Look up clinic-specific customization (customPrice / discountPercent)
-                        {
-                            const link = await prisma.clinicDiagnosticService.findUnique({
-                                where: {
-                                    clinicId_diagnosticServiceId: {
-                                        clinicId: item.clinicId,
-                                        diagnosticServiceId: item.serviceId,
-                                    },
-                                },
-                                include: { customization: { select: { customPrice: true, discountPercent: true } } },
-                            });
-                            if (link?.customization) {
-                                customization = {
-                                    customPrice: link.customization.customPrice,
-                                    discountPercent: link.customization.discountPercent,
-                                };
-                            }
-                        }
-                        break;
-                    case 'SURGICAL':
-                        service = await prisma.surgicalService.findUnique({
-                            where: { id: item.serviceId },
-                            include: { category: { select: { nameUz: true, nameRu: true } } },
-                        });
-                        {
-                            const link = await prisma.clinicSurgicalService.findUnique({
-                                where: {
-                                    clinicId_surgicalServiceId: {
-                                        clinicId: item.clinicId,
-                                        surgicalServiceId: item.serviceId,
-                                    },
-                                },
-                            });
-                            if (link) {
-                                const cust = (link as any).customizationData || {};
-                                customization = {
-                                    customPrice: cust.customPrice ?? null,
-                                    discountPercent: cust.discountPercent ?? null,
-                                };
-                            }
-                        }
-                        break;
-                    case 'SANATORIUM':
-                        service = await prisma.sanatoriumService.findUnique({
-                            where: { id: item.serviceId },
-                            include: { category: { select: { nameUz: true, nameRu: true } } },
-                        });
-                        {
-                            const link = await prisma.clinicSanatoriumService.findUnique({
-                                where: {
-                                    clinicId_sanatoriumServiceId: {
-                                        clinicId: item.clinicId,
-                                        sanatoriumServiceId: item.serviceId,
-                                    },
-                                },
-                            });
-                            if (link) {
-                                customization = {
-                                    customPrice: link.clinicPrice ?? null,
-                                    discountPercent: link.discountPercent ?? null,
-                                };
-                            }
-                        }
-                        break;
-                    case 'CHECKUP':
-                        service = await prisma.checkupPackage.findUnique({
-                            where: { id: item.serviceId },
-                        });
-                        {
-                            const link = await prisma.clinicCheckupPackage.findUnique({
-                                where: {
-                                    clinicId_packageId: {
-                                        clinicId: item.clinicId,
-                                        packageId: item.serviceId,
-                                    },
-                                },
-                            });
-                            if (link) {
-                                customization = {
-                                    customPrice: link.clinicPrice ?? null,
-                                    discountPercent: null,
-                                };
-                            }
-                        }
-                        break;
-                    case 'AMBULANCE': {
-                        const amb = await prisma.ambulance.findUnique({ where: { id: item.serviceId } });
-                        if (amb && amb.clinicId === item.clinicId) {
-                            service = {
-                                id: amb.id,
-                                nameUz: `🆘 Tez yordam — ${amb.callSign}${amb.vehicleModel ? ' (' + amb.vehicleModel + ')' : ''}`,
-                                nameRu: `🆘 Скорая — ${amb.callSign}${amb.vehicleModel ? ' (' + amb.vehicleModel + ')' : ''}`,
-                                priceRecommended: amb.baseFee || 0,
-                                shortDescription: amb.type,
-                                imageUrl: amb.photoUrl,
-                            } as any;
-                        }
-                        break;
-                    }
-                }
+                const { service, customization } = await resolveCartLine(
+                    item.clinicId,
+                    item.serviceType as CartServiceType,
+                    item.serviceId,
+                );
 
                 const basePrice = service?.priceRecommended || service?.recommendedPrice || 0;
-                const priceMin = service?.priceMin || 0;
-                const priceMax = service?.priceMax || 0;
-
-                // Apply clinic customization for diagnostic services
-                const customPrice = customization?.customPrice ?? basePrice;
-                const discount = customization?.discountPercent ?? 0;
-                const finalPrice = discount > 0
-                    ? Math.round(customPrice * (1 - discount / 100))
-                    : customPrice;
+                const { customPrice, discount, finalPrice } = effectivePrice(basePrice, customization);
 
                 return {
                     id: item.id,
@@ -230,8 +210,8 @@ export class CartService {
                         basePrice,
                         originalPrice: customPrice !== finalPrice ? customPrice : null,
                         discountPercent: discount > 0 ? discount : null,
-                        priceMin,
-                        priceMax,
+                        priceMin: service?.priceMin || 0,
+                        priceMax: service?.priceMax || 0,
                         shortDescription: service.shortDescription || null,
                         imageUrl: service?.imageUrl || null,
                         category: 'category' in service ? service.category : null,
@@ -352,28 +332,22 @@ export class CartService {
             assertWithinWorkingHours(cartItems[0].clinic, new Date(data.scheduledAt));
         }
 
-        // Group by clinic
-        const byClinic = cartItems.reduce((acc, item) => {
-            if (!acc[item.clinicId]) acc[item.clinicId] = [];
-            acc[item.clinicId].push(item);
-            return acc;
-        }, {} as Record<string, typeof cartItems>);
-
+        // One-clinic policy: enforced both above (distinctClinicIds check)
+        // and on add-to-cart, so we can safely skip the per-clinic loop the
+        // original code wrapped around this body. Keep iterating items only.
+        const clinicId = cartItems[0].clinicId;
+        const items = cartItems;
         const appointments: any[] = [];
 
-        // Create one appointment per clinic
-        for (const [clinicId, items] of Object.entries(byClinic)) {
-            // Calculate total price for this clinic group + collect every
-            // service name so the clinic notification can list what the
-            // patient actually booked (not just "1 ta xizmat"). itemBreakdown
-            // also captures per-item prices so we can persist a row per
-            // service into AppointmentService below — without that, only
-            // the first cart item ever made it onto the booking and the
-            // others vanished.
+        {
+            // Collect totals + per-item rows for AppointmentService persistence
+            // and for the notification's service-name list. The previous code
+            // only kept the first cart line — anything past it silently
+            // vanished off the booking record.
             let totalPrice = 0;
             const serviceNames: string[] = [];
             const itemBreakdown: Array<{
-                serviceType: 'DIAGNOSTIC' | 'SURGICAL' | 'SANATORIUM' | 'CHECKUP' | 'AMBULANCE';
+                serviceType: CartServiceType;
                 originalServiceId: string;
                 serviceName: string;
                 basePrice: number;
@@ -382,120 +356,27 @@ export class CartService {
                 quantity: number;
             }> = [];
             for (const item of items) {
-                let service: any;
-                let customization: { customPrice: number | null; discountPercent: number | null } | null = null;
-                switch (item.serviceType) {
-                    case 'DIAGNOSTIC':
-                        service = await prisma.diagnosticService.findUnique({ where: { id: item.serviceId } });
-                        {
-                            const link = await prisma.clinicDiagnosticService.findUnique({
-                                where: {
-                                    clinicId_diagnosticServiceId: {
-                                        clinicId: item.clinicId,
-                                        diagnosticServiceId: item.serviceId,
-                                    },
-                                },
-                                include: { customization: { select: { customPrice: true, discountPercent: true } } },
-                            });
-                            if (link?.customization) {
-                                customization = {
-                                    customPrice: link.customization.customPrice,
-                                    discountPercent: link.customization.discountPercent,
-                                };
-                            }
-                        }
-                        break;
-                    case 'SURGICAL':
-                        service = await prisma.surgicalService.findUnique({ where: { id: item.serviceId } });
-                        {
-                            const link = await prisma.clinicSurgicalService.findUnique({
-                                where: {
-                                    clinicId_surgicalServiceId: {
-                                        clinicId: item.clinicId,
-                                        surgicalServiceId: item.serviceId,
-                                    },
-                                },
-                            });
-                            if (link) {
-                                const cust = (link as any).customizationData || {};
-                                customization = {
-                                    customPrice: cust.customPrice ?? null,
-                                    discountPercent: cust.discountPercent ?? null,
-                                };
-                            }
-                        }
-                        break;
-                    case 'SANATORIUM':
-                        service = await prisma.sanatoriumService.findUnique({ where: { id: item.serviceId } });
-                        {
-                            const link = await prisma.clinicSanatoriumService.findUnique({
-                                where: {
-                                    clinicId_sanatoriumServiceId: {
-                                        clinicId: item.clinicId,
-                                        sanatoriumServiceId: item.serviceId,
-                                    },
-                                },
-                            });
-                            if (link) {
-                                customization = {
-                                    customPrice: link.clinicPrice ?? null,
-                                    discountPercent: link.discountPercent ?? null,
-                                };
-                            }
-                        }
-                        break;
-                    case 'CHECKUP':
-                        service = await prisma.checkupPackage.findUnique({ where: { id: item.serviceId } });
-                        {
-                            const link = await prisma.clinicCheckupPackage.findUnique({
-                                where: {
-                                    clinicId_packageId: {
-                                        clinicId: item.clinicId,
-                                        packageId: item.serviceId,
-                                    },
-                                },
-                            });
-                            if (link) {
-                                customization = {
-                                    customPrice: link.clinicPrice ?? null,
-                                    discountPercent: null,
-                                };
-                            }
-                        }
-                        break;
-                    case 'AMBULANCE': {
-                        const amb = await prisma.ambulance.findUnique({ where: { id: item.serviceId } });
-                        if (amb && amb.clinicId === item.clinicId) {
-                            // Synthesize a service-shaped record so the common
-                            // pricing path below works untouched. Base fee is
-                            // the chaqiruv price; per-km is charged after the
-                            // dispatch resolves real distance.
-                            service = {
-                                nameUz: `🆘 Tez yordam — ${amb.callSign}${amb.vehicleModel ? ' (' + amb.vehicleModel + ')' : ''}`,
-                                priceRecommended: amb.baseFee || 0,
-                            } as any;
-                        }
-                        break;
-                    }
-                }
-                if (service) {
-                    const basePrice = service.priceRecommended || service.recommendedPrice || 0;
-                    const cp = customization?.customPrice ?? basePrice;
-                    const disc = customization?.discountPercent ?? 0;
-                    const finalPrice = disc > 0 ? Math.round(cp * (1 - disc / 100)) : cp;
-                    totalPrice += finalPrice * item.quantity;
-                    const name = service.nameUz || service.nameRu || service.title || 'Xizmat';
-                    serviceNames.push(item.quantity > 1 ? `${name} ×${item.quantity}` : name);
-                    itemBreakdown.push({
-                        serviceType: item.serviceType as any,
-                        originalServiceId: item.serviceId,
-                        serviceName: name,
-                        basePrice: cp,
-                        finalPrice,
-                        discountAmount: Math.max(0, cp - finalPrice),
-                        quantity: item.quantity,
-                    });
-                }
+                const { service, customization } = await resolveCartLine(
+                    item.clinicId,
+                    item.serviceType as CartServiceType,
+                    item.serviceId,
+                );
+                if (!service) continue;
+
+                const basePrice = service.priceRecommended || service.recommendedPrice || 0;
+                const { customPrice: cp, finalPrice } = effectivePrice(basePrice, customization);
+                totalPrice += finalPrice * item.quantity;
+                const name = service.nameUz || service.nameRu || service.title || 'Xizmat';
+                serviceNames.push(item.quantity > 1 ? `${name} ×${item.quantity}` : name);
+                itemBreakdown.push({
+                    serviceType: item.serviceType as CartServiceType,
+                    originalServiceId: item.serviceId,
+                    serviceName: name,
+                    basePrice: cp,
+                    finalPrice,
+                    discountAmount: Math.max(0, cp - finalPrice),
+                    quantity: item.quantity,
+                });
             }
 
             // Use the first item's service as the primary for the appointment

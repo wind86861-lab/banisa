@@ -971,3 +971,56 @@
     border-radius: 999px;
     margin-top: 10px;
 }
+
+/* Awaiting-clinic / urgent payment cards — moved out of inline style
+   blobs so theme tweaks happen in one place. The shared .apd-pay-card
+   already supplies layout; these classes only override surface colour. */
+.apd-pay-card-emoji {
+    font-size: 28px;
+    line-height: 1;
+}
+.apd-pay-card-emoji--lg {
+    font-size: 40px;
+}
+
+.apd-pay-card--awaiting {
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+}
+.apd-pay-card--awaiting h3 {
+    color: #92400e;
+}
+.apd-pay-card--awaiting p {
+    margin: 6px 0 0;
+    color: #78350f;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.apd-pay-card--urgent {
+    background: #fef2f2;
+    border: 2px solid #ef4444;
+    animation: apd-urgent-pulse 2s ease-in-out infinite;
+}
+.apd-pay-card--urgent h3 {
+    color: #991b1b;
+    margin-bottom: 8px;
+}
+.apd-pay-card--urgent p {
+    margin: 0 0 14px;
+    color: #7f1d1d;
+    font-size: 14px;
+    line-height: 1.55;
+    font-weight: 500;
+}
+
+.apd-pay-btn--danger {
+    background: #dc2626;
+    font-size: 16px;
+    padding: 14px 20px;
+}
+
+@keyframes apd-urgent-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35); }
+    50%      { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
