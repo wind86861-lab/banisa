@@ -4,6 +4,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Bell, Check, X } from 'lucide-react';
 import api from '../../shared/api/axios';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
+import './UserNotificationBell.css';
 
 // Poll cadence: 10s when tab visible, 60s when hidden.
 const ACTIVE_INTERVAL = 10000;
@@ -78,16 +79,19 @@ export default function UserNotificationBell() {
         return () => { stopped = true; if (timer) clearTimeout(timer); document.removeEventListener('visibilitychange', onVis); };
     }, [tick, isPatient]);
 
-    // Render nothing for non-patients — defence in depth on top of Navigation's gate.
-    if (!isPatient) return null;
-
+    // Keep every hook call above the conditional render. Previously this
+    // returned null for non-patients BEFORE useQuery / useMutation /
+    // useEffect ran below, so the hook count changed across renders when
+    // a role flipped — React #310. Now the queries simply stay disabled
+    // when the user isn't a patient OR the panel is closed, and the final
+    // render returns null below.
     const { data, isLoading } = useQuery({
         queryKey: ['user', 'notifications', 'recent'],
         queryFn: async () => {
             const r = await api.get('/user/notifications', { params: { limit: 15 } });
             return r.data?.data || { items: [] };
         },
-        enabled: open,
+        enabled: isPatient && open,
     });
 
     const markRead = useMutation({
@@ -106,6 +110,11 @@ export default function UserNotificationBell() {
         return () => document.removeEventListener('mousedown', onClick);
     }, [open]);
 
+    // Render nothing for non-patients — defence in depth on top of
+    // Navigation's gate. MUST come after all hook calls above so the hook
+    // count stays stable across renders even when isPatient toggles.
+    if (!isPatient) return null;
+
     const handleClick = (n) => {
         if (!n.isRead) markRead.mutate(n.id);
         if (n.link) { navigate(n.link); setOpen(false); }
@@ -114,81 +123,58 @@ export default function UserNotificationBell() {
     const items = data?.items || [];
 
     return (
-        <div ref={panelRef} style={{ position: 'relative' }}>
+        <div ref={panelRef} className="unb-root">
             <button
-                className="cm-nav-bell"
+                className="cm-nav-bell unb-trigger"
                 aria-label="Bildirishnomalar"
                 onClick={() => setOpen(v => !v)}
-                style={{ position: 'relative' }}
             >
                 <Bell size={20} />
                 {unreadCount > 0 && (
-                    <span style={{
-                        position: 'absolute', top: -4, right: -4,
-                        background: '#ef4444', color: '#fff',
-                        fontSize: 10, fontWeight: 700,
-                        minWidth: 18, height: 18, padding: '0 5px',
-                        borderRadius: 999, display: 'flex',
-                        alignItems: 'center', justifyContent: 'center',
-                    }}>{unreadCount > 99 ? '99+' : unreadCount}</span>
+                    <span className="unb-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
                 )}
             </button>
 
             {open && (
-                <div style={{
-                    position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                    width: 380, maxWidth: 'calc(100vw - 32px)', maxHeight: 480,
-                    background: '#fff', borderRadius: 14,
-                    boxShadow: '0 12px 40px rgba(0,0,0,0.15)',
-                    border: '1px solid #eee', zIndex: 1000,
-                    overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                }}>
-                    <div style={{ padding: '14px 16px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ fontWeight: 700, fontSize: 15 }}>
+                <div className="unb-panel">
+                    <div className="unb-panel-head">
+                        <div className="unb-panel-title">
                             Bildirishnomalar
                             {unreadCount > 0 && (
-                                <span style={{ marginLeft: 8, fontSize: 11, color: '#fff', background: '#ef4444', padding: '2px 7px', borderRadius: 10, fontWeight: 700 }}>{unreadCount}</span>
+                                <span className="unb-panel-count">{unreadCount}</span>
                             )}
                         </div>
-                        <div style={{ display: 'flex', gap: 6 }}>
+                        <div className="unb-panel-head-actions">
                             {unreadCount > 0 && (
-                                <button onClick={() => markAll.mutate()} title="Hammasini o'qildi" style={{ background: 'transparent', border: '1px solid #eee', cursor: 'pointer', padding: '4px 10px', borderRadius: 8, fontSize: 12, color: '#475569' }}>
-                                    <Check size={12} style={{ verticalAlign: '-2px' }} /> Hammasi
+                                <button onClick={() => markAll.mutate()} title="Hammasini o'qildi" className="unb-mark-all">
+                                    <Check size={12} /> Hammasi
                                 </button>
                             )}
-                            <button onClick={() => setOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: '#475569' }}>
+                            <button onClick={() => setOpen(false)} className="unb-close">
                                 <X size={16} />
                             </button>
                         </div>
                     </div>
 
-                    <div style={{ overflowY: 'auto', flex: 1 }}>
-                        {isLoading && <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Yuklanmoqda...</div>}
+                    <div className="unb-list">
+                        {isLoading && <div className="unb-loading">Yuklanmoqda...</div>}
                         {!isLoading && items.length === 0 && (
-                            <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>
-                                <div style={{ fontSize: 36, marginBottom: 8 }}>🔔</div>
-                                <div style={{ fontSize: 13 }}>Hozircha bildirishnomalar yo'q</div>
+                            <div className="unb-empty">
+                                <div className="unb-empty-emoji">🔔</div>
+                                <div>Hozircha bildirishnomalar yo'q</div>
                             </div>
                         )}
                         {!isLoading && items.map((n) => (
                             <div
                                 key={n.id}
                                 onClick={() => handleClick(n)}
-                                style={{
-                                    padding: '12px 16px',
-                                    borderBottom: '1px solid #f1f5f9',
-                                    cursor: n.link ? 'pointer' : 'default',
-                                    background: n.isRead ? 'transparent' : '#eff6ff',
-                                    position: 'relative',
-                                }}
+                                className={`unb-item${n.isRead ? '' : ' unb-item--unread'}${n.link ? ' unb-item--clickable' : ''}`}
                             >
-                                {!n.isRead && (
-                                    <span style={{ position: 'absolute', left: 6, top: 18, width: 6, height: 6, borderRadius: '50%', background: '#2563eb' }} />
-                                )}
-                                <div style={{ paddingLeft: 8 }}>
-                                    <div style={{ fontWeight: n.isRead ? 500 : 700, fontSize: 13, marginBottom: 2 }}>{n.title}</div>
-                                    <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.5, marginBottom: 4 }}>{n.body || n.message}</div>
-                                    <div style={{ fontSize: 11, color: '#94a3b8' }}>{fmtRelative(n.createdAt)}</div>
+                                {!n.isRead && <span className="unb-dot" />}
+                                <div className="unb-item-body">
+                                    <div className={`unb-item-title${n.isRead ? '' : ' unb-item-title--bold'}`}>{n.title}</div>
+                                    <div className="unb-item-text">{n.body || n.message}</div>
+                                    <div className="unb-item-time">{fmtRelative(n.createdAt)}</div>
                                 </div>
                             </div>
                         ))}

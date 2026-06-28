@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Heart, ArrowRight, Trash2, Search } from 'lucide-react';
+import { Heart, ArrowRight, Trash2, Search, Check, X } from 'lucide-react';
 import api from '../../shared/api/axios';
 import { fmtSum } from '../../shared/utils/format';
 import TopBar from '../../pages/home/TopBar';
@@ -13,6 +13,10 @@ import './css/UserFavoritesPage.css';
 export default function UserFavoritesPage() {
     const qc = useQueryClient();
     const navigate = useNavigate();
+    // Per-card "are you sure?" confirm: lets a stray tap on the trash icon
+    // require a second confirm tap before the favorite disappears. Tracks
+    // the favoriteId currently pending confirmation; null = nothing.
+    const [confirmId, setConfirmId] = useState(null);
 
     const { data: items = [], isLoading } = useQuery({
         queryKey: ['user', 'favorites'],
@@ -70,13 +74,36 @@ export default function UserFavoritesPage() {
                                 <div className="uf-grid">
                                     {list.map(it => (
                                         <article key={it.favoriteId} className="uf-card">
-                                            <button
-                                                className="uf-card-remove"
-                                                onClick={() => removeMut.mutate(it.favoriteId)}
-                                                title="Sevimlilardan olib tashlash"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
+                                            {confirmId === it.favoriteId ? (
+                                                <div className="uf-card-confirm">
+                                                    <button
+                                                        className="uf-card-confirm-yes"
+                                                        onClick={() => {
+                                                            removeMut.mutate(it.favoriteId, {
+                                                                onSettled: () => setConfirmId(null),
+                                                            });
+                                                        }}
+                                                        title="Tasdiqlash"
+                                                    >
+                                                        <Check size={14} />
+                                                    </button>
+                                                    <button
+                                                        className="uf-card-confirm-no"
+                                                        onClick={() => setConfirmId(null)}
+                                                        title="Bekor qilish"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    className="uf-card-remove"
+                                                    onClick={() => setConfirmId(it.favoriteId)}
+                                                    title="Sevimlilardan olib tashlash"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            )}
                                             <h3>{it.service.title}</h3>
                                             <p>{it.service.desc || 'Tavsif yo\'q'}</p>
                                             <div className="uf-card-foot">

@@ -1,0 +1,170 @@
+/* Patient notification bell — header dropdown. Was ~80 lines of inline
+   style blobs inside the JSX; same look, just maintainable now. */
+.unb-root {
+    position: relative;
+}
+
+.unb-trigger {
+    position: relative;
+}
+
+.unb-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.unb-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    max-height: 480px;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    border: 1px solid #eee;
+    z-index: 1000;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.unb-panel-head {
+    padding: 14px 16px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.unb-panel-title {
+    font-weight: 700;
+    font-size: 15px;
+}
+
+.unb-panel-count {
+    margin-left: 8px;
+    font-size: 11px;
+    color: #fff;
+    background: #ef4444;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+.unb-panel-head-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.unb-mark-all {
+    background: transparent;
+    border: 1px solid #eee;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #475569;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.unb-close {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    color: #475569;
+    display: inline-flex;
+    align-items: center;
+}
+
+.unb-list {
+    overflow-y: auto;
+    flex: 1;
+}
+
+.unb-loading {
+    padding: 24px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.unb-empty {
+    padding: 32px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.unb-empty-emoji {
+    font-size: 36px;
+    margin-bottom: 8px;
+}
+
+.unb-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    position: relative;
+    cursor: default;
+}
+
+.unb-item--clickable {
+    cursor: pointer;
+}
+
+.unb-item--unread {
+    background: #eff6ff;
+}
+
+.unb-dot {
+    position: absolute;
+    left: 6px;
+    top: 18px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #2563eb;
+}
+
+.unb-item-body {
+    padding-left: 8px;
+}
+
+.unb-item-title {
+    font-weight: 500;
+    font-size: 13px;
+    margin-bottom: 2px;
+}
+
+.unb-item-title--bold {
+    font-weight: 700;
+}
+
+.unb-item-text {
+    font-size: 12px;
+    color: #475569;
+    line-height: 1.5;
+    margin-bottom: 4px;
+}
+
+.unb-item-time {
+    font-size: 11px;
+    color: #94a3b8;
+}

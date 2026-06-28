@@ -12,13 +12,18 @@ import './css/UserDashboard.css';
 export default function UserDashboard() {
     const { user, logout } = useUserAuth();
 
-    const { data: appointments = [], isLoading: isLoadingAppointments } = useQuery({
-        queryKey: ['user', 'appointments'],
+    const { data: appointmentsRes, isLoading: isLoadingAppointments } = useQuery({
+        queryKey: ['user', 'appointments', 'dashboard'],
         queryFn: async () => {
-            const res = await api.get('/user/appointments');
-            return res.data.data || [];
+            // Pull just enough to fill the "recent" strip; the stats card
+            // uses the meta.total so it doesn't lie when the patient has
+            // more than one page of bookings.
+            const res = await api.get('/user/appointments', { params: { limit: 5 } });
+            return res.data;
         },
     });
+    const appointments = appointmentsRes?.data || [];
+    const appointmentsTotal = appointmentsRes?.meta?.total ?? appointments.length;
 
     const { data: reviews = [], isLoading: isLoadingReviews } = useQuery({
         queryKey: ['user', 'reviews'],
@@ -28,15 +33,23 @@ export default function UserDashboard() {
         },
     });
 
-    if (isLoadingAppointments || isLoadingReviews) {
+    const { data: favorites = [], isLoading: isLoadingFavorites } = useQuery({
+        queryKey: ['user', 'favorites'],
+        queryFn: async () => {
+            const res = await api.get('/user/favorites');
+            return res.data?.data || [];
+        },
+    });
+
+    if (isLoadingAppointments || isLoadingReviews || isLoadingFavorites) {
         return <BanisaLoader message="Ma'lumotlar yuklanmoqda..." />;
     }
 
     const stats = [
-        { label: 'Jami bronlar', value: appointments.length, icon: Calendar, color: '#00BDE0' },
+        { label: 'Jami bronlar', value: appointmentsTotal, icon: Calendar, color: '#00BDE0' },
         { label: 'Faol bronlar', value: appointments.filter(a => a.status === 'PENDING' || a.status === 'CONFIRMED').length, icon: Clock, color: '#3B82F6' },
         { label: 'Sharhlarim', value: reviews.length, icon: Star, color: '#F59E0B' },
-        { label: 'Sevimlilar', value: 0, icon: Heart, color: '#EC4899' },
+        { label: 'Sevimlilar', value: favorites.length, icon: Heart, color: '#EC4899' },
     ];
 
     const quickActions = [
@@ -131,12 +144,12 @@ export default function UserDashboard() {
                                     <div key={apt.id} className="ud-recent-item">
                                         <div className="ud-recent-clinic">
                                             <div className="ud-recent-logo">
-                                                {apt.clinic?.name?.[0] || 'K'}
+                                                {(apt.clinic?.nameUz || apt.clinic?.nameRu || '?')[0]?.toUpperCase()}
                                             </div>
                                             <div>
-                                                <div className="ud-recent-name">{apt.clinic?.name || 'Klinika'}</div>
+                                                <div className="ud-recent-name">{apt.clinic?.nameUz || apt.clinic?.nameRu || 'Klinika'}</div>
                                                 <div className="ud-recent-date">
-                                                    {new Date(apt.appointmentDate).toLocaleDateString('uz-UZ')}
+                                                    {apt.scheduledAt ? new Date(apt.scheduledAt).toLocaleDateString('uz-UZ') : '—'}
                                                 </div>
                                             </div>
                                         </div>

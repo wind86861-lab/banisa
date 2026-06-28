@@ -335,3 +335,124 @@
         padding: 24px;
     }
 }
+
+/* Password card — extracted from a ~100-line inline-style blob in the
+   JSX. Anything theme-coloured (primary, ghost, alert) now lives here. */
+.up-pw-card .up-card-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.up-pw-lead {
+    margin: 0 0 14px;
+    color: #64748b;
+    font-size: 13px;
+}
+.up-pw-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.up-pw-form {
+    display: grid;
+    gap: 12px;
+    max-width: 420px;
+}
+.up-pw-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+.up-pw-field {
+    position: relative;
+}
+.up-pw-field input {
+    width: 100%;
+    padding: 10px 38px 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+}
+.up-pw-eye {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #64748b;
+}
+.up-pw-primary {
+    background: #00BDE0;
+    color: #fff;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.up-pw-grow {
+    flex: 1;
+    justify-content: center;
+}
+.up-pw-ghost {
+    background: #fff;
+    color: #0A2463;
+    border: 1px solid #cbd5e1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+}
+.up-pw-cancel {
+    background: #fff;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.up-pw-actions {
+    display: flex;
+    gap: 10px;
+}
+.up-pw-alert {
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+.up-pw-alert--success {
+    background: #dcfce7;
+    color: #166534;
+}
+.up-pw-alert--error {
+    background: #fef2f2;
+    color: #991b1b;
+}
+.up-pw-hint {
+    margin: 0;
+    font-size: 12px;
+    color: #64748b;
+}
+.up-pw-link {
+    background: none;
+    border: none;
+    color: #00BDE0;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    font-size: 12px;
+}
+.up-pw-reset-msg {
+    margin-top: 12px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #eff6ff;
+    color: #1e40af;
+}
