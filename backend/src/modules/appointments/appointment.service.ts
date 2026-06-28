@@ -657,6 +657,27 @@ export class AppointmentService {
         });
     }
 
+    /**
+     * Lightweight projection used by polling clients (PatientCheckInPage's
+     * cashier wait, AppointmentDetailPage's payment watch). Returns just
+     * the status/payment bits the UI flips on — the full INCLUDE_FULL
+     * payload was ~6× larger and most of it (clinic photos, logs, full
+     * service catalog) never changes during a poll window.
+     */
+    async getPaymentStatusForPatient(id: string, patientId: string) {
+        return prisma.appointment.findFirst({
+            where: { id, patientId },
+            select: {
+                id: true,
+                status: true,
+                paymentStatus: true,
+                paymentMethod: true,
+                finalPrice: true,
+                price: true,
+            },
+        });
+    }
+
     async findByIdForClinic(id: string, clinicId: string) {
         return prisma.appointment.findFirst({
             where: { id, clinicId },

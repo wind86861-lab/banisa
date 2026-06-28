@@ -33,6 +33,10 @@ export default function ScanCheckInPage() {
     const [torchOn, setTorchOn] = useState(false);
     const [torchSupported, setTorchSupported] = useState(false);
     const [resolvedUser, setResolvedUser] = useState(null);
+    // Bumping this remounts the scanner effect — used by the error-state
+    // retry button instead of window.location.reload, which would tear
+    // down React Router state and lose `from` context.
+    const [retryNonce, setRetryNonce] = useState(0);
 
     // Bot opens this page as a Mini App. The initial render can see user=null
     // while ensurePatientAuth is mid-flight; the old check redirected to
@@ -147,7 +151,7 @@ export default function ScanCheckInPage() {
             })();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [resolvedUser]);
+    }, [resolvedUser, retryNonce]);
 
     return (
         <div className="scan-page">
@@ -202,7 +206,11 @@ export default function ScanCheckInPage() {
                     <div className="scan-overlay scan-overlay--err">
                         <AlertCircle size={32} />
                         <p>Xatolik: {errMsg}</p>
-                        <button className="scan-btn" onClick={() => window.location.reload()}>
+                        <button className="scan-btn" onClick={() => {
+                            setErrMsg('');
+                            setState('starting');
+                            setRetryNonce(n => n + 1);
+                        }}>
                             Qayta urinish
                         </button>
                     </div>

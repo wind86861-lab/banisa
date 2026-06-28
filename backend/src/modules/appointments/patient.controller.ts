@@ -30,6 +30,25 @@ export const patientAppointmentController = {
         }
     },
 
+    /**
+     * GET /api/user/appointments/:id/payment-status
+     * Minimal payload for polling flows (check-in cashier wait,
+     * AppointmentDetailPage). Returns only the few fields a poller needs
+     * to flip its UI; full appointment refetch happens once on landing.
+     */
+    getPaymentStatus: async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            const result = await appointmentService.getPaymentStatusForPatient(
+                String(req.params.id),
+                req.user!.id,
+            );
+            if (!result) throw new AppError('Bron topilmadi', 404, ErrorCodes.NOT_FOUND);
+            sendSuccess(res, result);
+        } catch (err) {
+            next(err);
+        }
+    },
+
     cancel: async (req: AuthRequest, res: Response, next: NextFunction) => {
         try {
             const appt = await appointmentService.cancelByPatient(

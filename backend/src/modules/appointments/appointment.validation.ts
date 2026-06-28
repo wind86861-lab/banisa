@@ -68,6 +68,11 @@ export const scanCheckInPickSchema = z.object({
     body: z.object({
         secret: z.string().min(5, 'QR kod noto\'g\'ri'),
         appointmentId: z.string().uuid('Bron ID noto\'g\'ri'),
+        // Geo fields were undeclared earlier — Zod strips unknown keys, so
+        // the controller's req.body.lat / req.body.lng silently came back
+        // undefined on the pick path even though the scanner sent them.
+        lat: z.number().optional(),
+        lng: z.number().optional(),
     }),
 });
 

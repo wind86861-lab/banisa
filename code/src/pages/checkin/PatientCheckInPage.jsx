@@ -116,39 +116,51 @@ export default function PatientCheckInPage() {
         }
     };
 
-    // Poll while waiting for cashier — flips to "paid" when clinic admin confirms cash.
+    // Single source of truth for "did the cashier confirm yet?". Uses the
+    // lightweight payment-status endpoint instead of the full appointment
+    // payload — most of what /user/appointments/:id returns (clinic logo,
+    // logs, service catalog) never changes during a polling window.
+    const checkPaid = async () => {
+        if (!result?.id) return;
+        try {
+            const res = await axiosInstance.get(`/user/appointments/${result.id}/payment-status`);
+            const a = res.data?.data;
+            if (a && a.paymentStatus === 'PAID') {
+                setResult((prev) => ({ ...prev, ...a }));
+                setStep('paid');
+            }
+        } catch { /* keep polling */ }
+    };
+
+    // Poll while waiting for cashier — flips to "paid" when clinic admin
+    // confirms cash. Skips ticks while the tab is hidden (Telegram WebView
+    // backgrounds the page when patient checks chat); a visibility listener
+    // resyncs once they return so the UI doesn't stay stale.
     useEffect(() => {
         if (step !== 'awaiting-cash' || !result?.id) return;
         tickCountRef.current = 0;
         setWaitedLong(false);
-        const tick = async () => {
+        const tick = () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
             tickCountRef.current += 1;
             if (tickCountRef.current >= CASHIER_TIMEOUT_TICKS) setWaitedLong(true);
-            try {
-                const res = await axiosInstance.get(`/user/appointments/${result.id}`);
-                const a = res.data?.data;
-                if (a && a.paymentStatus === 'PAID') {
-                    setResult((prev) => ({ ...prev, ...a }));
-                    setStep('paid');
-                }
-            } catch { /* keep polling */ }
+            checkPaid();
         };
         pollRef.current = setInterval(tick, 5000);
-        return () => { if (pollRef.current) clearInterval(pollRef.current); };
+        const onVisible = () => { if (document.visibilityState === 'visible') checkPaid(); };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => {
+            if (pollRef.current) clearInterval(pollRef.current);
+            document.removeEventListener('visibilitychange', onVisible);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, result?.id]);
 
     const manualRefresh = async () => {
         if (!result?.id) return;
         tickCountRef.current = 0;
         setWaitedLong(false);
-        try {
-            const res = await axiosInstance.get(`/user/appointments/${result.id}`);
-            const a = res.data?.data;
-            if (a && a.paymentStatus === 'PAID') {
-                setResult((prev) => ({ ...prev, ...a }));
-                setStep('paid');
-            }
-        } catch { /* ignore */ }
+        await checkPaid();
     };
 
     const fmt = (n) => n ? Number(n).toLocaleString('en-US').replace(/,/g, ' ') : '0';
@@ -187,7 +199,7 @@ export default function PatientCheckInPage() {
                     <div className="ci-icon">📋</div>
                     <h2>Qaysi bron uchun?</h2>
                     {clinicInfo?.nameUz && (
-                        <p style={{ color: '#64748b', fontSize: 13, marginTop: -8 }}>{clinicInfo.nameUz}</p>
+                        <p className="ci-clinic-sub">{clinicInfo.nameUz}</p>
                     )}
                     <div className="ci-appt-list">
                         {pickList.map(a => {
@@ -261,7 +273,7 @@ export default function PatientCheckInPage() {
                     </div>
 
                     <div className="ci-booking-info">
-                        <div className="ci-booking-row"><span>Bron raqami</span><strong style={{ fontSize: 18 }}>{shortBookingNo(result.bookingNumber)}</strong></div>
+                        <div className="ci-booking-row"><span>Bron raqami</span><strong className="ci-booking-no">{shortBookingNo(result.bookingNumber)}</strong></div>
                         <div className="ci-booking-row"><span>Klinika</span><strong>{result.clinic?.nameUz}</strong></div>
                     </div>
 
@@ -284,7 +296,7 @@ export default function PatientCheckInPage() {
                         </div>
                     )}
 
-                    <button className="ci-btn-secondary" onClick={() => navigate(`/user/appointments/${result.id}`)} style={{ marginTop: 8 }}>
+                    <button className="ci-btn-secondary ci-btn-spaced" onClick={() => navigate(`/user/appointments/${result.id}`)}>
                         Bron tafsilotlari
                     </button>
                 </div>
@@ -298,7 +310,7 @@ export default function PatientCheckInPage() {
         return (
             <div className="ci-page">
                 <div className="ci-card ci-card--success">
-                    <div className="ci-success-icon" style={{ background: '#10b981' }}>✓</div>
+                    <div className="ci-success-icon ci-success-icon--paid">✓</div>
                     <h2>Xush kelibsiz! 🎉</h2>
                     {alreadyChecked && (
                         <p className="ci-already-note">Siz allaqachon check-in qilgansiz.</p>
@@ -310,7 +322,7 @@ export default function PatientCheckInPage() {
                     <div className="ci-price-card">
                         <div className="ci-price-final-row">
                             <span>To'langan</span>
-                            <strong style={{ color: '#10b981' }}>{fmt(finalP)} so'm</strong>
+                            <strong className="ci-paid-amount">{fmt(finalP)} so'm</strong>
                         </div>
                     </div>
                     <div className="ci-booking-info">
@@ -333,7 +345,7 @@ export default function PatientCheckInPage() {
                 <button className="ci-btn-primary" onClick={() => navigate('/user/appointments')}>
                     Bronlarimga qaytish
                 </button>
-                <button className="ci-btn-secondary" onClick={() => navigate('/user/scan-checkin')} style={{ marginTop: 8 }}>
+                <button className="ci-btn-secondary ci-btn-spaced" onClick={() => navigate('/user/scan-checkin')}>
                     Qaytadan skanerlash
                 </button>
             </div>

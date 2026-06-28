@@ -26,6 +26,7 @@ patientAppointmentRouter.use(requireAuth);
 // Read-only ownership-checked routes: any authenticated role can read their own appointment
 const ANY_OWNER = requireRole(['PATIENT', 'CLINIC_ADMIN', 'SUPER_ADMIN']);
 patientAppointmentRouter.get('/:id', ANY_OWNER, patientAppointmentController.getById);
+patientAppointmentRouter.get('/:id/payment-status', ANY_OWNER, patientAppointmentController.getPaymentStatus);
 // Patient-only mutating actions
 const PATIENT_ONLY = requireRole(['PATIENT']);
 patientAppointmentRouter.post('/', PATIENT_ONLY, validate(createBookingSchema), patientAppointmentController.create);

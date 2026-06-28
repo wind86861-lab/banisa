@@ -564,3 +564,23 @@
     border-radius: 8px;
 }
 .ci-link-row:hover { background: rgba(37, 99, 235, 0.06); }
+
+/* Extracted from inline style={{ ... }} blobs so theme adjustments don't
+   need to hunt JSX. */
+.ci-clinic-sub {
+    color: #64748b;
+    font-size: 13px;
+    margin-top: -8px;
+}
+.ci-booking-no {
+    font-size: 18px;
+}
+.ci-btn-spaced {
+    margin-top: 8px;
+}
+.ci-success-icon--paid {
+    background: #10b981;
+}
+.ci-paid-amount {
+    color: #10b981;
+}
