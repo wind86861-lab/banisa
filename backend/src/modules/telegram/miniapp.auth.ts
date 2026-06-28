@@ -84,9 +84,15 @@ export interface MiniAppLoginResult {
     user?: any;
 }
 
+// Match the web user-auth.service.ts TTL (bumped from 15m → 1h there
+// when a 15-min cushion left operators logged out at every transient
+// network hiccup). The Mini App path was missed in that pass, so
+// Telegram-bound patients were getting evicted ~4× more often than
+// web patients for no good reason. Refresh cookie + watchdog still
+// keep silent re-auth working past the hour.
 const signAccessToken = (payload: { id: string; role: string }) =>
     jwt.sign(payload, env.JWT_ACCESS_SECRET as jwt.Secret, {
-        expiresIn: env.NODE_ENV === 'production' ? '15m' : '1h',
+        expiresIn: env.NODE_ENV === 'production' ? '1h' : '4h',
     } as jwt.SignOptions);
 
 const signRefreshToken = (payload: { id: string }) =>

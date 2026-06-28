@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Send, Phone, ShieldCheck, Loader2, AlertTriangle } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Send, Phone, ShieldCheck, Loader2, AlertTriangle, RefreshCw, ExternalLink } from 'lucide-react';
 import { useUserAuth } from '../shared/auth/UserAuthContext';
 import './css/MiniAppBindFirst.css';
+
+const BOT_USERNAME = (import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'banisauzbot').replace(/^@/, '');
+
+// Exponential-ish polling cadence. Bot processes a fresh contact almost
+// instantly on warm pods; on a cold start it can take 8-12s. Linear 2s
+// polling for 30s used to burn battery + flood telemetry for no win.
+// We probe quick early, then back off.
+const POLL_DELAYS_MS = [1500, 2000, 2500, 3500, 5000, 5000, 5000, 7000];
 
 /**
  * In-Telegram register/login screen for the Mini App.
@@ -13,13 +21,13 @@ import './css/MiniAppBindFirst.css';
  *   3. User confirms → Telegram sends the contact to the BOT (not to us).
  *   4. The bot's `message:contact` handler registers the user and links the
  *      chatId to the freshly created Banisa account.
- *   5. We poll /miniapp-login every 2s until it returns 200 (max ~30s).
+ *   5. We poll /miniapp-login until it returns 200 (~35s total budget).
  *   6. On success → JWT applied via UserAuthContext, navigate to home.
  *
  * Fallback paths:
  *   • requestContact() unsupported (older Telegram clients) → open the bot
  *     in a chat so the user can tap the share button there.
- *   • Outside Telegram entirely → static instructions to use the web site.
+ *   • Outside Telegram entirely → React Router link to /user/signup.
  */
 export default function MiniAppBindFirst() {
     const navigate = useNavigate();
@@ -41,6 +49,12 @@ export default function MiniAppBindFirst() {
     const insideTelegram = Boolean(window.Telegram?.WebApp?.initData);
     const canRequestContact = typeof window.Telegram?.WebApp?.requestContact === 'function';
 
+    const openBotChat = () => {
+        const tg = window.Telegram?.WebApp;
+        try { tg?.openTelegramLink?.(`https://t.me/${BOT_USERNAME}?start=share`); }
+        catch { window.open(`https://t.me/${BOT_USERNAME}`, '_blank'); }
+    };
+
     /** Poll the miniapp-login endpoint until the bot has created the account. */
     const pollUntilBound = async () => {
         const tg = window.Telegram?.WebApp;
@@ -51,16 +65,14 @@ export default function MiniAppBindFirst() {
             return;
         }
 
-        const MAX_ATTEMPTS = 15; // ~30s at 2s interval
-        const INTERVAL_MS = 2000;
-        for (let i = 0; i < MAX_ATTEMPTS; i++) {
+        // Reset the cancel flag so a fresh retry can run after a previous
+        // poll was aborted by clicking the close → reopen → bind cycle.
+        pollAbortRef.current = false;
+
+        for (const delay of POLL_DELAYS_MS) {
             if (pollAbortRef.current) return;
             try {
                 await loginViaTelegramMiniApp(initData);
-                // Clear the once-per-session guard the auth context sets so
-                // a future hard reload (e.g. user closing & reopening) still
-                // works cleanly.
-                try { sessionStorage.removeItem('banisa_miniapp_tried'); } catch {}
                 navigate('/', { replace: true });
                 return;
             } catch (e) {
@@ -74,7 +86,7 @@ export default function MiniAppBindFirst() {
                     return;
                 }
             }
-            await new Promise(r => setTimeout(r, INTERVAL_MS));
+            await new Promise(r => setTimeout(r, delay));
         }
         setPhase('error');
         setErrorMsg('Bot javob bermadi. Telegram chatda Banisa botiga o\'tib, "Telefon yuborish" tugmasini bosing va qaytaring.');
@@ -85,11 +97,10 @@ export default function MiniAppBindFirst() {
         if (!tg) return;
         setErrorMsg('');
         if (!canRequestContact) {
-            // Fallback: send the user to the bot chat where they can tap the
-            // share button (the bot sends a request_contact keyboard on /start).
-            const username = (import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'banisauzbot').replace(/^@/, '');
-            try { tg.openTelegramLink?.(`https://t.me/${username}?start=share`); }
-            catch { window.open(`https://t.me/${username}`, '_blank'); }
+            // Older Telegram clients don't expose requestContact yet —
+            // bounce to the bot chat where the start-keyboard offers the
+            // same "share contact" button at the platform level.
+            openBotChat();
             return;
         }
 
@@ -107,6 +118,15 @@ export default function MiniAppBindFirst() {
             setPhase('error');
             setErrorMsg('Tizim Telegram bilan bog\'lana olmadi.');
         }
+    };
+
+    // Retry from the error state — clears the message and re-runs the
+    // share dialog. Previously the error overlay was terminal and the
+    // patient had to reload the Mini App.
+    const handleRetry = () => {
+        setErrorMsg('');
+        setPhase('idle');
+        handleShareContact();
     };
 
     return (
@@ -132,12 +152,14 @@ export default function MiniAppBindFirst() {
                 )}
 
                 <div className="mab-actions">
-                    {(phase === 'idle' || phase === 'error') && (
+                    {/* The primary CTA is only useful inside Telegram. Out of
+                        the embed we hide it entirely instead of showing a
+                        disabled button that can't do anything. */}
+                    {insideTelegram && phase === 'idle' && (
                         <button
                             type="button"
                             className="mab-btn mab-btn--primary"
                             onClick={handleShareContact}
-                            disabled={!insideTelegram}
                         >
                             <Phone size={16} /> Telefon raqamni yuborish
                         </button>
@@ -154,13 +176,37 @@ export default function MiniAppBindFirst() {
                             <span>Hisob yaratilmoqda... bir necha soniya.</span>
                         </div>
                     )}
+                    {/* Error state offers two real escape hatches: retry
+                        the share dialog, or open the bot chat directly so
+                        the patient can tap the bot's start-keyboard
+                        "Telefon yuborish" button instead. */}
+                    {phase === 'error' && insideTelegram && (
+                        <>
+                            <button
+                                type="button"
+                                className="mab-btn mab-btn--primary"
+                                onClick={handleRetry}
+                            >
+                                <RefreshCw size={16} /> Qayta urinish
+                            </button>
+                            <button
+                                type="button"
+                                className="mab-btn mab-btn--ghost"
+                                onClick={openBotChat}
+                            >
+                                <ExternalLink size={16} /> Botni chat'da ochish
+                            </button>
+                        </>
+                    )}
                 </div>
 
                 {!insideTelegram && (
                     <p className="mab-foot">
                         Bu sahifa Telegram Mini App orqali ishlaydi.
                         Saytda ro'yxatdan o'tish uchun{' '}
-                        <a href="/user/signup">bu yerga</a> o'ting.
+                        {/* React Router Link — a plain <a> would full-page
+                            reload and tear down the UserAuthContext. */}
+                        <Link to="/user/signup">bu yerga</Link> o'ting.
                     </p>
                 )}
             </div>
