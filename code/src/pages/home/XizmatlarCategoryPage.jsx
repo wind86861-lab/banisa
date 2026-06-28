@@ -145,7 +145,22 @@ export default function XizmatlarCategoryPage() {
 
     const meta = CATEGORY_META[category];
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedSub, setSelectedSub] = useState(searchParams.get('sub') || 'all');
+    // URL is the source of truth for the subcategory chip — `useState` was
+    // a one-shot read, so a browser back/forward (or any other code path
+    // that updates ?sub=) left the chip bar out of sync with what was
+    // actually being filtered. Reading it on every render keeps state and
+    // URL in lockstep, and the setter just writes the URL.
+    const selectedSub = searchParams.get('sub') || 'all';
+    const setSelectedSub = (next) => {
+        // Preserve any other params on the URL — the original
+        // `setSearchParams({ sub })` form silently dropped them, so a
+        // search query or future filter param would vanish the moment a
+        // chip was clicked.
+        const params = new URLSearchParams(searchParams);
+        if (!next || next === 'all') params.delete('sub');
+        else params.set('sub', next);
+        setSearchParams(params, { replace: true });
+    };
     const [sortBy, setSortBy] = useState('popular');
     const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
     const [minRating, setMinRating] = useState(0);
@@ -156,23 +171,26 @@ export default function XizmatlarCategoryPage() {
     useEffect(() => { if (!meta) navigate('/xizmatlar', { replace: true }); }, [meta, navigate]);
     useEffect(() => { window.scrollTo(0, 0); }, [category]);
 
-    useEffect(() => {
-        if (selectedSub === 'all') {
-            if (searchParams.get('sub')) setSearchParams({}, { replace: true });
-        } else {
-            setSearchParams({ sub: selectedSub }, { replace: true });
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedSub]);
-
     const categoryPool = useMemo(
         () => ALL_SERVICES.filter(s => s.category === category),
         [ALL_SERVICES, category]
     );
 
+    // Normalize the specialty key so trailing spaces / accidental double
+    // spaces in admin-entered data don't fracture the chip list. The data
+    // currently has things like `'Biokimyoviy qon tahlillari '` (49
+    // services) sitting alongside `'Biokimyoviy qon tahlillari'` and
+    // counting as different specialties — chips would show two entries
+    // and a click on either matched only part of the set.
+    const normSpec = (s) => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim() : '');
+
     const subcategories = useMemo(() => {
         const map = {};
-        categoryPool.forEach(s => { map[s.specialty] = (map[s.specialty] || 0) + 1; });
+        categoryPool.forEach(s => {
+            const key = normSpec(s.specialty);
+            if (!key) return;
+            map[key] = (map[key] || 0) + 1;
+        });
         return [
             { id: 'all', label: 'Barchasi', count: categoryPool.length },
             ...Object.entries(map)
@@ -192,7 +210,10 @@ export default function XizmatlarCategoryPage() {
 
     const filtered = useMemo(() => {
         let list = [...categoryPool];
-        if (selectedSub !== 'all') list = list.filter(s => s.specialty === selectedSub);
+        // Match through the same normalization as chip-building so a
+        // service tagged `'Biokimyoviy qon tahlillari '` (trailing space)
+        // still hits when the chip says the trimmed form.
+        if (selectedSub !== 'all') list = list.filter(s => normSpec(s.specialty) === selectedSub);
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
             list = list.filter(s =>
