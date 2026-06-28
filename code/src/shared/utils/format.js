@@ -54,10 +54,15 @@ export function shortBookingNo(bookingNumber) {
 // shares an origin with the API so a leading slash is enough; in dev Vite
 // proxies `/uploads` to the backend (see vite.config.js). Either way, never
 // hardcode `https://banisa.uz` — that broke local/staging image rendering.
-// Passes through absolute http(s) URLs untouched.
+// Passes through absolute http(s) URLs and data: URIs untouched —
+// without the `data:` branch we were prepending a slash and turning
+// inline CLINIC_PLACEHOLDER SVGs into `/data:image/...` requests that
+// nginx 404'd / served the SPA shell as a 527-byte image, flooding the
+// error log and breaking placeholder fallbacks.
 export function imgUrl(src) {
     if (!src) return null;
     if (src.startsWith('http://') || src.startsWith('https://')) return src;
+    if (src.startsWith('data:') || src.startsWith('blob:')) return src;
     if (src.startsWith('/')) return src;
     return `/${src}`;
 }
