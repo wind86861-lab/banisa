@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Calendar, Clock, ChevronLeft, ChevronRight, Building2, MapPin,
     Stethoscope, Star, Award, Loader2, CheckCircle2, AlertTriangle,
-    User, MessageSquare, CreditCard,
+    User, MessageSquare, GraduationCap,
 } from 'lucide-react';
 import api from '../../shared/api/axios';
 import { friendlyApiError } from '../../shared/utils/apiError';
@@ -20,6 +20,43 @@ const fmtPrice = (n) => (Number(n) || 0).toLocaleString('uz-UZ');
 const DAY_NAMES = ['Yak', 'Du', 'Se', 'Cho', 'Pa', 'Ju', 'Sha'];
 const MONTH_NAMES = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
 
+// Mirror the labels from DoctorsPage / DoctorProfilePage so the booking
+// page shows the same credential pills as the discovery surface.
+const CATEGORY_LABELS = {
+    OLIY: 'Oliy toifa',
+    BIRINCHI: 'Birinchi toifa',
+    IKKINCHI: 'Ikkinchi toifa',
+    YOSH_MUTAXASSIS: 'Yosh mutaxassis',
+};
+const fmtCategory = (c) => CATEGORY_LABELS[c] || c || null;
+
+// Build a Tashkent-local ISO string from a YYYY-MM-DD date + HH:MM time.
+// The old code used `new Date(\`${date}T${time}:00\`).toISOString()` which
+// interpreted the input as BROWSER local time — so a patient browsing
+// from Moscow (UTC+3) booking the "10:00 Tashkent" slot actually
+// reserved "09:00 Tashkent". Slots come from the backend already aware
+// of Asia/Tashkent (UTC+5), so we serialize against that offset
+// explicitly instead of letting the browser guess.
+function scheduledAtTashkent(dateIso, timeHHMM) {
+    return `${dateIso}T${timeHHMM}:00.000+05:00`;
+}
+
+// Format full name + patronymic ("Karimov Bahodir Akmalovich") with safe
+// fallbacks. `?.` defaults to '?' so a missing field doesn't crash the
+// initials helper or render "undefined undefined".
+function fullName(d) {
+    const parts = [d?.lastName, d?.firstName, d?.middleName].filter(Boolean);
+    return parts.join(' ') || 'Doktor';
+}
+function initialsOf(d) {
+    const f = (d?.firstName || '?').charAt(0).toUpperCase();
+    const l = (d?.lastName || '?').charAt(0).toUpperCase();
+    return `${f}${l}`;
+}
+
+// One 14-day window starting at `start` (chip row). Pagination buttons
+// move `start` forward by 14 days so a patient can book a month or more
+// ahead — the old version only ever rendered "next 14 from today".
 function buildWeekStarting(start) {
     const days = [];
     const today = new Date();
@@ -28,9 +65,13 @@ function buildWeekStarting(start) {
         const d = new Date(start);
         d.setDate(d.getDate() + i);
         d.setHours(0, 0, 0, 0);
+        // Use the LOCAL YYYY-MM-DD rather than toISOString().slice(0,10)
+        // — the latter shifts to UTC and would label "today" as
+        // "yesterday" past 19:00 Tashkent time.
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         days.push({
             date: d,
-            iso: d.toISOString().slice(0, 10),
+            iso,
             isToday: d.getTime() === today.getTime(),
             isPast: d < today,
         });
@@ -75,18 +116,23 @@ function SlotButton({ slot, active, onClick }) {
 export default function DoctorBookingPage() {
     const { id: doctorId, clinicId } = useParams();
     const navigate = useNavigate();
-    const [params] = useSearchParams();
-    const { isAuthenticated } = useUserAuth();
+    // UserAuthContext exposes `user` + `isLoggedIn` (not `isAuthenticated`);
+    // the old destructure of `isAuthenticated` was always undefined, so
+    // every visitor — even logged-in patients — was bounced to the
+    // "Avval ro'yxatdan o'ting" screen and could never book a doctor.
+    const { isLoggedIn } = useUserAuth();
 
     const [weekStart, setWeekStart] = useState(() => {
         const d = new Date();
         d.setHours(0, 0, 0, 0);
         return d;
     });
-    const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
+    const [selectedDate, setSelectedDate] = useState(() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    });
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [notes, setNotes] = useState('');
-    const [confirmed, setConfirmed] = useState(false);
 
     const { data: doctor, isLoading: doctorLoading } = useQuery({
         queryKey: ['public', 'doctor', doctorId],
@@ -107,7 +153,9 @@ export default function DoctorBookingPage() {
 
     const book = useMutation({
         mutationFn: async () => {
-            const scheduledAt = new Date(`${selectedDate}T${selectedSlot}:00`).toISOString();
+            // Anchor the picked slot to Asia/Tashkent regardless of where
+            // the patient is browsing from — see scheduledAtTashkent().
+            const scheduledAt = scheduledAtTashkent(selectedDate, selectedSlot);
             return (await api.post('/user/appointments/doctor', {
                 doctorId,
                 clinicId,
@@ -116,9 +164,12 @@ export default function DoctorBookingPage() {
             })).data;
         },
         onSuccess: (data) => {
+            // The patient appointment route is /user/appointments/:id;
+            // /profile/appointments/:id is from a never-shipped legacy
+            // proposal and 404s today.
             const id = data?.data?.id;
-            if (id) navigate(`/profile/appointments/${id}`);
-            else setConfirmed(true);
+            if (id) navigate(`/user/appointments/${id}`);
+            else navigate('/user/appointments');
         },
     });
 
@@ -127,8 +178,8 @@ export default function DoctorBookingPage() {
             <div className="docs-page-wrap">
                 <TopBar /><Navigation />
                 <main className="docs-page">
-                    <div className="docs-skel" style={{ height: 280, marginBottom: 20 }} />
-                    <div className="docs-skel" style={{ height: 400 }} />
+                    <div className="docs-skel book-skel-hero" />
+                    <div className="docs-skel book-skel-body" />
                 </main>
                 <Footer />
             </div>
@@ -152,7 +203,8 @@ export default function DoctorBookingPage() {
         );
     }
 
-    if (!isAuthenticated) {
+    if (!isLoggedIn) {
+        const redirectTo = encodeURIComponent(window.location.pathname + window.location.search);
         return (
             <div className="docs-page-wrap">
                 <TopBar /><Navigation />
@@ -161,7 +213,11 @@ export default function DoctorBookingPage() {
                         <User size={48} color="#cbd5e1" />
                         <h3>Avval ro'yxatdan o'ting</h3>
                         <p>Band qilish uchun tizimga kiring</p>
-                        <Link to={`/login?return=${encodeURIComponent(window.location.pathname + window.location.search)}`} className="docs-btn">
+                        {/* Patient login lives at /user/login (clinic admin
+                            login is the /login route). UserLoginPage reads
+                            ?redirect= so the patient comes straight back to
+                            this booking page after login. */}
+                        <Link to={`/user/login?redirect=${redirectTo}`} className="docs-btn">
                             Kirish / Ro'yxatdan o'tish
                         </Link>
                     </div>
@@ -171,9 +227,23 @@ export default function DoctorBookingPage() {
         );
     }
 
-    const initials = `${doctor.firstName[0]}${doctor.lastName[0]}`.toUpperCase();
+    const initials = initialsOf(doctor);
     const finalPrice = clinic.consultationPrice;
-    const availableCount = slotsData?.slots.filter((s) => s.available).length ?? 0;
+    const availableCount = slotsData?.slots?.filter((s) => s.available).length ?? 0;
+    // Disable "previous" pagination so the patient can't browse into the
+    // past; "today" is always the earliest legal starting point.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const canGoBack = weekStart.getTime() > today.getTime();
+    const movewWeek = (delta) => {
+        setWeekStart((cur) => {
+            const next = new Date(cur);
+            next.setDate(next.getDate() + delta);
+            // Clamp at "today" so the back button never lands in the past.
+            return next < today ? today : next;
+        });
+        setSelectedSlot(null);
+    };
 
     return (
         <div className="docs-page-wrap">
@@ -193,16 +263,29 @@ export default function DoctorBookingPage() {
                             animate={{ opacity: 1, y: 0 }}
                         >
                             {doctor.photoUrl ? (
-                                <img src={doctor.photoUrl} alt="" className="book-doc-card__avatar" />
+                                <img loading="lazy" src={doctor.photoUrl} alt="" className="book-doc-card__avatar" />
                             ) : (
                                 <div className="book-doc-card__avatar book-doc-card__avatar--init">{initials}</div>
                             )}
                             <div className="book-doc-card__body">
-                                <div className="book-doc-card__name">{doctor.firstName} {doctor.lastName}</div>
+                                {/* Use the full UZ greeting form so the patient sees the
+                                    same name on this page as on the doctor profile they
+                                    came from. */}
+                                <div className="book-doc-card__name">{fullName(doctor)}</div>
                                 <div className="book-doc-card__spec">
                                     <Stethoscope size={11} /> {doctor.specialtyName}
                                 </div>
                                 <div className="book-doc-card__chips">
+                                    {fmtCategory(doctor.category) && (
+                                        <span className="book-doc-card__chip book-doc-card__chip--accent">
+                                            <Award size={10} /> {fmtCategory(doctor.category)}
+                                        </span>
+                                    )}
+                                    {doctor.academicTitle && (
+                                        <span className="book-doc-card__chip book-doc-card__chip--accent">
+                                            <GraduationCap size={10} /> {doctor.academicTitle}
+                                        </span>
+                                    )}
                                     <span><Award size={10} /> {doctor.yearsExperience || 0} yil</span>
                                     <span><Star size={10} fill="#fbbf24" color="#fbbf24" /> {doctor.reviewCount > 0 ? doctor.averageRating.toFixed(1) : 'Yangi'}</span>
                                 </div>
@@ -212,6 +295,25 @@ export default function DoctorBookingPage() {
                         <section className="book-section">
                             <div className="book-section__title">
                                 <Calendar size={14} /> Sana tanlang
+                                <div className="book-week-nav">
+                                    <button
+                                        type="button"
+                                        className="book-week-nav__btn"
+                                        onClick={() => movewWeek(-14)}
+                                        disabled={!canGoBack}
+                                        aria-label="Oldingi ikki hafta"
+                                    >
+                                        <ChevronLeft size={14} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="book-week-nav__btn"
+                                        onClick={() => movewWeek(14)}
+                                        aria-label="Keyingi ikki hafta"
+                                    >
+                                        <ChevronRight size={14} />
+                                    </button>
+                                </div>
                             </div>
                             <div className="book-week-row">
                                 {days.map((d) => (
@@ -235,7 +337,7 @@ export default function DoctorBookingPage() {
 
                             {slotsLoading ? (
                                 <div className="book-slot-grid">
-                                    {[...Array(12)].map((_, i) => <div key={i} className="docs-skel" style={{ height: 36 }} />)}
+                                    {[...Array(12)].map((_, i) => <div key={i} className="docs-skel book-slot-skel" />)}
                                 </div>
                             ) : !slotsData?.slots || slotsData.slots.length === 0 ? (
                                 <div className="book-empty">
@@ -282,12 +384,12 @@ export default function DoctorBookingPage() {
                             <Building2 size={14} /> Klinika
                         </div>
                         <div className="book-summary__clinic">
-                            <div style={{ fontWeight: 800, fontSize: 14, color: '#0f172a' }}>{clinic.clinicName}</div>
-                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <div className="book-summary__clinic-name">{clinic.clinicName}</div>
+                            <div className="book-summary__clinic-addr">
                                 <MapPin size={10} /> {clinic.region}, {clinic.district}
                             </div>
                             {clinic.roomNumber && (
-                                <div style={{ fontSize: 12, marginTop: 6 }}>
+                                <div className="book-summary__clinic-room">
                                     Xona: <strong>{clinic.roomNumber}</strong>
                                 </div>
                             )}
@@ -322,8 +424,7 @@ export default function DoctorBookingPage() {
                         )}
 
                         <button
-                            className="docs-btn docs-btn--primary"
-                            style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
+                            className="docs-btn docs-btn--primary book-confirm-btn"
                             disabled={!selectedSlot || book.isPending}
                             onClick={() => book.mutate()}
                         >

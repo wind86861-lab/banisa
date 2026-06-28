@@ -344,3 +344,74 @@
 
 .docs-spin { animation: docs-spin 1s linear infinite; }
 @keyframes docs-spin { to { transform: rotate(360deg); } }
+
+/* DoctorBookingPage utility classes — pulled out of inline style={{...}}
+   props so the booking summary and skeleton states are theme-driven. */
+.book-skel-hero { height: 280px; margin-bottom: 20px; }
+.book-skel-body { height: 400px; }
+.book-slot-skel { height: 36px; }
+.book-confirm-btn { width: 100%; justify-content: center; margin-top: 16px; }
+
+.book-summary__clinic-name {
+    font-weight: 800;
+    font-size: 14px;
+    color: #0f172a;
+}
+.book-summary__clinic-addr {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.book-summary__clinic-room {
+    font-size: 12px;
+    margin-top: 6px;
+}
+
+/* Credential pills shown on the doctor card — same accent palette as the
+   discovery cards so a patient recognises "Oliy toifa" and "Professor"
+   between the doctor profile and the booking page. */
+.book-doc-card__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.book-doc-card__chip--accent {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 11px;
+}
+
+/* Week pagination — added because the chip row only ever showed the
+   first 14 days and a patient who wanted to book three weeks ahead had
+   no way to reach that range. */
+.book-week-nav {
+    margin-left: auto;
+    display: inline-flex;
+    gap: 6px;
+}
+.book-week-nav__btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #475569;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.book-week-nav__btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.book-week-nav__btn:not(:disabled):hover {
+    background: #f1f5f9;
+}
