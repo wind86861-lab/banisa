@@ -183,7 +183,7 @@ export default function HeroNew({ stats }) {
                                         >
                                             <div className="hn-search-ac-icon">
                                                 {c.logo
-                                                    ? <img src={imgUrl(c.logo)} alt="" />
+                                                    ? <img loading="lazy" src={imgUrl(c.logo)} alt="" />
                                                     : <span style={{ fontSize: 16 }}>🏥</span>}
                                             </div>
                                             <div className="hn-search-ac-text">

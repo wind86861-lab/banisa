@@ -51,7 +51,7 @@ function DoctorCard({ doctor }) {
             <Link to={`/doktorlar/${doctor.id}`} className="docs-card__inner">
                 <div className="docs-card__head">
                     {doctor.photoUrl ? (
-                        <img src={doctor.photoUrl} alt={doctor.firstName} className="docs-card__avatar" />
+                        <img loading="lazy" src={doctor.photoUrl} alt={doctor.firstName} className="docs-card__avatar" />
                     ) : (
                         <div className="docs-card__avatar docs-card__avatar--initials">{initials}</div>
                     )}

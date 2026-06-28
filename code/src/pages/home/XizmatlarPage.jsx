@@ -488,7 +488,7 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
                         return (
                             <Link key={s.id} to={`/xizmatlar/${s.id}`} className="xp-hub-mini-card">
                                 <div className="xp-hub-mini-img">
-                                    <img src={img} alt={s.title} onError={e => { e.currentTarget.src = FALLBACK_IMAGES[s.category] || FALLBACK_IMAGES.diagnostika; }} />
+                                    <img loading="lazy" src={img} alt={s.title} onError={e => { e.currentTarget.src = FALLBACK_IMAGES[s.category] || FALLBACK_IMAGES.diagnostika; }} />
                                     {s.discountPercent ? (
                                         <span className="xp-hub-mini-discount">-{s.discountPercent}%</span>
                                     ) : null}
@@ -531,7 +531,7 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
                         return (
                             <Link key={c.id} to={`/klinikalar/${c.id}`} className="xp-hub-mini-card">
                                 <div className={`xp-hub-mini-img${hasLogo ? ' xp-hub-mini-img-logo' : ''}`}>
-                                    <img src={img} alt={c.name} onError={e => { if (e.currentTarget.src !== CLINIC_PLACEHOLDER) e.currentTarget.src = CLINIC_PLACEHOLDER; }} />
+                                    <img loading="lazy" src={img} alt={c.name} onError={e => { if (e.currentTarget.src !== CLINIC_PLACEHOLDER) e.currentTarget.src = CLINIC_PLACEHOLDER; }} />
                                 </div>
                                 <div className="xp-hub-mini-body">
                                     <h4 className="xp-hub-mini-title">{c.name}</h4>

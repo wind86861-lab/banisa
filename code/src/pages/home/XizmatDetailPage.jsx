@@ -225,7 +225,7 @@ export default function XizmatDetailPage() {
                         {images.length > 0 && (
                             <div className="xd-gallery">
                                 <div className="xd-gallery-main" onClick={() => setLightbox(true)}>
-                                    <img src={images[galleryIdx]} alt={svc.nameUz} />
+                                    <img loading="lazy" src={images[galleryIdx]} alt={svc.nameUz} />
                                     {images.length > 1 && (
                                         <>
                                             <button className="xd-gal-nav xd-gal-prev" onClick={e => { e.stopPropagation(); setGalleryIdx(i => (i - 1 + images.length) % images.length); }}>
@@ -241,7 +241,7 @@ export default function XizmatDetailPage() {
                                 {images.length > 1 && (
                                     <div className="xd-gal-thumbs">
                                         {images.map((img, i) => (
-                                            <img key={i} src={img} alt="" className={i === galleryIdx ? 'active' : ''} onClick={() => setGalleryIdx(i)} />
+                                            <img loading="lazy" key={i} src={img} alt="" className={i === galleryIdx ? 'active' : ''} onClick={() => setGalleryIdx(i)} />
                                         ))}
                                     </div>
                                 )}
@@ -748,7 +748,7 @@ export default function XizmatDetailPage() {
                                 <div className="xd-related-grid">
                                     {related.slice(0, 2).map(rel => (
                                         <Link key={rel.id} to={`/xizmatlar/${rel.id}`} className="xd-rel-card">
-                                            {rel.imageUrl && <img src={rel.imageUrl.startsWith('http') ? rel.imageUrl : `${rel.imageUrl}`} alt="" className="xd-rel-img" />}
+                                            {rel.imageUrl && <img loading="lazy" src={rel.imageUrl.startsWith('http') ? rel.imageUrl : `${rel.imageUrl}`} alt="" className="xd-rel-img" />}
                                             <div className="xd-rel-body">
                                                 <span className="xd-rel-cat">{catName}</span>
                                                 <h4>{rel.nameUz}</h4>
@@ -907,7 +907,7 @@ export default function XizmatDetailPage() {
                                     {related.slice(0, 4).map(rel => (
                                         <Link key={rel.id} to={`/xizmatlar/${rel.id}`} className="xd-sbr-item">
                                             {rel.imageUrl ? (
-                                                <img src={rel.imageUrl.startsWith('http') ? rel.imageUrl : `${rel.imageUrl}`} alt="" className="xd-sbr-img" />
+                                                <img loading="lazy" src={rel.imageUrl.startsWith('http') ? rel.imageUrl : `${rel.imageUrl}`} alt="" className="xd-sbr-img" />
                                             ) : (
                                                 <div className="xd-sbr-img xd-sbr-placeholder"><Beaker size={20} /></div>
                                             )}
@@ -946,7 +946,7 @@ export default function XizmatDetailPage() {
             {/* ── LIGHTBOX ── */}
             {lightbox && images.length > 0 && (
                 <div className="xd-lightbox" onClick={() => setLightbox(false)}>
-                    <img src={images[galleryIdx]} alt="" onClick={e => e.stopPropagation()} />
+                    <img loading="lazy" src={images[galleryIdx]} alt="" onClick={e => e.stopPropagation()} />
                     <button className="xd-lightbox-close" onClick={() => setLightbox(false)}>✕</button>
                     {images.length > 1 && (
                         <>

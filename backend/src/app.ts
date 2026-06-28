@@ -54,7 +54,13 @@ import appointmentMetadataRoutes from './modules/metadata/appointment-metadata.r
 
 const app = express();
 
-// Security Middleware
+// Security Middleware — CSP allowlist. The public origin used to be the
+// hardcoded literal "https://banisa.uz" which broke any staging or
+// regional deploy whose host differed; now we read it from env so the
+// same code ships everywhere. CORS_ORIGIN serves the same role at the
+// fetch layer.
+const cspConnectExtras = [env.PUBLIC_API_BASE_URL, ...env.CORS_ORIGIN.split(',').map(o => o.trim())]
+    .filter((s) => s && s.startsWith('http'));
 app.use(helmet({
     // We enable CSP with a narrow allowlist below; permissive ('unsafe-inline'
     // for styles) is the minimum a React+Vite SPA needs without refactoring.
@@ -66,7 +72,7 @@ app.use(helmet({
             styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
             fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
             imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
-            connectSrc: ["'self'", 'https://banisa.uz'],
+            connectSrc: ["'self'", ...cspConnectExtras],
             frameSrc: ["'self'", 'https://checkout.paycom.uz', 'https://*.paycom.uz'],
             objectSrc: ["'none'"],
             baseUri: ["'self'"],

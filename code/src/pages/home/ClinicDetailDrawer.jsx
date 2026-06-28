@@ -588,7 +588,7 @@ export default function ClinicDetailDrawer({ clinicId, onClose }) {
                             </button>
                             <div className="cdd-header-main">
                                 {imgUrl(clinic.logo) ? (
-                                    <img src={imgUrl(clinic.logo)} alt={clinic.nameUz} className="cdd-logo" />
+                                    <img loading="lazy" src={imgUrl(clinic.logo)} alt={clinic.nameUz} className="cdd-logo" />
                                 ) : (
                                     <div className="cdd-logo-placeholder">{clinic.nameUz?.[0]}</div>
                                 )}

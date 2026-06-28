@@ -37,7 +37,7 @@ export default function TopClinics({ clinics = [] }) {
                             <div key={c.id} className="hn-clinic-card" onClick={() => navigate(`/klinikalar/${c.id}`)}>
                                 <div className="hn-clinic-cover">
                                     {cover ? (
-                                        <img src={cover} alt={c.nameUz} />
+                                        <img loading="lazy" src={cover} alt={c.nameUz} />
                                     ) : (
                                         <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #1dbfc1, #0891b2)' }} />
                                     )}
@@ -49,7 +49,7 @@ export default function TopClinics({ clinics = [] }) {
                                 </div>
                                 <div className="hn-clinic-body">
                                     <div className="hn-clinic-logo">
-                                        {logo ? <img src={logo} alt={c.nameUz} /> : (
+                                        {logo ? <img loading="lazy" src={logo} alt={c.nameUz} /> : (
                                             <div className="hn-clinic-logo-fallback">{initial}</div>
                                         )}
                                     </div>

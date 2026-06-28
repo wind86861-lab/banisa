@@ -53,7 +53,7 @@ export default function HotDeals({ deals = [] }) {
                             >
                                 <div className="hn-svc-image">
                                     {deal.image ? (
-                                        <img src={imgUrl(deal.image)} alt={deal.nameUz} />
+                                        <img loading="lazy" src={imgUrl(deal.image)} alt={deal.nameUz} />
                                     ) : (
                                         <div className="hn-svc-image-placeholder"><Stethoscope size={56} /></div>
                                     )}
@@ -68,7 +68,7 @@ export default function HotDeals({ deals = [] }) {
                                         <div className="hn-svc-clinic">
                                             <div className="hn-svc-clinic-logo">
                                                 {deal.clinic.logo ? (
-                                                    <img src={imgUrl(deal.clinic.logo)} alt="" />
+                                                    <img loading="lazy" src={imgUrl(deal.clinic.logo)} alt="" />
                                                 ) : <span style={{ fontSize: 12 }}>🏥</span>}
                                             </div>
                                             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

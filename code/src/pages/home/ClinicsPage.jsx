@@ -102,10 +102,10 @@ function ClinicCard({ clinic, onClick, isPatient, onBook }) {
         <div className="cp-card" onClick={onClick}>
             <div className="cp-card-cover">
                 {hasRealCover ? (
-                    <img src={cover} alt={clinic.nameUz} />
+                    <img loading="lazy" src={cover} alt={clinic.nameUz} />
                 ) : logo ? (
                     <div className="cp-card-cover-logo-center">
-                        <img src={logo} alt={clinic.nameUz} />
+                        <img loading="lazy" src={logo} alt={clinic.nameUz} />
                     </div>
                 ) : (
                     <div className="cp-card-cover-gradient">
@@ -114,7 +114,7 @@ function ClinicCard({ clinic, onClick, isPatient, onBook }) {
                 )}
                 {/* Only show small logo overlay when we have a real cover image */}
                 {hasRealCover && (logo ? (
-                    <img src={logo} alt="" className="cp-card-logo" />
+                    <img loading="lazy" src={logo} alt="" className="cp-card-logo" />
                 ) : (
                     <div className="cp-card-logo-placeholder">{clinic.nameUz?.[0]}</div>
                 ))}
@@ -178,7 +178,7 @@ function ClinicListItem({ clinic, onClick }) {
     return (
         <div className="cp-list-item" onClick={onClick}>
             {logo ? (
-                <img src={logo} alt={clinic.nameUz} className="cp-list-logo" />
+                <img loading="lazy" src={logo} alt={clinic.nameUz} className="cp-list-logo" />
             ) : (
                 <div className="cp-list-logo-placeholder">{clinic.nameUz?.slice(0, 2)}</div>
             )}

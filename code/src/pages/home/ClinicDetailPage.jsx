@@ -313,7 +313,7 @@ export default function ClinicDetailPage() {
                             </button>
                             <div className="cdp-identity-logo">
                                 {logo
-                                    ? <img src={logo} alt={clinic.nameUz} />
+                                    ? <img loading="lazy" src={logo} alt={clinic.nameUz} />
                                     : <span>{clinic.nameUz?.[0]}</span>}
                             </div>
                             <div className="cdp-identity-info">

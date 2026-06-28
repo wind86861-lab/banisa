@@ -250,7 +250,7 @@ export default function DoctorProfilePage() {
                     <div className="docs-profile-hero__bg" />
                     <div className="docs-profile-hero__inner">
                         {data.photoUrl ? (
-                            <img src={data.photoUrl} alt={data.firstName} className="docs-profile-hero__avatar" />
+                            <img loading="lazy" src={data.photoUrl} alt={data.firstName} className="docs-profile-hero__avatar" />
                         ) : (
                             <div className="docs-profile-hero__avatar docs-profile-hero__avatar--initials">{initials}</div>
                         )}
