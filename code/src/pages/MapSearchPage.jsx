@@ -51,6 +51,21 @@ const userIcon = L.divIcon({
     iconAnchor: [11, 11],
 });
 
+// HTML-escape a string before splicing it into a Leaflet divIcon. The
+// pin html ends up in innerHTML, so a clinic admin who set their logo
+// to `" onerror="evilThing()"` (or who set their name to a script tag,
+// once we wire names in) used to land code on the patient's page.
+// Browsers don't escape attribute interpolations for us; the helper
+// does.
+function escapeHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 /** Render a clinic pin. Variants: cheapest (green badge), selected (enlarged
  *  with halo), closed (gray). A logo, if available, becomes a small avatar.
  *  In service mode we also stamp a small rating badge above the pin. */
@@ -62,15 +77,15 @@ function clinicPinIcon({ priceText, logo, cheapest, selected, closed, rating, sh
         closed ? 'is-closed' : '',
     ].filter(Boolean).join(' ');
     const avatar = logo
-        ? `<div class="msp-clinic-pin__avatar"><img src="${logo}" alt="" onerror="this.style.display='none'"/></div>`
+        ? `<div class="msp-clinic-pin__avatar"><img src="${escapeHtml(logo)}" alt="" onerror="this.style.display='none'"/></div>`
         : '';
     const flag = cheapest ? '<span class="msp-clinic-pin__flag">★</span>' : '';
     const ratingBadge = (showRatingBadge && rating > 0)
-        ? `<span class="msp-clinic-pin__rating">★ ${Number(rating).toFixed(1)}</span>`
+        ? `<span class="msp-clinic-pin__rating">★ ${escapeHtml(Number(rating).toFixed(1))}</span>`
         : '';
     return L.divIcon({
         className: 'msp-clinic-pin',
-        html: `<div class="${cls}">${avatar}<span class="msp-clinic-pin__price">${priceText}</span>${flag}${ratingBadge}</div>`,
+        html: `<div class="${cls}">${avatar}<span class="msp-clinic-pin__price">${escapeHtml(priceText)}</span>${flag}${ratingBadge}</div>`,
         iconSize: selected ? [96, 50] : [82, 44],
         iconAnchor: selected ? [48, 50] : [41, 44],
     });
@@ -516,6 +531,10 @@ export default function MapSearchPage() {
     const [adding, setAdding] = useState(false);
     const [resetTick, setResetTick] = useState(0);
     const [recent, setRecent] = useState(() => readRecent());
+    // Inline cart error — replaces window.alert(), which Telegram Mini
+    // App embeds sometimes swallow. Auto-dismissed by the next attempt
+    // or after a few seconds.
+    const [cartError, setCartError] = useState('');
 
     const updateParams = useCallback((patch) => {
         const next = new URLSearchParams(params);
@@ -745,11 +764,16 @@ export default function MapSearchPage() {
     const handleAddToCart = async (c) => {
         const resolved = await waitForUser();
         if (!resolved) {
-            navigate('/user/login', { state: { from: '/xarita' } });
+            // UserLoginPage reads ?redirect= (the `state.from` channel
+            // works only through the legacy router state, which a hard
+            // refresh on the login page wipes). Use the URL form so the
+            // patient comes back even if they reload.
+            navigate(`/user/login?redirect=${encodeURIComponent('/xarita' + window.location.search)}`);
             return;
         }
         if (!c.clinicId) return;
         setAdding(true);
+        setCartError('');
         try {
             const rows = (c.matchedServices && c.matchedServices.length > 0)
                 ? c.matchedServices
@@ -763,8 +787,12 @@ export default function MapSearchPage() {
                 const res = await addToCart(c.clinicId, serviceType, row.serviceId, 1);
                 if (!res?.success) lastErr = res?.message || 'Xato';
             }
-            if (lastErr) alert(lastErr);
-            else navigate('/user/cart');
+            if (lastErr) {
+                setCartError(lastErr);
+                setTimeout(() => setCartError(''), 4000);
+            } else {
+                navigate('/user/cart');
+            }
         } finally {
             setAdding(false);
         }
@@ -908,6 +936,18 @@ export default function MapSearchPage() {
                         onOpenClinic={handleOpenClinic}
                         adding={adding}
                     />
+                )}
+
+                {/* Inline cart error toast — surfaced for both Mini App
+                    and desktop, since alert() was disappearing in the
+                    Telegram WebView. */}
+                {cartError && (
+                    <div className="msp-cart-error" role="alert">
+                        <AlertTriangle size={14} /> {cartError}
+                        <button type="button" onClick={() => setCartError('')} aria-label="Yopish">
+                            <X size={12} />
+                        </button>
+                    </div>
                 )}
             </div>
 

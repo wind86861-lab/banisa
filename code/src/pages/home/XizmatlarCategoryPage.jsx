@@ -223,7 +223,14 @@ export default function XizmatlarCategoryPage() {
 
     const handleAddToCart = async (service) => {
         const resolved = await waitForUser();
-        if (!resolved) { navigate('/user/login'); return; }
+        if (!resolved) {
+            // Carry the current category URL so the patient lands back here
+            // (not the default /xizmatlar list) after logging in. Plain
+            // `navigate('/user/login')` was discarding their browse context.
+            const back = window.location.pathname + window.location.search;
+            navigate(`/user/login?redirect=${encodeURIComponent(back)}`);
+            return;
+        }
         let serviceType = 'DIAGNOSTIC';
         if (service.category === 'operatsiya') serviceType = 'SURGICAL';
         else if (service.category === 'sanatoriya') serviceType = 'SANATORIUM';

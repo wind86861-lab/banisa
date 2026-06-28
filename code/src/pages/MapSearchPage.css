@@ -1277,3 +1277,35 @@
 }
 .msp-ac__dd-done:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(0,189,224,0.40); }
 .msp-ac__dd-done:active { transform: translateY(0); }
+
+/* Inline cart error toast — replaces window.alert() (Mini App embeds
+   sometimes suppress native dialogs entirely). Floats over the map so
+   it doesn't fight with the SelectedClinicCard overlay. */
+.msp-cart-error {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 24px;
+    z-index: 950;
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    color: #991b1b;
+    padding: 10px 12px 10px 14px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100% - 32px);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+}
+.msp-cart-error button {
+    background: transparent;
+    border: 0;
+    color: #991b1b;
+    cursor: pointer;
+    padding: 2px;
+    display: inline-flex;
+    align-items: center;
+}
