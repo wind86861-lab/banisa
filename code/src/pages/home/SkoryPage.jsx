@@ -197,26 +197,7 @@ function AmbulanceDetailModal({ amb, onClose, onRequest }) {
                         <button
                             onClick={() => onRequest?.(amb)}
                             disabled={amb.status !== 'AVAILABLE'}
-                            style={{
-                                width: '100%',
-                                marginTop: 8,
-                                marginBottom: 12,
-                                padding: '13px 16px',
-                                borderRadius: 12,
-                                border: 0,
-                                background: amb.status === 'AVAILABLE'
-                                    ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
-                                    : '#cbd5e1',
-                                color: '#fff',
-                                fontWeight: 700,
-                                fontSize: 15,
-                                cursor: amb.status === 'AVAILABLE' ? 'pointer' : 'not-allowed',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 8,
-                                boxShadow: amb.status === 'AVAILABLE' ? '0 6px 16px rgba(220,38,38,0.3)' : 'none',
-                            }}
+                            className={`sky-request-btn ${amb.status === 'AVAILABLE' ? 'sky-request-btn--ready' : 'sky-request-btn--off'}`}
                         >
                             <Ambulance size={16} />
                             {amb.status === 'AVAILABLE'
@@ -230,7 +211,7 @@ function AmbulanceDetailModal({ amb, onClose, onRequest }) {
 
                         <div className="sky-call-list">
                             {phones.length === 0 ? (
-                                <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', padding: 14 }}>
+                                <div className="sky-call-empty">
                                     Telefon raqami ko'rsatilmagan
                                 </div>
                             ) : (
@@ -345,23 +326,7 @@ export default function SkoryPage() {
 
                 <button
                     onClick={() => navigate('/skory/order')}
-                    style={{
-                        width: '100%',
-                        margin: '14px 0 20px',
-                        padding: '16px 18px',
-                        borderRadius: 14,
-                        border: 0,
-                        background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
-                        color: '#fff',
-                        fontWeight: 700,
-                        fontSize: 16,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 10,
-                        boxShadow: '0 8px 24px rgba(220,38,38,0.35)',
-                    }}
+                    className="sky-emergency-cta"
                 >
                     <Ambulance size={20} /> 🚨 Tez yordam chaqirish
                 </button>
@@ -500,8 +465,8 @@ export default function SkoryPage() {
                         ) : items.length === 0 ? (
                             <div className="sky-list-empty">
                                 <Ambulance size={36} color="#cbd5e1" />
-                                <div style={{ marginTop: 10, fontWeight: 700, color: '#0f172a' }}>Topilmadi</div>
-                                <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Filterlarni o'zgartiring</div>
+                                <div className="sky-list-empty__title">Topilmadi</div>
+                                <div className="sky-list-empty__hint">Filterlarni o'zgartiring</div>
                             </div>
                         ) : (
                             <div className="sky-list">
@@ -518,7 +483,7 @@ export default function SkoryPage() {
                                                 <div className="sky-row__meta">
                                                     {tm.label}
                                                     {a.durationMin != null
-                                                        ? <> · <Clock size={10} style={{ verticalAlign: 'text-bottom' }} /> ~ {a.durationMin} daq</>
+                                                        ? <> · <Clock size={10} className="sky-icon-baseline" /> ~ {a.durationMin} daq</>
                                                         : (a.distanceKm != null && <> · {a.distanceKm.toFixed(1)} km</>)}
                                                 </div>
                                                 <div className="sky-row__clinic">{a.clinic.name}</div>

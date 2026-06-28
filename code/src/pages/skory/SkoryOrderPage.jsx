@@ -101,10 +101,16 @@ async function reverseGeocode(lat, lng) {
 
 function PickupStep({ pickup, onChange, onNext }) {
     const [busy, setBusy] = useState(false);
+    // Surface geolocation failures inline instead of via alert() — native
+    // dialogs are blocked in some Telegram Mini App embeds and they
+    // distract a patient who's already in an emergency. The hint also
+    // makes it obvious the manual map below still works.
+    const [geoError, setGeoError] = useState('');
 
     const useMyLocation = () => {
+        setGeoError('');
         if (!navigator.geolocation) {
-            alert('Brauzeringiz joylashuvni qo\'llab-quvvatlamaydi');
+            setGeoError('Brauzeringiz joylashuvni qo\'llab-quvvatlamaydi. Xaritada nuqtani qo\'lda belgilang.');
             return;
         }
         setBusy(true);
@@ -115,7 +121,10 @@ function PickupStep({ pickup, onChange, onNext }) {
                 onChange({ lat, lng, address });
                 setBusy(false);
             },
-            (err) => { setBusy(false); alert('Joylashuvni olishda xato: ' + err.message); },
+            (err) => {
+                setBusy(false);
+                setGeoError(`Joylashuv olinmadi (${err.message || 'ruxsat berilmagan'}). Xaritada nuqtani qo'lda belgilang.`);
+            },
             { enableHighAccuracy: true, timeout: 8000 },
         );
     };
@@ -133,10 +142,16 @@ function PickupStep({ pickup, onChange, onNext }) {
 
             <MapPicker lat={pickup?.lat} lng={pickup?.lng} onChange={handleMapChange} />
 
-            <button className="skoo__btn skoo__btn--ghost" onClick={useMyLocation} disabled={busy} style={{ marginBottom: 10 }}>
+            <button className="skoo__btn skoo__btn--ghost skoo__btn--mb-10" onClick={useMyLocation} disabled={busy}>
                 {busy ? <Loader2 size={16} className="skoo__spin" /> : <MapPin size={16} />}
                 Mening joyim
             </button>
+
+            {geoError && (
+                <div className="skoo__error">
+                    <AlertTriangle size={14} /> {geoError}
+                </div>
+            )}
 
             {pickup && (
                 <div className="skoo__address">
@@ -193,7 +208,7 @@ function DestStep({ pickup, dest, onChange, onNext }) {
                         </button>
                     ))
                 )}
-                <button className="skoo__btn skoo__btn--ghost" onClick={() => setMode(null)} style={{ marginTop: 10 }}>
+                <button className="skoo__btn skoo__btn--ghost skoo__btn--mt-10" onClick={() => setMode(null)}>
                     <ArrowLeft size={14} /> Orqaga
                 </button>
             </div>
@@ -211,7 +226,7 @@ function DestStep({ pickup, dest, onChange, onNext }) {
                         <div className="skoo__address__label">📍 {dest.label}</div>
                     </div>
                 )}
-                <button className="skoo__btn" disabled={!dest?.lat} onClick={onNext} style={{ marginBottom: 8 }}>
+                <button className="skoo__btn skoo__btn--mb-8" disabled={!dest?.lat} onClick={onNext}>
                     Davom etish
                 </button>
                 <button className="skoo__btn skoo__btn--ghost" onClick={() => setMode(null)}>
@@ -225,21 +240,21 @@ function DestStep({ pickup, dest, onChange, onNext }) {
         <div className="skoo__card">
             <h2>🚑 Qayerga olib boriladi?</h2>
             <button className="skoo__choice" onClick={() => setMode('hospital')}>
-                <span className="skoo__choice__icon" style={{ background: '#fee2e2', color: '#dc2626' }}><Hospital size={20} /></span>
+                <span className="skoo__choice__icon skoo__choice__icon--hospital"><Hospital size={20} /></span>
                 <span className="skoo__choice__body">
                     <span className="skoo__choice__title">Shifoxonaga olib boring</span>
                     <span className="skoo__choice__sub">Ro'yxatdan klinika tanlang</span>
                 </span>
             </button>
             <button className="skoo__choice" onClick={() => setMode('custom')}>
-                <span className="skoo__choice__icon" style={{ background: '#dbeafe', color: '#1d4ed8' }}><MapIcon size={20} /></span>
+                <span className="skoo__choice__icon skoo__choice__icon--map"><MapIcon size={20} /></span>
                 <span className="skoo__choice__body">
                     <span className="skoo__choice__title">Boshqa joy (xaritada)</span>
                     <span className="skoo__choice__sub">O'zingiz nuqta belgilang</span>
                 </span>
             </button>
             <button className="skoo__choice" onClick={handleSkip}>
-                <span className="skoo__choice__icon" style={{ background: '#f1f5f9', color: '#475569' }}><SkipForward size={20} /></span>
+                <span className="skoo__choice__icon skoo__choice__icon--skip"><SkipForward size={20} /></span>
                 <span className="skoo__choice__body">
                     <span className="skoo__choice__title">Hozircha kerakmas</span>
                     <span className="skoo__choice__sub">Faqat ambulans chaqirish</span>
@@ -295,15 +310,14 @@ function PriceStep({ pickup, dest, priceMaxSom, onChange, onNext }) {
             )}
 
             <input
-                className="skoo__input"
+                className="skoo__input skoo__input--mb-10"
                 type="number"
                 inputMode="numeric"
                 placeholder="Masalan: 150000"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                style={{ marginBottom: 10 }}
             />
-            <button className="skoo__btn" onClick={handleSubmit} disabled={!text.trim()} style={{ marginBottom: 8 }}>
+            <button className="skoo__btn skoo__btn--mb-8" onClick={handleSubmit} disabled={!text.trim()}>
                 Davom etish (max {text ? fmtSom(parseInt(text, 10) || 0) + ' so\'m' : ''})
             </button>
             <button className="skoo__btn skoo__btn--ghost" onClick={handleAcceptAll}>
@@ -324,18 +338,16 @@ function DescStep({ description, onChange, onNext }) {
             <h2>📝 Tafsilot (ixtiyoriy)</h2>
             <div className="skoo__sub">Nima bo'lganini qisqa yozing, dispatcher bilishi muhim</div>
             <textarea
-                className="skoo__input"
+                className="skoo__input skoo__input--mb-10"
                 rows={3}
                 maxLength={500}
                 placeholder="Masalan: yurak og'rig'i, qon ketmoqda…"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                style={{ marginBottom: 10 }}
             />
             <button
-                className="skoo__btn"
+                className="skoo__btn skoo__btn--mb-8"
                 onClick={() => { onChange(text.trim() || null); onNext(); }}
-                style={{ marginBottom: 8 }}
             >
                 Davom etish
             </button>
@@ -365,15 +377,26 @@ function ConfirmStep({ data, onEdit, onSubmit, submitting, error }) {
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }, [data]);
 
+    // `pickup` should always be set by this step (orchestrator guards it),
+    // but a race during back-edit could land here mid-update where lat is
+    // still undefined. The previous code did `pickup?.lat.toFixed(5)` —
+    // the `?.` only guarded `lat`, then unconditionally called `.toFixed`
+    // on undefined and crashed the wizard. Format defensively instead.
+    const fmtCoord = (v) => (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(5) : '—');
+    const coordLabel = (loc) => loc?.address || loc?.label
+        || `${fmtCoord(loc?.lat)}, ${fmtCoord(loc?.lng)}`;
+
     return (
         <div className="skoo__card">
             <h2>✅ Hammasi tayyor — yuborilsinmi?</h2>
             {error && <div className="skoo__error"><AlertTriangle size={14} /> {error}</div>}
 
-            <Row label="📍 Joyim" value={data.pickup?.address || `${data.pickup?.lat.toFixed(5)}, ${data.pickup?.lng.toFixed(5)}`} onEdit={() => onEdit(1)} />
+            <Row label="📍 Joyim" value={coordLabel(data.pickup)} onEdit={() => onEdit(1)} />
             <Row
                 label="🏥 Manzil"
-                value={data.dest?.label || (data.dest?.lat ? `${data.dest.lat.toFixed(5)}, ${data.dest.lng.toFixed(5)}` : 'Belgilanmagan')}
+                value={data.dest
+                    ? coordLabel(data.dest)
+                    : 'Belgilanmagan'}
                 onEdit={() => onEdit(2)}
             />
             {distanceKm != null && (
@@ -382,7 +405,7 @@ function ConfirmStep({ data, onEdit, onSubmit, submitting, error }) {
             <Row label="💰 Maks. narx" value={data.priceMaxSom ? `${fmtSom(data.priceMaxSom)} so'm` : 'Limit yo\'q'} onEdit={() => onEdit(3)} />
             <Row label="📝 Tafsilot" value={data.description || '—'} onEdit={() => onEdit(4)} />
 
-            <button className="skoo__btn" onClick={onSubmit} disabled={submitting} style={{ marginTop: 16 }}>
+            <button className="skoo__btn skoo__btn--mt-16" onClick={onSubmit} disabled={submitting}>
                 {submitting ? <Loader2 size={16} className="skoo__spin" /> : <Ambulance size={16} />}
                 Yuborish — barcha mos ambulanslarga
             </button>
@@ -420,10 +443,12 @@ const STATUS_FLOW = [
 
 function WaitingScreen({ active, onCancelled }) {
     const qc = useQueryClient();
+    const [confirmingCancel, setConfirmingCancel] = useState(false);
     const cancel = useMutation({
         mutationFn: async () => (await api.post(`/skory/${active.id}/cancel`)).data,
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ['skory', 'active'] });
+            setConfirmingCancel(false);
             onCancelled?.();
         },
     });
@@ -480,13 +505,37 @@ function WaitingScreen({ active, onCancelled }) {
             </div>
 
             {['PENDING', 'DISPATCHED', 'ON_ROUTE'].includes(active.status) && (
-                <button
-                    className="skoo__btn skoo__btn--ghost"
-                    onClick={() => { if (confirm('So\'rovni bekor qilasizmi?')) cancel.mutate(); }}
-                    disabled={cancel.isPending}
-                >
-                    {cancel.isPending ? <Loader2 size={14} className="skoo__spin" /> : <X size={14} />} So'rovni bekor qilish
-                </button>
+                confirmingCancel ? (
+                    <div className="skoo__cancel-confirm">
+                        <div className="skoo__cancel-confirm__q">So'rovni bekor qilasizmi? Ambulans yo'lda bo'lsa, kelmaydi.</div>
+                        <div className="skoo__cancel-confirm__actions">
+                            <button
+                                type="button"
+                                className="skoo__btn skoo__btn--ghost"
+                                onClick={() => setConfirmingCancel(false)}
+                                disabled={cancel.isPending}
+                            >
+                                Yo'q, qoldirish
+                            </button>
+                            <button
+                                type="button"
+                                className="skoo__btn skoo__btn--danger"
+                                onClick={() => cancel.mutate()}
+                                disabled={cancel.isPending}
+                            >
+                                {cancel.isPending ? <Loader2 size={14} className="skoo__spin" /> : <X size={14} />}
+                                Ha, bekor qilish
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <button
+                        className="skoo__btn skoo__btn--ghost"
+                        onClick={() => setConfirmingCancel(true)}
+                    >
+                        <X size={14} /> So'rovni bekor qilish
+                    </button>
+                )
             )}
         </div>
     );
@@ -503,12 +552,19 @@ export default function SkoryOrderPage() {
     const { user, isLoading: authLoading } = useUserAuth();
 
     // The active-request poll. While anything non-terminal exists we lock the
-    // wizard and show the waiting screen instead.
+    // wizard and show the waiting screen instead. Skip the tick when the tab
+    // is hidden (patient checked a chat / locked phone) — refetchOnWindowFocus
+    // brings us back when they return, so the status never stays stale for
+    // long, but background server load drops to zero.
     const { data: active, refetch: refetchActive } = useQuery({
         queryKey: ['skory', 'active'],
         queryFn: async () => (await api.get('/skory/active')).data?.data,
         enabled: !!user,
-        refetchInterval: 3000,
+        refetchInterval: () => (typeof document !== 'undefined' && document.visibilityState === 'hidden')
+            ? false
+            : 3000,
+        refetchIntervalInBackground: false,
+        refetchOnWindowFocus: true,
     });
 
     const [step, setStep] = useState(1);
@@ -538,7 +594,13 @@ export default function SkoryOrderPage() {
     });
 
     if (authLoading) {
-        return <div className="skoo"><div className="skoo__shell"><Loader2 className="skoo__spin" size={28} style={{ display: 'block', margin: '60px auto' }} /></div></div>;
+        return (
+            <div className="skoo">
+                <div className="skoo__shell">
+                    <Loader2 className="skoo__spin skoo__page-loader" size={28} />
+                </div>
+            </div>
+        );
     }
 
     if (!user) {
@@ -595,11 +657,7 @@ export default function SkoryOrderPage() {
                 </div>
 
                 {targetAmbulanceId && (
-                    <div style={{
-                        background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 10,
-                        padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#78350f',
-                        display: 'flex', alignItems: 'center', gap: 8,
-                    }}>
+                    <div className="skoo__target-notice">
                         <Ambulance size={16} />
                         <div>
                             <b>Faqat tanlangan ambulansga so'rov yuboriladi</b><br />
