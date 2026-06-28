@@ -33,11 +33,22 @@ export default function UserNotificationsPage() {
             const res = await api.get(`/user/notifications?${params}`);
             return res.data;
         },
-        refetchInterval: 30000,
+        // Skip the refresh when the tab is hidden — patient flipping to
+        // another app or locking the phone shouldn't keep us hitting the
+        // backend every 30s in the background.
+        refetchInterval: () => (typeof document !== 'undefined' && document.visibilityState === 'hidden')
+            ? false
+            : 30000,
+        refetchIntervalInBackground: false,
+        refetchOnWindowFocus: true,
     });
 
-    const items = data?.data || [];
-    const total = data?.meta?.total || items.length;
+    // Backend shape (sendSuccess wraps): { success, data: { items, notifications, total, unreadCount } }.
+    // The previous `data?.data || []` returned the inner OBJECT, then
+    // items.map() crashed with "items.map is not a function" — the
+    // notifications page rendered blank or errored out for every patient.
+    const items = data?.data?.items || data?.data?.notifications || [];
+    const total = data?.data?.total ?? items.length;
 
     const markRead = useMutation({
         mutationFn: async (id) => api.post(`/user/notifications/${id}/read`),
@@ -50,7 +61,12 @@ export default function UserNotificationsPage() {
 
     const handleClick = (n) => {
         if (!n.isRead) markRead.mutate(n.id);
-        if (n.link) navigate(n.link);
+        // Notification links must be in-app paths only. Sender side is
+        // controlled, but defending here keeps a stray external/scheme
+        // link from raising a router error or opening surprise pages.
+        if (n.link && typeof n.link === 'string' && n.link.startsWith('/')) {
+            navigate(n.link);
+        }
     };
 
     return (

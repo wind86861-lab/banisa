@@ -147,7 +147,17 @@ export default function UserNotificationSettings() {
                             href={tgLink.deepLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onClick={() => setTimeout(() => refetchTg(), 4000)}
+                            onClick={() => {
+                                // The original one-shot refetch at 4s missed
+                                // almost every real-world confirm — opening
+                                // Telegram, finding the bot, tapping Start +
+                                // sharing contact takes most patients 10-30s.
+                                // Poll a handful of times instead so the
+                                // "Bog'langan" badge updates on its own.
+                                [4000, 8000, 14000, 22000, 32000].forEach((delay) => {
+                                    setTimeout(() => refetchTg(), delay);
+                                });
+                            }}
                         >
                             <ExternalLink size={14} /> Telegramda ochish
                             <span className="ns-tg-deeplink-hint">— 1 soat ichida tasdiqlang</span>
