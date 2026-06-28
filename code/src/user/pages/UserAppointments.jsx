@@ -7,7 +7,7 @@ import {
     ChevronLeft, Camera, X, Loader2
 } from 'lucide-react';
 import api from '../../shared/api/axios';
-import { statusLabel, canCheckIn, awaitingCashier, isReadyForService } from '../../shared/utils/appointmentStatus';
+import { statusLabel, canCheckIn, awaitingCashier, isReadyForService, serviceNameOf } from '../../shared/utils/appointmentStatus';
 import { fmtSum, shortBookingNo } from '../../shared/utils/format';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
@@ -20,18 +20,6 @@ const PAST_STATUSES = ['COMPLETED', 'CANCELLED', 'NO_SHOW'];
 
 const UZ_WEEKDAYS_SHORT = ['Yak', 'Du', 'Se', 'Cho', 'Pay', 'Ju', 'Sha'];
 const UZ_MONTHS_SHORT = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
-
-function serviceNameOf(a) {
-    if (a.services && Array.isArray(a.services) && a.services.length > 0) {
-        if (a.services.length === 1) return a.services[0].serviceName;
-        return a.services.map(s => s.serviceName).join(', ');
-    }
-    return a.diagnosticService?.nameUz ||
-        a.surgicalService?.nameUz ||
-        a.checkupPackage?.nameUz ||
-        a.serviceName ||
-        'Xizmat';
-}
 
 function paymentBadge(a) {
     if (a.paymentStatus === 'PAID') return { icon: <CheckCircle2 size={11} />, text: 'To\'langan', cls: 'paid' };

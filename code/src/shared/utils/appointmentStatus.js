@@ -15,6 +15,26 @@ export const STATUS_LABELS = {
 
 export const statusLabel = (status) => STATUS_LABELS[status] || STATUS_LABELS.PENDING;
 
+// Resolves the patient-visible service name for an appointment regardless
+// of which service-type field the backend populated. AppointmentService
+// rows (a.services[]) are the authoritative breakdown — fall back to the
+// legacy single-service fields only when the list is empty (older bookings
+// from before AppointmentService persistence shipped).
+export function serviceNameOf(a) {
+    if (a?.services?.length) {
+        return a.services.length === 1
+            ? a.services[0].serviceName
+            : a.services.map(s => s.serviceName).join(', ');
+    }
+    return (
+        a?.diagnosticService?.nameUz
+        || a?.surgicalService?.nameUz
+        || a?.checkupPackage?.nameUz
+        || a?.serviceName
+        || 'Xizmat'
+    );
+}
+
 // Statuses that allow patient-initiated cancellation (no money moved yet,
 // or paid online but clinic hasn't seen them).
 export const CANCELLABLE = new Set(['PENDING', 'CONFIRMED']);

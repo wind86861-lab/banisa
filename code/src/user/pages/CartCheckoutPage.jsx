@@ -615,9 +615,11 @@ export default function CartCheckoutPage() {
 
             {/* ── Oferta modal ── */}
             {oferta && ofertaModalOpen && (() => {
+                // Build the PDF link relative to the current origin. Vite proxies
+                // /uploads (where ofertas live) to the backend in dev, so a plain
+                // relative path works everywhere — no host-swap hack needed.
                 const isAbs = oferta.fileUrl.startsWith('http');
-                const origin = window.location.origin === 'http://localhost:5173' ? 'http://localhost:5000' : window.location.origin;
-                const pdfHref = isAbs ? oferta.fileUrl : `${origin}${oferta.fileUrl}`;
+                const pdfHref = isAbs ? oferta.fileUrl : `${window.location.origin}${oferta.fileUrl}`;
                 // Google Docs Viewer: inline PDF reader that works well on mobile
                 // without forcing the user to leave the page. Falls back to the
                 // native renderer only on desktop where it's typically fine.

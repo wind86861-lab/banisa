@@ -104,10 +104,22 @@ export const CartProvider = ({ children }) => {
         }
     };
 
+    // Optimistic-update revert. The previous code used `[...cart]` — a
+    // SHALLOW copy that still pointed at the same nested group/item objects.
+    // When the optimistic update mutated those via `g.items.filter(...)`,
+    // the snapshot was untouched (because filter returns a new array),
+    // but the surrounding groups still shared references with the live
+    // state, so a failed POST left the UI in a half-updated state. A
+    // structured clone is cheap relative to a network round-trip and
+    // guarantees a true restore on revert.
+    const snapshotCart = (c) => (typeof structuredClone === 'function'
+        ? structuredClone(c)
+        : JSON.parse(JSON.stringify(c)));
+
     // ─── REMOVE FROM CART ─────────────────────────────────────────────
     const removeFromCart = async (cartItemId) => {
         if (!user) return { success: false, message: 'Xatolik yuz berdi' };
-        const prev = [...cart];
+        const prev = snapshotCart(cart);
         try {
             // Optimistic remove
             setCart(c => {
@@ -131,7 +143,7 @@ export const CartProvider = ({ children }) => {
     // ─── UPDATE QUANTITY ──────────────────────────────────────────────
     const updateQuantity = async (cartItemId, quantity) => {
         if (!user) return { success: false };
-        const prev = [...cart];
+        const prev = snapshotCart(cart);
         try {
             setCart(c => {
                 const updated = c.map(g => {
@@ -154,7 +166,7 @@ export const CartProvider = ({ children }) => {
     // ─── CLEAR CART ───────────────────────────────────────────────────
     const clearCart = async () => {
         if (!user) return { success: false, message: 'Xatolik yuz berdi' };
-        const prev = [...cart];
+        const prev = snapshotCart(cart);
         try {
             setCart([]);
             setCartCount(0);

@@ -6,7 +6,7 @@ import {
     Calendar, FileText, AlertCircle, Loader2, Navigation as NavIcon
 } from 'lucide-react';
 import api from '../../shared/api/axios';
-import { statusLabel, nextActionFor, canCancel as canCancelFn, cancelPolicy } from '../../shared/utils/appointmentStatus';
+import { statusLabel, nextActionFor, canCancel as canCancelFn, cancelPolicy, serviceNameOf } from '../../shared/utils/appointmentStatus';
 import { fmtSum, fmtPhone, fmtDateTimeUz, shortBookingNo, mapsDirectionsUrl } from '../../shared/utils/format';
 import TopBar from '../../pages/home/TopBar';
 import Navigation from '../../pages/home/Navigation';
@@ -52,6 +52,9 @@ export default function AppointmentDetailPage() {
     const [waitedLong, setWaitedLong] = useState(false);
     const [reviewOpen, setReviewOpen] = useState(false);
     const [doctorReviewOpen, setDoctorReviewOpen] = useState(false);
+    const [confirmingCancel, setConfirmingCancel] = useState(false);
+    const [cancelError, setCancelError] = useState('');
+    const [cancelBusy, setCancelBusy] = useState(false);
 
     // Has the patient already reviewed this clinic? Drives the COMPLETED CTA.
     const { data: userReviews = [] } = useRq({
@@ -70,13 +73,24 @@ export default function AppointmentDetailPage() {
         return () => clearTimeout(t);
     }, [action?.cta]);
 
+    // Two-step cancel: first click flips into a confirm panel, second click
+    // posts. Replaces native window.confirm/alert (browser dialogs blocked
+    // by some Mini App contexts and look out of place against the page).
     const cancel = async () => {
-        if (!window.confirm('Bronni bekor qilmoqchimisiz?')) return;
+        setCancelBusy(true);
+        setCancelError('');
         try {
             await api.post(`/user/appointments/${id}/cancel`, { reason: 'Bemor bekor qildi' });
+            setConfirmingCancel(false);
             refetch();
         } catch (e) {
-            alert(e.response?.data?.error?.message || e.response?.data?.message || 'Xatolik yuz berdi');
+            setCancelError(
+                e.response?.data?.error?.message
+                || e.response?.data?.message
+                || 'Bekor qilishda xatolik yuz berdi',
+            );
+        } finally {
+            setCancelBusy(false);
         }
     };
 
@@ -91,13 +105,12 @@ export default function AppointmentDetailPage() {
     }
 
     if (error) {
-        const status = error?.response?.status;
-        if (status === 401 || status === 429) {
-            if (typeof window !== 'undefined') {
-                window.location.href = `/user/login?redirect=${encodeURIComponent(`/user/appointments/${id}`)}`;
-            }
-            return null;
-        }
+        // 401 / 429 are handled centrally by the axios response interceptor
+        // (silent refresh + soft redirect on terminal failure). Hard-jumping
+        // here caused a double redirect and flashed the login page while
+        // the interceptor's own refresh was still in flight. We just paint
+        // the same "topilmadi" panel for anything that surfaces past the
+        // interceptor.
         return (
             <div className="home-page">
                 <TopBar /><Navigation />
@@ -114,13 +127,7 @@ export default function AppointmentDetailPage() {
     if (!data) return null;
 
     const badge = statusLabel(data.status);
-    const serviceName =
-        (data.services && Array.isArray(data.services) && data.services.length > 0)
-            ? (data.services.length === 1 ? data.services[0].serviceName : data.services.map(s => s.serviceName).join(', '))
-            : data.diagnosticService?.nameUz ||
-            data.surgicalService?.nameUz ||
-            data.checkupPackage?.nameUz ||
-            'Xizmat';
+    const serviceName = serviceNameOf(data);
     const showCancel = canCancelFn(data);
     // Pay button only when clinic has accepted (CONFIRMED+) — Payme/Click
     // webhooks server-side also refuse PENDING bookings, so this UI guard
@@ -409,7 +416,40 @@ export default function AppointmentDetailPage() {
 
                         {showCancel && (
                             <div className="apd-cancel-block">
-                                <button className="apd-cancel-btn" onClick={cancel}>Bronni bekor qilish</button>
+                                {confirmingCancel ? (
+                                    <div className="apd-cancel-confirm">
+                                        <p className="apd-cancel-confirm-q">Bronni bekor qilishni tasdiqlaysizmi?</p>
+                                        {cancelError && (
+                                            <div className="apd-cancel-error">
+                                                <AlertCircle size={14} /> {cancelError}
+                                            </div>
+                                        )}
+                                        <div className="apd-cancel-confirm-actions">
+                                            <button
+                                                type="button"
+                                                className="apd-cancel-btn-secondary"
+                                                disabled={cancelBusy}
+                                                onClick={() => { setConfirmingCancel(false); setCancelError(''); }}
+                                            >
+                                                Yo'q, qoldirish
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="apd-cancel-btn apd-cancel-btn-danger"
+                                                disabled={cancelBusy}
+                                                onClick={cancel}
+                                            >
+                                                {cancelBusy
+                                                    ? <><Loader2 size={14} className="apd-spin" /> Bekor qilinmoqda...</>
+                                                    : 'Ha, bekor qilish'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <button className="apd-cancel-btn" onClick={() => setConfirmingCancel(true)}>
+                                        Bronni bekor qilish
+                                    </button>
+                                )}
                                 <p className="apd-cancel-policy">{cancelPolicy(data)}</p>
                             </div>
                         )}

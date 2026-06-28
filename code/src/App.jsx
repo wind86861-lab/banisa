@@ -75,8 +75,6 @@ import UserResetPasswordPage from './pages/user/UserResetPasswordPage';
 import UserDashboard from './user/pages/UserDashboard';
 import UserProfilePage from './user/pages/UserProfile';
 import UserAppointments from './user/pages/UserAppointments';
-import CheckoutPage from './user/pages/CheckoutPage';
-import BookingSuccessPage from './user/pages/BookingSuccessPage';
 import AppointmentDetailPage from './user/pages/AppointmentDetailPage';
 import ClinicCheckInQR from './clinic/pages/ClinicCheckInQR';
 import ClinicCashierQueue from './clinic/pages/ClinicCashierQueue';
@@ -171,9 +169,7 @@ function App() {
                                     <Route path="/user/appointments/:id" element={<UserGuard><AppointmentDetailPage /></UserGuard>} />
                                     <Route path="/user/cart" element={<UserGuard><CartPage /></UserGuard>} />
                                     <Route path="/cart" element={<Navigate to="/user/cart" replace />} />
-                                    <Route path="/user/checkout" element={<UserGuard><CheckoutPage /></UserGuard>} />
                                     <Route path="/user/cart-checkout" element={<UserGuard><CartCheckoutPage /></UserGuard>} />
-                                    <Route path="/user/booking-success" element={<UserGuard><BookingSuccessPage /></UserGuard>} />
 
                                     {/* ─── PATIENT CHECK-IN (public — handles auth inside) ── */}
                                     <Route path="/user/scan-checkin" element={<UserGuard><ScanCheckInPage /></UserGuard>} />
