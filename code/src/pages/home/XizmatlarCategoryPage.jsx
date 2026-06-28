@@ -171,10 +171,28 @@ export default function XizmatlarCategoryPage() {
     useEffect(() => { if (!meta) navigate('/xizmatlar', { replace: true }); }, [meta, navigate]);
     useEffect(() => { window.scrollTo(0, 0); }, [category]);
 
-    const categoryPool = useMemo(
-        () => ALL_SERVICES.filter(s => s.category === category),
-        [ALL_SERVICES, category]
-    );
+    // Dedupe by service id, keeping the cheapest variant. The
+    // /public/services endpoint returns one row per (service, clinic)
+    // pair — 836 rows mapped to 418 unique services. The chip bar +
+    // grid both keyed off s.id, so React was silently deduping
+    // identically-keyed cards while the chip count kept showing the
+    // ROW count. "Mutaxassislar 6" would render 3 cards, looked like
+    // the filter half-fired. One unique service per card / per chip
+    // count from here on; the detail page already handles the clinic
+    // breakdown.
+    const categoryPool = useMemo(() => {
+        const filteredByCat = ALL_SERVICES.filter(s => s.category === category);
+        const byService = new Map();
+        for (const s of filteredByCat) {
+            const key = s.serviceId || s.id;
+            if (!key) continue;
+            const prev = byService.get(key);
+            if (!prev || (s.price ?? Infinity) < (prev.price ?? Infinity)) {
+                byService.set(key, s);
+            }
+        }
+        return Array.from(byService.values());
+    }, [ALL_SERVICES, category]);
 
     // Normalize the specialty key so trailing spaces / accidental double
     // spaces in admin-entered data don't fracture the chip list. The data
