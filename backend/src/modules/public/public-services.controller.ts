@@ -481,8 +481,45 @@ export const getPublicServiceFilters = async (_req: Request, res: Response, next
 
 export const getPublicServiceDetail = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const id = String(req.params.id);
+        let id = String(req.params.id);
         const clinicIdFilter = req.query.clinicId as string | undefined;
+
+        // Raw-ID rescue: shared / bookmarked / search-indexed URLs in the
+        // wild sometimes point at the bare service UUID instead of the
+        // composite `surgical-{clinicId}-{serviceId}` /
+        // `sanatorium-{clinicId}-{serviceId}` form the listing builds. The
+        // prefix-keyed handlers below otherwise 404 on those URLs even
+        // when the service genuinely exists. If the raw id resolves to an
+        // active surgical or sanatorium service, swap it in for the
+        // composite form (prefer the requested clinic; fall back to any
+        // active one) and let the rest of the function handle it.
+        if (!id.startsWith('surgical-') && !id.startsWith('sanatorium-')) {
+            const surgicalLink = await prisma.clinicSurgicalService.findFirst({
+                where: {
+                    surgicalServiceId: id,
+                    isActive: true,
+                    clinic: { isActive: true, status: ClinicStatus.APPROVED },
+                    ...(clinicIdFilter ? { clinicId: clinicIdFilter } : {}),
+                },
+                select: { clinicId: true, surgicalServiceId: true },
+            });
+            if (surgicalLink) {
+                id = `surgical-${surgicalLink.clinicId}-${surgicalLink.surgicalServiceId}`;
+            } else {
+                const sanLink = await prisma.clinicSanatoriumService.findFirst({
+                    where: {
+                        sanatoriumServiceId: id,
+                        isActive: true,
+                        clinic: { isActive: true, status: ClinicStatus.APPROVED },
+                        ...(clinicIdFilter ? { clinicId: clinicIdFilter } : {}),
+                    },
+                    select: { clinicId: true, sanatoriumServiceId: true },
+                });
+                if (sanLink) {
+                    id = `sanatorium-${sanLink.clinicId}-${sanLink.sanatoriumServiceId}`;
+                }
+            }
+        }
 
         // Handle surgical services (ID format: surgical-{clinicId}-{surgicalServiceId})
         if (id.startsWith('surgical-')) {
