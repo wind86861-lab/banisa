@@ -323,6 +323,9 @@ model Doctor {
   clinicId          String?
   firstName         String
   lastName          String
+  // Patronymic (otasining ismi) — culturally required in UZ but optional
+  // at the DB level to keep historical imports working.
+  middleName        String?
   // Legacy free-text specialty kept for backward compat.
   specialty         String?
   // New: FK into Specialty catalog managed by super-admin.
@@ -332,9 +335,25 @@ model Doctor {
   bioEn             String?
   photoUrl          String?
   photoUrls         Json     @default("[]")
+  // Kept in schema for the cross-clinic "attach existing" lookup. No
+  // longer exposed on public APIs, no longer captured by the new-doctor
+  // form. Phone/email belong to the doctor as a person, not to the
+  // patient-facing profile.
   phone             String?
   email             String?
   yearsExperience   Int?
+  // Doctor qualification grade ("toifa") — free-form. Typical UZ values:
+  // BIRINCHI, IKKINCHI, OLIY.
+  category          String?
+  // Academic degree (ilmiy darajasi) — e.g., "Tibbiyot fanlari nomzodi".
+  academicDegree    String?
+  // Academic title (ilmiy unvon) — e.g., "Dotsent", "Professor".
+  academicTitle     String?
+  // Diseases the doctor treats — string array (chips on the profile).
+  treatedDiseases   Json          @default("[]")
+  // For surgeons — specific procedures performed. Separate array so the
+  // UI can label/section them differently from general illnesses.
+  surgicalProcedures Json         @default("[]")
   averageRating     Float?        @default(0)
   reviewCount       Int           @default(0)
   isActive          Boolean       @default(true)

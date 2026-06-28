@@ -64,6 +64,13 @@ export const listDoctors = async (req: Request, res: Response) => {
             id: d.id,
             firstName: d.firstName,
             lastName: d.lastName,
+            // Patronymic + qualification + academic title travel on the
+            // list payload too so doctor cards can render the full
+            // greeting form ("Karimov Bahodir A.") and a credential
+            // pill ("Oliy toifa", "Professor") without a second roundtrip.
+            middleName: (d as any).middleName ?? null,
+            category: (d as any).category ?? null,
+            academicTitle: (d as any).academicTitle ?? null,
             specialtyName: d.specialtyRef?.nameUz ?? d.specialty ?? null,
             specialtyIcon: d.specialtyRef?.icon ?? null,
             photoUrl: d.photoUrl,
@@ -138,6 +145,19 @@ export const getDoctorDetail = async (req: Request, res: Response) => {
             id: doctor.id,
             firstName: doctor.firstName,
             lastName: doctor.lastName,
+            // Patronymic + qualification + academic block. These replace
+            // the old phone/email surface — patient sees the doctor's
+            // professional credentials, not their personal contact info.
+            middleName: (doctor as any).middleName ?? null,
+            category: (doctor as any).category ?? null,
+            academicDegree: (doctor as any).academicDegree ?? null,
+            academicTitle: (doctor as any).academicTitle ?? null,
+            treatedDiseases: Array.isArray((doctor as any).treatedDiseases)
+                ? (doctor as any).treatedDiseases as string[]
+                : [],
+            surgicalProcedures: Array.isArray((doctor as any).surgicalProcedures)
+                ? (doctor as any).surgicalProcedures as string[]
+                : [],
             specialty: doctor.specialty,
             specialtyName: doctor.specialtyRef?.nameUz ?? doctor.specialty ?? null,
             specialtyIcon: doctor.specialtyRef?.icon ?? null,
@@ -147,8 +167,6 @@ export const getDoctorDetail = async (req: Request, res: Response) => {
             yearsExperience: doctor.yearsExperience,
             averageRating: doctor.averageRating ?? 0,
             reviewCount: doctor.reviewCount ?? 0,
-            phone: doctor.phone,
-            email: doctor.email,
             clinics: doctor.doctorClinics.map((dc) => ({
                 doctorClinicId: dc.id,
                 clinicId: dc.clinic.id,

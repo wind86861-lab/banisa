@@ -5,8 +5,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, SlidersHorizontal, Star, MapPin, Award,
     Stethoscope, Building2, ChevronRight, X, Sparkles,
-    Loader2, ArrowDownAZ,
+    Loader2, ArrowDownAZ, GraduationCap,
 } from 'lucide-react';
+
+// Mirror the public profile labels so a card and a profile page agree on
+// what "OLIY" means.
+const CATEGORY_LABELS = {
+    OLIY: 'Oliy toifa',
+    BIRINCHI: 'Birinchi toifa',
+    IKKINCHI: 'Ikkinchi toifa',
+    YOSH_MUTAXASSIS: 'Yosh mutaxassis',
+};
+const fmtCategory = (c) => CATEGORY_LABELS[c] || c || null;
 import api from '../../shared/api/axios';
 import TopBar from './TopBar';
 import Navigation from './Navigation';
@@ -56,7 +66,10 @@ function DoctorCard({ doctor }) {
                         <div className="docs-card__avatar docs-card__avatar--initials">{initials}</div>
                     )}
                     <div className="docs-card__title-block">
-                        <div className="docs-card__name">{doctor.firstName} {doctor.lastName}</div>
+                        <div className="docs-card__name">
+                            {doctor.lastName} {doctor.firstName}
+                            {doctor.middleName ? ` ${doctor.middleName.charAt(0)}.` : ''}
+                        </div>
                         <div className="docs-card__spec">
                             <Stethoscope size={11} /> {doctor.specialtyName || 'Doktor'}
                         </div>
@@ -68,6 +81,16 @@ function DoctorCard({ doctor }) {
                 </div>
 
                 <div className="docs-card__meta">
+                    {fmtCategory(doctor.category) && (
+                        <span className="docs-card__chip docs-card__chip--accent">
+                            <Award size={11} /> {fmtCategory(doctor.category)}
+                        </span>
+                    )}
+                    {doctor.academicTitle && (
+                        <span className="docs-card__chip docs-card__chip--accent">
+                            <GraduationCap size={11} /> {doctor.academicTitle}
+                        </span>
+                    )}
                     {doctor.yearsExperience != null && (
                         <span className="docs-card__chip">
                             <Award size={11} /> {doctor.yearsExperience} yil tajriba

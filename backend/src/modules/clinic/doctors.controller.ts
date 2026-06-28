@@ -41,14 +41,27 @@ export const listDoctors = async (req: AuthRequest, res: Response) => {
                     id: dc.doctor.id,
                     firstName: dc.doctor.firstName,
                     lastName: dc.doctor.lastName,
+                    // Patronymic + professional credentials replace the
+                    // old phone/email block. Contacts are intentionally
+                    // not returned anywhere on the clinic-facing list
+                    // either — they live in the DB only as a key for the
+                    // cross-clinic attach-existing lookup.
+                    middleName: (dc.doctor as any).middleName ?? null,
                     specialty: dc.doctor.specialty,
                     specialtyId: dc.doctor.specialtyId,
                     specialtyName: dc.doctor.specialtyRef?.nameUz ?? dc.doctor.specialty ?? null,
                     photoUrl: dc.doctor.photoUrl,
-                    phone: dc.doctor.phone,
-                    email: dc.doctor.email,
                     bio: dc.doctor.bio,
                     yearsExperience: dc.doctor.yearsExperience,
+                    category: (dc.doctor as any).category ?? null,
+                    academicDegree: (dc.doctor as any).academicDegree ?? null,
+                    academicTitle: (dc.doctor as any).academicTitle ?? null,
+                    treatedDiseases: Array.isArray((dc.doctor as any).treatedDiseases)
+                        ? (dc.doctor as any).treatedDiseases as string[]
+                        : [],
+                    surgicalProcedures: Array.isArray((dc.doctor as any).surgicalProcedures)
+                        ? (dc.doctor as any).surgicalProcedures as string[]
+                        : [],
                     averageRating: dc.doctor.averageRating ?? 0,
                     reviewCount: dc.doctor.reviewCount ?? 0,
                     isActiveGlobal: dc.doctor.isActive,
@@ -125,7 +138,10 @@ export const createOrAttach = async (req: AuthRequest, res: Response) => {
 
     const {
         doctorId,         // if attaching existing doctor
-        firstName, lastName, specialtyId, phone, email, photoUrl, photoUrls, bio, yearsExperience,
+        firstName, lastName, middleName, specialtyId,
+        photoUrl, photoUrls, bio, yearsExperience,
+        category, academicDegree, academicTitle,
+        treatedDiseases, surgicalProcedures,
         consultationPrice = 0,
         roomNumber,
     } = req.body || {};
@@ -159,17 +175,30 @@ export const createOrAttach = async (req: AuthRequest, res: Response) => {
         if (typeof lastName !== 'string' || lastName.trim().length < 2) {
             return res.status(400).json({ success: false, message: 'lastName kerak' });
         }
+        // Phone/email intentionally NOT pulled from the request body: the
+        // new-doctor form removed them and we don't want a stray client to
+        // re-introduce contact info via the API. Existing doctors keep
+        // their phone in the DB for the cross-clinic attach-existing
+        // lookup, which is a separate code path.
         const created = await prisma.doctor.create({
             data: {
                 firstName: firstName.trim(),
                 lastName: lastName.trim(),
+                middleName: typeof middleName === 'string' ? middleName.trim() || null : null,
                 specialtyId: specialtyId || null,
-                phone: phone?.trim() || null,
-                email: email?.trim() || null,
                 photoUrl: photoUrl?.trim() || null,
                 photoUrls: Array.isArray(photoUrls) ? photoUrls.slice(0, 3) : [],
                 bio: bio?.trim() || null,
                 yearsExperience: Number.isFinite(yearsExperience) ? yearsExperience : null,
+                category: typeof category === 'string' ? category.trim() || null : null,
+                academicDegree: typeof academicDegree === 'string' ? academicDegree.trim() || null : null,
+                academicTitle: typeof academicTitle === 'string' ? academicTitle.trim() || null : null,
+                treatedDiseases: Array.isArray(treatedDiseases)
+                    ? treatedDiseases.filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim()).slice(0, 40)
+                    : [],
+                surgicalProcedures: Array.isArray(surgicalProcedures)
+                    ? surgicalProcedures.filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim()).slice(0, 40)
+                    : [],
                 clinicId, // legacy primary clinic
                 isActive: true,
             },
@@ -225,18 +254,36 @@ export const updateDoctorProfile = async (req: AuthRequest, res: Response) => {
     }
 
     const {
-        firstName, lastName, specialtyId, phone, email, photoUrl, photoUrls, bio, yearsExperience,
+        firstName, lastName, middleName, specialtyId, photoUrl, photoUrls, bio, yearsExperience,
+        category, academicDegree, academicTitle, treatedDiseases, surgicalProcedures,
     } = req.body || {};
     const data: any = {};
     if (typeof firstName === 'string' && firstName.trim().length >= 2) data.firstName = firstName.trim();
     if (typeof lastName === 'string' && lastName.trim().length >= 2) data.lastName = lastName.trim();
+    if (typeof middleName === 'string' || middleName === null) data.middleName = typeof middleName === 'string' ? middleName.trim() || null : null;
     if (typeof specialtyId === 'string' || specialtyId === null) data.specialtyId = specialtyId || null;
-    if (typeof phone === 'string') data.phone = phone.trim() || null;
-    if (typeof email === 'string') data.email = email.trim() || null;
     if (typeof photoUrl === 'string') data.photoUrl = photoUrl.trim() || null;
     if (Array.isArray(photoUrls)) data.photoUrls = photoUrls.slice(0, 3);
     if (typeof bio === 'string') data.bio = bio.trim() || null;
     if (Number.isFinite(yearsExperience) || yearsExperience === null) data.yearsExperience = yearsExperience;
+    // New academic / category / coverage fields. Phone+email are no
+    // longer accepted on this endpoint — the contact removal is the
+    // whole point of this commit.
+    if (typeof category === 'string' || category === null) data.category = typeof category === 'string' ? category.trim() || null : null;
+    if (typeof academicDegree === 'string' || academicDegree === null) data.academicDegree = typeof academicDegree === 'string' ? academicDegree.trim() || null : null;
+    if (typeof academicTitle === 'string' || academicTitle === null) data.academicTitle = typeof academicTitle === 'string' ? academicTitle.trim() || null : null;
+    if (Array.isArray(treatedDiseases)) {
+        data.treatedDiseases = treatedDiseases
+            .filter((s) => typeof s === 'string' && s.trim())
+            .map((s) => s.trim())
+            .slice(0, 40);
+    }
+    if (Array.isArray(surgicalProcedures)) {
+        data.surgicalProcedures = surgicalProcedures
+            .filter((s) => typeof s === 'string' && s.trim())
+            .map((s) => s.trim())
+            .slice(0, 40);
+    }
 
     const updated = await prisma.doctor.update({ where: { id: dc.doctorId }, data });
     return res.json({ success: true, data: updated });

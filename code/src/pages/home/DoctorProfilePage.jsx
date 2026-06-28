@@ -6,7 +6,19 @@ import {
     Star, Award, Stethoscope, Building2, MapPin, Phone,
     Clock, Calendar, ChevronLeft, Loader2, AlertTriangle,
     CalendarCheck, Sparkles, MessageCircle, X, ImageIcon,
+    GraduationCap, BriefcaseMedical, Scissors,
 } from 'lucide-react';
+
+// UZ-friendly labels for the qualification grade. Matches the dropdown
+// on the clinic edit form; fall back to whatever the API returned for
+// future values.
+const CATEGORY_LABELS = {
+    OLIY: 'Oliy toifa',
+    BIRINCHI: 'Birinchi toifa',
+    IKKINCHI: 'Ikkinchi toifa',
+    YOSH_MUTAXASSIS: 'Yosh mutaxassis',
+};
+const fmtCategory = (c) => CATEGORY_LABELS[c] || c || null;
 
 const resolveSrc = (url) => {
     if (!url) return null;
@@ -255,7 +267,11 @@ export default function DoctorProfilePage() {
                             <div className="docs-profile-hero__avatar docs-profile-hero__avatar--initials">{initials}</div>
                         )}
                         <div className="docs-profile-hero__body">
-                            <h1 className="docs-profile-hero__name">{data.firstName} {data.lastName}</h1>
+                            {/* Full name with patronymic when available — culturally the
+                                expected greeting form in UZ ("Karimov Bahodir Akmalovich"). */}
+                            <h1 className="docs-profile-hero__name">
+                                {data.lastName} {data.firstName}{data.middleName ? ` ${data.middleName}` : ''}
+                            </h1>
                             <div className="docs-profile-hero__spec">
                                 <Stethoscope size={14} /> {data.specialtyName || 'Doktor'}
                             </div>
@@ -263,6 +279,16 @@ export default function DoctorProfilePage() {
                                 {data.yearsExperience != null && (
                                     <span className="docs-card__chip">
                                         <Award size={11} /> {data.yearsExperience} yil tajriba
+                                    </span>
+                                )}
+                                {fmtCategory(data.category) && (
+                                    <span className="docs-card__chip docs-card__chip--accent">
+                                        <Award size={11} /> {fmtCategory(data.category)}
+                                    </span>
+                                )}
+                                {data.academicTitle && (
+                                    <span className="docs-card__chip docs-card__chip--accent">
+                                        <GraduationCap size={11} /> {data.academicTitle}
                                     </span>
                                 )}
                                 <span className="docs-card__chip">
@@ -289,6 +315,60 @@ export default function DoctorProfilePage() {
                     <section className="docs-section">
                         <div className="docs-section__title">Haqida</div>
                         <p className="docs-bio">{data.bio}</p>
+                    </section>
+                )}
+
+                {(data.academicDegree || data.academicTitle || fmtCategory(data.category)) && (
+                    <section className="docs-section">
+                        <div className="docs-section__title">
+                            <GraduationCap size={14} /> Ilmiy va kasbiy daraja
+                        </div>
+                        <div className="docs-credentials">
+                            {fmtCategory(data.category) && (
+                                <div className="docs-credential">
+                                    <div className="docs-credential__label">Toifa</div>
+                                    <div className="docs-credential__value">{fmtCategory(data.category)}</div>
+                                </div>
+                            )}
+                            {data.academicDegree && (
+                                <div className="docs-credential">
+                                    <div className="docs-credential__label">Ilmiy darajasi</div>
+                                    <div className="docs-credential__value">{data.academicDegree}</div>
+                                </div>
+                            )}
+                            {data.academicTitle && (
+                                <div className="docs-credential">
+                                    <div className="docs-credential__label">Ilmiy unvoni</div>
+                                    <div className="docs-credential__value">{data.academicTitle}</div>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                )}
+
+                {Array.isArray(data.treatedDiseases) && data.treatedDiseases.length > 0 && (
+                    <section className="docs-section">
+                        <div className="docs-section__title">
+                            <BriefcaseMedical size={14} /> Davolanadigan kasalliklar
+                        </div>
+                        <div className="docs-tag-list">
+                            {data.treatedDiseases.map((t, i) => (
+                                <span key={`${t}-${i}`} className="docs-tag">{t}</span>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {Array.isArray(data.surgicalProcedures) && data.surgicalProcedures.length > 0 && (
+                    <section className="docs-section">
+                        <div className="docs-section__title">
+                            <Scissors size={14} /> Bajaradigan jarrohliklar
+                        </div>
+                        <div className="docs-tag-list">
+                            {data.surgicalProcedures.map((t, i) => (
+                                <span key={`${t}-${i}`} className="docs-tag docs-tag--surgery">{t}</span>
+                            ))}
+                        </div>
                     </section>
                 )}
 
