@@ -101,8 +101,15 @@ export const checkPerformTransaction = async (params: {
     amount: number;
     account: { order_id: string };
 }, ctx: PaymeContext = LEGACY_CTX) => {
-    const { amount, account } = params;
+    const { amount } = params;
     const { clinicId: tenantClinicId, isTestMode } = ctx;
+
+    // Sandbox & some merchant UIs send order_id with stray whitespace
+    // (e.g. " Q553"). Normalize once so every downstream lookup,
+    // existing-tx query and orderId persisted column sees the same value.
+    const rawOrderId = params.account?.order_id;
+    const orderId = typeof rawOrderId === 'string' ? rawOrderId.trim() : rawOrderId;
+    const account = { ...params.account, order_id: orderId };
 
     if (!account?.order_id) {
         return { error: PAYME_ERROR.WRONG_ACCOUNT };
@@ -415,8 +422,16 @@ export const createTransaction = async (params: {
     amount: number;
     account: { order_id: string };
 }, ctx: PaymeContext = LEGACY_CTX) => {
-    const { id: paymeId, time: paymeTime, amount, account } = params;
+    const { id: paymeId, time: paymeTime, amount } = params;
     const { clinicId: tenantClinicId, isTestMode } = ctx;
+
+    // Same whitespace normalization as checkPerformTransaction — sandbox
+    // sometimes sends " Q553" with a leading space, and the orderId stored
+    // on the PaymeTransaction row must match the trimmed value used for
+    // lookups elsewhere in the lifecycle.
+    const rawOrderId = params.account?.order_id;
+    const orderId = typeof rawOrderId === 'string' ? rawOrderId.trim() : rawOrderId;
+    const account = { ...params.account, order_id: orderId };
 
     // Check if transaction already exists
     const existing = await prisma.paymeTransaction.findUnique({
