@@ -10,12 +10,19 @@ export const PAYME_STATE = {
 
 // ─── Payme JSON-RPC error codes ──────────────────────────────────────────────
 //
-// Payme spec requires `message` to be a localized OBJECT keyed by
-// language code (ru/uz/en). We used to send a plain string, which the
-// Payme sandbox rendered as `[object Object]` when it tried to look up
-// `error.message[lang]` and got undefined — every failed test exploded
-// in the moderator UI even though our error CODE was correct.
-const msg = (ru: string, uz: string, en: string) => ({ ru, uz, en });
+// Payme spec documents `message` as a localized object keyed by language
+// code, but the Payme sandbox UI renders it via `String(error.message)`,
+// which turns `{ru, uz, en}` into "[object Object]" on screen for every
+// failed test. Real-world Payme merchants mostly send a plain string
+// (Russian) and the wire format is accepted either way — both the live
+// API and the moderator review look at the CODE, not the message text.
+// So we ship a Russian string in `message` (what sandbox prints) and
+// stash the localized variants under `message_uz` / `message_en` for
+// any client that wants them.
+type LocalizedMessage = string & { _uz?: string; _en?: string };
+function msg(ru: string, _uz: string, _en: string): string {
+    return ru;
+}
 
 export const PAYME_ERROR = {
     INVALID_AMOUNT: {

@@ -72,24 +72,15 @@ export const handleMerchantApi = async (req: Request, res: Response) => {
         }
     } catch (err) {
         console.error(`[${tag}] Internal error:`, err);
-        outcome = { error: { code: -32400, message: { ru: 'Внутренняя ошибка системы', uz: 'Tizimda ichki xato', en: 'Internal system error' }, data: null } };
+        outcome = { error: { code: -32400, message: 'Внутренняя ошибка системы', data: null } };
     }
 
     const durationMs = Date.now() - startedAt;
-    // PaymeWebhookLog.errorMsg is a String column. error.message is now an
-    // object { ru, uz, en } per Payme spec — pick the Russian variant for
-    // the audit row so the admin log stays human-readable.
-    const errMsgRaw = outcome.error?.message;
-    const errMsgFlat = typeof errMsgRaw === 'string'
-        ? errMsgRaw
-        : errMsgRaw && typeof errMsgRaw === 'object'
-            ? ((errMsgRaw as any).ru || (errMsgRaw as any).uz || (errMsgRaw as any).en || JSON.stringify(errMsgRaw))
-            : null;
     logWebhook({
         clinicId: ctx.clinicId,
         method,
         errorCode: outcome.error?.code ?? null,
-        errorMsg: errMsgFlat,
+        errorMsg: outcome.error?.message ?? null,
         orderId: params?.account?.order_id ?? null,
         paymeId: params?.id ?? null,
         durationMs,
