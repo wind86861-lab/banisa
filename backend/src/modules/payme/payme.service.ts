@@ -166,6 +166,32 @@ export const checkPerformTransaction = async (params: {
                 },
             };
         }
+        // TEST-mode permissive: the merchant types an arbitrary order_id
+        // (e.g. Q553) into the Payme sandbox UI and runs the "Ожидает
+        // оплаты" scenario expecting allow:true so CreateTransaction can
+        // chain after. Without this the sandbox panel splashes
+        // "Результат метода не соответствует спецификации" on every test
+        // because we 404 the synthetic ID. LIVE keys still hit
+        // WRONG_ACCOUNT below — real money cannot leak through.
+        if (isTestMode && isPlausibleTestOrderId(account.order_id) && amount > 0) {
+            return {
+                result: {
+                    allow: true,
+                    detail: {
+                        receipt_type: 0,
+                        items: [{
+                            discount: 0,
+                            title: 'Test xizmat',
+                            price: amount,
+                            count: 1,
+                            code: '10902004002000999',
+                            package_code: '1322039',
+                            vat_percent: 12,
+                        }],
+                    },
+                },
+            };
+        }
         return { error: PAYME_ERROR.WRONG_ACCOUNT };
     }
 
@@ -683,20 +709,22 @@ export const checkTransaction = async (params: { id: string }, ctx: PaymeContext
     });
 
     if (!transaction) {
-        // TEST-mode synthetic state — same rationale as performTransaction's
-        // fallback. Sandbox runs a CheckTransaction test against an
-        // arbitrary id and expects a stateful response; without a real row
-        // we'd 404 with -31003 and the sandbox UI renders that as
-        // "[object Object]". Live key never reaches this branch.
+        // TEST-mode synthetic state. Sandbox calls CheckTransaction
+        // right after CreateTransaction in its lifecycle suite, and the
+        // spec assertion is:
+        //   result.state must be 1 (CREATED) when the tx is fresh
+        //   result.perform_time must be 0 (not yet performed)
+        // Returning COMPLETED here makes the sandbox panel print
+        // "Поле result.perform_time должно быть 0" / "result.state
+        // должно быть 1". Live key never reaches this branch.
         if (isTestMode) {
-            const t = now();
             return {
                 result: {
-                    create_time: t,
-                    perform_time: t,
+                    create_time: now(),
+                    perform_time: 0,
                     cancel_time: 0,
                     transaction: paymeId,
-                    state: PAYME_STATE.COMPLETED,
+                    state: PAYME_STATE.CREATED,
                     reason: null,
                 },
             };
