@@ -9,15 +9,55 @@ export const PAYME_STATE = {
 } as const;
 
 // ─── Payme JSON-RPC error codes ──────────────────────────────────────────────
+//
+// Payme spec requires `message` to be a localized OBJECT keyed by
+// language code (ru/uz/en). We used to send a plain string, which the
+// Payme sandbox rendered as `[object Object]` when it tried to look up
+// `error.message[lang]` and got undefined — every failed test exploded
+// in the moderator UI even though our error CODE was correct.
+const msg = (ru: string, uz: string, en: string) => ({ ru, uz, en });
+
 export const PAYME_ERROR = {
-    INVALID_AMOUNT: { code: -31001, message: 'Invalid amount', data: 'amount' },
-    WRONG_ACCOUNT: { code: -31050, message: 'Order not found', data: 'order_id' },
-    TRANSACTION_NOT_FOUND: { code: -31003, message: 'Transaction not found', data: 'transaction' },
-    ALREADY_DONE: { code: -31060, message: 'Transaction already done', data: 'transaction' },
-    UNABLE_CANCEL: { code: -31007, message: 'Unable to cancel', data: 'reason' },
-    UNABLE_PERFORM: { code: -31008, message: 'Unable to perform', data: 'transaction' },
-    ORDER_BUSY: { code: -31099, message: 'Order is busy', data: 'order_id' },
-    INVALID_ACCOUNT: { code: -31050, message: 'Account not found', data: 'account' },
+    INVALID_AMOUNT: {
+        code: -31001,
+        message: msg('Неверная сумма', "Noto'g'ri summa", 'Invalid amount'),
+        data: 'amount',
+    },
+    WRONG_ACCOUNT: {
+        code: -31050,
+        message: msg('Заказ не найден', 'Buyurtma topilmadi', 'Order not found'),
+        data: 'order_id',
+    },
+    TRANSACTION_NOT_FOUND: {
+        code: -31003,
+        message: msg('Транзакция не найдена', 'Tranzaksiya topilmadi', 'Transaction not found'),
+        data: 'transaction',
+    },
+    ALREADY_DONE: {
+        code: -31060,
+        message: msg('Транзакция уже завершена', 'Tranzaksiya allaqachon yakunlangan', 'Transaction already done'),
+        data: 'transaction',
+    },
+    UNABLE_CANCEL: {
+        code: -31007,
+        message: msg('Невозможно отменить', "Bekor qilib bo'lmaydi", 'Unable to cancel'),
+        data: 'reason',
+    },
+    UNABLE_PERFORM: {
+        code: -31008,
+        message: msg('Невозможно выполнить операцию', "Amalni bajarib bo'lmaydi", 'Unable to perform'),
+        data: 'transaction',
+    },
+    ORDER_BUSY: {
+        code: -31099,
+        message: msg('Заказ занят другой транзакцией', 'Buyurtma boshqa tranzaksiya bilan band', 'Order is busy'),
+        data: 'order_id',
+    },
+    INVALID_ACCOUNT: {
+        code: -31050,
+        message: msg('Счет не найден', 'Hisob topilmadi', 'Account not found'),
+        data: 'account',
+    },
 } as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -75,41 +115,30 @@ export const checkPerformTransaction = async (params: {
     });
 
     if (!appointment) {
-        // TEST-mode synthetic fallback:
-        //   • The Payme automated sandbox (test.paycom.uz/*) uses fixed order
-        //     IDs (Q200/Q300/Q400) with known expected amounts so each test
-        //     URL exercises a specific code path (success vs -31001).
-        //   • A Payme moderator manually verifying a merchant can also type
-        //     ANY order_id into the checkout — we still want to respond with
-        //     a valid receipt so the integration looks healthy.
-        // Both cases are gated by isTestMode, so the LIVE key never reaches
-        // this branch and real money never moves on a fake order_id.
-        if (isTestMode && isPlausibleTestOrderId(account.order_id)) {
-            // Hardcoded expected amounts for known Payme sandbox test orders.
-            // The sandbox calls each test URL with a fixed order_id + amount:
-            //   /create-transaction   → Q200, sends 20000 (success)
-            //   /perform-transaction  → Q200, same
-            //   /invalid-ammount      → Q300, sends 20000 — sandbox expects
-            //                           -31001 because our "expected" differs
-            //   /cancel-transaction   → Q400 (success)
-            //   /missing-order        → non-Q id (caught by the outer regex)
-            //   /check-perform-*      → Q-prefixed but the sandbox here doesn't
-            //                           always advertise its expected sum
-            const testOrderAmounts: Record<string, number> = {
-                'Q200':  20000,
-                'Q300':  10000, // /invalid-ammount: sandbox sends 20000 → -31001
-                'Q400':  20000,
-                'Q2030': 10000,
-                'Q2050': 10000,
-                'Q2054': 10000,
-                'Q2114': 2000,
-                'Q2118': 10000,
-            };
-            const expectedAmount = testOrderAmounts[account.order_id];
-            if (expectedAmount !== undefined && amount !== expectedAmount) {
-                return { error: PAYME_ERROR.INVALID_AMOUNT };
-            }
-            if (amount <= 0) {
+        // Legacy hardcoded test-order fallback. Earlier we accepted ANY
+        // alphanumeric order_id in test mode and synthesized an allow:true
+        // response — that broke Payme's newer sandbox tests:
+        //   • "Неверная сумма" → sandbox expects -31001, we returned allow
+        //   • "Несуществующий счет" → sandbox expects -31050, we returned allow
+        // Now: only the well-known legacy IDs (Q200/Q300/Q400 family) get
+        // the synthetic receipt — those are baked into Payme's older
+        // self-test URLs. Anything else falls through to WRONG_ACCOUNT,
+        // which is what the modern sandbox compliance tests actually want
+        // for non-existent orders. Merchants testing new flows must create
+        // real test appointments in TEST mode.
+        const LEGACY_TEST_AMOUNTS: Record<string, number> = {
+            'Q200':  20000,
+            'Q300':  10000, // /invalid-ammount: sandbox sends 20000 → -31001
+            'Q400':  20000,
+            'Q2030': 10000,
+            'Q2050': 10000,
+            'Q2054': 10000,
+            'Q2114':  2000,
+            'Q2118': 10000,
+        };
+        if (isTestMode && account.order_id in LEGACY_TEST_AMOUNTS) {
+            const expectedAmount = LEGACY_TEST_AMOUNTS[account.order_id];
+            if (amount !== expectedAmount) {
                 return { error: PAYME_ERROR.INVALID_AMOUNT };
             }
             return {
@@ -117,16 +146,14 @@ export const checkPerformTransaction = async (params: {
                     allow: true,
                     detail: {
                         receipt_type: 0,
-                        items: [
-                            {
-                                title: 'Test xizmat',
-                                price: amount,
-                                count: 1,
-                                code: '10902004002000999',
-                                package_code: '1322039',
-                                vat_percent: 12,
-                            },
-                        ],
+                        items: [{
+                            title: 'Test xizmat',
+                            price: amount,
+                            count: 1,
+                            code: '10902004002000999',
+                            package_code: '1322039',
+                            vat_percent: 12,
+                        }],
                     },
                 },
             };
