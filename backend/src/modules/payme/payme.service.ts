@@ -475,17 +475,22 @@ export const createTransaction = async (params: {
     });
 
     if (existingForOrder) {
-        // Test-mode auto-cleanup: hardcoded sandbox order IDs (Q200/Q300/...)
-        // are meant to be re-tested infinitely by Payme staff. Cancel any
-        // prior CREATED-state row so the new test can proceed instead of
-        // returning -31099. COMPLETED rows are still respected — the
-        // sandbox's "perform then re-test" flow should see a busy order
-        // briefly, and prod money never reaches this branch because the
-        // outer guards require isTestMode + a hardcoded test order_id.
-        const isReplayableTestOrder = isTestMode && account.order_id in {
-            Q200: 1, Q300: 1, Q400: 1,
-            Q2030: 1, Q2050: 1, Q2054: 1, Q2114: 1, Q2118: 1,
-        };
+        // Test-mode auto-cleanup: ANY plausible test order in test-mode
+        // is meant to be re-runnable infinitely (Payme moderator types a
+        // synthetic ID like Q553 and re-runs the same compliance script
+        // dozens of times). Cancel prior CREATED-state row so the new
+        // test can proceed instead of returning -31099. COMPLETED rows
+        // are still respected so the "perform then re-test" flow shows
+        // a busy order briefly. Production money never reaches here
+        // because outer guards require isTestMode (LIVE keys can't
+        // trigger this) AND the matching appointment lookup in
+        // checkPerformTransaction would have succeeded for real orders.
+        const isReplayableTestOrder = isTestMode && (
+            account.order_id in {
+                Q200: 1, Q300: 1, Q400: 1,
+                Q2030: 1, Q2050: 1, Q2054: 1, Q2114: 1, Q2118: 1,
+            } || isPlausibleTestOrderId(account.order_id)
+        );
         if (isReplayableTestOrder && existingForOrder.state === PAYME_STATE.CREATED) {
             await prisma.paymeTransaction.update({
                 where: { id: existingForOrder.id },
