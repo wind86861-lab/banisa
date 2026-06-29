@@ -154,6 +154,7 @@ export const checkPerformTransaction = async (params: {
                     detail: {
                         receipt_type: 0,
                         items: [{
+                            discount: 0,
                             title: 'Test xizmat',
                             price: amount,
                             count: 1,
@@ -212,13 +213,18 @@ export const checkPerformTransaction = async (params: {
     // one items[] entry per real service. Solo bookings (single-service
     // path) fall back to one synthesized line.
     let items: Array<{
-        title: string; price: number; count: number;
+        discount: number; title: string; price: number; count: number;
         code: string; package_code: string; vat_percent: number;
     }>;
     if (appointment.services && appointment.services.length > 0) {
         items = appointment.services.map((s) => {
             const codes = fiscal.byServiceKey(s.serviceType as any, s.originalServiceId);
             return {
+                // Field order + presence per Payme fiscalization spec:
+                // discount must be present (sandbox compliance test
+                // "Результат метода не соответствует спецификации"
+                // fires when it's missing). Zero is acceptable.
+                discount: 0,
                 title: s.serviceName || 'Tibbiy xizmat',
                 price: (s.finalPrice || s.price || 0) * 100, // som → tiyin
                 count: 1,
@@ -235,6 +241,7 @@ export const checkPerformTransaction = async (params: {
                 ? fiscal.byCategoryId(appointment.surgicalService.categoryId)
                 : fiscal.byCategoryId(null);
         items = [{
+            discount: 0,
             title: serviceName,
             price: expectedAmount,
             count: 1,
@@ -407,40 +414,16 @@ export const createTransaction = async (params: {
         };
     }
 
-    // Validate order (pass tenant context through). In test mode, when
-    // the order isn't in our DB but auth succeeded, fall through to a
-    // synthetic CREATED transaction — the sandbox UI's CreateTransaction
-    // step relies on this to wire up the subsequent Perform / Check /
-    // Cancel test buttons. Strict order validation still applies to
-    // LIVE keys (isTestMode=false), so real money still requires a real
-    // appointment.
+    // Validate order (pass tenant context through). CreateTransaction
+    // must mirror whatever CheckPerformTransaction said — if the order
+    // wasn't valid there, returning a successful (even synthetic)
+    // transaction here would fail the sandbox's consistency check
+    // ("Метод должен вернуть ошибку с кодом в диапазоне от -31099 до
+    // -31050"). Synthetic test-mode behaviour for the lifecycle methods
+    // (Perform / Check / Cancel) stays — those run on already-existing
+    // (or arbitrary) transaction ids, not on order validation.
     const check = await checkPerformTransaction({ amount, account }, ctx);
-    if (check.error) {
-        if (!isTestMode) return { error: check.error };
-        // Test mode: synthesize a CREATED transaction so sandbox can
-        // proceed. We do persist it so PerformTransaction/CheckTransaction
-        // find the same row and behaviour stays internally consistent.
-        const synthetic = await prisma.paymeTransaction.create({
-            data: {
-                paymeId,
-                paymeTime: BigInt(paymeTime),
-                createTime: BigInt(now()),
-                amount,
-                state: PAYME_STATE.CREATED,
-                orderId: account.order_id,
-                orderType: 'appointment',
-                clinicId: tenantClinicId,
-                isTestMode: true,
-            },
-        });
-        return {
-            result: {
-                create_time: Number(synthetic.createTime),
-                transaction: synthetic.id,
-                state: synthetic.state,
-            },
-        };
-    }
+    if (check.error) return { error: check.error };
 
     // Check if another transaction already exists for this order
     const existingForOrder = await prisma.paymeTransaction.findFirst({
