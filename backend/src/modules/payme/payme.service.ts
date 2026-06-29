@@ -181,6 +181,24 @@ export const checkPerformTransaction = async (params: {
         // because we 404 the synthetic ID. LIVE keys still hit
         // WRONG_ACCOUNT below — real money cannot leak through.
         if (isTestMode && isPlausibleTestOrderId(account.order_id) && amount > 0) {
+            // /invalid-amount sandbox compliance: if a prior PaymeTransaction
+            // for this synthetic order pinned a canonical amount, a request
+            // with a different amount must return -31001. Without this the
+            // sandbox panel's "Неверная сумма" test fails because every
+            // amount returns allow:true. Lookup is scoped to (clinicId,
+            // orderId, test-mode) so other clinics' test data can't cross-talk.
+            const priorTx = await prisma.paymeTransaction.findFirst({
+                where: {
+                    orderId: account.order_id,
+                    isTestMode: true,
+                    ...(tenantClinicId ? { clinicId: tenantClinicId } : {}),
+                },
+                orderBy: { createTime: 'desc' },
+                select: { amount: true },
+            });
+            if (priorTx && priorTx.amount !== amount) {
+                return { error: PAYME_ERROR.INVALID_AMOUNT };
+            }
             return {
                 result: {
                     allow: true,
