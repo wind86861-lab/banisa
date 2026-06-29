@@ -475,22 +475,19 @@ export const createTransaction = async (params: {
     });
 
     if (existingForOrder) {
-        // Test-mode auto-cleanup: ANY plausible test order in test-mode
-        // is meant to be re-runnable infinitely (Payme moderator types a
-        // synthetic ID like Q553 and re-runs the same compliance script
-        // dozens of times). Cancel prior CREATED-state row so the new
-        // test can proceed instead of returning -31099. COMPLETED rows
-        // are still respected so the "perform then re-test" flow shows
-        // a busy order briefly. Production money never reaches here
-        // because outer guards require isTestMode (LIVE keys can't
-        // trigger this) AND the matching appointment lookup in
-        // checkPerformTransaction would have succeeded for real orders.
-        const isReplayableTestOrder = isTestMode && (
-            account.order_id in {
-                Q200: 1, Q300: 1, Q400: 1,
-                Q2030: 1, Q2050: 1, Q2054: 1, Q2114: 1, Q2118: 1,
-            } || isPlausibleTestOrderId(account.order_id)
-        );
+        // Test-mode auto-cleanup: only the well-known legacy IDs
+        // (Q200/Q300/...) get auto-cancelled. We CANNOT broaden this to
+        // every plausible test order, because Payme's sandbox runs a
+        // dedicated "CreateTransaction с новой транзакцией. Состояние
+        // счета: 'В ожидании оплаты'" compliance test that DEPENDS on
+        // -31099 firing — it creates a CREATED tx in the previous step,
+        // then calls CreateTransaction again with a new paymeId for the
+        // same order_id and expects an error in [-31099..-31050]. Replay
+        // for arbitrary IDs would mask that test.
+        const isReplayableTestOrder = isTestMode && account.order_id in {
+            Q200: 1, Q300: 1, Q400: 1,
+            Q2030: 1, Q2050: 1, Q2054: 1, Q2114: 1, Q2118: 1,
+        };
         if (isReplayableTestOrder && existingForOrder.state === PAYME_STATE.CREATED) {
             await prisma.paymeTransaction.update({
                 where: { id: existingForOrder.id },
