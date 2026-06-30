@@ -151,17 +151,13 @@ export const checkPerformTransaction = async (params: {
         return { error: PAYME_ERROR.WRONG_ACCOUNT };
     }
 
-    // 3. Check if another transaction already occupies this order
-    const existingTx = await prisma.paymeTransaction.findFirst({
-        where: {
-            orderId: account.order_id,
-            state: { in: [PAYME_STATE.CREATED, PAYME_STATE.COMPLETED] },
-        },
-    });
-
-    if (existingTx) {
-        return { error: PAYME_ERROR.ORDER_BUSY };
-    }
+    // NOTE: no "order busy" (-31099) check here. CheckPerformTransaction only
+    // answers "can this order be paid at this amount?" — it must stay idempotent
+    // and return allow:true for a valid order regardless of prior transaction
+    // history. The Payme sandbox re-runs CheckPerform after the create/perform
+    // sections, so a busy-check here wrongly fails it with -31099. The real
+    // duplicate-payment guard lives in CreateTransaction (existingForOrder →
+    // ORDER_BUSY), which is also where the sandbox's "order busy" test targets.
 
     // Build receipt detail for tax (soliq) compliance — priority chain:
     //   1. Per-category override (ServiceCategory.fiscalXxx)
