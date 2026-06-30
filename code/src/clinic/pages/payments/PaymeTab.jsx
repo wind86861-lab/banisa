@@ -290,6 +290,8 @@ export default function PaymeTab() {
     const [editing, setEditing] = useState(false);
     const [toast, setToast] = useState('');
     const [modeModalOpen, setModeModalOpen] = useState(false);
+    const [testOrder, setTestOrder] = useState(null); // { orderId, amount, amountSom } | null
+    const [copiedField, setCopiedField] = useState(null); // 'order' | 'amount' | null
 
     useEffect(() => {
         if (!toast) return;
@@ -357,6 +359,20 @@ export default function PaymeTab() {
         },
         onError: (err) => setToast(err?.response?.data?.message || 'Tekshirishda xato'),
     });
+
+    const getTestOrder = useMutation({
+        mutationFn: async () => (await api.post('/clinic/payments/payme/test-order')).data?.data,
+        onSuccess: (data) => { setTestOrder(data); setToast('🧾 Test buyurtma tayyor'); },
+        onError: (err) => setToast(err?.response?.data?.message || 'Test buyurtma yaratishda xato'),
+    });
+
+    const copyField = async (text, field) => {
+        try {
+            await navigator.clipboard.writeText(String(text ?? ''));
+            setCopiedField(field);
+            setTimeout(() => setCopiedField(null), 1500);
+        } catch { setToast('Nusxa olib bo\'lmadi'); }
+    };
 
     const toggleMode = useMutation({
         mutationFn: async (next) =>
@@ -497,6 +513,59 @@ export default function PaymeTab() {
                     </div>
                 </div>
             </div>
+
+            {config.isTestMode && (
+                <div className="pay-card">
+                    <div className="pay-card__title">
+                        <FlaskConical size={14} /> Payme sandbox testlari uchun buyurtma
+                    </div>
+                    <div style={{ fontSize: 13, color: '#475569', margin: '6px 0 12px' }}>
+                        <a href="https://test.paycom.uz" target="_blank" rel="noreferrer" style={{ color: '#0891b2' }}>test.paycom.uz</a> moderatsiya
+                        testlarini ishga tushirish uchun tugmani bosing — tizim sizning klinikangiz uchun
+                        haqiqiy test buyurtma tayyorlaydi. Order ID va summani sandboxga ko'chiring.
+                        Har bosishda buyurtma tozalanadi, testni qayta-qayta ishga tushirsangiz bo'ladi.
+                    </div>
+                    <button
+                        className="pay-btn pay-btn--primary"
+                        onClick={() => getTestOrder.mutate()}
+                        disabled={getTestOrder.isPending}
+                    >
+                        {getTestOrder.isPending
+                            ? <Loader2 size={14} className="spin" />
+                            : <FlaskConical size={14} />}
+                        Test buyurtma olish / yangilash
+                    </button>
+
+                    {testOrder && (
+                        <div style={{ marginTop: 14, display: 'grid', gap: 8 }}>
+                            <div className="pay-url-row">
+                                <div className="pay-url-input" title={testOrder.orderId}>
+                                    <span style={{ color: '#64748b', fontSize: 11 }}>Order ID (Номер заказа): </span>
+                                    {testOrder.orderId}
+                                </div>
+                                <button className="pay-btn pay-btn--primary" onClick={() => copyField(testOrder.orderId, 'order')}>
+                                    {copiedField === 'order' ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                                    {copiedField === 'order' ? 'Nusxalandi' : 'Nusxa'}
+                                </button>
+                            </div>
+                            <div className="pay-url-row">
+                                <div className="pay-url-input">
+                                    <span style={{ color: '#64748b', fontSize: 11 }}>Summa (Сумма платежа, tiyin): </span>
+                                    {testOrder.amount} <span style={{ color: '#64748b' }}>({testOrder.amountSom} so'm)</span>
+                                </div>
+                                <button className="pay-btn pay-btn--primary" onClick={() => copyField(testOrder.amount, 'amount')}>
+                                    {copiedField === 'amount' ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                                    {copiedField === 'amount' ? 'Nusxalandi' : 'Nusxa'}
+                                </button>
+                            </div>
+                            <div style={{ fontSize: 12, color: '#64748b' }}>
+                                💡 <b>/invalid-account</b> testi uchun esa istalgan boshqa (mavjud
+                                bo'lmagan) order ID kiriting — masalan <code>Q1177</code>.
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             <PaymeModeSwitchModal
                 open={modeModalOpen}
