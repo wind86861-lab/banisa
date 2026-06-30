@@ -83,26 +83,18 @@ const LEGACY_CTX: PaymeContext = { clinicId: null, isTestMode: false };
 // ─── CheckPerformTransaction ─────────────────────────────────────────────────
 // Validates: order exists and amount matches. Called BEFORE CreateTransaction.
 // Returns detail object with receipt items for tax compliance.
-// In test mode (sandbox), accepts any order_id so Payme's automated tests pass.
-/**
- * Whether an order_id "looks like" a plausible test order — used only when
- * appointment lookup fails AND the caller authenticated with the TEST key.
- * Accepts most order naming schemes a Payme moderator might type
- * (alphanumeric + dash/underscore, 1-64 chars). Real UUIDs that match
- * actual appointments never reach this branch.
- */
-function isPlausibleTestOrderId(s: string): boolean {
-    if (typeof s !== 'string') return false;
-    if (s.length < 1 || s.length > 64) return false;
-    return /^[A-Za-z0-9_-]+$/.test(s);
-}
-
+//
+// There is NO test-mode special-casing here: the handler is purely data-driven
+// and behaves identically for the test and live keys. The Payme sandbox is run
+// against a real test appointment provisioned per clinic (see
+// payme-testorder.service); non-existent orders correctly return -31050, which
+// is what the /invalid-account compliance test expects.
 export const checkPerformTransaction = async (params: {
     amount: number;
     account: { order_id: string };
 }, ctx: PaymeContext = LEGACY_CTX) => {
     const { amount } = params;
-    const { clinicId: tenantClinicId, isTestMode } = ctx;
+    const { clinicId: tenantClinicId } = ctx;
 
     // Sandbox & some merchant UIs send order_id with stray whitespace
     // (e.g. " Q553"). Normalize once so every downstream lookup,
@@ -129,94 +121,11 @@ export const checkPerformTransaction = async (params: {
     });
 
     if (!appointment) {
-        // Legacy hardcoded test-order fallback. Earlier we accepted ANY
-        // alphanumeric order_id in test mode and synthesized an allow:true
-        // response — that broke Payme's newer sandbox tests:
-        //   • "Неверная сумма" → sandbox expects -31001, we returned allow
-        //   • "Несуществующий счет" → sandbox expects -31050, we returned allow
-        // Now: only the well-known legacy IDs (Q200/Q300/Q400 family) get
-        // the synthetic receipt — those are baked into Payme's older
-        // self-test URLs. Anything else falls through to WRONG_ACCOUNT,
-        // which is what the modern sandbox compliance tests actually want
-        // for non-existent orders. Merchants testing new flows must create
-        // real test appointments in TEST mode.
-        const LEGACY_TEST_AMOUNTS: Record<string, number> = {
-            'Q200':  20000,
-            'Q300':  10000, // /invalid-ammount: sandbox sends 20000 → -31001
-            'Q400':  20000,
-            'Q2030': 10000,
-            'Q2050': 10000,
-            'Q2054': 10000,
-            'Q2114':  2000,
-            'Q2118': 10000,
-        };
-        if (isTestMode && account.order_id in LEGACY_TEST_AMOUNTS) {
-            const expectedAmount = LEGACY_TEST_AMOUNTS[account.order_id];
-            if (amount !== expectedAmount) {
-                return { error: PAYME_ERROR.INVALID_AMOUNT };
-            }
-            return {
-                result: {
-                    allow: true,
-                    detail: {
-                        receipt_type: 0,
-                        items: [{
-                            discount: 0,
-                            title: 'Test xizmat',
-                            price: amount,
-                            count: 1,
-                            code: '10902004002000999',
-                            package_code: '1322039',
-                            vat_percent: 12,
-                        }],
-                    },
-                },
-            };
-        }
-        // TEST-mode permissive: the merchant types an arbitrary order_id
-        // (e.g. Q553) into the Payme sandbox UI and runs the "Ожидает
-        // оплаты" scenario expecting allow:true so CreateTransaction can
-        // chain after. Without this the sandbox panel splashes
-        // "Результат метода не соответствует спецификации" on every test
-        // because we 404 the synthetic ID. LIVE keys still hit
-        // WRONG_ACCOUNT below — real money cannot leak through.
-        if (isTestMode && isPlausibleTestOrderId(account.order_id) && amount > 0) {
-            // /invalid-amount sandbox compliance: if a prior PaymeTransaction
-            // for this synthetic order pinned a canonical amount, a request
-            // with a different amount must return -31001. Without this the
-            // sandbox panel's "Неверная сумма" test fails because every
-            // amount returns allow:true. Lookup is scoped to (clinicId,
-            // orderId, test-mode) so other clinics' test data can't cross-talk.
-            const priorTx = await prisma.paymeTransaction.findFirst({
-                where: {
-                    orderId: account.order_id,
-                    isTestMode: true,
-                    ...(tenantClinicId ? { clinicId: tenantClinicId } : {}),
-                },
-                orderBy: { createTime: 'desc' },
-                select: { amount: true },
-            });
-            if (priorTx && priorTx.amount !== amount) {
-                return { error: PAYME_ERROR.INVALID_AMOUNT };
-            }
-            return {
-                result: {
-                    allow: true,
-                    detail: {
-                        receipt_type: 0,
-                        items: [{
-                            discount: 0,
-                            title: 'Test xizmat',
-                            price: amount,
-                            count: 1,
-                            code: '10902004002000999',
-                            package_code: '1322039',
-                            vat_percent: 12,
-                        }],
-                    },
-                },
-            };
-        }
+        // No such order — identical in test and live. This is exactly what the
+        // Payme /invalid-account sandbox test asserts (error in -31099..-31050).
+        // To run the sandbox's valid-order lifecycle tests, point it at the
+        // clinic's real test appointment (payme-testorder.service), not an
+        // arbitrary id.
         return { error: PAYME_ERROR.WRONG_ACCOUNT };
     }
 
@@ -493,32 +402,11 @@ export const createTransaction = async (params: {
     });
 
     if (existingForOrder) {
-        // Test-mode auto-cleanup: only the well-known legacy IDs
-        // (Q200/Q300/...) get auto-cancelled. We CANNOT broaden this to
-        // every plausible test order, because Payme's sandbox runs a
-        // dedicated "CreateTransaction с новой транзакцией. Состояние
-        // счета: 'В ожидании оплаты'" compliance test that DEPENDS on
-        // -31099 firing — it creates a CREATED tx in the previous step,
-        // then calls CreateTransaction again with a new paymeId for the
-        // same order_id and expects an error in [-31099..-31050]. Replay
-        // for arbitrary IDs would mask that test.
-        const isReplayableTestOrder = isTestMode && account.order_id in {
-            Q200: 1, Q300: 1, Q400: 1,
-            Q2030: 1, Q2050: 1, Q2054: 1, Q2114: 1, Q2118: 1,
-        };
-        if (isReplayableTestOrder && existingForOrder.state === PAYME_STATE.CREATED) {
-            await prisma.paymeTransaction.update({
-                where: { id: existingForOrder.id },
-                data: {
-                    state: PAYME_STATE.CANCELLED_AFTER_CREATE,
-                    cancelTime: BigInt(now()),
-                    reason: 4, // 4 = test replay
-                },
-            });
-        } else {
-            // Another transaction already occupies this order (code must be -31099 to -31050)
-            return { error: PAYME_ERROR.ORDER_BUSY };
-        }
+        // Another transaction already occupies this order — must be -31099.
+        // The Payme sandbox's "CreateTransaction with order state 'awaiting
+        // payment'" test depends on this firing. To re-run the suite, reset
+        // the test order via payme-testorder.service (it wipes prior txns).
+        return { error: PAYME_ERROR.ORDER_BUSY };
     }
 
     // Create new transaction. clinicId is set when the call came from a
@@ -549,32 +437,16 @@ export const createTransaction = async (params: {
 // ─── PerformTransaction ──────────────────────────────────────────────────────
 export const performTransaction = async (params: { id: string }, ctx: PaymeContext = LEGACY_CTX) => {
     const { id: paymeId } = params;
-    const { clinicId: tenantClinicId, isTestMode } = ctx;
+    const { clinicId: tenantClinicId } = ctx;
 
     const transaction = await prisma.paymeTransaction.findUnique({
         where: { paymeId },
     });
 
     if (!transaction) {
-        // TEST mode synthetic success — Payme's sandbox UI runs a
-        // "PerformTransaction with status=2 (completed)" test by sending
-        // an arbitrary `id` and expecting an idempotent success response.
-        // Without a real transaction in our DB we used to return -31003,
-        // which the sandbox couldn't classify and rendered as
-        // "Ошибка! [object Object]" in the moderator panel — failing
-        // review even though our compliance error path was correct.
-        // Synthesizing a completed receipt here is sandbox-only behaviour
-        // (gated on isTestMode) and never reaches real-money flows: a
-        // hostile caller with the LIVE key still hits TRANSACTION_NOT_FOUND.
-        if (isTestMode) {
-            return {
-                result: {
-                    perform_time: now(),
-                    transaction: paymeId,
-                    state: PAYME_STATE.COMPLETED,
-                },
-            };
-        }
+        // Unknown transaction id — same in test and live (-31003). The sandbox
+        // calls Perform on the transaction it created via CreateTransaction
+        // against the real test order, so that id is always found here.
         return { error: PAYME_ERROR.TRANSACTION_NOT_FOUND };
     }
 
@@ -653,26 +525,14 @@ export const performTransaction = async (params: { id: string }, ctx: PaymeConte
 // ─── CancelTransaction ───────────────────────────────────────────────────────
 export const cancelTransaction = async (params: { id: string; reason: number }, ctx: PaymeContext = LEGACY_CTX) => {
     const { id: paymeId, reason } = params;
-    const { clinicId: tenantClinicId, isTestMode } = ctx;
+    const { clinicId: tenantClinicId } = ctx;
 
     const transaction = await prisma.paymeTransaction.findUnique({
         where: { paymeId },
     });
 
     if (!transaction) {
-        // TEST-mode synthetic cancel (sandbox UI parity, see
-        // performTransaction's matching branch). Returns a plausible
-        // CANCELLED_AFTER_CREATE state with the requested id, never
-        // touching real data.
-        if (isTestMode) {
-            return {
-                result: {
-                    cancel_time: now(),
-                    transaction: paymeId,
-                    state: PAYME_STATE.CANCELLED_AFTER_CREATE,
-                },
-            };
-        }
+        // Unknown transaction id — same in test and live (-31003).
         return { error: PAYME_ERROR.TRANSACTION_NOT_FOUND };
     }
 
@@ -737,33 +597,15 @@ export const cancelTransaction = async (params: { id: string; reason: number }, 
 // ─── CheckTransaction ────────────────────────────────────────────────────────
 export const checkTransaction = async (params: { id: string }, ctx: PaymeContext = LEGACY_CTX) => {
     const { id: paymeId } = params;
-    const { clinicId: tenantClinicId, isTestMode } = ctx;
+    const { clinicId: tenantClinicId } = ctx;
 
     const transaction = await prisma.paymeTransaction.findUnique({
         where: { paymeId },
     });
 
     if (!transaction) {
-        // TEST-mode synthetic state. Sandbox calls CheckTransaction
-        // right after CreateTransaction in its lifecycle suite, and the
-        // spec assertion is:
-        //   result.state must be 1 (CREATED) when the tx is fresh
-        //   result.perform_time must be 0 (not yet performed)
-        // Returning COMPLETED here makes the sandbox panel print
-        // "Поле result.perform_time должно быть 0" / "result.state
-        // должно быть 1". Live key never reaches this branch.
-        if (isTestMode) {
-            return {
-                result: {
-                    create_time: now(),
-                    perform_time: 0,
-                    cancel_time: 0,
-                    transaction: paymeId,
-                    state: PAYME_STATE.CREATED,
-                    reason: null,
-                },
-            };
-        }
+        // Unknown transaction id — same in test and live (-31003). The sandbox
+        // checks the transaction it created against the real test order.
         return { error: PAYME_ERROR.TRANSACTION_NOT_FOUND };
     }
 

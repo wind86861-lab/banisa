@@ -78,7 +78,9 @@ export default function PaymeOnboardingWizard({ webhookUrl, initialConfig, onCan
     // self-test first. Rotation keeps the previous activate state.
     const [activate, setActivate] = useState(isRotation ? (initialConfig?.isActive ?? false) : false);
     const [copied, setCopied] = useState(false);
+    const [copiedField, setCopiedField] = useState(null); // 'order' | 'amount' | null
     const [selfTestResult, setSelfTestResult] = useState(null); // { status, message } | null
+    const [testOrder, setTestOrder] = useState(null); // { orderId, amount, amountSom } | null
 
     const save = useMutation({
         mutationFn: async () => {
@@ -113,6 +115,22 @@ export default function PaymeOnboardingWizard({ webhookUrl, initialConfig, onCan
             await navigator.clipboard.writeText(webhookUrl || '');
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
+        } catch {}
+    };
+
+    const getTestOrder = useMutation({
+        mutationFn: async () => {
+            const { data } = await api.post('/clinic/payments/payme/test-order');
+            return data?.data;
+        },
+        onSuccess: (data) => setTestOrder(data),
+    });
+
+    const copyField = async (text, field) => {
+        try {
+            await navigator.clipboard.writeText(String(text ?? ''));
+            setCopiedField(field);
+            setTimeout(() => setCopiedField(null), 1500);
         } catch {}
     };
 
@@ -368,6 +386,74 @@ export default function PaymeOnboardingWizard({ webhookUrl, initialConfig, onCan
                                     </div>
                                 )}
                             </div>
+
+                            {isTestMode && (
+                                <div className="pay-card" style={{ marginBottom: 12 }}>
+                                    <div className="pay-card__title" style={{ marginBottom: 8 }}>
+                                        <FlaskConical size={14} /> Payme sandbox testlari uchun buyurtma
+                                    </div>
+                                    <div style={{ fontSize: 13, color: '#475569', marginBottom: 10 }}>
+                                        Payme moderatsiya testlarini (test.paycom.uz) ishga tushirish uchun
+                                        pastdagi tugmani bosing — tizim sizning klinikangiz uchun haqiqiy test
+                                        buyurtma tayyorlaydi. Order ID va summani sandboxga ko'chiring.
+                                        Har bosishda buyurtma tozalanadi, shuning uchun testni qayta-qayta
+                                        ishga tushirsangiz bo'ladi.
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="pay-btn pay-btn--ghost"
+                                        onClick={() => getTestOrder.mutate()}
+                                        disabled={getTestOrder.isPending}
+                                        style={{ width: '100%' }}
+                                    >
+                                        {getTestOrder.isPending
+                                            ? <><Loader2 size={14} className="spin" /> Tayyorlanmoqda…</>
+                                            : <>🧾 Test buyurtma olish / yangilash</>}
+                                    </button>
+
+                                    {testOrder && (
+                                        <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+                                            <div className="pay-url-row">
+                                                <div className="pay-url-input" title={testOrder.orderId}>
+                                                    <span style={{ color: '#64748b', fontSize: 11 }}>Order ID (Номер заказа): </span>
+                                                    {testOrder.orderId}
+                                                </div>
+                                                <button
+                                                    className="pay-btn pay-btn--primary"
+                                                    onClick={() => copyField(testOrder.orderId, 'order')}
+                                                >
+                                                    {copiedField === 'order' ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                                                    {copiedField === 'order' ? 'Nusxalandi' : 'Nusxa'}
+                                                </button>
+                                            </div>
+                                            <div className="pay-url-row">
+                                                <div className="pay-url-input">
+                                                    <span style={{ color: '#64748b', fontSize: 11 }}>Summa (Сумма платежа, tiyin): </span>
+                                                    {testOrder.amount} <span style={{ color: '#64748b' }}>({testOrder.amountSom} so'm)</span>
+                                                </div>
+                                                <button
+                                                    className="pay-btn pay-btn--primary"
+                                                    onClick={() => copyField(testOrder.amount, 'amount')}
+                                                >
+                                                    {copiedField === 'amount' ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                                                    {copiedField === 'amount' ? 'Nusxalandi' : 'Nusxa'}
+                                                </button>
+                                            </div>
+                                            <div style={{ fontSize: 12, color: '#64748b' }}>
+                                                💡 <b>/invalid-account</b> testi uchun esa istalgan boshqa (mavjud
+                                                bo'lmagan) order ID kiriting — masalan <code>Q1177</code>.
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {getTestOrder.isError && (
+                                        <div className="pay-key-warn" style={{ marginTop: 10 }}>
+                                            <AlertTriangle size={14} />
+                                            Test buyurtma yaratishda xato: {getTestOrder.error?.response?.data?.message || getTestOrder.error?.message}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <label
                                 className="pay-wiz__option"

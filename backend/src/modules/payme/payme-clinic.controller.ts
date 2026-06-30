@@ -6,6 +6,7 @@ import { upsertConfig, invalidateCache } from './payme-config.service';
 import { getStats, getRecent } from './payme-webhook-log.service';
 import { maskKey, open } from '../../utils/tenant-vault';
 import { runSelfTest, hasRecentPass } from './payme-selftest.service';
+import { ensureTestOrder } from './payme-testorder.service';
 
 async function resolveClinicId(userId: string): Promise<string | null> {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { clinicId: true } });
@@ -369,4 +370,18 @@ export const selfTestHandler = async (req: AuthRequest, res: Response) => {
         status: result.status, message: result.message, durationMs: result.durationMs,
     });
     return res.json({ success: true, data: result });
+};
+
+// ─── POST test-order ──────────────────────────────────────────────────────────
+// Provisions (and resets) the clinic's reusable Payme sandbox order, returning
+// the order_id + amount the moderator pastes into test.paycom.uz. Replaces the
+// old per-clinic hardcoded test ids — the merchant endpoint now runs its normal
+// data-driven path against this real appointment. See payme-testorder.service.
+export const testOrderHandler = async (req: AuthRequest, res: Response) => {
+    const clinicId = await resolveClinicId(req.user!.id);
+    if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
+
+    const order = await ensureTestOrder(clinicId);
+    await audit(clinicId, req.user!.id, 'payme.testorder', { orderId: order.orderId });
+    return res.json({ success: true, data: order });
 };
