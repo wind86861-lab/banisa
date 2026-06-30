@@ -285,6 +285,12 @@ function WebhookLogList({ items, isLoading }) {
     );
 }
 
+// A deliberately non-existent order id for the /invalid-account sandbox test.
+// It is not a real appointment id, so the merchant endpoint returns -31050
+// (order not found) — exactly what that test expects. Operators must NOT use a
+// real test-order id here (a real id returns allow/-31001, failing the test).
+const INVALID_ACCOUNT_ID = 'INVALID-ORDER-TEST';
+
 function TestOrderBadge({ status }) {
     const map = {
         unused: { label: 'Yangi', bg: '#e0f2fe', fg: '#0369a1' },
@@ -552,6 +558,15 @@ export default function PaymeTab() {
                         haqiqiy test buyurtma tayyorlaydi. Order ID va summani sandboxga ko'chiring.
                         Har bosishda buyurtma tozalanadi, testni qayta-qayta ishga tushirsangiz bo'ladi.
                     </div>
+
+                    {/* Which id goes where — prevents the common /invalid-account mistake */}
+                    <div style={{ fontSize: 12, color: '#475569', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
+                        <div style={{ marginBottom: 4 }}><b>Qaysi ID qayerga:</b></div>
+                        <div>• <b>Valid</b> testlar (CheckPerform, Create, Perform, Cancel) → <b>haqiqiy</b> test-order ID + summa <b>100000</b></div>
+                        <div>• <b>/invalid-amount</b> → <b>haqiqiy</b> test-order ID + <b>noto'g'ri</b> summa (masalan 70000)</div>
+                        <div>• <b>/invalid-account</b> → <b>o'ydirma</b> (mavjud bo'lmagan) ID — pastdagi tayyor qiymatdan foydalaning</div>
+                    </div>
+
                     <button
                         className="pay-btn pay-btn--primary"
                         onClick={() => getTestOrder.mutate()}
@@ -562,6 +577,18 @@ export default function PaymeTab() {
                             : <FlaskConical size={14} />}
                         Test buyurtma olish / yangilash
                     </button>
+
+                    {/* Always-visible ready-to-copy id for the /invalid-account test */}
+                    <div className="pay-url-row" style={{ marginTop: 12 }}>
+                        <div className="pay-url-input">
+                            <span style={{ color: '#64748b', fontSize: 11 }}>/invalid-account uchun (o'ydirma ID): </span>
+                            <span style={{ fontFamily: 'monospace' }}>{INVALID_ACCOUNT_ID}</span>
+                        </div>
+                        <button className="pay-btn pay-btn--ghost" onClick={() => copyField(INVALID_ACCOUNT_ID, 'invalid')}>
+                            {copiedField === 'invalid' ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                            {copiedField === 'invalid' ? 'Nusxalandi' : 'Nusxa'}
+                        </button>
+                    </div>
 
                     {testOrder && (
                         <div style={{ marginTop: 14, display: 'grid', gap: 8 }}>
@@ -586,8 +613,8 @@ export default function PaymeTab() {
                                 </button>
                             </div>
                             <div style={{ fontSize: 12, color: '#64748b' }}>
-                                💡 <b>/invalid-account</b> testi uchun esa istalgan boshqa (mavjud
-                                bo'lmagan) order ID kiriting — masalan <code>Q1177</code>.
+                                💡 Bu ID <b>valid</b> testlar uchun. <b>/invalid-account</b> uchun
+                                yuqoridagi o'ydirma ID'dan foydalaning.
                             </div>
                         </div>
                     )}
