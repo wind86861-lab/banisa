@@ -6,7 +6,7 @@ import { upsertConfig, invalidateCache } from './payme-config.service';
 import { getStats, getRecent } from './payme-webhook-log.service';
 import { maskKey, open } from '../../utils/tenant-vault';
 import { runSelfTest, hasRecentPass } from './payme-selftest.service';
-import { ensureTestOrder } from './payme-testorder.service';
+import { createTestOrder, listTestOrders } from './payme-testorder.service';
 
 async function resolveClinicId(userId: string): Promise<string | null> {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { clinicId: true } });
@@ -381,7 +381,18 @@ export const testOrderHandler = async (req: AuthRequest, res: Response) => {
     const clinicId = await resolveClinicId(req.user!.id);
     if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
 
-    const order = await ensureTestOrder(clinicId);
+    const order = await createTestOrder(clinicId);
     await audit(clinicId, req.user!.id, 'payme.testorder', { orderId: order.orderId });
     return res.json({ success: true, data: order });
+};
+
+// ─── GET test-orders ────────────────────────────────────────────────────────
+// Recent sandbox test orders for this clinic + their status (unused / pending /
+// paid / cancelled), so the admin sees which ids were used.
+export const testOrdersListHandler = async (req: AuthRequest, res: Response) => {
+    const clinicId = await resolveClinicId(req.user!.id);
+    if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
+
+    const items = await listTestOrders(clinicId);
+    return res.json({ success: true, data: { items } });
 };

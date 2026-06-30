@@ -11,6 +11,7 @@ import {
     getVersionsHandler,
     selfTestHandler,
     testOrderHandler,
+    testOrdersListHandler,
 } from './payme-clinic.controller';
 
 const router = Router();
@@ -28,5 +29,6 @@ router.get('/recent', getRecentHandler);
 router.get('/versions', getVersionsHandler);
 router.post('/test', selfTestHandler);
 router.post('/test-order', testOrderHandler);
+router.get('/test-orders', testOrdersListHandler);
 
 export default router;

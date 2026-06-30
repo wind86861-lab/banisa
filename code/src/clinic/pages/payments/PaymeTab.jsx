@@ -285,6 +285,22 @@ function WebhookLogList({ items, isLoading }) {
     );
 }
 
+function TestOrderBadge({ status }) {
+    const map = {
+        unused: { label: 'Yangi', bg: '#e0f2fe', fg: '#0369a1' },
+        pending: { label: 'Jarayonda', bg: '#fef3c7', fg: '#b45309' },
+        paid: { label: "To'langan", bg: '#dcfce7', fg: '#166534' },
+        cancelled: { label: 'Bekor', bg: '#fee2e2', fg: '#991b1b' },
+    };
+    const s = map[status] || map.unused;
+    return (
+        <span style={{
+            background: s.bg, color: s.fg, fontSize: 10, fontWeight: 700,
+            padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap',
+        }}>{s.label}</span>
+    );
+}
+
 export default function PaymeTab() {
     const qc = useQueryClient();
     const [editing, setEditing] = useState(false);
@@ -336,6 +352,13 @@ export default function PaymeTab() {
         refetchInterval: intervalStopOnAuth,
     });
 
+    const { data: testOrders } = useQuery({
+        queryKey: ['clinic', 'payme', 'test-orders'],
+        queryFn: async () => (await api.get('/clinic/payments/payme/test-orders')).data?.data?.items ?? [],
+        enabled: !!config && config.isTestMode,
+        retry: stopOnAuthError,
+    });
+
     const toggleActive = useMutation({
         mutationFn: async (next) =>
             (await api.patch('/clinic/payments/payme/config/active', { isActive: next })).data,
@@ -362,7 +385,11 @@ export default function PaymeTab() {
 
     const getTestOrder = useMutation({
         mutationFn: async () => (await api.post('/clinic/payments/payme/test-order')).data?.data,
-        onSuccess: (data) => { setTestOrder(data); setToast('🧾 Test buyurtma tayyor'); },
+        onSuccess: (data) => {
+            setTestOrder(data);
+            setToast('🧾 Test buyurtma tayyor');
+            qc.invalidateQueries({ queryKey: ['clinic', 'payme', 'test-orders'] });
+        },
         onError: (err) => setToast(err?.response?.data?.message || 'Test buyurtma yaratishda xato'),
     });
 
@@ -561,6 +588,29 @@ export default function PaymeTab() {
                             <div style={{ fontSize: 12, color: '#64748b' }}>
                                 💡 <b>/invalid-account</b> testi uchun esa istalgan boshqa (mavjud
                                 bo'lmagan) order ID kiriting — masalan <code>Q1177</code>.
+                            </div>
+                        </div>
+                    )}
+
+                    {testOrders && testOrders.length > 0 && (
+                        <div style={{ marginTop: 16 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 8 }}>
+                                Olingan test buyurtmalar (oxirgi {testOrders.length})
+                            </div>
+                            <div style={{ display: 'grid', gap: 6 }}>
+                                {testOrders.map((t) => (
+                                    <div key={t.orderId} className="pay-url-row" style={{ alignItems: 'center' }}>
+                                        <div className="pay-url-input" title={t.orderId} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <TestOrderBadge status={t.status} />
+                                            <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{t.orderId}</span>
+                                            <span style={{ color: '#94a3b8', fontSize: 11 }}>· {t.amount} tiyin · {fmtAgo(t.createdAt)}</span>
+                                        </div>
+                                        <button className="pay-btn pay-btn--ghost" onClick={() => copyField(t.orderId, t.orderId)}>
+                                            {copiedField === t.orderId ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                                            {copiedField === t.orderId ? 'Nusxalandi' : 'Nusxa'}
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
