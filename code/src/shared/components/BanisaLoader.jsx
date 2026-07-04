@@ -1,8 +1,9 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import './BanisaLoader.css';
 
 const BanisaLoader = ({ message = 'Yuklanmoqda' }) => {
-    return (
+    const overlay = (
         <div className="banisa-loader-overlay">
             <div className="banisa-loader">
                 <svg viewBox="0 0 160 160">
@@ -50,6 +51,16 @@ const BanisaLoader = ({ message = 'Yuklanmoqda' }) => {
             </div>
         </div>
     );
+
+    // Render into <body> via a portal. As a full-screen `position: fixed`
+    // overlay, the loader must cover the whole viewport — but if ANY ancestor
+    // has a transform/filter/will-change (framer-motion cards, animated
+    // sections, …) it becomes the containing block and traps the overlay
+    // *behind* those sections. Portaling to body escapes every such stacking
+    // context so z-index: 99999 reliably sits on top.
+    return typeof document !== 'undefined'
+        ? createPortal(overlay, document.body)
+        : overlay;
 };
 
 export default BanisaLoader;

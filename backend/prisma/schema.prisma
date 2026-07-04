@@ -349,6 +349,16 @@ model Doctor {
   academicDegree    String?
   // Academic title (ilmiy unvon) — e.g., "Dotsent", "Professor".
   academicTitle     String?
+  // Education (diplomas). Each level: a free-text specialty the clinic types
+  // plus an uploaded diploma scan (PDF/image). Master is optional.
+  bachelorSpecialty String?
+  bachelorDiplomaUrl String?
+  masterSpecialty   String?
+  masterDiplomaUrl  String?
+  // Scanned supporting documents for the credentials above (nullable).
+  categoryDocUrl       String?   // toifa guvohnomasi
+  academicDegreeDocUrl String?   // ilmiy daraja diplomi/hujjati
+  academicTitleDocUrl  String?   // ilmiy unvon hujjati
   // Diseases the doctor treats — string array (chips on the profile).
   treatedDiseases   Json          @default("[]")
   // For surgeons — specific procedures performed. Separate array so the
@@ -1784,6 +1794,13 @@ enum ClinicPermission {
   // Reports
   REPORTS_DAILY
   REPORTS_EXPORT
+
+  // Clinic configuration (write). Held by CLINIC_ADMIN, not DIRECTOR, so the
+  // read-only director role can view but not mutate these surfaces.
+  SERVICE_MANAGE            // activate/customize services + images + packages
+  DOCTOR_MANAGE             // attach/edit/remove doctors + schedules
+  AMBULANCE_MANAGE          // clinic ambulance fleet CRUD
+  CLINIC_SETTINGS_EDIT      // clinic profile + working hours + queue settings
 }
 
 /// Per-clinic role definition. Default system roles are seeded automatically

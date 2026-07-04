@@ -1,5 +1,6 @@
 import prisma from '../../../config/database';
 import { AppError, ErrorCodes } from '../../../utils/errors';
+import { requireUserClinicId } from '../clinic-context.util';
 
 const UZ_TO_EN_DAYS: Record<string, string> = {
     'dushanba': 'monday', 'seshanba': 'tuesday', 'chorshanba': 'wednesday',
@@ -25,14 +26,11 @@ const DEFAULT_QUEUE_SETTINGS = {
 export class ClinicSettingsService {
 
     private async getClinic(userId: string) {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { clinicId: true },
-        });
-        if (!user?.clinicId) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
+        // Membership-aware so secondary admins (clinicId=null) resolve their clinic.
+        const clinicId = await requireUserClinicId(userId);
 
         const clinic = await prisma.clinic.findUnique({
-            where: { id: user.clinicId },
+            where: { id: clinicId },
             select: { id: true, workingHours: true },
         });
         if (!clinic) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);

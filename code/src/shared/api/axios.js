@@ -1,6 +1,11 @@
 import axios from 'axios';
 import { tokenStorage } from '../auth/tokenStorage';
 import { callEnsurePatientAuth } from '../auth/patientAuthBridge';
+import { toastBus } from '../components/Toast';
+
+// De-dupe guard so a burst of identical 403s (e.g. a page firing several
+// gated requests at once) raises a single toast, not a stack of them.
+let _last403 = { msg: null, at: 0 };
 
 // VULN-03: access tokens stored in module memory — not localStorage (XSS-safe).
 //
@@ -139,6 +144,22 @@ api.interceptors.response.use(
     const isAuthEndpoint = url.includes('/auth/refresh')
       || url.includes('/auth/telegram/miniapp-login')
       || url.includes('/auth/login');
+
+    // Permission denied (e.g. a read-only DIRECTOR hitting a write route, or a
+    // hidden button reached via direct URL). The backend enforces it; surface
+    // a clear toast so the action doesn't fail silently. Skipped on /auth/*
+    // (login pages render their own messages). De-duped to avoid toast stacks.
+    if (error.response?.status === 403 && !url.includes('/auth/')) {
+      const msg = error.response?.data?.message
+        || error.response?.data?.error?.message
+        || "Bu amal uchun ruxsatingiz yo'q";
+      const now = Date.now();
+      if (msg !== _last403.msg || now - _last403.at > 2500) {
+        _last403 = { msg, at: now };
+        toastBus.error(msg);
+      }
+    }
+
     if (error.response?.status !== 401 || original._retry || isAuthEndpoint) {
       return Promise.reject(error);
     }

@@ -1,5 +1,6 @@
 import prisma from '../../../config/database';
 import { AppError, ErrorCodes } from '../../../utils/errors';
+import { requireUserClinicId } from '../clinic-context.util';
 
 /**
  * Clinic-side checkup package service.
@@ -13,13 +14,9 @@ import { AppError, ErrorCodes } from '../../../utils/errors';
  */
 export class ClinicCheckupService {
 
-    private async getClinicId(userId: string): Promise<string> {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { clinicId: true },
-        });
-        if (!user?.clinicId) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
-        return user.clinicId;
+    // Membership-aware so secondary admins (clinicId=null) resolve their clinic.
+    private getClinicId(userId: string): Promise<string> {
+        return requireUserClinicId(userId);
     }
 
     async getAvailablePackages(userId: string) {

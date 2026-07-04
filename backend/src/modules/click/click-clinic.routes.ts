@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import { ClinicPermission } from '@prisma/client';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
+import { loadClinicContext, requireClinicPermission } from '../../middleware/clinic-permission.middleware';
 import {
     getConfig,
     putConfig,
@@ -14,17 +16,22 @@ import {
 
 const router = Router();
 
-router.use(requireAuth, requireRole(['CLINIC_ADMIN']));
+router.use(requireAuth, requireRole(['CLINIC_ADMIN']), loadClinicContext);
 
-router.get('/config', getConfig);
-router.put('/config', putConfig);
-router.patch('/config/mode', patchMode);
-router.patch('/config/active', patchActive);
-router.delete('/config', deleteConfig);
+// Viewing config/stats needs PAYMENT_VIEW. Editing the payment-gateway config
+// is sensitive clinic configuration → CLINIC_SETTINGS_EDIT.
+const VIEW = requireClinicPermission(ClinicPermission.PAYMENT_VIEW);
+const EDIT = requireClinicPermission(ClinicPermission.CLINIC_SETTINGS_EDIT);
 
-router.get('/stats', getStatsHandler);
-router.get('/recent', getRecentHandler);
-router.get('/versions', getVersionsHandler);
-router.post('/test', selfTestHandler);
+router.get('/config', VIEW, getConfig);
+router.put('/config', EDIT, putConfig);
+router.patch('/config/mode', EDIT, patchMode);
+router.patch('/config/active', EDIT, patchActive);
+router.delete('/config', EDIT, deleteConfig);
+
+router.get('/stats', VIEW, getStatsHandler);
+router.get('/recent', VIEW, getRecentHandler);
+router.get('/versions', VIEW, getVersionsHandler);
+router.post('/test', VIEW, selfTestHandler);
 
 export default router;

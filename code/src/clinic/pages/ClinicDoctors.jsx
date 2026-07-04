@@ -63,10 +63,6 @@ function DoctorCard({ row, onEdit, onSchedule, onDetach, onToggleActive }) {
                     <div className="cdocs-mini__val">{fmtMoney(row.consultationPrice)} so'm</div>
                 </div>
                 <div className="cdocs-mini">
-                    <div className="cdocs-mini__lbl">Xona</div>
-                    <div className="cdocs-mini__val">{row.roomNumber || '—'}</div>
-                </div>
-                <div className="cdocs-mini">
                     <div className="cdocs-mini__lbl">Klinikalar</div>
                     <div className="cdocs-mini__val">{d.totalClinics}/3</div>
                 </div>

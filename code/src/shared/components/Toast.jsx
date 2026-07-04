@@ -1,9 +1,20 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import './Toast.css';
 
 const ToastContext = createContext(null);
 
 let _nextId = 1;
+
+// Module-level imperative handle so NON-React code (e.g. the axios response
+// interceptor) can raise toasts without a hook. ToastProvider registers the
+// live `show` fn on mount; before that, calls are safe no-ops.
+let _imperativeShow = null;
+export const toastBus = {
+    success: (msg, dur) => _imperativeShow?.(msg, 'success', dur),
+    error:   (msg, dur) => _imperativeShow?.(msg, 'error', dur ?? 6000),
+    warning: (msg, dur) => _imperativeShow?.(msg, 'warning', dur),
+    info:    (msg, dur) => _imperativeShow?.(msg, 'info', dur),
+};
 
 export function ToastProvider({ children }) {
     const [toasts, setToasts] = useState([]);
@@ -21,6 +32,12 @@ export function ToastProvider({ children }) {
         timers.current[id] = setTimeout(() => remove(id), duration);
         return id;
     }, [remove]);
+
+    // Expose the live `show` to the module-level bus for non-React callers.
+    useEffect(() => {
+        _imperativeShow = show;
+        return () => { if (_imperativeShow === show) _imperativeShow = null; };
+    }, [show]);
 
     const toast = {
         success: (msg, dur) => show(msg, 'success', dur),

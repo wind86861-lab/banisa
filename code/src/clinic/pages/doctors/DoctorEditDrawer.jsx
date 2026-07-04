@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
     X, Loader2, Search, UserPlus, AlertTriangle, CheckCircle2,
     Building2, Stethoscope, ArrowRight,
     User as UserIcon, Award, GraduationCap, BriefcaseMedical, Scissors,
-    BookOpen, Camera,
+    BookOpen, Camera, FileText, Upload,
 } from 'lucide-react';
 import api from '../../../shared/api/axios';
 import ImageUpload from '../../../shared/components/ImageUpload';
@@ -93,6 +93,74 @@ function ChipInput({ value, onChange, placeholder, max = 30 }) {
     );
 }
 
+// Single credential-document uploader (PDF or image). Posts to the
+// CLINIC_ADMIN-scoped /upload/clinic-doc endpoint and stores the returned URL.
+// Used for diplomas + category/degree/title certificates.
+function DocUpload({ value, onChange, label, hint }) {
+    const [busy, setBusy] = useState(false);
+    const [err, setErr] = useState('');
+    const inputRef = useRef(null);
+
+    const pick = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setErr('');
+        setBusy(true);
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            const { data } = await api.post('/upload/clinic-doc', fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            const url = data?.data?.url;
+            if (url) onChange(url);
+            else setErr('Yuklashda xato');
+        } catch (e2) {
+            setErr(e2?.response?.data?.message || 'Yuklashda xato');
+        } finally {
+            setBusy(false);
+            if (inputRef.current) inputRef.current.value = '';
+        }
+    };
+
+    const fileName = value ? decodeURIComponent(value.split('/').pop()) : '';
+
+    return (
+        <div className="cdocs-field">
+            {label && <label>{label}</label>}
+            {value ? (
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
+                    border: '1px solid #e2e8f0', borderRadius: 8, background: '#f8fafc', fontSize: 13,
+                }}>
+                    <FileText size={15} color="#0d9488" />
+                    <a href={value} target="_blank" rel="noreferrer" style={{ color: '#0f766e', textDecoration: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {fileName}
+                    </a>
+                    <button type="button" onClick={() => onChange(null)} aria-label="O'chirish"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex' }}>
+                        <X size={14} />
+                    </button>
+                </div>
+            ) : (
+                <button type="button" onClick={() => inputRef.current?.click()} disabled={busy}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+                        border: '1px dashed #cbd5e1', borderRadius: 8, background: '#fff',
+                        color: '#475569', fontSize: 13, cursor: busy ? 'default' : 'pointer', width: '100%',
+                    }}>
+                    {busy ? <Loader2 size={14} className="cdocs-spin" /> : <Upload size={14} />}
+                    {busy ? 'Yuklanmoqda...' : 'Fayl yuklash (PDF yoki rasm)'}
+                </button>
+            )}
+            <input ref={inputRef} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={pick} />
+            {err
+                ? <div className="cdocs-field__hint" style={{ color: '#ef4444' }}>{err}</div>
+                : hint && <div className="cdocs-field__hint">{hint}</div>}
+        </div>
+    );
+}
+
 function NewDoctorForm({ onCancel, onCreated, initial }) {
     const isEdit = !!initial?.doctorClinicId;
     const d = initial?.doctor || {};
@@ -104,6 +172,14 @@ function NewDoctorForm({ onCancel, onCreated, initial }) {
     const [category, setCategory] = useState(d.category || '');
     const [academicDegree, setAcademicDegree] = useState(d.academicDegree || '');
     const [academicTitle, setAcademicTitle] = useState(d.academicTitle || '');
+    // Education (diplomas) + credential documents.
+    const [bachelorSpecialty, setBachelorSpecialty] = useState(d.bachelorSpecialty || '');
+    const [bachelorDiplomaUrl, setBachelorDiplomaUrl] = useState(d.bachelorDiplomaUrl || '');
+    const [masterSpecialty, setMasterSpecialty] = useState(d.masterSpecialty || '');
+    const [masterDiplomaUrl, setMasterDiplomaUrl] = useState(d.masterDiplomaUrl || '');
+    const [categoryDocUrl, setCategoryDocUrl] = useState(d.categoryDocUrl || '');
+    const [academicDegreeDocUrl, setAcademicDegreeDocUrl] = useState(d.academicDegreeDocUrl || '');
+    const [academicTitleDocUrl, setAcademicTitleDocUrl] = useState(d.academicTitleDocUrl || '');
     const [treatedDiseases, setTreatedDiseases] = useState(
         Array.isArray(d.treatedDiseases) ? d.treatedDiseases : [],
     );
@@ -115,7 +191,6 @@ function NewDoctorForm({ onCancel, onCreated, initial }) {
     const [bio, setBio] = useState(d.bio || '');
     const [yearsExperience, setYearsExperience] = useState(d.yearsExperience ?? '');
     const [consultationPrice, setConsultationPrice] = useState(initial?.consultationPrice ?? 0);
-    const [roomNumber, setRoomNumber] = useState(initial?.roomNumber || '');
 
     const { data: specs = [] } = useQuery({
         queryKey: ['public', 'specialties'],
@@ -135,6 +210,13 @@ function NewDoctorForm({ onCancel, onCreated, initial }) {
         category: category || null,
         academicDegree: academicDegree.trim() || null,
         academicTitle: academicTitle.trim() || null,
+        bachelorSpecialty: bachelorSpecialty.trim() || null,
+        bachelorDiplomaUrl: bachelorDiplomaUrl || null,
+        masterSpecialty: masterSpecialty.trim() || null,
+        masterDiplomaUrl: masterDiplomaUrl || null,
+        categoryDocUrl: categoryDocUrl || null,
+        academicDegreeDocUrl: academicDegreeDocUrl || null,
+        academicTitleDocUrl: academicTitleDocUrl || null,
         treatedDiseases,
         surgicalProcedures,
     });
@@ -145,14 +227,12 @@ function NewDoctorForm({ onCancel, onCreated, initial }) {
                 await api.patch(`/clinic/doctors/${initial.doctorClinicId}/profile`, profilePayload());
                 await api.patch(`/clinic/doctors/${initial.doctorClinicId}`, {
                     consultationPrice: Number(consultationPrice) || 0,
-                    roomNumber: roomNumber || null,
                 });
                 return true;
             }
             return (await api.post('/clinic/doctors', {
                 ...profilePayload(),
                 consultationPrice: Number(consultationPrice) || 0,
-                roomNumber: roomNumber || null,
             })).data;
         },
         onSuccess: onCreated,
@@ -202,9 +282,45 @@ function NewDoctorForm({ onCancel, onCreated, initial }) {
                 </div>
             </Section>
 
-            {/* ── Ilmiy va kasbiy daraja ── */}
+            {/* ── Ta'lim / Diplomlar ── */}
             <Section
                 icon={GraduationCap}
+                title="Ta'lim / Diplomlar"
+                subtitle="Bakalavr va magistr mutaxassisligi — matnни qo'lda yozing, diplomni yuklang"
+            >
+                <div className="cdocs-grid-2">
+                    <div className="cdocs-field">
+                        <label>Bakalavr mutaxassisligi</label>
+                        <input
+                            value={bachelorSpecialty}
+                            onChange={(e) => setBachelorSpecialty(e.target.value)}
+                            placeholder="Davolash ishi"
+                        />
+                        <DocUpload
+                            value={bachelorDiplomaUrl}
+                            onChange={setBachelorDiplomaUrl}
+                            hint="Bakalavr diplomi (PDF/rasm)"
+                        />
+                    </div>
+                    <div className="cdocs-field">
+                        <label>Magistr mutaxassisligi</label>
+                        <input
+                            value={masterSpecialty}
+                            onChange={(e) => setMasterSpecialty(e.target.value)}
+                            placeholder="Kardiologiya"
+                        />
+                        <DocUpload
+                            value={masterDiplomaUrl}
+                            onChange={setMasterDiplomaUrl}
+                            hint="Magistr diplomi (ixtiyoriy)"
+                        />
+                    </div>
+                </div>
+            </Section>
+
+            {/* ── Ilmiy va kasbiy daraja ── */}
+            <Section
+                icon={Award}
                 title="Ilmiy va kasbiy daraja"
                 subtitle="Toifa, ilmiy daraja va unvon — bemorlar profilda ko'radi"
             >
@@ -216,6 +332,11 @@ function NewDoctorForm({ onCancel, onCreated, initial }) {
                                 <option key={o.value} value={o.value}>{o.label}</option>
                             ))}
                         </select>
+                        <DocUpload
+                            value={categoryDocUrl}
+                            onChange={setCategoryDocUrl}
+                            hint="Toifa guvohnomasi (ixtiyoriy — PDF/rasm)"
+                        />
                     </div>
                     <div className="cdocs-field">
                         <label>Tajriba (yil)</label>
@@ -239,6 +360,11 @@ function NewDoctorForm({ onCancel, onCreated, initial }) {
                         <div className="cdocs-field__hint">
                             Masalan: <i>Tibbiyot fanlari nomzodi</i>, <i>Tibbiyot fanlari doktori</i>
                         </div>
+                        <DocUpload
+                            value={academicDegreeDocUrl}
+                            onChange={setAcademicDegreeDocUrl}
+                            hint="Ilmiy daraja diplomi/hujjati (ixtiyoriy)"
+                        />
                     </div>
                     <div className="cdocs-field">
                         <label>Ilmiy unvoni</label>
@@ -250,6 +376,11 @@ function NewDoctorForm({ onCancel, onCreated, initial }) {
                         <div className="cdocs-field__hint">
                             Masalan: <i>Dotsent</i>, <i>Professor</i>
                         </div>
+                        <DocUpload
+                            value={academicTitleDocUrl}
+                            onChange={setAcademicTitleDocUrl}
+                            hint="Ilmiy unvon hujjati (ixtiyoriy)"
+                        />
                     </div>
                 </div>
             </Section>
@@ -324,22 +455,16 @@ function NewDoctorForm({ onCancel, onCreated, initial }) {
             <Section
                 icon={Building2}
                 title="Shu klinikadagi sozlamalar"
-                subtitle="Konsultatsiya narxi va xona — har klinika alohida"
+                subtitle="Konsultatsiya narxi — har klinika alohida"
             >
-                <div className="cdocs-grid-2">
-                    <div className="cdocs-field">
-                        <label>Konsultatsiya narxi (so'm)</label>
-                        <input
-                            type="number"
-                            value={consultationPrice}
-                            onChange={(e) => setConsultationPrice(e.target.value)}
-                            placeholder="100000"
-                        />
-                    </div>
-                    <div className="cdocs-field">
-                        <label>Xona raqami</label>
-                        <input value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} placeholder="305" />
-                    </div>
+                <div className="cdocs-field">
+                    <label>Konsultatsiya narxi (so'm)</label>
+                    <input
+                        type="number"
+                        value={consultationPrice}
+                        onChange={(e) => setConsultationPrice(e.target.value)}
+                        placeholder="100000"
+                    />
                 </div>
             </Section>
 
@@ -369,7 +494,6 @@ function AttachExisting({ onAttached, onCancel }) {
     const [phone, setPhone] = useState('');
     const [searched, setSearched] = useState(null);
     const [price, setPrice] = useState(0);
-    const [room, setRoom] = useState('');
 
     const lookup = useMutation({
         mutationFn: async () => (await api.post('/clinic/doctors/lookup', { phone })).data?.data,
@@ -380,7 +504,6 @@ function AttachExisting({ onAttached, onCancel }) {
         mutationFn: async () => (await api.post('/clinic/doctors', {
             doctorId: searched.doctor.id,
             consultationPrice: Number(price) || 0,
-            roomNumber: room || null,
         })).data,
         onSuccess: onAttached,
     });
@@ -471,14 +594,10 @@ function AttachExisting({ onAttached, onCancel }) {
 
                     {!searched.doctor.alreadyHere && searched.doctor.clinicCount < 3 && (
                         <>
-                            <div className="cdocs-grid-2-1 cdocs-attach-config">
+                            <div className="cdocs-attach-config">
                                 <div className="cdocs-field">
                                     <label>Sizning konsultatsiya narxingiz (so'm)</label>
                                     <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="100000" />
-                                </div>
-                                <div className="cdocs-field">
-                                    <label>Xona</label>
-                                    <input value={room} onChange={(e) => setRoom(e.target.value)} placeholder="305" />
                                 </div>
                             </div>
                             {attach.isError && (

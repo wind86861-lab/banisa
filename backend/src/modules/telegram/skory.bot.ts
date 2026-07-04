@@ -386,9 +386,10 @@ export async function handleSkoryPickup(ctx: any, location: { latitude: number; 
             lng: location.longitude,
             label: dropAddress || `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`,
         };
-        await setWizardState(chatId, { kind: 'skory' as any, data: { ...data, sub: undefined, dest, step: 3 } });
+        // Price step removed — go straight to the description step, no budget.
+        await setWizardState(chatId, { kind: 'skory' as any, data: { ...data, sub: undefined, dest, step: 4, priceMaxSom: null } });
         try { await ctx.reply('✓', { reply_markup: { remove_keyboard: true } }); } catch { /* */ }
-        await sendPriceStep(ctx, lang, { ...data, dest });
+        await ctx.reply(L[lang].step4Title, { parse_mode: 'HTML', reply_markup: descKeyboard(lang) });
         return;
     }
 
@@ -496,8 +497,8 @@ async function showConfirm(ctx: any, lang: Lang, data: any): Promise<void> {
         } catch { /* */ }
     }
 
-    const priceStr = data.priceMaxSom ? `${fmtSom(data.priceMaxSom)} so'm` : L[lang].priceUnlimited;
-    summary.push(t.sumPrice(priceStr));
+    // Price line removed — the patient no longer sets a budget; the request
+    // always reaches every matching ambulance.
     if (data.description) summary.push(t.sumDesc(esc(data.description)));
 
     await ctx.reply(summary.join('\n'), {
@@ -512,7 +513,6 @@ function confirmKeyboardV2(lang: Lang): InlineKeyboard {
         .text(t.confirmSend, 'skory:confirm').row()
         .text(t.editPickup, 'skory:edit:1')
         .text(t.editDest, 'skory:edit:2').row()
-        .text(t.editPrice, 'skory:edit:3')
         .text(t.editDesc, 'skory:edit:4').row()
         .text(t.cancel, 'skory:cancel');
 }
@@ -1137,10 +1137,10 @@ export function registerSkoryHandlers(bot: Bot): void {
             return;
         }
 
-        // skip
-        await setWizardState(chatId, { kind: 'skory' as any, data: { ...wiz.data, step: 3, dest: null } });
+        // skip — no destination, straight to description (no price step)
+        await setWizardState(chatId, { kind: 'skory' as any, data: { ...wiz.data, step: 4, dest: null, priceMaxSom: null } });
         try { await ctx.deleteMessage(); } catch { /* */ }
-        await sendPriceStep(ctx, lang, { ...wiz.data, dest: null });
+        await ctx.reply(L[lang].step4Title, { parse_mode: 'HTML', reply_markup: descKeyboard(lang) });
     });
 
     // Destination — a specific hospital from the list
@@ -1168,10 +1168,11 @@ export function registerSkoryHandlers(bot: Bot): void {
             lat: clinic.latitude,
             lng: clinic.longitude,
         };
-        await setWizardState(chatId, { kind: 'skory' as any, data: { ...wiz.data, step: 3, dest } });
+        // Price step removed — go straight to the description step, no budget.
+        await setWizardState(chatId, { kind: 'skory' as any, data: { ...wiz.data, step: 4, dest, priceMaxSom: null } });
         await ctx.answerCallbackQuery(`✅ ${clinic.nameUz}`);
         try { await ctx.deleteMessage(); } catch { /* */ }
-        await sendPriceStep(ctx, lang, { ...wiz.data, dest });
+        await ctx.reply(L[lang].step4Title, { parse_mode: 'HTML', reply_markup: descKeyboard(lang) });
     });
 
     // Price — accept-all (no ceiling)
@@ -1245,7 +1246,9 @@ export function registerSkoryHandlers(bot: Bot): void {
             return;
         }
         if (target === 3) {
-            await sendPriceStep(ctx, lang, newData);
+            // Price step removed — a stale "edit price" tap lands on description.
+            await setWizardState(chatId, { kind: 'skory' as any, data: { ...newData, step: 4, priceMaxSom: null } });
+            await ctx.reply(t.step4Title, { parse_mode: 'HTML', reply_markup: descKeyboard(lang) });
             return;
         }
         // target === 4

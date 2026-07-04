@@ -152,6 +152,12 @@ export const getDoctorDetail = async (req: Request, res: Response) => {
             category: (doctor as any).category ?? null,
             academicDegree: (doctor as any).academicDegree ?? null,
             academicTitle: (doctor as any).academicTitle ?? null,
+            // Education — TEXT ONLY. The uploaded diploma/certificate documents
+            // (bachelorDiplomaUrl, masterDiplomaUrl, categoryDocUrl,
+            // academicDegreeDocUrl, academicTitleDocUrl) are for clinic-side
+            // verification and are deliberately NOT exposed to patients.
+            bachelorSpecialty: (doctor as any).bachelorSpecialty ?? null,
+            masterSpecialty: (doctor as any).masterSpecialty ?? null,
             treatedDiseases: Array.isArray((doctor as any).treatedDiseases)
                 ? (doctor as any).treatedDiseases as string[]
                 : [],

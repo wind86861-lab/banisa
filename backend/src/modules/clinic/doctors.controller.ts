@@ -1,13 +1,16 @@
 import { Response } from 'express';
 import prisma from '../../config/database';
 import { AuthRequest } from '../../middleware/auth.middleware';
+import { resolveUserClinicId } from './clinic-context.util';
 
 const MAX_CLINICS_PER_DOCTOR = 3;
 
-async function resolveClinicId(userId: string): Promise<string | null> {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { clinicId: true } });
-    return user?.clinicId ?? null;
-}
+// Membership-aware so secondary admins (clinicId=null) resolve their clinic.
+const resolveClinicId = (userId: string) => resolveUserClinicId(userId);
+
+// Trim a possibly-missing string field down to a non-empty value or null.
+const cleanStr = (v: unknown): string | null =>
+    typeof v === 'string' && v.trim() ? v.trim() : null;
 
 // ─── GET /api/clinic/doctors ─────────────────────────────────────────────────
 export const listDoctors = async (req: AuthRequest, res: Response) => {
@@ -56,6 +59,13 @@ export const listDoctors = async (req: AuthRequest, res: Response) => {
                     category: (dc.doctor as any).category ?? null,
                     academicDegree: (dc.doctor as any).academicDegree ?? null,
                     academicTitle: (dc.doctor as any).academicTitle ?? null,
+                    bachelorSpecialty: (dc.doctor as any).bachelorSpecialty ?? null,
+                    bachelorDiplomaUrl: (dc.doctor as any).bachelorDiplomaUrl ?? null,
+                    masterSpecialty: (dc.doctor as any).masterSpecialty ?? null,
+                    masterDiplomaUrl: (dc.doctor as any).masterDiplomaUrl ?? null,
+                    categoryDocUrl: (dc.doctor as any).categoryDocUrl ?? null,
+                    academicDegreeDocUrl: (dc.doctor as any).academicDegreeDocUrl ?? null,
+                    academicTitleDocUrl: (dc.doctor as any).academicTitleDocUrl ?? null,
                     treatedDiseases: Array.isArray((dc.doctor as any).treatedDiseases)
                         ? (dc.doctor as any).treatedDiseases as string[]
                         : [],
@@ -141,6 +151,8 @@ export const createOrAttach = async (req: AuthRequest, res: Response) => {
         firstName, lastName, middleName, specialtyId,
         photoUrl, photoUrls, bio, yearsExperience,
         category, academicDegree, academicTitle,
+        bachelorSpecialty, bachelorDiplomaUrl, masterSpecialty, masterDiplomaUrl,
+        categoryDocUrl, academicDegreeDocUrl, academicTitleDocUrl,
         treatedDiseases, surgicalProcedures,
         consultationPrice = 0,
         roomNumber,
@@ -193,6 +205,13 @@ export const createOrAttach = async (req: AuthRequest, res: Response) => {
                 category: typeof category === 'string' ? category.trim() || null : null,
                 academicDegree: typeof academicDegree === 'string' ? academicDegree.trim() || null : null,
                 academicTitle: typeof academicTitle === 'string' ? academicTitle.trim() || null : null,
+                bachelorSpecialty: cleanStr(bachelorSpecialty),
+                bachelorDiplomaUrl: cleanStr(bachelorDiplomaUrl),
+                masterSpecialty: cleanStr(masterSpecialty),
+                masterDiplomaUrl: cleanStr(masterDiplomaUrl),
+                categoryDocUrl: cleanStr(categoryDocUrl),
+                academicDegreeDocUrl: cleanStr(academicDegreeDocUrl),
+                academicTitleDocUrl: cleanStr(academicTitleDocUrl),
                 treatedDiseases: Array.isArray(treatedDiseases)
                     ? treatedDiseases.filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim()).slice(0, 40)
                     : [],
@@ -256,6 +275,8 @@ export const updateDoctorProfile = async (req: AuthRequest, res: Response) => {
     const {
         firstName, lastName, middleName, specialtyId, photoUrl, photoUrls, bio, yearsExperience,
         category, academicDegree, academicTitle, treatedDiseases, surgicalProcedures,
+        bachelorSpecialty, bachelorDiplomaUrl, masterSpecialty, masterDiplomaUrl,
+        categoryDocUrl, academicDegreeDocUrl, academicTitleDocUrl,
     } = req.body || {};
     const data: any = {};
     if (typeof firstName === 'string' && firstName.trim().length >= 2) data.firstName = firstName.trim();
@@ -272,6 +293,15 @@ export const updateDoctorProfile = async (req: AuthRequest, res: Response) => {
     if (typeof category === 'string' || category === null) data.category = typeof category === 'string' ? category.trim() || null : null;
     if (typeof academicDegree === 'string' || academicDegree === null) data.academicDegree = typeof academicDegree === 'string' ? academicDegree.trim() || null : null;
     if (typeof academicTitle === 'string' || academicTitle === null) data.academicTitle = typeof academicTitle === 'string' ? academicTitle.trim() || null : null;
+    // Education + credential documents. Only assign when the key is present so
+    // a partial update never wipes an existing value.
+    if (bachelorSpecialty !== undefined) data.bachelorSpecialty = cleanStr(bachelorSpecialty);
+    if (bachelorDiplomaUrl !== undefined) data.bachelorDiplomaUrl = cleanStr(bachelorDiplomaUrl);
+    if (masterSpecialty !== undefined) data.masterSpecialty = cleanStr(masterSpecialty);
+    if (masterDiplomaUrl !== undefined) data.masterDiplomaUrl = cleanStr(masterDiplomaUrl);
+    if (categoryDocUrl !== undefined) data.categoryDocUrl = cleanStr(categoryDocUrl);
+    if (academicDegreeDocUrl !== undefined) data.academicDegreeDocUrl = cleanStr(academicDegreeDocUrl);
+    if (academicTitleDocUrl !== undefined) data.academicTitleDocUrl = cleanStr(academicTitleDocUrl);
     if (Array.isArray(treatedDiseases)) {
         data.treatedDiseases = treatedDiseases
             .filter((s) => typeof s === 'string' && s.trim())

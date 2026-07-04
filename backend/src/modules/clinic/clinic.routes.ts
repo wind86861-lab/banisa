@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import { ClinicPermission } from '@prisma/client';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
+import { loadClinicContext, requireClinicPermission } from '../../middleware/clinic-permission.middleware';
 import { validate } from '../../middleware/validate.middleware';
 import { getClinicMe } from './clinic.controller';
 import { clinicServicesController } from './services/services.controller';
@@ -31,8 +33,16 @@ import {
 
 const router = Router();
 
-// All clinic routes require authentication + CLINIC_ADMIN role
-router.use(requireAuth, requireRole(['CLINIC_ADMIN']));
+// All clinic routes require authentication + CLINIC_ADMIN role, then load the
+// clinic membership so per-action permissions can be enforced. Reads stay
+// member-only (any member, incl. the read-only DIRECTOR); mutations require
+// the matching write permission (SERVICE_MANAGE / CLINIC_SETTINGS_EDIT), which
+// DIRECTOR does not hold.
+router.use(requireAuth, requireRole(['CLINIC_ADMIN']), loadClinicContext);
+
+// Write-permission gates (reused across routes below).
+const SVC = requireClinicPermission(ClinicPermission.SERVICE_MANAGE);
+const SETTINGS = requireClinicPermission(ClinicPermission.CLINIC_SETTINGS_EDIT);
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
 router.get('/me', getClinicMe);
@@ -40,45 +50,45 @@ router.get('/me', getClinicMe);
 // ─── Diagnostic Services ──────────────────────────────────────────────────────
 router.get('/services/available', clinicServicesController.getAvailableServices);
 router.get('/services/:serviceId/metadata-templates', clinicServicesController.getServiceMetadata);
-router.put('/services/:serviceId/metadata-values', clinicServicesController.saveServiceMetadata);
-router.post('/services/activate', validate(activateServiceSchema), clinicServicesController.activateService);
-router.delete('/services/:serviceId', clinicServicesController.deactivateService);
+router.put('/services/:serviceId/metadata-values', SVC, clinicServicesController.saveServiceMetadata);
+router.post('/services/activate', SVC, validate(activateServiceSchema), clinicServicesController.activateService);
+router.delete('/services/:serviceId', SVC, clinicServicesController.deactivateService);
 
 // ─── Service Customization ───────────────────────────────────────────────────
 router.get('/services/:clinicServiceId/customization', customizationController.getCustomization);
-router.put('/services/:clinicServiceId/customization', validate(upsertCustomizationSchema), customizationController.upsertCustomization);
-router.delete('/services/:clinicServiceId/customization', customizationController.deleteCustomization);
-router.post('/services/:clinicServiceId/customization/images', serviceImageUpload, customizationController.uploadImage);
-router.delete('/services/:clinicServiceId/customization/images/:imageId', customizationController.deleteImage);
-router.put('/services/:clinicServiceId/customization/images/reorder', validate(reorderImagesSchema), customizationController.reorderImages);
-router.put('/services/:clinicServiceId/customization/images/:imageId/primary', customizationController.setPrimaryImage);
+router.put('/services/:clinicServiceId/customization', SVC, validate(upsertCustomizationSchema), customizationController.upsertCustomization);
+router.delete('/services/:clinicServiceId/customization', SVC, customizationController.deleteCustomization);
+router.post('/services/:clinicServiceId/customization/images', SVC, serviceImageUpload, customizationController.uploadImage);
+router.delete('/services/:clinicServiceId/customization/images/:imageId', SVC, customizationController.deleteImage);
+router.put('/services/:clinicServiceId/customization/images/reorder', SVC, validate(reorderImagesSchema), customizationController.reorderImages);
+router.put('/services/:clinicServiceId/customization/images/:imageId/primary', SVC, customizationController.setPrimaryImage);
 
 // ─── Surgical Services ───────────────────────────────────────────────────────
 router.get('/surgical-services/available', clinicSurgicalController.getAvailableSurgicalServices);
-router.post('/surgical-services/activate', validate(activateSurgicalServiceSchema), clinicSurgicalController.activateSurgicalService);
-router.delete('/surgical-services/:serviceId', clinicSurgicalController.deactivateSurgicalService);
+router.post('/surgical-services/activate', SVC, validate(activateSurgicalServiceSchema), clinicSurgicalController.activateSurgicalService);
+router.delete('/surgical-services/:serviceId', SVC, clinicSurgicalController.deactivateSurgicalService);
 
 // ─── Surgical Service Customization ──────────────────────────────────────────
 router.get('/surgical-services/:serviceId/customization', clinicSurgicalController.getCustomization);
-router.put('/surgical-services/:serviceId/customization', clinicSurgicalController.upsertCustomization);
-router.delete('/surgical-services/:serviceId/customization', clinicSurgicalController.deleteCustomization);
+router.put('/surgical-services/:serviceId/customization', SVC, clinicSurgicalController.upsertCustomization);
+router.delete('/surgical-services/:serviceId/customization', SVC, clinicSurgicalController.deleteCustomization);
 
 // ─── Sanatorium Services ────────────────────────────────────────────────────
 router.get('/sanatorium-services/available', clinicSanatoriumController.getAvailableSanatoriumServices);
-router.post('/sanatorium-services/activate', validate(activateSanatoriumServiceSchema), clinicSanatoriumController.activateSanatoriumService);
-router.delete('/sanatorium-services/:serviceId', clinicSanatoriumController.deactivateSanatoriumService);
+router.post('/sanatorium-services/activate', SVC, validate(activateSanatoriumServiceSchema), clinicSanatoriumController.activateSanatoriumService);
+router.delete('/sanatorium-services/:serviceId', SVC, clinicSanatoriumController.deactivateSanatoriumService);
 
 // ─── Checkup Packages ─────────────────────────────────────────────────────────
 router.get('/checkup-packages/available', clinicCheckupController.getAvailablePackages);
-router.post('/checkup-packages/activate', validate(activatePackageSchema), clinicCheckupController.activatePackage);
-router.patch('/checkup-packages/:id', validate(updatePackageSchema), clinicCheckupController.updatePackage);
-router.delete('/checkup-packages/:id', clinicCheckupController.deactivatePackage);
+router.post('/checkup-packages/activate', SVC, validate(activatePackageSchema), clinicCheckupController.activatePackage);
+router.patch('/checkup-packages/:id', SVC, validate(updatePackageSchema), clinicCheckupController.updatePackage);
+router.delete('/checkup-packages/:id', SVC, clinicCheckupController.deactivatePackage);
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 router.get('/settings/working-hours', clinicSettingsController.getWorkingHours);
-router.put('/settings/working-hours', validate(workingHoursSchema), clinicSettingsController.updateWorkingHours);
+router.put('/settings/working-hours', SETTINGS, validate(workingHoursSchema), clinicSettingsController.updateWorkingHours);
 router.get('/settings/queue', clinicSettingsController.getQueueSettings);
-router.put('/settings/queue', validate(queueSettingsSchema), clinicSettingsController.updateQueueSettings);
+router.put('/settings/queue', SETTINGS, validate(queueSettingsSchema), clinicSettingsController.updateQueueSettings);
 
 // ─── Stats ─────────────────────────────────────────────────────────────────────
 router.get('/stats', getClinicStats);
@@ -89,7 +99,7 @@ router.get('/stats', getClinicStats);
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
 router.get('/profile', getClinicProfile);
-router.put('/profile', updateClinicProfile);
-router.post('/resolve-map-link', resolveMapLink);
+router.put('/profile', SETTINGS, updateClinicProfile);
+router.post('/resolve-map-link', SETTINGS, resolveMapLink);
 
 export default router;

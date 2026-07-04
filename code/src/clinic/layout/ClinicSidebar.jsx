@@ -63,9 +63,13 @@ export default function ClinicSidebar({ isOpen, toggleSidebar }) {
     const location = useLocation();
     const { user, logout } = useAuth();
     const { data: unreadCount = 0 } = useUnreadCount();
-    const { isDirector } = useMyClinicMembership();
+    const { isDirector, isLoading: membershipLoading } = useMyClinicMembership();
 
-    const navGroups = isDirector
+    // Fail closed: until the membership resolves, show the restricted set so a
+    // DIRECTOR never flashes the full (admin-only) menu. Once known, non-directors
+    // get the complete list. Expanding (never shrinking) is the safe direction.
+    const restricted = membershipLoading || isDirector;
+    const navGroups = restricted
         ? NAV_GROUPS.map(g => ({
             ...g,
             items: g.items.filter(i => DIRECTOR_NAV_KEYS.has(i.key)),

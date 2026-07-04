@@ -1,12 +1,12 @@
 import { Response } from 'express';
 import prisma from '../../config/database';
 import { AuthRequest } from '../../middleware/auth.middleware';
+import { resolveUserClinicId } from './clinic-context.util';
 
 // ─── Helper: get clinicId from authenticated user ─────────────────────────────
-async function getClinicId(userId: string): Promise<string | null> {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { clinicId: true } });
-    return user?.clinicId ?? null;
-}
+// Delegates to the shared resolver so secondary admins (clinicId=null, linked
+// via ClinicMembership only) resolve their clinic instead of 404ing.
+const getClinicId = (userId: string) => resolveUserClinicId(userId);
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 export const getClinicStats = async (req: AuthRequest, res: Response) => {
@@ -343,9 +343,16 @@ function extractCoords(text: string): { lat: number; lng: number } | null {
     return null;
 }
 
+// Only these hosts may be fetched. Enforced on the initial URL AND on every
+// redirect hop — a short link on an allowed host can 3xx-redirect anywhere,
+// so without re-checking each hop this is an SSRF vector (e.g. → 169.254.169.254).
+const MAPS_HOST_ALLOWED = /^(https?:\/\/)([a-z0-9-]+\.)?(goo\.gl|google\.[a-z.]+|maps\.app\.goo\.gl|yandex\.[a-z.]+)\//i;
+
 async function followRedirects(url: string, maxHops = 6): Promise<string> {
     let current = url;
     for (let i = 0; i < maxHops; i++) {
+        // Never fetch a host outside the allowlist (guards redirect-based SSRF).
+        if (!MAPS_HOST_ALLOWED.test(current)) break;
         const res = await fetch(current, {
             method: 'GET',
             redirect: 'manual',
@@ -354,7 +361,10 @@ async function followRedirects(url: string, maxHops = 6): Promise<string> {
         if (res.status >= 300 && res.status < 400) {
             const next = res.headers.get('location');
             if (!next) break;
-            current = new URL(next, current).toString();
+            const resolvedNext = new URL(next, current).toString();
+            // Stop before following a redirect that leaves the allowlist.
+            if (!MAPS_HOST_ALLOWED.test(resolvedNext)) break;
+            current = resolvedNext;
             continue;
         }
         // Some short-link services return 200 with the canonical URL in the body
@@ -377,8 +387,7 @@ export const resolveMapLink = async (req: AuthRequest, res: Response) => {
         if (direct) return res.json({ success: true, data: direct });
 
         // Reject anything that isn't a recognized maps host to avoid SSRF.
-        const allowed = /^(https?:\/\/)([a-z0-9-]+\.)?(goo\.gl|google\.[a-z.]+|maps\.app\.goo\.gl|yandex\.[a-z.]+)\//i;
-        if (!allowed.test(url)) {
+        if (!MAPS_HOST_ALLOWED.test(url)) {
             return res.status(400).json({ success: false, message: 'Faqat Google/Yandex Maps havolasi qo\'llab-quvvatlanadi' });
         }
 
