@@ -25,6 +25,9 @@ router.get('/dashboard/stats', adminController.getDashboardStats);
 // User list (includes TelegramAccount join for source/last-seen).
 router.get('/users', adminController.listUsers);
 
+// Full patient dossier: stats, visited clinics, recent orders + ambulance requests.
+router.get('/users/:id', adminController.getUserDetail);
+
 // Global fiscal defaults (super-admin sets MXIK / package_code / vat_percent
 // used by every Payme receipt unless the per-service override on a
 // clinic-service join row replaces it).

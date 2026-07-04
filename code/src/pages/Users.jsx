@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Filter, Send, Globe, RefreshCw, Phone, MessageCircle, Copy, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Filter, Send, Globe, RefreshCw, Phone, MessageCircle, Copy, ChevronLeft, ChevronRight, Calendar, Truck } from 'lucide-react';
 import api from '../shared/api/axios';
+import UserDetailDrawer from './UserDetailDrawer';
 import './Users.css';
 
 function fmtDate(d) {
@@ -36,6 +37,7 @@ export default function Users() {
     const [q, setQ] = useState('');
     const [source, setSource] = useState('ALL');  // ALL | telegram | web
     const [page, setPage] = useState(1);
+    const [selectedId, setSelectedId] = useState(null);
     const limit = 50;
 
     const params = useMemo(() => {
@@ -120,6 +122,7 @@ export default function Users() {
                         <tr>
                             <th>Foydalanuvchi</th>
                             <th>Telefon</th>
+                            <th>Buyurtmalar</th>
                             <th>Manba</th>
                             <th>Telegram</th>
                             <th>Ro'yxatdan o'tgan</th>
@@ -129,9 +132,9 @@ export default function Users() {
                     </thead>
                     <tbody>
                         {isLoading ? (
-                            <tr><td colSpan="7" className="empty-state">Yuklanmoqda...</td></tr>
+                            <tr><td colSpan="8" className="empty-state">Yuklanmoqda...</td></tr>
                         ) : items.length === 0 ? (
-                            <tr><td colSpan="7" className="empty-state">
+                            <tr><td colSpan="8" className="empty-state">
                                 <div className="empty-icon">👥</div>
                                 <h3>Foydalanuvchi topilmadi</h3>
                                 <p>Qidiruv yoki filtrlarni o'zgartiring</p>
@@ -142,7 +145,7 @@ export default function Users() {
                                 const initials = (u.firstName?.[0] || u.phone?.slice(-2) || '?').toUpperCase();
                                 const isTg = u.source === 'telegram';
                                 return (
-                                    <tr key={u.id}>
+                                    <tr key={u.id} className="user-row" onClick={() => setSelectedId(u.id)}>
                                         <td>
                                             <div className="user-info">
                                                 <div className="user-avatar" style={{ background: isTg ? '#0088cc' : '#6b7280' }}>
@@ -156,12 +159,27 @@ export default function Users() {
                                         </td>
                                         <td>
                                             <div className="phone-cell">
-                                                <a href={`tel:${u.phone}`} className="phone-link">
+                                                <a href={`tel:${u.phone}`} className="phone-link" onClick={(e) => e.stopPropagation()}>
                                                     <Phone size={11} /> {u.phone}
                                                 </a>
-                                                <button className="copy-btn" onClick={() => copyText(u.phone)} title="Nusxalash">
+                                                <button className="copy-btn" onClick={(e) => { e.stopPropagation(); copyText(u.phone); }} title="Nusxalash">
                                                     <Copy size={11} />
                                                 </button>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div className="orders-cell">
+                                                <span className="orders-count" title="Buyurtmalar">
+                                                    <Calendar size={11} /> {u.orderCount ?? 0}
+                                                </span>
+                                                {(u.skoryCount ?? 0) > 0 && (
+                                                    <span className="orders-skory" title="Tez yordam so'rovlari">
+                                                        <Truck size={11} /> {u.skoryCount}
+                                                    </span>
+                                                )}
+                                                {u.lastOrderAt && (
+                                                    <span className="orders-last">{fmtRelative(u.lastOrderAt)}</span>
+                                                )}
                                             </div>
                                         </td>
                                         <td>
@@ -177,7 +195,7 @@ export default function Users() {
                                         </td>
                                         <td>
                                             {u.telegram ? (
-                                                <div className="tg-cell">
+                                                <div className="tg-cell" onClick={(e) => e.stopPropagation()}>
                                                     {u.telegram.username ? (
                                                         <a
                                                             href={`https://t.me/${u.telegram.username}`}
@@ -256,6 +274,10 @@ export default function Users() {
                         Keyingi <ChevronRight size={14} />
                     </button>
                 </div>
+            )}
+
+            {selectedId && (
+                <UserDetailDrawer userId={selectedId} onClose={() => setSelectedId(null)} />
             )}
         </div>
     );
