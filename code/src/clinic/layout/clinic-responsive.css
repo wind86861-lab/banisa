@@ -46,6 +46,19 @@
     }
     @keyframes clinic-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 
+    /* ROOT-CAUSE FIX for the "whole page shoved right / cut off" bug:
+       index.css has `.sidebar-closed .main-content` and `.sidebar-closed
+       .main-header { margin-left: var(--sidebar-mini-width) }` (the 80px desktop
+       mini-rail). Its (0,2,0) specificity beats the media-query
+       `.main-content { margin-left:0 }` (0,1,0), so on mobile the *collapsed*
+       drawer was still reserving 80px — pushing the entire layout (incl. the
+       fixed header) 80px past the right edge. The clinic drawer needs zero rail
+       on mobile, so re-zero both with higher specificity. */
+    .app-container.sidebar-closed .main-content,
+    .app-container.sidebar-closed .main-header {
+        margin-left: 0;
+    }
+
     /* Content + header already go full-width at 992 (index.css / Header.css);
        tighten padding for the smaller canvas. */
     .main-content {
