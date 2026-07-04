@@ -12,6 +12,25 @@ const normalizePhone = (phone: string): string => {
 // VULN-06: increased from 10 to 12 — meaningfully slower for attackers
 const BCRYPT_ROUNDS = 12;
 
+// Resolve the display clinic name for a clinic admin. Prefers User.clinicId
+// (the primary admin's linked clinic), then falls back to their oldest active
+// ClinicMembership — otherwise SECONDARY admins (clinicId=null, linked only via
+// membership) get a null clinicName and the panel shows "Klinika Paneli".
+const resolveClinicName = async (user: { id: string; clinicId?: string | null }): Promise<string | null> => {
+    let clinicId = user.clinicId ?? null;
+    if (!clinicId) {
+        const membership = await prisma.clinicMembership.findFirst({
+            where: { userId: user.id, isActive: true },
+            orderBy: { joinedAt: 'asc' },
+            select: { clinicId: true },
+        });
+        clinicId = membership?.clinicId ?? null;
+    }
+    if (!clinicId) return null;
+    const clinic = await prisma.clinic.findUnique({ where: { id: clinicId }, select: { nameUz: true } });
+    return clinic?.nameUz || null;
+};
+
 // VULN-03: separate secrets + short-lived access token
 export const generateAccessToken = (payload: { id: string; role: string; status: string }): string =>
     jwt.sign(payload, env.JWT_ACCESS_SECRET as jwt.Secret, { expiresIn: env.NODE_ENV === 'production' ? '15m' : '1h' } as jwt.SignOptions);
@@ -105,14 +124,10 @@ export const login = async (credentials: {
     const accessToken = generateAccessToken({ id: user.id, role: user.role, status: user.status });
     const refreshToken = generateRefreshToken({ id: user.id });
 
-    // Fetch clinic name for CLINIC_ADMIN users
+    // Fetch clinic name for CLINIC_ADMIN users (membership-aware for secondary admins)
     let clinicName = null;
-    if (credentials.loginType === 'CLINIC_ADMIN' && user.clinicId) {
-        const clinic = await prisma.clinic.findUnique({
-            where: { id: user.clinicId },
-            select: { nameUz: true }
-        });
-        clinicName = clinic?.nameUz || null;
+    if (credentials.loginType === 'CLINIC_ADMIN') {
+        clinicName = await resolveClinicName(user);
     }
 
     return {
@@ -166,14 +181,10 @@ export const refreshAccessToken = async (token: string) => {
     const newAccessToken = generateAccessToken({ id: user.id, role: user.role, status: user.status });
     const newRefreshToken = generateRefreshToken({ id: user.id }); // rotate
 
-    // Fetch clinic name for CLINIC_ADMIN users
+    // Fetch clinic name for CLINIC_ADMIN users (membership-aware for secondary admins)
     let clinicName = null;
-    if (user.role === 'CLINIC_ADMIN' && user.clinicId) {
-        const clinic = await prisma.clinic.findUnique({
-            where: { id: user.clinicId },
-            select: { nameUz: true }
-        });
-        clinicName = clinic?.nameUz || null;
+    if (user.role === 'CLINIC_ADMIN') {
+        clinicName = await resolveClinicName(user);
     }
 
     return {
@@ -207,12 +218,8 @@ export const getMe = async (userId: string) => {
     // Match the login + refresh response shape so AuthContext picks up the
     // clinic name when it rehydrates from /me on page reload.
     let clinicName: string | null = null;
-    if (user.role === 'CLINIC_ADMIN' && user.clinicId) {
-        const clinic = await prisma.clinic.findUnique({
-            where: { id: user.clinicId },
-            select: { nameUz: true },
-        });
-        clinicName = clinic?.nameUz || null;
+    if (user.role === 'CLINIC_ADMIN') {
+        clinicName = await resolveClinicName(user);
     }
 
     return { ...user, clinicName };

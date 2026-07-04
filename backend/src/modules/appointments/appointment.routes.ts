@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import { ClinicPermission } from '@prisma/client';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
+import { loadClinicContext, requireClinicPermission } from '../../middleware/clinic-permission.middleware';
 import { validate } from '../../middleware/validate.middleware';
 import { scanCheckInLimiter } from '../../middleware/rateLimiter';
 import { patientAppointmentController } from './patient.controller';
@@ -48,15 +50,21 @@ operatorAppointmentRouter.put('/clinic/:clinicId/discount', validate(setClinicDi
 
 // ─── Clinic admin routes — mounted under /api/clinic/appointments ────────────
 export const clinicAppointmentRouter = Router();
-clinicAppointmentRouter.use(requireAuth, requireRole(['CLINIC_ADMIN']));
-clinicAppointmentRouter.get('/', clinicAppointmentController.list);
-clinicAppointmentRouter.get('/cashier-queue', clinicAppointmentController.cashierQueue);
-clinicAppointmentRouter.get('/checkin-qr', clinicAppointmentController.getCheckInQr);
-clinicAppointmentRouter.get('/patient-stats/:id', clinicAppointmentController.patientStats);
-clinicAppointmentRouter.get('/:id', clinicAppointmentController.getById);
-clinicAppointmentRouter.post('/:id/accept', validate(clinicAcceptSchema), clinicAppointmentController.accept);
-clinicAppointmentRouter.post('/:id/reschedule', validate(clinicRescheduleSchema), clinicAppointmentController.reschedule);
-clinicAppointmentRouter.post('/:id/start', clinicAppointmentController.start);
-clinicAppointmentRouter.post('/:id/complete', validate(clinicCompleteSchema), clinicAppointmentController.complete);
-clinicAppointmentRouter.post('/:id/no-show', clinicAppointmentController.noShow);
-clinicAppointmentRouter.post('/:id/confirm-cash', validate(confirmCashSchema), clinicAppointmentController.confirmCash);
+clinicAppointmentRouter.use(requireAuth, requireRole(['CLINIC_ADMIN']), loadClinicContext);
+
+// Reads need BOOKING_VIEW (incl. DIRECTOR). State changes need BOOKING_ACCEPT;
+// reschedule needs BOOKING_RESCHEDULE; cash confirmation needs PAYMENT_CONFIRM_CASH.
+const V_VIEW = requireClinicPermission(ClinicPermission.BOOKING_VIEW);
+const V_ACCEPT = requireClinicPermission(ClinicPermission.BOOKING_ACCEPT);
+
+clinicAppointmentRouter.get('/', V_VIEW, clinicAppointmentController.list);
+clinicAppointmentRouter.get('/cashier-queue', V_VIEW, clinicAppointmentController.cashierQueue);
+clinicAppointmentRouter.get('/checkin-qr', V_VIEW, clinicAppointmentController.getCheckInQr);
+clinicAppointmentRouter.get('/patient-stats/:id', V_VIEW, clinicAppointmentController.patientStats);
+clinicAppointmentRouter.get('/:id', V_VIEW, clinicAppointmentController.getById);
+clinicAppointmentRouter.post('/:id/accept', V_ACCEPT, validate(clinicAcceptSchema), clinicAppointmentController.accept);
+clinicAppointmentRouter.post('/:id/reschedule', requireClinicPermission(ClinicPermission.BOOKING_RESCHEDULE), validate(clinicRescheduleSchema), clinicAppointmentController.reschedule);
+clinicAppointmentRouter.post('/:id/start', V_ACCEPT, clinicAppointmentController.start);
+clinicAppointmentRouter.post('/:id/complete', V_ACCEPT, validate(clinicCompleteSchema), clinicAppointmentController.complete);
+clinicAppointmentRouter.post('/:id/no-show', V_ACCEPT, clinicAppointmentController.noShow);
+clinicAppointmentRouter.post('/:id/confirm-cash', requireClinicPermission(ClinicPermission.PAYMENT_CONFIRM_CASH), validate(confirmCashSchema), clinicAppointmentController.confirmCash);

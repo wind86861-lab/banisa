@@ -85,6 +85,9 @@ export const requireClinicPermission = (
     ...required: ClinicPermission[]
 ) => async (req: ClinicRequest, res: Response, next: NextFunction) => {
     try {
+        // Platform SUPER_ADMIN has no ClinicMembership; when a route is shared
+        // with super admins, let them through without a clinic context.
+        if (req.user?.role === 'SUPER_ADMIN') return next();
         if (!req.clinicContext) req.clinicContext = await resolveContext(req);
         const ctx = req.clinicContext!;
         const allowed = required.length === 0

@@ -386,3 +386,29 @@ textarea.skoo__input { resize: vertical; min-height: 80px; }
 .skoo__cancel-confirm__actions > .skoo__btn {
     flex: 1;
 }
+
+/* ─── Address search box (type an address → find on map) ─── */
+.skoo__map-wrap { display: flex; flex-direction: column; gap: 8px; }
+.skoo__addr { position: relative; }
+.skoo__addr__row { display: flex; gap: 6px; }
+.skoo__addr__row .skoo__input { flex: 1; margin: 0; }
+.skoo__addr__btn {
+    display: flex; align-items: center; justify-content: center;
+    min-width: 44px; border: none; border-radius: 10px;
+    background: #0d9488; color: #fff; cursor: pointer;
+}
+.skoo__addr__btn:disabled { opacity: .5; cursor: default; }
+.skoo__addr__results {
+    position: absolute; z-index: 500; top: 100%; left: 0; right: 0; margin-top: 4px;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(15,23,42,.12); overflow: hidden;
+    max-height: 240px; overflow-y: auto;
+}
+.skoo__addr__result {
+    display: flex; align-items: flex-start; gap: 8px; width: 100%;
+    padding: 10px 12px; border: none; background: none; text-align: left;
+    font-size: 13px; color: #334155; cursor: pointer; border-bottom: 1px solid #f1f5f9;
+}
+.skoo__addr__result:last-child { border-bottom: none; }
+.skoo__addr__result:hover { background: #f0fdfa; }
+.skoo__addr__result svg { flex-shrink: 0; margin-top: 2px; color: #0d9488; }

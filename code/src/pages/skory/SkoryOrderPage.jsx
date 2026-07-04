@@ -18,7 +18,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
     ArrowLeft, MapPin, Hospital, Map as MapIcon, SkipForward, Loader2,
-    AlertTriangle, Edit3, CheckCircle2, Phone, X, Ambulance, Activity, Flag,
+    AlertTriangle, Edit3, CheckCircle2, Phone, X, Ambulance, Activity, Flag, Search,
 } from 'lucide-react';
 import api from '../../shared/api/axios';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
@@ -54,10 +54,77 @@ function ClickToMove({ onMove }) {
     return null;
 }
 
+// Forward geocode (address text → coordinates) via OpenStreetMap Nominatim,
+// biased to Uzbekistan. Powers the "type an address, find it on the map" box.
+async function forwardGeocode(query) {
+    const q = String(query || '').trim();
+    if (q.length < 3) return [];
+    try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}`
+            + `&format=json&limit=6&accept-language=uz,ru&countrycodes=uz`;
+        const r = await fetch(url, { headers: { 'Accept-Language': 'uz,ru' } });
+        if (!r.ok) return [];
+        const j = await r.json();
+        return Array.isArray(j) ? j : [];
+    } catch { return []; }
+}
+
+// Address search box shown above the map. On pick it moves the marker + map.
+function AddressSearch({ onPick }) {
+    const [q, setQ] = useState('');
+    const [results, setResults] = useState([]);
+    const [busy, setBusy] = useState(false);
+
+    const run = async () => {
+        if (q.trim().length < 3) return;
+        setBusy(true);
+        setResults(await forwardGeocode(q));
+        setBusy(false);
+    };
+
+    return (
+        <div className="skoo__addr">
+            <div className="skoo__addr__row">
+                <input
+                    className="skoo__input"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); run(); } }}
+                    placeholder="Manzilni yozing: masalan, Chilonzor 19"
+                />
+                <button type="button" className="skoo__addr__btn" onClick={run} disabled={busy || q.trim().length < 3}>
+                    {busy ? <Loader2 size={16} className="skoo__spin" /> : <Search size={16} />}
+                </button>
+            </div>
+            {results.length > 0 && (
+                <div className="skoo__addr__results">
+                    {results.map((r, i) => (
+                        <button
+                            type="button"
+                            key={`${r.place_id || i}`}
+                            className="skoo__addr__result"
+                            onClick={() => {
+                                onPick(parseFloat(r.lat), parseFloat(r.lon), r.display_name);
+                                setResults([]);
+                                setQ('');
+                            }}
+                        >
+                            <MapPin size={13} />
+                            <span>{r.display_name}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function MapPicker({ lat, lng, onChange }) {
     const initialCenter = lat != null && lng != null ? [lat, lng] : TASHKENT_CENTER;
     return (
-        <div className="skoo__map">
+        <div className="skoo__map-wrap">
+            <AddressSearch onPick={(la, ln) => onChange(la, ln)} />
+            <div className="skoo__map">
             <MapContainer center={initialCenter} zoom={14} scrollWheelZoom>
                 <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -78,6 +145,7 @@ function MapPicker({ lat, lng, onChange }) {
                 <ClickToMove onMove={onChange} />
                 {lat != null && lng != null && <FlyTo lat={lat} lng={lng} />}
             </MapContainer>
+            </div>
         </div>
     );
 }
@@ -265,70 +333,7 @@ function DestStep({ pickup, dest, onChange, onNext }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 3 — price
-// ─────────────────────────────────────────────────────────────────────────────
-
-function PriceStep({ pickup, dest, priceMaxSom, onChange, onNext }) {
-    const { data: range, isLoading } = useQuery({
-        queryKey: ['skory', 'price-range', pickup.lat, pickup.lng, dest?.lat, dest?.lng],
-        queryFn: async () => (await api.get('/skory/price-range', {
-            params: { lat: pickup.lat, lng: pickup.lng, destLat: dest?.lat, destLng: dest?.lng },
-        })).data?.data,
-        staleTime: 60_000,
-    });
-
-    const [text, setText] = useState(priceMaxSom != null ? String(priceMaxSom) : '');
-
-    const handleAcceptAll = () => { onChange(null); onNext(); };
-
-    const handleSubmit = () => {
-        const n = parseInt(text.replace(/[\s,]/g, ''), 10);
-        if (!Number.isFinite(n) || n <= 0) {
-            alert('Iltimos to\'g\'ri narx kiriting (so\'mda)');
-            return;
-        }
-        onChange(n);
-        onNext();
-    };
-
-    return (
-        <div className="skoo__card">
-            <h2>💰 Maksimal narx?</h2>
-            {isLoading ? (
-                <div className="skoo__notice">Bozor narxlari yuklanmoqda...</div>
-            ) : range ? (
-                <div className="skoo__range">
-                    <div className="skoo__range__head">
-                        {range.tripKm != null
-                            ? `Bu masofa (~${range.tripKm} km) uchun ${range.sampleCount} ta klinikada:`
-                            : `Yaqin atrofdagi ${range.sampleCount} ta klinikada:`}
-                    </div>
-                    <div className="skoo__range__value">{fmtSom(range.min)} – {fmtSom(range.max)} so'm</div>
-                </div>
-            ) : (
-                <div className="skoo__notice">Yaqin atrofda narxlar ma'lumoti yo'q.</div>
-            )}
-
-            <input
-                className="skoo__input skoo__input--mb-10"
-                type="number"
-                inputMode="numeric"
-                placeholder="Masalan: 150000"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-            />
-            <button className="skoo__btn skoo__btn--mb-8" onClick={handleSubmit} disabled={!text.trim()}>
-                Davom etish (max {text ? fmtSom(parseInt(text, 10) || 0) + ' so\'m' : ''})
-            </button>
-            <button className="skoo__btn skoo__btn--ghost" onClick={handleAcceptAll}>
-                ✅ Hammasini qabul (limit yo'q)
-            </button>
-        </div>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 4 — description
+// Step 3 — description
 // ─────────────────────────────────────────────────────────────────────────────
 
 function DescStep({ description, onChange, onNext }) {
@@ -402,8 +407,7 @@ function ConfirmStep({ data, onEdit, onSubmit, submitting, error }) {
             {distanceKm != null && (
                 <Row label="📏 Masofa" value={`~${distanceKm.toFixed(1)} km · ~${Math.max(1, Math.round(distanceKm * 2))} daq`} />
             )}
-            <Row label="💰 Maks. narx" value={data.priceMaxSom ? `${fmtSom(data.priceMaxSom)} so'm` : 'Limit yo\'q'} onEdit={() => onEdit(3)} />
-            <Row label="📝 Tafsilot" value={data.description || '—'} onEdit={() => onEdit(4)} />
+            <Row label="📝 Tafsilot" value={data.description || '—'} onEdit={() => onEdit(3)} />
 
             <button className="skoo__btn skoo__btn--mt-16" onClick={onSubmit} disabled={submitting}>
                 {submitting ? <Loader2 size={16} className="skoo__spin" /> : <Ambulance size={16} />}
@@ -570,13 +574,15 @@ export default function SkoryOrderPage() {
     const [step, setStep] = useState(1);
     const [pickup, setPickup] = useState(null);
     const [dest, setDest] = useState(null);
-    const [priceMaxSom, setPriceMaxSom] = useState(null);
     const [description, setDescription] = useState(null);
     const [submitError, setSubmitError] = useState(null);
 
     const submit = useMutation({
+        // No price limit — the request always fans out to ALL matching
+        // ambulances (priceMaxSom is intentionally null; the patient no longer
+        // sets a budget).
         mutationFn: async () => (await api.post('/skory/request', {
-            pickup, dest, priceMaxSom, description, targetAmbulanceId,
+            pickup, dest, priceMaxSom: null, description, targetAmbulanceId,
         })).data,
         onSuccess: (res) => {
             if (res?.success) {
@@ -651,7 +657,7 @@ export default function SkoryOrderPage() {
                 </div>
 
                 <div className="skoo__steps">
-                    {[1, 2, 3, 4, 5].map((n) => (
+                    {[1, 2, 3, 4].map((n) => (
                         <div key={n} className={`skoo__step ${n === step ? 'skoo__step--active' : n < step ? 'skoo__step--done' : ''}`} />
                     ))}
                 </div>
@@ -674,23 +680,16 @@ export default function SkoryOrderPage() {
                         onNext={() => goTo(3)}
                     />
                 )}
-                {step === 3 && pickup && (
-                    <PriceStep
-                        pickup={pickup} dest={dest} priceMaxSom={priceMaxSom}
-                        onChange={setPriceMaxSom}
-                        onNext={() => goTo(4)}
-                    />
-                )}
-                {step === 4 && (
+                {step === 3 && (
                     <DescStep
                         description={description}
                         onChange={setDescription}
-                        onNext={() => goTo(5)}
+                        onNext={() => goTo(4)}
                     />
                 )}
-                {step === 5 && pickup && (
+                {step === 4 && pickup && (
                     <ConfirmStep
-                        data={{ pickup, dest, priceMaxSom, description }}
+                        data={{ pickup, dest, description }}
                         onEdit={goTo}
                         onSubmit={() => submit.mutate()}
                         submitting={submit.isPending}

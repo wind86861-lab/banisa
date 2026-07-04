@@ -1,6 +1,7 @@
 import prisma from '../../config/database';
 import { AppError, ErrorCodes } from '../../utils/errors';
 import bcrypt from 'bcrypt';
+import { ensureClinicAdminMemberships } from './clinic-rbac.util';
 
 const normalizePhone = (phone: string) => phone.replace(/[\s\-()]/g, '');
 
@@ -181,7 +182,7 @@ export const createClinic = async (data: any, adminId: string) => {
             });
 
             if (!existingUser) {
-                await tx.user.create({
+                const created = await tx.user.create({
                     data: {
                         phone: parsed.adminPhone,
                         email: parsed.adminEmail || null,
@@ -192,8 +193,10 @@ export const createClinic = async (data: any, adminId: string) => {
                         status: 'APPROVED',
                         isActive: true,
                         clinicId: clinic.id,
-                    }
+                    },
+                    select: { id: true },
                 });
+                await ensureClinicAdminMemberships(tx, clinic.id, [created.id]);
             }
         }
 
@@ -216,7 +219,6 @@ export const updateClinic = async (id: string, data: any) => {
     const adminEmail = parsed.adminEmail;
     const adminFirstName = parsed.adminFirstName;
     const adminLastName = parsed.adminLastName;
-    console.log('[updateClinic] Admin fields:', { adminPassword: adminPassword ? '***' : undefined, adminPhone, adminEmail, adminFirstName, adminLastName });
     delete parsed.adminPassword;
     delete parsed.adminPhone;
     delete parsed.adminEmail;
@@ -244,7 +246,6 @@ export const updateClinic = async (id: string, data: any) => {
 
             if (existingUser) {
                 // Update existing user password
-                console.log('[updateClinic] Updating password for existing user:', existingUser.id);
                 const normalizedNewPhone = adminPhone ? normalizePhone(adminPhone.trim()) : null;
                 await tx.user.update({
                     where: { id: existingUser.id },
@@ -259,10 +260,10 @@ export const updateClinic = async (id: string, data: any) => {
                         status: 'APPROVED',
                     }
                 });
+                await ensureClinicAdminMemberships(tx, id, [existingUser.id]);
             } else if (adminPhone) {
                 // Create new CLINIC_ADMIN user (only if phone is provided)
-                console.log('[updateClinic] Creating new CLINIC_ADMIN user');
-                await tx.user.create({
+                const created = await tx.user.create({
                     data: {
                         phone: normalizePhone(adminPhone.trim()),
                         email: adminEmail || null,
@@ -273,10 +274,10 @@ export const updateClinic = async (id: string, data: any) => {
                         status: 'APPROVED',
                         isActive: true,
                         clinicId: id,
-                    }
+                    },
+                    select: { id: true },
                 });
-            } else {
-                console.log('[updateClinic] Password provided but no existing user and no phone - skipping');
+                await ensureClinicAdminMemberships(tx, id, [created.id]);
             }
         }
 
@@ -361,14 +362,16 @@ export const approveClinic = async (id: string, adminId: string) => {
         });
 
         // Create CLINIC_ADMIN users from stored person data
-        // Only the primary person (first) gets clinicId linked (@unique constraint)
+        // Only the primary person (first) gets clinicId linked (@unique constraint);
+        // secondary admins reach the clinic purely via their ClinicMembership.
         const persons: any[] = clinic.pendingPersons ?? [];
+        const adminUserIds: string[] = [];
         for (let i = 0; i < persons.length; i++) {
             const person = persons[i];
             const isPrimary = person.isPrimary === true || i === 0;
             const existing = await tx.user.findFirst({ where: { phone: person.phone } });
             if (!existing) {
-                await tx.user.create({
+                const created = await tx.user.create({
                     data: {
                         phone: person.phone,
                         email: person.email ?? null,
@@ -380,7 +383,9 @@ export const approveClinic = async (id: string, adminId: string) => {
                         isActive: true,
                         ...(isPrimary && { clinicId: id }),
                     },
+                    select: { id: true },
                 });
+                adminUserIds.push(created.id);
             } else {
                 await tx.user.update({
                     where: { id: existing.id },
@@ -390,8 +395,14 @@ export const approveClinic = async (id: string, adminId: string) => {
                         ...(isPrimary && { clinicId: id }),
                     },
                 });
+                adminUserIds.push(existing.id);
             }
         }
+
+        // Seed the clinic's system roles + give every admin a membership, so
+        // the Team module works and secondary admins (clinicId=null) can
+        // resolve their clinic context. Idempotent + additive.
+        await ensureClinicAdminMemberships(tx, id, adminUserIds);
 
         return updated;
     });

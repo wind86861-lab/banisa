@@ -65,6 +65,16 @@ const pdfFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilt
 
 const uploadPdf = multer({ storage: pdfStorage, fileFilter: pdfFilter, limits: { fileSize: 20 * 1024 * 1024 } });
 
+// Credential documents (doctor diplomas, certificates) — clinics scan a PDF
+// or snap a phone photo, so accept BOTH. Stored alongside PDFs in /uploads/docs.
+const docFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error('Faqat PDF yoki rasm (JPG/PNG/WEBP) qabul qilinadi'));
+};
+const uploadDoc = multer({ storage: pdfStorage, fileFilter: docFilter, limits: { fileSize: 20 * 1024 * 1024 } });
+
 router.post(
     '/pdf',
     requireAuth,
@@ -102,6 +112,24 @@ router.post(
     requireAuth,
     requireRole(['CLINIC_ADMIN', 'SUPER_ADMIN']),
     uploadPdf.single('file'),
+    (req: Request, res: Response, _next: NextFunction) => {
+        if (!req.file) {
+            res.status(400).json({ success: false, message: 'No file uploaded' });
+            return;
+        }
+        const url = `/uploads/docs/${req.file.filename}`;
+        res.json({ success: true, data: { url } });
+    }
+);
+
+// ─── Clinic Credential Doc Upload (doctor diplomas / certificates) ───────────
+// Accepts PDF or image so a clinic can attach a scanned or photographed
+// diploma. CLINIC_ADMIN scoped (unlike /pdf which is super-admin only).
+router.post(
+    '/clinic-doc',
+    requireAuth,
+    requireRole(['CLINIC_ADMIN', 'SUPER_ADMIN']),
+    uploadDoc.single('file'),
     (req: Request, res: Response, _next: NextFunction) => {
         if (!req.file) {
             res.status(400).json({ success: false, message: 'No file uploaded' });

@@ -1,11 +1,10 @@
 import { Response } from 'express';
 import prisma from '../../config/database';
 import { AuthRequest } from '../../middleware/auth.middleware';
+import { resolveUserClinicId } from './clinic-context.util';
 
-async function resolveClinicId(userId: string): Promise<string | null> {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { clinicId: true } });
-    return user?.clinicId ?? null;
-}
+// Membership-aware so secondary admins (clinicId=null) resolve their clinic.
+const resolveClinicId = (userId: string) => resolveUserClinicId(userId);
 
 const STATUS_VALUES = ['PENDING', 'DISPATCHED', 'ON_ROUTE', 'ARRIVED', 'COMPLETED', 'CANCELLED'] as const;
 type Status = typeof STATUS_VALUES[number];

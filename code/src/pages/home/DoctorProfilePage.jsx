@@ -98,12 +98,6 @@ function ClinicScheduleCard({ clinic, onBook }) {
                 ))}
             </div>
 
-            {clinic.roomNumber && (
-                <div className="docs-clinic-card__room">
-                    Xona: <strong>{clinic.roomNumber}</strong>
-                </div>
-            )}
-
             <button
                 className="docs-btn docs-btn--primary"
                 style={{ width: '100%', marginTop: 12 }}
@@ -318,12 +312,26 @@ export default function DoctorProfilePage() {
                     </section>
                 )}
 
-                {(data.academicDegree || data.academicTitle || fmtCategory(data.category)) && (
+                {(data.academicDegree || data.academicTitle || fmtCategory(data.category)
+                    || data.bachelorSpecialty || data.masterSpecialty) && (
                     <section className="docs-section">
                         <div className="docs-section__title">
                             <GraduationCap size={14} /> Ilmiy va kasbiy daraja
                         </div>
                         <div className="docs-credentials">
+                            {/* Education — text only; uploaded diplomas are not shown to patients. */}
+                            {data.bachelorSpecialty && (
+                                <div className="docs-credential">
+                                    <div className="docs-credential__label">Bakalavr</div>
+                                    <div className="docs-credential__value">{data.bachelorSpecialty}</div>
+                                </div>
+                            )}
+                            {data.masterSpecialty && (
+                                <div className="docs-credential">
+                                    <div className="docs-credential__label">Magistr</div>
+                                    <div className="docs-credential__value">{data.masterSpecialty}</div>
+                                </div>
+                            )}
                             {fmtCategory(data.category) && (
                                 <div className="docs-credential">
                                     <div className="docs-credential__label">Toifa</div>
