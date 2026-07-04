@@ -378,7 +378,11 @@ export default function ClinicBookings() {
     const canActOnLifecycle = canAccept;
 
     const [searchParams, setSearchParams] = useSearchParams();
-    const [viewMode, setViewMode] = useState('list');
+    // Cards read far better than a horizontally-scrolling table on a phone, so
+    // default to the card view on narrow screens (user can still toggle).
+    const [viewMode, setViewMode] = useState(
+        () => (typeof window !== 'undefined' && window.innerWidth <= 600 ? 'grid' : 'list')
+    );
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState(searchParams.get('status') || 'ALL');
     const [page, setPage] = useState(1);
