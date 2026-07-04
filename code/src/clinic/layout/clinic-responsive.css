@@ -1,0 +1,118 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Clinic admin — mobile responsiveness (down to 320px)
+
+   Everything here is scoped inside max-width media queries so the desktop
+   layout is never touched. Two jobs:
+     1. Turn the fixed sidebar into an off-canvas drawer (+ backdrop).
+     2. Reflow page content / tables / topbar for small screens.
+   Primary breakpoint 992px matches the existing `.main-content { margin-left:0 }`
+   rule in index.css, so the drawer takes over exactly where the desktop rail
+   stops reserving horizontal space.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Backdrop element is always in the DOM; only shown on mobile when open. */
+.clinic-mobile-backdrop { display: none; }
+
+@media (max-width: 992px) {
+
+    /* ─── Sidebar → off-canvas drawer ─────────────────────────────────────── */
+    /* Higher specificity (.app-container .clinic-sidebar…) beats the base
+       `.sidebar` / `.sidebar.closed` rules without needing !important. */
+    .app-container .sidebar.clinic-sidebar {
+        width: min(84vw, 280px);
+        transform: translateX(0);
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 1200;
+        box-shadow: 6px 0 28px rgba(0, 0, 0, 0.38);
+    }
+
+    /* `.closed` on mobile means slid fully off-screen — NOT the 80px mini rail.
+       Keep full width so the slide animation is clean. */
+    .app-container .sidebar.clinic-sidebar.closed {
+        width: min(84vw, 280px);
+        transform: translateX(-100%);
+    }
+
+    /* Dark backdrop behind the open drawer. `.app-container` loses the
+       `sidebar-closed` class while the drawer is open. */
+    .app-container:not(.sidebar-closed) .clinic-mobile-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1150;
+        -webkit-tap-highlight-color: transparent;
+        animation: clinic-backdrop-in 0.2s ease;
+    }
+    @keyframes clinic-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+
+    /* Content + header already go full-width at 992 (index.css / Header.css);
+       tighten padding for the smaller canvas. */
+    .main-content {
+        padding: calc(var(--header-height) + 16px) 16px 24px 16px;
+    }
+
+    /* Topbar: tighten spacing so hamburger + title + actions fit. */
+    .main-header.clinic-topbar {
+        gap: 10px;
+        padding: 0 14px;
+    }
+    .clinic-topbar .header-right { gap: 10px; }
+    .clinic-topbar .header-actions { gap: 8px; }
+}
+
+/* ─── Phones (≤600px) ──────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+    .main-content {
+        padding: calc(var(--header-height) + 12px) 12px 20px 12px;
+    }
+
+    /* The clinic user block (name + role) is non-essential on a phone and
+       eats width the title needs — hide it, keep the logout button. */
+    .clinic-topbar .clinic-user-menu { display: none; }
+
+    /* Any wide data table scrolls horizontally instead of clipping /
+       overflowing the viewport. `.ca-table-wrap` is `overflow:hidden` on
+       desktop for its rounded corners — re-enable horizontal scroll here. */
+    .ca-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .ca-table { min-width: 560px; }
+
+    /* Toolbars / action rows stack full-width. */
+    .ca-toolbar { flex-direction: column; align-items: stretch; }
+    .ca-toolbar > * { width: 100%; }
+
+    /* Section-level grids collapse to a single column as a safety net for any
+       grid that didn't already declare its own mobile rule. */
+    .ca-cards-grid,
+    .ca-detail-grid,
+    .ca-perm-grid,
+    .ca-form-row { grid-template-columns: 1fr; }
+
+    .ca-stats-grid { grid-template-columns: 1fr 1fr; }
+
+    /* Slide-over drawers / modals go full-screen. */
+    .ca-drawer { width: 100vw; max-width: 100vw; }
+}
+
+/* ─── Narrow phones (≤400px, e.g. 320–360) ────────────────────────────────── */
+@media (max-width: 400px) {
+    .main-content {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    /* Single-column stats on the smallest screens. */
+    .ca-stats-grid { grid-template-columns: 1fr; }
+
+    /* Give the drawer a touch more of the screen on tiny devices. */
+    .app-container .sidebar.clinic-sidebar,
+    .app-container .sidebar.clinic-sidebar.closed {
+        width: min(88vw, 280px);
+    }
+
+    /* Keep the page title readable but never let it shove actions off-screen. */
+    .clinic-topbar .clinic-page-title { max-width: 46vw; }
+}

@@ -58,7 +58,7 @@ function useUnreadCount() {
     });
 }
 
-export default function ClinicSidebar({ isOpen, toggleSidebar }) {
+export default function ClinicSidebar({ isOpen, toggleSidebar, onNavigate }) {
     const navigate = useNavigate();
     const location = useLocation();
     const { user, logout } = useAuth();
@@ -166,7 +166,7 @@ export default function ClinicSidebar({ isOpen, toggleSidebar }) {
                                         <a
                                             href="#"
                                             className={`nav-link ${isActive(item.path) ? 'active' : ''}`}
-                                            onClick={(e) => { e.preventDefault(); navigate(item.path); }}
+                                            onClick={(e) => { e.preventDefault(); navigate(item.path); onNavigate?.(); }}
                                             title={!isOpen ? item.label : undefined}
                                         >
                                             <span className="icon" style={{ position: 'relative' }}>
