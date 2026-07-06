@@ -5,6 +5,76 @@ import api from '../../shared/api/axios';
 import BanisaLoader from '../../shared/components/BanisaLoader';
 import './clinic-checkin-qr.css';
 
+// Renders the check-in URL into a styled QR PNG: teal "eyes" (the finder
+// pattern centers) instead of plain navy, plus the real Banisa logo dropped
+// in the middle. Error correction level 'H' tolerates ~30% of the symbol
+// being obscured, and the logo only covers a few percent of the area, so
+// it's safely recoverable.
+const QR_NAVY = '#0f172a';
+const QR_TEAL = '#14b8a6';
+const BANISA_LOGO_SRC = '/images/banisa-logo.png';
+
+// Baked-in quiet zone, in modules — the surrounding white card padding isn't
+// reliably wide enough on its own (it scales with card preset/print paper,
+// the QR content doesn't), and a real camera needs the standard >=4-module
+// margin to lock onto the finder patterns at all.
+const QUIET_ZONE_MODULES = 4;
+
+function loadImage(src) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+    });
+}
+
+async function renderStyledQr(text, pixelSize = 1200) {
+    const qr = QRCode.create(text, { errorCorrectionLevel: 'H' });
+    const size = qr.modules.size;
+    const moduleSize = Math.ceil(pixelSize / size);
+    const qrPx = moduleSize * size;
+    const quietPx = QUIET_ZONE_MODULES * moduleSize;
+    const canvasSize = qrPx + quietPx * 2;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasSize;
+    canvas.height = canvasSize;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+    // The inner 3×3 "eye" of each of the 3 finder patterns — rows/cols 2..4
+    // relative to that finder's fixed 7×7 origin — is the only part we
+    // recolor; the surrounding ring stays navy so scanners still lock on.
+    const inEye = (row, col, r0, c0) => row >= r0 + 2 && row <= r0 + 4 && col >= c0 + 2 && col <= c0 + 4;
+    const isEye = (row, col) => inEye(row, col, 0, 0) || inEye(row, col, 0, size - 7) || inEye(row, col, size - 7, 0);
+
+    for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size; col++) {
+            if (!qr.modules.get(row, col)) continue;
+            ctx.fillStyle = isEye(row, col) ? QR_TEAL : QR_NAVY;
+            ctx.fillRect(quietPx + col * moduleSize, quietPx + row * moduleSize, moduleSize, moduleSize);
+        }
+    }
+
+    // Real Banisa logo on a white backdrop, centered in the QR.
+    const cx = canvasSize / 2;
+    const cy = canvasSize / 2;
+    const backdropR = qrPx * 0.12;
+    ctx.beginPath();
+    ctx.arc(cx, cy, backdropR, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+
+    const logo = await loadImage(BANISA_LOGO_SRC);
+    const logoSize = backdropR * 2 * 0.82;
+    ctx.drawImage(logo, cx - logoSize / 2, cy - logoSize / 2, logoSize, logoSize);
+
+    return canvas.toDataURL('image/png');
+}
+
 // Screen + print size options. Values pinned in CSS via .qr-card--<size>
 // (screen widths + em base) and an @page rule injected from React for the
 // paper choice — @page can't be scoped to a class so we have to push the
@@ -101,13 +171,7 @@ export default function ClinicCheckInQR() {
             const d = res.data?.data;
             if (!d?.qrUrl) throw new Error("QR URL bo'sh — admin bilan bog'laning");
             setData(d);
-            const url = await QRCode.toDataURL(d.qrUrl, {
-                errorCorrectionLevel: 'H',
-                margin: 0,
-                width: 1200,
-                color: { dark: '#0f172a', light: '#ffffff' },
-            });
-            setQrDataUrl(url);
+            setQrDataUrl(await renderStyledQr(d.qrUrl));
         } catch (e) {
             setErr(e.response?.data?.message || e.message || 'QR yuklanmadi');
         } finally {

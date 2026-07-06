@@ -480,11 +480,14 @@
         gap: 0 !important;
     }
 
+    /* No min-height/align-items here — forcing vh inside @media print is a
+       Chrome print-engine trap: it can resolve slightly taller than the
+       printable page box and spill an extra blank sheet. Center
+       horizontally only via flex; natural (unstretched) height keeps the
+       card on a single page. */
     .qrp-card-wrap {
         display: flex !important;
         justify-content: center !important;
-        align-items: center !important;
-        min-height: 100vh;
     }
 
     .qr-card {
