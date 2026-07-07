@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import api from '../../../shared/api/axios';
+import ClickSplitConfigCard from './components/ClickSplitConfigCard';
 import ClickOnboardingWizard from './components/ClickOnboardingWizard';
 import ClickTroubleshooter from './components/ClickTroubleshooter';
 import ClickModeSwitchModal from './components/ClickModeSwitchModal';
@@ -417,6 +418,8 @@ export default function ClickTab() {
             <WebhookUrlBlock url={config.webhookUrl} onCopy={handleCopy} />
 
             <WebhookLogList items={recent} isLoading={recentLoading} />
+
+            <ClickSplitConfigCard />
 
             <div className="pay-card">
                 <div className="pay-card__title"><ShieldCheck size={14} /> Xavfsizlik va rejim</div>

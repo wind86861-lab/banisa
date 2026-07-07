@@ -12,6 +12,8 @@ import {
     getRecentHandler,
     getVersionsHandler,
     selfTestHandler,
+    getSplitConfig,
+    putSplitConfig,
 } from './click-clinic.controller';
 
 const router = Router();
@@ -33,5 +35,10 @@ router.get('/stats', VIEW, getStatsHandler);
 router.get('/recent', VIEW, getRecentHandler);
 router.get('/versions', VIEW, getVersionsHandler);
 router.post('/test', VIEW, selfTestHandler);
+
+// SHOP SPLIT bank rekvizit — clinic can view/edit anytime, but only Banisa
+// (super-admin) can flip isActive to actually route payments through split.
+router.get('/split-config', VIEW, getSplitConfig);
+router.put('/split-config', EDIT, putSplitConfig);
 
 export default router;

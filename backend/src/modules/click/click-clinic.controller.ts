@@ -3,6 +3,7 @@ import prisma from '../../config/database';
 import { AuthRequest } from '../../middleware/auth.middleware';
 import { env } from '../../config/env';
 import { upsertConfig, invalidateCache } from './click-config.service';
+import { getClinicSplitConfig, upsertClinicSplitConfig } from './click-split-config.service';
 import { getStats, getRecent } from './click-webhook-log.service';
 import { maskKey, open } from '../../utils/tenant-vault';
 import { runSelfTest, hasRecentPass } from './click-selftest.service';
@@ -365,4 +366,57 @@ export const selfTestHandler = async (req: AuthRequest, res: Response) => {
         status: result.status, message: result.message, durationMs: result.durationMs,
     });
     return res.json({ success: true, data: result });
+};
+
+// ─── SHOP SPLIT routing (bank rekvizit the clinic enters) ───────────────────
+// isActive on this row is a super-admin-only gate (see click-split-admin
+// .controller.ts) — clinics can fill in/edit their rekvizit any time, but
+// payments only route through split once Banisa flips isActive.
+const MFO_RE = /^\d{5}$/;
+const ACCOUNT_RE = /^\d{5,28}$/;
+const INN_RE = /^\d{9}$/;
+
+export const getSplitConfig = async (req: AuthRequest, res: Response) => {
+    const clinicId = await resolveClinicId(req.user!.id);
+    if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
+
+    const row = await getClinicSplitConfig(clinicId);
+    return res.json({ success: true, data: { config: row } });
+};
+
+export const putSplitConfig = async (req: AuthRequest, res: Response) => {
+    const clinicId = await resolveClinicId(req.user!.id);
+    if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
+
+    const { inn, branchId, cntrgId, paymentAccount, paymentMfo, transitAccount, transitMfo } = req.body || {};
+
+    if (inn != null && inn !== '' && !INN_RE.test(String(inn).trim())) {
+        return res.status(400).json({ success: false, message: 'INN 9 ta raqamdan iborat bo\'lishi kerak' });
+    }
+    if (typeof paymentAccount !== 'string' || !ACCOUNT_RE.test(paymentAccount.trim())) {
+        return res.status(400).json({ success: false, message: 'Hisob raqami noto\'g\'ri (faqat raqamlar)' });
+    }
+    if (typeof paymentMfo !== 'string' || !MFO_RE.test(paymentMfo.trim())) {
+        return res.status(400).json({ success: false, message: 'MFO 5 ta raqamdan iborat bo\'lishi kerak' });
+    }
+    if (transitAccount && !ACCOUNT_RE.test(String(transitAccount).trim())) {
+        return res.status(400).json({ success: false, message: 'Transit hisob raqami noto\'g\'ri' });
+    }
+    if (transitMfo && !MFO_RE.test(String(transitMfo).trim())) {
+        return res.status(400).json({ success: false, message: 'Transit MFO noto\'g\'ri' });
+    }
+
+    const saved = await upsertClinicSplitConfig(clinicId, {
+        inn: inn != null ? String(inn).trim() : null,
+        branchId: branchId != null ? String(branchId).trim() : null,
+        cntrgId: cntrgId != null ? String(cntrgId).trim() : null,
+        paymentAccount: paymentAccount.trim(),
+        paymentMfo: paymentMfo.trim(),
+        transitAccount: transitAccount != null ? String(transitAccount).trim() : null,
+        transitMfo: transitMfo != null ? String(transitMfo).trim() : null,
+        // isActive intentionally omitted — clinics cannot self-activate split routing.
+    });
+
+    await audit(clinicId, req.user!.id, 'click.split.rekvizit_updated', { isConfigured: saved.isConfigured });
+    return res.json({ success: true, data: { config: saved } });
 };

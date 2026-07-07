@@ -301,6 +301,7 @@ model Clinic {
   clickConfig            ClinicClickConfig?
   clickConfigVersions    ClickConfigVersion[]
   clickTransactions      ClickTransaction[]
+  clickSplitConfig       ClinicClickSplitConfig?
   doctorClinics          DoctorClinic[]
   ambulances             Ambulance[]
   ambulanceRequestsAsDest AmbulanceRequest[] @relation("AmbulanceRequestDestClinic")
@@ -1062,6 +1063,10 @@ model ClickTransaction {
   signTime          String?
   clinicId          String?
   isTestMode        Boolean  @default(false)
+  // SHOP SPLIT audit — how a single payment was divided (null for legacy/non-split txns)
+  isSplit           Boolean  @default(false)
+  splitBanisaAmount Int?                            // commission → Banisa (Medikal Navigator) counterparty
+  splitClinicAmount Int?                            // remainder → clinic counterparty
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -1106,6 +1111,62 @@ model ClinicClickConfig {
 
   clinic   Clinic               @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   versions ClickConfigVersion[]
+
+  @@index([isActive])
+}
+
+// ─── SHOP SPLIT ─────────────────────────────────────────────────────────────
+// Single Banisa "Split-Shop" merchant. All split payments flow through this one
+// service_id; each clinic is a counterparty (cntrg_id) / branch (branch_id) under
+// it. Banisa itself (Medikal Navigator, INN 307082044) is the commission
+// counterparty. Secret is AES-256-GCM sealed like ClinicClickConfig.
+model ClickSplitGlobalConfig {
+  id                   String   @id @default(uuid())
+  serviceId            String
+  merchantId           String
+  merchantUserId       String?
+  prodKeyCiphertext    String
+  prodKeyIv            String
+  prodKeyTag           String
+  testKeyCiphertext    String?
+  testKeyIv            String?
+  testKeyTag           String?
+  isTestMode           Boolean  @default(true)
+  isActive             Boolean  @default(false)
+  // Banisa commission counterparty (Medikal Navigator)
+  banisaCntrgId        String?
+  banisaInn            String?
+  banisaBranchId       String?
+  banisaPaymentAccount String?
+  banisaPaymentMfo     String?
+  banisaTransitAccount String?
+  banisaTransitMfo     String?
+  createdBy            String?
+  updatedBy            String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+// Per-clinic SHOP SPLIT routing — entered/edited by the clinic admin. Holds the
+// clinic's Click branch/counterparty id (defaults to its INN) and bank rekvizit
+// returned in the Prepare `params`. No secret here — the split flows through the
+// global Banisa service.
+model ClinicClickSplitConfig {
+  id             String   @id @default(uuid())
+  clinicId       String   @unique
+  inn            String?                       // = branch_id default (clinic INN)
+  branchId       String?                       // Click branch_id (defaults to inn)
+  cntrgId        String?                       // Click counterparty id (defaults to inn)
+  paymentAccount String?
+  paymentMfo     String?
+  transitAccount String?
+  transitMfo     String?
+  isConfigured   Boolean  @default(false)      // clinic filled the required fields
+  isActive       Boolean  @default(false)      // super-admin gate to route split here
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
 }

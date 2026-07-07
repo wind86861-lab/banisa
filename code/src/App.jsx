@@ -49,6 +49,7 @@ import ClinicDoctors from './clinic/pages/ClinicDoctors';
 import ClinicAmbulances from './clinic/pages/ClinicAmbulances';
 import ClinicSkoryRequests from './clinic/pages/ClinicSkoryRequests';
 import AdminPaymeOversight from './admin/pages/AdminPaymeOversight';
+import AdminClickSplit from './admin/pages/AdminClickSplit';
 import AdminSpecialties from './admin/pages/AdminSpecialties';
 import FiscalSettings from './admin/pages/FiscalSettings';
 import AmbulanceSettings from './admin/pages/AmbulanceSettings';
@@ -241,6 +242,7 @@ function App() {
                                         <Route path="metadata-templates" element={<MetadataTemplates />} />
                                         <Route path="oferta" element={<OfertaPage />} />
                                         <Route path="payments" element={<AdminPaymeOversight />} />
+                                        <Route path="click-split" element={<AdminClickSplit />} />
                                         <Route path="specialties" element={<AdminSpecialties />} />
                                         <Route path="fiscal" element={<FiscalSettings />} />
                                         <Route path="ambulance-settings" element={<AmbulanceSettings />} />
