@@ -83,7 +83,7 @@ function AmbulanceCard({ a, onEdit, onDelete, onStatusChange, statusPending }) {
                         {a.callSign}
                     </div>
                     <div className="cab-card__type">
-                        <span style={{ color: tm.color }}>{tm.icon}</span> {tm.label}
+                        <span style={{ color: tm.color }}>{tm.icon}</span> Transfer
                     </div>
                 </div>
                 <div className="cab-card__status" style={{ background: `${sm.color}1f`, color: sm.color }}>

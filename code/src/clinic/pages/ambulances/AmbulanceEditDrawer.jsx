@@ -8,13 +8,11 @@ import {
 import api from '../../../shared/api/axios';
 import ImageUpload from '../../../shared/components/ImageUpload';
 
+// Banisa only offers patient transfer (moving the patient) — not first aid /
+// medical-specialty calls. One type only; kept on the existing BASIC enum
+// value so no backend migration is needed.
 const TYPES = [
-    { value: 'BASIC',          label: 'Umumiy' },
-    { value: 'INTENSIVE_CARE', label: 'Reanimatsiya' },
-    { value: 'NEONATAL',       label: "Yangi tug'ilgan bolalar" },
-    { value: 'CARDIAC',        label: 'Yurak (kardiologiya)' },
-    { value: 'TRAUMA',         label: 'Travmatologiya' },
-    { value: 'OBSTETRIC',      label: "Tug'ruq" },
+    { value: 'BASIC', label: "Transfer (bemorni ko'chirib olib o'tish)" },
 ];
 
 const EQUIPMENT_PRESETS = [

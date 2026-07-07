@@ -157,7 +157,7 @@ export const getActiveSkory = async (req: AuthRequest, res: Response) => {
         include: {
             acceptedAmbulance: {
                 include: {
-                    clinic: { select: { id: true, nameUz: true, phones: true } },
+                    clinic: { select: { id: true, nameUz: true } },
                     dispatcher: { select: { phone: true } },
                 },
             },

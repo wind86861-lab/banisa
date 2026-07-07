@@ -98,7 +98,7 @@ export const listPublicAmbulances = async (req: Request, res: Response) => {
             clinic: {
                 select: {
                     id: true, nameUz: true, region: true, district: true,
-                    street: true, phones: true,
+                    street: true,
                     latitude: true, longitude: true,
                 },
             },
@@ -139,7 +139,7 @@ export const listPublicAmbulances = async (req: Request, res: Response) => {
                 name: a.clinic.nameUz,
                 region: a.clinic.region,
                 district: a.clinic.district,
-                phones: a.clinic.phones as string[],
+                // clinic phones intentionally omitted — patients never see them
             },
         };
     });

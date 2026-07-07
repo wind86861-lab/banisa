@@ -459,10 +459,11 @@ function WaitingScreen({ active, onCancelled }) {
 
     const curIdx = STATUS_FLOW.findIndex((s) => s.key === active.status);
     const amb = active.acceptedAmbulance;
+    // Patient only ever sees the dispatcher (driver) number — never the
+    // clinic's own phone.
     const phones = useMemo(() => {
         const list = [];
         if (amb?.dispatcher?.phone) list.push(amb.dispatcher.phone);
-        if (Array.isArray(amb?.clinic?.phones)) list.push(...amb.clinic.phones);
         return Array.from(new Set(list));
     }, [amb]);
 

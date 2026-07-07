@@ -43,8 +43,8 @@ const L = {
             (a.baseFee ? `💵 Chaqiruv: <b>${fmtMoney(a.baseFee)}</b> soʻm` : '') +
             (a.pricePerKm ? ` · 1 km uchun ${fmtMoney(a.pricePerKm)} soʻm\n` : '\n') +
             (distance != null ? `\n📍 Masofa: <b>${distance.toFixed(1)} km</b>\n` : '') +
-            (a.dispatchPhone || (a.clinic.phones || [])[0]
-                ? `\n📞 Dispatch: <code>${esc(a.dispatchPhone || a.clinic.phones[0])}</code>`
+            (a.dispatchPhone
+                ? `\n📞 Dispatch: <code>${esc(a.dispatchPhone)}</code>`
                 : ''),
         btnCall: '📞 Qoʻngʻiroq',
         btnAdd: '🛍️ Savatga qoʻshish',
@@ -75,8 +75,8 @@ const L = {
             (a.baseFee ? `💵 Вызов: <b>${fmtMoney(a.baseFee)}</b> сум` : '') +
             (a.pricePerKm ? ` · за 1 км ${fmtMoney(a.pricePerKm)} сум\n` : '\n') +
             (distance != null ? `\n📍 Расстояние: <b>${distance.toFixed(1)} км</b>\n` : '') +
-            (a.dispatchPhone || (a.clinic.phones || [])[0]
-                ? `\n📞 Диспетчер: <code>${esc(a.dispatchPhone || a.clinic.phones[0])}</code>`
+            (a.dispatchPhone
+                ? `\n📞 Диспетчер: <code>${esc(a.dispatchPhone)}</code>`
                 : ''),
         btnCall: '📞 Позвонить',
         btnAdd: '🛍️ В корзину',
@@ -94,16 +94,9 @@ function esc(s: any): string {
 function fmtMoney(n: number): string {
     return Number(n || 0).toLocaleString('en-US').replace(/,/g, ' ');
 }
-function typeLabel(t: string, lang: SkoryLang): string {
-    const m: Record<string, { uz: string; ru: string }> = {
-        BASIC:          { uz: 'Oddiy',           ru: 'Базовая' },
-        INTENSIVE_CARE: { uz: 'Reanimatsiya',    ru: 'Реанимация' },
-        NEONATAL:       { uz: 'Yangi tugʻilgan', ru: 'Неонатальная' },
-        CARDIAC:        { uz: 'Yurak',           ru: 'Кардио' },
-        TRAUMA:         { uz: 'Travma',          ru: 'Травма' },
-        OBSTETRIC:      { uz: 'Tugʻruq',         ru: 'Акушерская' },
-    };
-    return m[t]?.[lang] || t;
+function typeLabel(_t: string, lang: SkoryLang): string {
+    // Banisa only does patient transfer — never surface medical/first-aid types.
+    return lang === 'ru' ? 'Трансфер' : 'Transfer';
 }
 function statusLabel(s: string, lang: SkoryLang): string {
     const m: Record<string, { uz: string; ru: string }> = {

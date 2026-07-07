@@ -90,9 +90,9 @@ function AmbulanceDetailModal({ amb, onClose, onRequest }) {
     if (!amb) return null;
     const tm = TYPE_META[amb.type] || TYPE_META.BASIC;
     const sm = STATUS_META[amb.status] || STATUS_META.OFFLINE;
-    const phones = amb.dispatchPhone
-        ? [amb.dispatchPhone, ...(amb.clinic.phones || [])]
-        : (amb.clinic.phones || []);
+    // Only the dispatcher (driver) number is shown to patients — the clinic's
+    // own phone is deliberately hidden so bookings go through the platform.
+    const phones = amb.dispatchPhone ? [amb.dispatchPhone] : [];
 
     return (
         <AnimatePresence>
@@ -124,7 +124,7 @@ function AmbulanceDetailModal({ amb, onClose, onRequest }) {
                         )}
                         <div className="sky-modal__call">{amb.callSign}</div>
                         <div className="sky-modal__type" style={{ background: '#ffffff2a' }}>
-                            {tm.label} • {sm.label}
+                            Transfer • {sm.label}
                         </div>
                     </div>
 
@@ -471,7 +471,7 @@ export default function SkoryPage() {
                         ) : (
                             <div className="sky-list">
                                 {items.map((a) => {
-                                    const tm = TYPE_META[a.type];
+                                    const tm = TYPE_META[a.type] || TYPE_META.BASIC;
                                     const sm = STATUS_META[a.status];
                                     return (
                                         <button key={a.id} className="sky-row" onClick={() => setSelected(a)}>
@@ -481,7 +481,7 @@ export default function SkoryPage() {
                                             <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                                                 <div className="sky-row__call">{a.callSign}</div>
                                                 <div className="sky-row__meta">
-                                                    {tm.label}
+                                                    Transfer
                                                     {a.durationMin != null
                                                         ? <> · <Clock size={10} className="sky-icon-baseline" /> ~ {a.durationMin} daq</>
                                                         : (a.distanceKm != null && <> · {a.distanceKm.toFixed(1)} km</>)}

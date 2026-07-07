@@ -369,7 +369,7 @@ export async function acceptOffer(offerId: string, dispatcherUserId: string) {
 
     const winnerRequest = await prisma.ambulanceRequest.findUnique({
         where: { id: offer.requestId },
-        include: { acceptedAmbulance: { include: { clinic: { select: { nameUz: true, phones: true } } } } },
+        include: { acceptedAmbulance: { include: { clinic: { select: { nameUz: true } } } } },
     });
 
     return { won: true as const, offer, request: winnerRequest! };
