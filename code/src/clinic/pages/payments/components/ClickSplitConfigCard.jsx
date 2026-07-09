@@ -26,13 +26,18 @@ export default function ClickSplitConfigCard() {
     useEffect(() => {
         if (data !== undefined) {
             setForm({
+                legalName: data?.legalName ?? '',
                 inn: data?.inn ?? '',
-                branchId: data?.branchId ?? '',
-                cntrgId: data?.cntrgId ?? '',
+                directorName: data?.directorName ?? '',
+                legalAddress: data?.legalAddress ?? '',
+                oked: data?.oked ?? '',
+                contactPhone: data?.contactPhone ?? '',
+                bankName: data?.bankName ?? '',
                 paymentAccount: data?.paymentAccount ?? '',
                 paymentMfo: data?.paymentMfo ?? '',
                 transitAccount: data?.transitAccount ?? '',
                 transitMfo: data?.transitMfo ?? '',
+                cntrgId: data?.cntrgId ?? '',
             });
         }
     }, [data]);
@@ -62,7 +67,7 @@ export default function ClickSplitConfigCard() {
             <div className="pay-card__title"><Split size={14} /> To'lovni bo'lish (SHOP SPLIT)</div>
 
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '2px 0 16px', lineHeight: 1.55 }}>
-                Bemor to'lovi ikkiga bo'linadi: Banisa komissiyasi Banisa hisobiga, <b>qolgan qismi to'g'ridan-to'g'ri sizning hisobingizga</b> tushadi. Quyida o'z bank rekvizitlaringizni kiriting.
+                Bemor to'lovi ikkiga bo'linadi: Banisa komissiyasi Banisa hisobiga, <b>qolgan qismi to'g'ridan-to'g'ri sizning hisobingizga</b> tushadi. Click bilan <b>shartnoma tuzish uchun</b> quyidagi barcha yuridik va bank ma'lumotlarini to'ldiring.
             </p>
 
             {/* Status line */}
@@ -81,12 +86,35 @@ export default function ClickSplitConfigCard() {
             </div>
 
             <form onSubmit={onSubmit} className="split-form">
+                <div className="split-sec">Yuridik ma'lumotlar</div>
                 <div className="split-form__grid">
-                    <Field label="INN (STIR)" hint="9 raqam — branch_id shu bo'ladi" required>
+                    <Field label="Yuridik nomi (Юр наименование)" required full>
+                        <input value={form.legalName} onChange={set('legalName')} placeholder='"DIALAB MEDICAL 2020" MCHJ' />
+                    </Field>
+                    <Field label="INN / STIR" hint="9 raqam — branch_id shu bo'ladi" required>
                         <input inputMode="numeric" maxLength={9} value={form.inn} onChange={set('inn')} placeholder="307979571" />
                     </Field>
+                    <Field label="OKED (ixtiyoriy)">
+                        <input inputMode="numeric" value={form.oked} onChange={set('oked')} placeholder="86210" />
+                    </Field>
+                    <Field label="Rahbar F.I.O." hint="shartnomani imzolovchi" required>
+                        <input value={form.directorName} onChange={set('directorName')} placeholder="Aliyev Vali Valiyevich" />
+                    </Field>
+                    <Field label="Aloqa telefoni (ixtiyoriy)" hint="bemorga ko'rinmaydi">
+                        <input inputMode="tel" value={form.contactPhone} onChange={set('contactPhone')} placeholder="+998 90 123 45 67" />
+                    </Field>
+                    <Field label="Yuridik manzil" required full>
+                        <input value={form.legalAddress} onChange={set('legalAddress')} placeholder="Toshkent sh., Chilonzor t., ..." />
+                    </Field>
+                </div>
+
+                <div className="split-sec">Bank rekvizitlari</div>
+                <div className="split-form__grid">
+                    <Field label="Bank nomi" required full>
+                        <input value={form.bankName} onChange={set('bankName')} placeholder="Ipoteka-bank ATIB Chilonzor filiali" />
+                    </Field>
                     <Field label="Hisob raqami (payment_account)" required>
-                        <input inputMode="numeric" value={form.paymentAccount} onChange={set('paymentAccount')} placeholder="2020 8000 ..." />
+                        <input inputMode="numeric" value={form.paymentAccount} onChange={set('paymentAccount')} placeholder="20208000..." />
                     </Field>
                     <Field label="Bank MFO (payment_mfo)" hint="5 raqam" required>
                         <input inputMode="numeric" maxLength={5} value={form.paymentMfo} onChange={set('paymentMfo')} placeholder="00014" />
@@ -112,7 +140,10 @@ export default function ClickSplitConfigCard() {
             </form>
 
             <style>{`
+                .split-sec { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); margin: 18px 0 10px; }
+                .split-sec:first-child { margin-top: 0; }
                 .split-form__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 16px; }
+                .split-field--full { grid-column: 1 / -1; }
                 .split-field { display: flex; flex-direction: column; gap: 5px; }
                 .split-field label { font-size: 12.5px; font-weight: 600; color: var(--text-main); }
                 .split-field .req { color: #ef4444; margin-left: 2px; }
@@ -129,9 +160,9 @@ export default function ClickSplitConfigCard() {
     );
 }
 
-function Field({ label, hint, required, children }) {
+function Field({ label, hint, required, full, children }) {
     return (
-        <div className="split-field">
+        <div className={`split-field${full ? ' split-field--full' : ''}`}>
             <label>{label}{required && <span className="req">*</span>}{hint && <span className="hint"> · {hint}</span>}</label>
             {children}
         </div>

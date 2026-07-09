@@ -163,6 +163,12 @@ export interface UpsertClinicSplitInput {
     inn?: string | null;
     branchId?: string | null;
     cntrgId?: string | null;
+    legalName?: string | null;
+    directorName?: string | null;
+    legalAddress?: string | null;
+    bankName?: string | null;
+    oked?: string | null;
+    contactPhone?: string | null;
     paymentAccount?: string | null;
     paymentMfo?: string | null;
     transitAccount?: string | null;
@@ -170,25 +176,34 @@ export interface UpsertClinicSplitInput {
     isActive?: boolean;             // super-admin only — controller decides
 }
 
+const clean = (v: string | null | undefined) => (v == null ? null : (String(v).trim() || null));
+
 export async function upsertClinicSplitConfig(clinicId: string, input: UpsertClinicSplitInput) {
     // branch_id / cntrg_id default to the clinic INN when left blank.
-    const inn = input.inn?.trim() || null;
-    const branchId = input.branchId?.trim() || inn;
-    const cntrgId = input.cntrgId?.trim() || inn;
-
-    const required = [branchId, cntrgId, input.paymentAccount, input.paymentMfo];
-    const isConfigured = required.every((v) => v != null && String(v).trim() !== '');
+    const inn = clean(input.inn);
+    const branchId = clean(input.branchId) || inn;
+    const cntrgId = clean(input.cntrgId) || inn;
 
     const base = {
         inn,
         branchId,
         cntrgId,
-        paymentAccount: input.paymentAccount?.trim() || null,
-        paymentMfo: input.paymentMfo?.trim() || null,
-        transitAccount: input.transitAccount?.trim() || null,
-        transitMfo: input.transitMfo?.trim() || null,
-        isConfigured,
+        legalName: clean(input.legalName),
+        directorName: clean(input.directorName),
+        legalAddress: clean(input.legalAddress),
+        bankName: clean(input.bankName),
+        oked: clean(input.oked),
+        contactPhone: clean(input.contactPhone),
+        paymentAccount: clean(input.paymentAccount),
+        paymentMfo: clean(input.paymentMfo),
+        transitAccount: clean(input.transitAccount),
+        transitMfo: clean(input.transitMfo),
+        isConfigured: false as boolean,
     };
+    // "Configured" = every contract-critical field is present.
+    const required = [inn, branchId, cntrgId, base.legalName, base.directorName,
+        base.legalAddress, base.bankName, base.paymentAccount, base.paymentMfo];
+    base.isConfigured = required.every((v) => v != null && String(v).trim() !== '');
 
     return prisma.clinicClickSplitConfig.upsert({
         where: { clinicId },

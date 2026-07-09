@@ -75,17 +75,33 @@ export const listSplitClinics = async (req: AuthRequest, res: Response) => {
         orderBy: { nameUz: 'asc' },
     });
 
-    const items = clinics.map((c) => ({
-        clinicId: c.id,
-        clinicName: c.nameUz,
-        region: c.region,
-        clinicStatus: c.status,
-        isConfigured: c.clickSplitConfig?.isConfigured ?? false,
-        isActive: c.clickSplitConfig?.isActive ?? false,
-        branchId: c.clickSplitConfig?.branchId ?? null,
-        cntrgId: c.clickSplitConfig?.cntrgId ?? null,
-        updatedAt: c.clickSplitConfig?.updatedAt ?? null,
-    }));
+    const items = clinics.map((c) => {
+        const s = c.clickSplitConfig;
+        return {
+            clinicId: c.id,
+            clinicName: c.nameUz,
+            region: c.region,
+            clinicStatus: c.status,
+            isConfigured: s?.isConfigured ?? false,
+            isActive: s?.isActive ?? false,
+            // Full contract dossier the clinic shared — Banisa compiles the
+            // Click Split-Shop counterparty agreement from this.
+            inn: s?.inn ?? null,
+            branchId: s?.branchId ?? null,
+            cntrgId: s?.cntrgId ?? null,
+            legalName: s?.legalName ?? null,
+            directorName: s?.directorName ?? null,
+            legalAddress: s?.legalAddress ?? null,
+            bankName: s?.bankName ?? null,
+            oked: s?.oked ?? null,
+            contactPhone: s?.contactPhone ?? null,
+            paymentAccount: s?.paymentAccount ?? null,
+            paymentMfo: s?.paymentMfo ?? null,
+            transitAccount: s?.transitAccount ?? null,
+            transitMfo: s?.transitMfo ?? null,
+            updatedAt: s?.updatedAt ?? null,
+        };
+    });
 
     return res.json({ success: true, data: { items, total: items.length } });
 };

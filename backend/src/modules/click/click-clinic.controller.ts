@@ -388,32 +388,41 @@ export const putSplitConfig = async (req: AuthRequest, res: Response) => {
     const clinicId = await resolveClinicId(req.user!.id);
     if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
 
-    const { inn, branchId, cntrgId, paymentAccount, paymentMfo, transitAccount, transitMfo } = req.body || {};
+    const b = req.body || {};
+    const str = (v: any) => (v != null ? String(v).trim() : null);
 
-    if (inn != null && inn !== '' && !INN_RE.test(String(inn).trim())) {
-        return res.status(400).json({ success: false, message: 'INN 9 ta raqamdan iborat bo\'lishi kerak' });
+    // Only format-validate the machine-readable fields; the free-text contract
+    // fields (legal name, director, address…) are stored as-is.
+    if (b.inn != null && b.inn !== '' && !INN_RE.test(str(b.inn)!)) {
+        return res.status(400).json({ success: false, message: 'INN/STIR 9 ta raqamdan iborat bo\'lishi kerak' });
     }
-    if (typeof paymentAccount !== 'string' || !ACCOUNT_RE.test(paymentAccount.trim())) {
+    if (b.paymentAccount && !ACCOUNT_RE.test(str(b.paymentAccount)!)) {
         return res.status(400).json({ success: false, message: 'Hisob raqami noto\'g\'ri (faqat raqamlar)' });
     }
-    if (typeof paymentMfo !== 'string' || !MFO_RE.test(paymentMfo.trim())) {
+    if (b.paymentMfo && !MFO_RE.test(str(b.paymentMfo)!)) {
         return res.status(400).json({ success: false, message: 'MFO 5 ta raqamdan iborat bo\'lishi kerak' });
     }
-    if (transitAccount && !ACCOUNT_RE.test(String(transitAccount).trim())) {
+    if (b.transitAccount && !ACCOUNT_RE.test(str(b.transitAccount)!)) {
         return res.status(400).json({ success: false, message: 'Transit hisob raqami noto\'g\'ri' });
     }
-    if (transitMfo && !MFO_RE.test(String(transitMfo).trim())) {
+    if (b.transitMfo && !MFO_RE.test(str(b.transitMfo)!)) {
         return res.status(400).json({ success: false, message: 'Transit MFO noto\'g\'ri' });
     }
 
     const saved = await upsertClinicSplitConfig(clinicId, {
-        inn: inn != null ? String(inn).trim() : null,
-        branchId: branchId != null ? String(branchId).trim() : null,
-        cntrgId: cntrgId != null ? String(cntrgId).trim() : null,
-        paymentAccount: paymentAccount.trim(),
-        paymentMfo: paymentMfo.trim(),
-        transitAccount: transitAccount != null ? String(transitAccount).trim() : null,
-        transitMfo: transitMfo != null ? String(transitMfo).trim() : null,
+        inn: str(b.inn),
+        branchId: str(b.branchId),
+        cntrgId: str(b.cntrgId),
+        legalName: str(b.legalName),
+        directorName: str(b.directorName),
+        legalAddress: str(b.legalAddress),
+        bankName: str(b.bankName),
+        oked: str(b.oked),
+        contactPhone: str(b.contactPhone),
+        paymentAccount: str(b.paymentAccount),
+        paymentMfo: str(b.paymentMfo),
+        transitAccount: str(b.transitAccount),
+        transitMfo: str(b.transitMfo),
         // isActive intentionally omitted — clinics cannot self-activate split routing.
     });
 

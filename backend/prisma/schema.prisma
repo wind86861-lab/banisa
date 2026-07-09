@@ -1154,10 +1154,18 @@ model ClickSplitGlobalConfig {
 model ClinicClickSplitConfig {
   id             String   @id @default(uuid())
   clinicId       String   @unique
-  inn            String?                       // = branch_id default (clinic INN)
+  inn            String?                       // STIR / ИНН = branch_id default
   branchId       String?                       // Click branch_id (defaults to inn)
   cntrgId        String?                       // Click counterparty id (defaults to inn)
-  paymentAccount String?
+  // Full legal + banking dossier the clinic shares for the Click Split-Shop
+  // counterparty contract.
+  legalName      String?                       // Юр наименование ("... " MCHJ)
+  directorName   String?                       // rahbar / imzo qo'yuvchi
+  legalAddress   String?                       // yuridik manzil
+  bankName       String?                       // xizmat ko'rsatuvchi bank
+  oked           String?                       // OKED faoliyat kodi
+  contactPhone   String?                       // shartnoma uchun aloqa (bemorga ko'rinmaydi)
+  paymentAccount String?                       // hisob-kitob raqami
   paymentMfo     String?
   transitAccount String?
   transitMfo     String?

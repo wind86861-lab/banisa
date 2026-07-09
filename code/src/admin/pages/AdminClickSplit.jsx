@@ -46,6 +46,28 @@ export default function AdminClickSplit() {
         onError: (e) => setToast('❌ ' + (e?.response?.data?.message || 'Xatolik')),
     });
 
+    // Build the full contract dossier as text and copy it — Banisa pastes this
+    // into the Click Split-Shop counterparty agreement.
+    const copyDossier = (c) => {
+        const lines = [
+            `Klinika: ${c.clinicName}`,
+            `Yuridik nomi: ${c.legalName || '—'}`,
+            `INN/STIR: ${c.inn || '—'}`,
+            `branch_id: ${c.branchId || '—'}`,
+            `cntrg_id: ${c.cntrgId || '—'}`,
+            `OKED: ${c.oked || '—'}`,
+            `Rahbar: ${c.directorName || '—'}`,
+            `Yuridik manzil: ${c.legalAddress || '—'}`,
+            `Aloqa: ${c.contactPhone || '—'}`,
+            `Bank: ${c.bankName || '—'}`,
+            `Hisob raqami: ${c.paymentAccount || '—'}`,
+            `MFO: ${c.paymentMfo || '—'}`,
+            `Transit hisob: ${c.transitAccount || '—'}`,
+            `Transit MFO: ${c.transitMfo || '—'}`,
+        ].join('\n');
+        try { navigator.clipboard?.writeText(lines); setToast('📋 Nusxa olindi'); } catch { setToast('❌ Nusxa olinmadi'); }
+    };
+
     if (!form) return <div style={{ padding: 32 }}><Loader2 className="spin" /> Yuklanmoqda…</div>;
 
     const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
@@ -103,27 +125,38 @@ export default function AdminClickSplit() {
                 <p style={S.hint}>Klinika o'z rekvizitini to'ldirгач (✔ Tayyor), bu yerдан faollashtiring. Faqat faol klinikalarга to'lov split orqali boradi.</p>
                 <div style={S.tblWrap}>
                     <table style={S.tbl}>
-                        <thead><tr><th style={S.th}>Klinika</th><th style={S.th}>branch_id</th><th style={S.th}>cntrg_id</th><th style={S.th}>Holat</th><th style={S.th}>Split</th></tr></thead>
+                        <thead><tr><th style={S.th}>Klinika / yuridik nom</th><th style={S.th}>branch_id</th><th style={S.th}>Bank / hisob</th><th style={S.th}>Holat</th><th style={S.th}>Amal</th></tr></thead>
                         <tbody>
                             {(clinics ?? []).map((c) => (
                                 <tr key={c.clinicId} style={S.tr}>
-                                    <td style={S.td}>{c.clinicName}</td>
+                                    <td style={S.td}>
+                                        <div style={{ fontWeight: 600 }}>{c.clinicName}</div>
+                                        <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                                            {c.legalName || '—'}{c.inn ? ` · INN ${c.inn}` : ''}
+                                        </div>
+                                    </td>
                                     <td style={S.td}><code>{c.branchId || '—'}</code></td>
-                                    <td style={S.td}><code>{c.cntrgId || '—'}</code></td>
+                                    <td style={S.td}>
+                                        {c.bankName ? <div style={{ fontSize: 12 }}>{c.bankName}</div> : null}
+                                        <code>{c.paymentAccount || '—'}</code>{c.paymentMfo ? ` · ${c.paymentMfo}` : ''}
+                                    </td>
                                     <td style={S.td}>
                                         {c.isConfigured
                                             ? <span style={S.badgeOk}><CheckCircle2 size={12} /> Tayyor</span>
                                             : <span style={S.badgeWait}><Clock size={12} /> Kutilmoqda</span>}
                                     </td>
                                     <td style={S.td}>
-                                        <button
-                                            onClick={() => toggleClinic.mutate({ clinicId: c.clinicId, isActive: !c.isActive })}
-                                            disabled={!c.isConfigured || toggleClinic.isPending}
-                                            style={{ ...S.toggle, ...(c.isActive ? S.toggleOn : {}), opacity: c.isConfigured ? 1 : 0.4 }}
-                                            title={c.isConfigured ? '' : 'Klinika rekvizitni to\'ldirmagan'}
-                                        >
-                                            {c.isActive ? 'Faol' : 'O\'chiq'}
-                                        </button>
+                                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                            <button onClick={() => copyDossier(c)} style={S.copyBtn} title="Shartnoma uchun nusxa olish">📋</button>
+                                            <button
+                                                onClick={() => toggleClinic.mutate({ clinicId: c.clinicId, isActive: !c.isActive })}
+                                                disabled={!c.isConfigured || toggleClinic.isPending}
+                                                style={{ ...S.toggle, ...(c.isActive ? S.toggleOn : {}), opacity: c.isConfigured ? 1 : 0.4 }}
+                                                title={c.isConfigured ? '' : 'Klinika rekvizitni to\'ldirmagan'}
+                                            >
+                                                {c.isActive ? 'Faol' : 'O\'chiq'}
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -164,4 +197,5 @@ const S = {
     badgeWait: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, background: 'rgba(148,163,184,.15)', color: '#64748b', fontSize: 11.5, fontWeight: 700 },
     toggle: { padding: '5px 14px', borderRadius: 8, border: '1px solid var(--border-color,#e2e8f0)', background: 'var(--bg-input,#f1f5f9)', color: 'var(--text-muted)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' },
     toggleOn: { background: '#059669', color: '#fff', border: '1px solid #059669' },
+    copyBtn: { padding: '5px 9px', borderRadius: 8, border: '1px solid var(--border-color,#e2e8f0)', background: 'var(--bg-input,#f1f5f9)', cursor: 'pointer', fontSize: 13 },
 };
