@@ -64,7 +64,7 @@ async function resolveCartLine(clinicId: string, serviceType: CartServiceType, s
                 where: { clinicId_packageId: { clinicId, packageId: serviceId } },
             });
             const customization = link
-                ? { customPrice: link.clinicPrice ?? null, discountPercent: null }
+                ? { customPrice: link.clinicPrice ?? null, discountPercent: link.discountPercent ?? null }
                 : null;
             return { service, customization };
         }
