@@ -106,6 +106,20 @@ export interface SplitWebhookResult {
 export async function handleSplitWebhook(req: SplitRequest): Promise<SplitWebhookResult> {
     const action = Number(req.action);
 
+    // ROLLOUT DEBUG: log every incoming Click request in full (never the secret)
+    // so we can confirm the exact params keys and sign against a real request.
+    // `pm2 logs banisa-api | grep click.split`. Remove once split is verified live.
+    console.log('[click.split] IN', JSON.stringify({
+        action: req.action,
+        click_paydoc_id: req.click_paydoc_id,
+        attempt_trans_id: req.attempt_trans_id,
+        service_id: req.service_id,
+        merchant_prepare_id: req.merchant_prepare_id,
+        sign_time: req.sign_time,
+        sign_string: req.sign_string,
+        params: req.params,
+    }));
+
     const cfg = await getGlobalSplitConfig();
     if (!cfg) {
         return { body: err(req, SPLIT_ERROR.BAD_REQUEST), logMethod: 'split', logError: SPLIT_ERROR.BAD_REQUEST.code, logErrMsg: 'no global split config' };
@@ -116,6 +130,12 @@ export async function handleSplitWebhook(req: SplitRequest): Promise<SplitWebhoo
     if (action === SPLIT_ACTION.PREPARE || action === SPLIT_ACTION.CONFIRM) {
         const expected = computeSign(req, cfg.secretKey);
         if (expected !== req.sign_string) {
+            // Log both sides + the exact IV string so a paramsIV mismatch is
+            // obvious at a glance (never logs the secret itself).
+            console.warn('[click.split] SIGN MISMATCH', JSON.stringify({
+                expected, got: req.sign_string, paramsIV: paramsIV(req.params),
+                order: 'md5(click_paydoc_id+attempt_trans_id+service_id+SECRET+paramsIV+action+sign_time)',
+            }));
             return { body: err(req, SPLIT_ERROR.SIGN_FAILED), logMethod: 'split', logError: SPLIT_ERROR.SIGN_FAILED.code, logErrMsg: 'sign mismatch' };
         }
     }
