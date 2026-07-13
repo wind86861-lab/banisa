@@ -141,6 +141,40 @@ export const UserGuard = ({ children }) => {
   return children;
 };
 
+// ─── PATIENT SITE GUARD (login-wall) ──────────────────────────────────────
+// Wraps the whole patient-facing site (catalog, clinics, doctors, skory…).
+// A visitor must be an authenticated PATIENT to see anything. Inside a Telegram
+// Mini App, ensurePatientAuth auto-logins (or bounces to /mini-app-bind), so
+// Mini App users never hit the wall. On the plain web, an unauthenticated
+// visitor is sent to /user/login with the intended path preserved so they land
+// back on it after logging in. Same wait-for-resolver pattern as UserGuard so
+// Mini App entries don't flash through the login screen mid-roundtrip.
+export const PatientSiteGuard = ({ children }) => {
+  const { user, isLoading, ensurePatientAuth } = useUserAuth();
+  const location = useLocation();
+  const [resolved, setResolved] = useState(null);
+
+  useEffect(() => {
+    if (user) { setResolved(true); return; }
+    if (isLoading || !ensurePatientAuth) return;
+    let cancelled = false;
+    (async () => {
+      let u = null;
+      try { u = await ensurePatientAuth(); } catch { /* swallow */ }
+      if (cancelled) return;
+      setResolved(u ? true : false);
+    })();
+    return () => { cancelled = true; };
+  }, [isLoading, user, ensurePatientAuth]);
+
+  if (isLoading || resolved === null) return <AuthLoading />;
+  if (resolved === false && !user) {
+    return <Navigate to="/user/login" state={{ from: location.pathname + location.search }} replace />;
+  }
+  if (!user) return <AuthLoading />;
+  return children;
+};
+
 // ─── USER PUBLIC ONLY GUARD ───────────────────────────────────────────────
 // For /user/login and /user/signup — redirect already-logged-in users
 export const UserPublicOnlyGuard = ({ children }) => {

@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './shared/auth/AuthContext';
 import { UserAuthProvider } from './shared/auth/UserAuthContext';
 import { CartProvider } from './contexts/CartContext';
-import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect, UserGuard, UserPublicOnlyGuard } from './shared/auth/guards';
+import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect, UserGuard, UserPublicOnlyGuard, PatientSiteGuard } from './shared/auth/guards';
 import ScrollToTop from './components/ScrollToTop';
 import BetaBanner from './components/BetaBanner';
 import MapSearchPage from './pages/MapSearchPage';
@@ -139,20 +139,20 @@ function App() {
 
                                     {/* ─── PUBLIC HOME PAGE ────────────────────────── */}
                                     <Route path="/" element={<Navigate to="/xizmatlar" replace />} />
-                                    <Route path="/home" element={<HomePage />} />
+                                    <Route path="/home" element={<PatientSiteGuard><HomePage /></PatientSiteGuard>} />
 
-                                    {/* ─── PUBLIC PAGES ────────────────────────────── */}
-                                    <Route path="/xizmatlar" element={<XizmatlarPage />} />
-                                    <Route path="/xarita" element={<MapSearchPage />} />
-                                    <Route path="/xizmatlar/category/:category" element={<XizmatlarCategoryPage />} />
-                                    <Route path="/xizmatlar/:id" element={<XizmatDetailPage />} />
-                                    <Route path="/klinikalar" element={<ClinicsPage />} />
-                                    <Route path="/klinikalar/:id" element={<ClinicDetailPage />} />
-                                    <Route path="/doktorlar" element={<DoctorsPage />} />
-                                    <Route path="/doktorlar/:id" element={<DoctorProfilePage />} />
-                                    <Route path="/doktorlar/:id/band/:clinicId" element={<DoctorBookingPage />} />
-                                    <Route path="/skory" element={<SkoryPage />} />
-                                    <Route path="/skory/order" element={<SkoryOrderPage />} />
+                                    {/* ─── PATIENT SITE (login required — Mini App auto-logins) ── */}
+                                    <Route path="/xizmatlar" element={<PatientSiteGuard><XizmatlarPage /></PatientSiteGuard>} />
+                                    <Route path="/xarita" element={<PatientSiteGuard><MapSearchPage /></PatientSiteGuard>} />
+                                    <Route path="/xizmatlar/category/:category" element={<PatientSiteGuard><XizmatlarCategoryPage /></PatientSiteGuard>} />
+                                    <Route path="/xizmatlar/:id" element={<PatientSiteGuard><XizmatDetailPage /></PatientSiteGuard>} />
+                                    <Route path="/klinikalar" element={<PatientSiteGuard><ClinicsPage /></PatientSiteGuard>} />
+                                    <Route path="/klinikalar/:id" element={<PatientSiteGuard><ClinicDetailPage /></PatientSiteGuard>} />
+                                    <Route path="/doktorlar" element={<PatientSiteGuard><DoctorsPage /></PatientSiteGuard>} />
+                                    <Route path="/doktorlar/:id" element={<PatientSiteGuard><DoctorProfilePage /></PatientSiteGuard>} />
+                                    <Route path="/doktorlar/:id/band/:clinicId" element={<PatientSiteGuard><DoctorBookingPage /></PatientSiteGuard>} />
+                                    <Route path="/skory" element={<PatientSiteGuard><SkoryPage /></PatientSiteGuard>} />
+                                    <Route path="/skory/order" element={<PatientSiteGuard><SkoryOrderPage /></PatientSiteGuard>} />
                                     <Route path="/mini-app-bind" element={<MiniAppBindFirst />} />
 
                                     {/* ─── USER AUTH ROUTES (PATIENT) ──────────────── */}
