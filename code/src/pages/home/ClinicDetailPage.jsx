@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import ClinicCategorySlider from './ClinicCategorySlider';
 import {
     ChevronRight, MapPin, Phone, Globe, Mail, Clock, Star,
     Calendar, Award, Users, Building2, Loader2, ArrowLeft,
@@ -493,6 +494,13 @@ export default function ClinicDetailPage() {
                                                     </button>
                                                 ))}
                                             </div>
+
+                                            {/* Auto-sliding category strip (one row) — click to filter */}
+                                            <ClinicCategorySlider
+                                                items={categories}
+                                                active={svcCategory}
+                                                onSelect={setSvcCategory}
+                                            />
 
                                             {/* Filter bar: toggle + result count + reset */}
                                             {(() => {
