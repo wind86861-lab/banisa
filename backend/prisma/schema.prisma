@@ -302,6 +302,8 @@ model Clinic {
   clickConfigVersions    ClickConfigVersion[]
   clickTransactions      ClickTransaction[]
   clickSplitConfig       ClinicClickSplitConfig?
+  alifConfig             ClinicAlifConfig?
+  alifTransactions       AlifTransaction[]
   doctorClinics          DoctorClinic[]
   ambulances             Ambulance[]
   ambulanceRequestsAsDest AmbulanceRequest[] @relation("AmbulanceRequestDestClinic")
@@ -1179,6 +1181,60 @@ model ClinicClickSplitConfig {
   @@index([isActive])
 }
 
+// ─── Alif (Nasiya) ──────────────────────────────────────────────────────────
+// Per-clinic Alif merchant. Each clinic connects its OWN Alif account (NOT a
+// shared/split merchant — peer-to-peer). The Token authenticates our outgoing
+// invoice-creation calls; the Key (secret) verifies incoming webhook Signature
+// (HMAC-SHA256 base64). Both are AES-256-GCM sealed like ClinicClickConfig.
+model ClinicAlifConfig {
+  id                  String    @id @default(uuid())
+  clinicId            String    @unique
+  // Production credentials
+  prodTokenCiphertext String
+  prodTokenIv         String
+  prodTokenTag        String
+  prodKeyCiphertext   String
+  prodKeyIv           String
+  prodKeyTag          String
+  // Sandbox credentials (optional)
+  testTokenCiphertext String?
+  testTokenIv         String?
+  testTokenTag        String?
+  testKeyCiphertext   String?
+  testKeyIv           String?
+  testKeyTag          String?
+  isTestMode          Boolean   @default(true)
+  isActive            Boolean   @default(false)
+  connectedAt         DateTime?
+  lastUsedAt          DateTime?
+  createdBy           String?
+  updatedBy           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+}
+
+model AlifTransaction {
+  id            String   @id @default(uuid())
+  invoiceId     String?  @unique                 // Alif invoice id
+  appointmentId String                           // our order (in invoice `meta`)
+  amount        Int                              // TIYIN (som × 100)
+  status        String   @default("PENDING")     // PENDING | SUCCEEDED | CANCELLED
+  clinicId      String?
+  isTestMode    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  clinic Clinic? @relation(fields: [clinicId], references: [id])
+
+  @@index([appointmentId])
+  @@index([clinicId])
+  @@index([status])
+}
+
 model ClickConfigVersion {
   id                String   @id @default(uuid())
   configId          String
@@ -1465,6 +1521,7 @@ enum PaymentMethod {
   CARD
   PAYME
   CLICK
+  ALIF
 }
 
 enum AppointmentServiceType {

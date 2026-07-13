@@ -188,7 +188,8 @@ export default function CartCheckoutPage() {
 
     const supportsPayme = allClinicsSupport('PAYME');
     const supportsClick = allClinicsSupport('CLICK');
-    const supportsCard = supportsPayme || supportsClick; // Card = any online payment
+    const supportsAlif = allClinicsSupport('ALIF');
+    const supportsCard = supportsPayme || supportsClick || supportsAlif; // Card = any online payment
 
     // Min date = today (allow same-day booking).
     const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local tz
@@ -522,10 +523,21 @@ export default function CartCheckoutPage() {
                                         <span>Click</span>
                                     </div>
                                 )}
+
+                                {/* Alif Nasiya - only if all clinics support it */}
+                                {supportsAlif && (
+                                    <div
+                                        className={`co-payment-opt ${paymentMethod === 'alif' ? 'selected' : ''}`}
+                                        onClick={() => setPaymentMethod('alif')}
+                                    >
+                                        <span>🟣</span>
+                                        <span>Alif Nasiya</span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Warning if online payment not available */}
-                            {!supportsPayme && !supportsClick && (
+                            {!supportsPayme && !supportsClick && !supportsAlif && (
                                 <div style={{
                                     marginTop: 12,
                                     padding: '10px 12px',

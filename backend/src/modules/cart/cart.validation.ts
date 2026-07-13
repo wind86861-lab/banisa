@@ -28,7 +28,7 @@ export const checkoutSchema = z.object({
         scheduledAt: z.string().datetime({ message: 'Sana ISO formatda bo\'lishi kerak' }),
         notes: z.string().max(1000).optional(),
         // Frontend sends lowercase tokens — service maps to enum
-        paymentMethod: z.enum(['naqd', 'payme', 'click']).optional(),
+        paymentMethod: z.enum(['naqd', 'payme', 'click', 'alif']).optional(),
         ofertaVersionId: uuid.optional(),
     }),
 });

@@ -159,12 +159,12 @@ export default function AppointmentDetailPage() {
     // kutilmoqda" badge instead of a non-functional Pay button.
     const awaitingClinicAccept = data.status === 'PENDING'
         && data.paymentStatus !== 'PAID'
-        && (data.paymentMethod === 'PAYME' || data.paymentMethod === 'CLICK');
+        && (data.paymentMethod === 'PAYME' || data.paymentMethod === 'CLICK' || data.paymentMethod === 'ALIF');
     // Checked in at clinic + online + unpaid → urgent: service won't start
     // until paid. Patient sees a big red reminder above everything else.
     const urgentPaymentRequired = data.status === 'CHECKED_IN'
         && data.paymentStatus !== 'PAID'
-        && (data.paymentMethod === 'PAYME' || data.paymentMethod === 'CLICK');
+        && (data.paymentMethod === 'PAYME' || data.paymentMethod === 'CLICK' || data.paymentMethod === 'ALIF');
     const mapsUrl = mapsDirectionsUrl(data.clinic);
     const original = Number(data.price || 0);
     const finalP = Number(data.finalPrice || data.price || 0);
@@ -175,7 +175,9 @@ export default function AppointmentDetailPage() {
     // Payme POST-form page and refuses bookings whose clinic doesn't list
     // PAYME among its supported methods — so CLICK users tapping it ended
     // up staring at "Bu klinika onlayn to'lovni qo'llab-quvvatlamaydi".
-    const payTarget = data.paymentMethod === 'CLICK' ? '/payment/click' : '/payment';
+    const payTarget = data.paymentMethod === 'CLICK' ? '/payment/click'
+        : data.paymentMethod === 'ALIF' ? '/payment/alif'
+        : '/payment';
     const payState = {
         bookingData: {
             skipCreate: true,

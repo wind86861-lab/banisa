@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, Lock, Sparkles } from 'lucide-react';
 import PaymeTab from './payments/PaymeTab';
 import ClickTab from './payments/ClickTab';
+import AlifTab from './payments/AlifTab';
 import './payments/clinic-payments.css';
 
 const PROVIDERS = [
@@ -24,10 +25,10 @@ const PROVIDERS = [
     },
     {
         key: 'alif',
-        label: 'Alif',
+        label: 'Alif Nasiya',
         accent: '#7c3aed',
-        status: 'soon',
-        soonText: 'Tez orada — Alif Pay integratsiyasi',
+        status: 'available',
+        component: AlifTab,
     },
 ];
 

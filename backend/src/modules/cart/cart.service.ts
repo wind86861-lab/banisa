@@ -400,6 +400,7 @@ export class CartService {
             const paymentMethod =
                 raw === 'payme' ? 'PAYME' :
                 raw === 'click' ? 'CLICK' :
+                raw === 'alif' ? 'ALIF' :
                 'CASH';
             const isCash = paymentMethod === 'CASH';
             const appointmentData: any = {

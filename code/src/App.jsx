@@ -87,6 +87,7 @@ import PatientCheckInPage from './pages/checkin/PatientCheckInPage';
 import ScanCheckInPage from './user/pages/ScanCheckInPage';
 import PaymePage from './pages/payment/PaymePage';
 import ClickPayPage from './pages/payment/ClickPayPage';
+import AlifPayPage from './pages/payment/AlifPayPage';
 import PaymentResultPage from './pages/payment/PaymentResultPage';
 import CartPage from './pages/CartPage';
 import CartCheckoutPage from './user/pages/CartCheckoutPage';
@@ -179,6 +180,7 @@ function App() {
                                     {/* ─── PAYMENT (PAYME) ─────────────────────────── */}
                                     <Route path="/payment" element={<PaymePage />} />
                                     <Route path="/payment/click" element={<ClickPayPage />} />
+                                    <Route path="/payment/alif" element={<AlifPayPage />} />
                                     <Route path="/payment/result" element={<PaymentResultPage />} />
 
                                     {/* ─── CLINIC REGISTRATION ─────────────────────── */}
