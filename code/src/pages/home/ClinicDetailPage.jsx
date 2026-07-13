@@ -156,7 +156,7 @@ export default function ClinicDetailPage() {
     const navigate = useNavigate();
     const { user, waitForUser } = useUserAuth();
     const { data: clinic, isLoading, error } = usePublicClinicDetail(id);
-    const [activeTab, setActiveTab] = useState('overview');
+    const [activeTab, setActiveTab] = useState('services');
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [pendingBooking, setPendingBooking] = useState(null);
     const [activeServiceTab, setActiveServiceTab] = useState(null);
@@ -367,8 +367,8 @@ export default function ClinicDetailPage() {
                             {/* Tab nav */}
                             <div className="cdp-tab-nav">
                                 {[
-                                    { id: 'overview', label: "Umumiy ma'lumot" },
                                     { id: 'services', label: 'Xizmatlar', count: clinic.serviceCounts?.total },
+                                    { id: 'overview', label: "Umumiy ma'lumot" },
                                     { id: 'reviews', label: 'Sharhlar', count: clinic.reviewCount },
                                     { id: 'contact', label: 'Aloqa' },
                                 ].map(t => (
