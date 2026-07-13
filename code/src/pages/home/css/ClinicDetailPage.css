@@ -290,36 +290,38 @@
 .cdp-tab-nav::-webkit-scrollbar { display: none; }
 .cdp-tab-btn {
     flex-shrink: 0;
-    padding: 16px 22px;
+    padding: 16px 24px;
     background: none;
     border: none;
-    border-bottom: 3px solid transparent;
+    border-bottom: 4px solid transparent;
     margin-bottom: -2px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #6b7280;
+    font-size: 17px;
+    font-weight: 700;
+    color: #374151;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     transition: all 0.2s;
     white-space: nowrap;
+    letter-spacing: -0.01em;
 }
-.cdp-tab-btn:hover { color: #1a103d; }
+.cdp-tab-btn:hover { color: #b91c1c; }
 .cdp-tab-btn.active {
-    color: #1dbfc1;
-    border-bottom-color: #1dbfc1;
+    color: #dc2626;
+    border-bottom-color: #dc2626;
+    font-weight: 800;
 }
 .cdp-tab-badge {
-    padding: 2px 8px;
-    background: #e0f7f7;
-    color: #0891b2;
+    padding: 2px 9px;
+    background: #f1f5f9;
+    color: #475569;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
 }
 .cdp-tab-btn.active .cdp-tab-badge {
-    background: #1dbfc1;
+    background: #dc2626;
     color: #fff;
 }
 
@@ -921,7 +923,7 @@
     .cdp-stat { padding: 14px; gap: 10px; }
     .cdp-stat-ico { width: 40px; height: 40px; }
     .cdp-stat-val { font-size: 18px; }
-    .cdp-tab-btn { padding: 14px 14px; font-size: 13px; }
+    .cdp-tab-btn { padding: 14px 16px; font-size: 15px; }
     .cdp-identity-actions { flex-direction: column; }
     .cdp-btn-call, .cdp-btn-map { width: 100%; }
 }
@@ -933,7 +935,7 @@
     .cdp-back { display: none; }
     .cdp-name { font-size: 16px; }
     .cdp-panel { padding: 16px; border-radius: 0 0 10px 10px; }
-    .cdp-tab-btn { padding: 12px 12px; font-size: 12px; }
+    .cdp-tab-btn { padding: 12px 13px; font-size: 14px; }
     .cdp-hour-day { min-width: 90px; font-size: 13px; }
     .cdp-hour-time { font-size: 12px; }
     .cdp-hour-status { font-size: 11px; min-width: 50px; }
@@ -956,7 +958,7 @@
     .cdp-identity-logo { width: 48px; height: 48px; }
     .cdp-name { font-size: 14px; }
     .cdp-stats { grid-template-columns: 1fr 1fr; gap: 6px; }
-    .cdp-tab-btn { padding: 10px 8px; font-size: 11px; }
+    .cdp-tab-btn { padding: 10px 9px; font-size: 12.5px; }
 }
 
 /* ─── Services tab — enhanced ───────────────────────────── */
