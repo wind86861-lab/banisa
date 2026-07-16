@@ -134,11 +134,11 @@ export async function handleAlifWebhook(rawBody: Buffer, signatureHeader?: strin
         return { ok: false, status: 400, note: 'bad json' };
     }
 
-    // ROLLOUT DEBUG (remove once live): see exactly what Alif sends.
-    console.log('[alif.webhook] IN', JSON.stringify({
-        signature: signatureHeader ? '(present)' : '(missing)',
-        meta: payload?.meta, payment: payload?.payment, id: payload?.id, status: payload?.status,
-    }));
+    // ROLLOUT DEBUG (remove once live): dump the FULL body so we can see the
+    // exact shape Alif sends (top-level keys + raw JSON).
+    console.log('[alif.webhook] IN sig=' + (signatureHeader ? 'present' : 'missing')
+        + ' keys=' + JSON.stringify(Object.keys(payload || {}))
+        + ' RAW=' + rawBody.toString('utf8').slice(0, 1500));
 
     const meta = payload?.meta || {};
     const appointmentId = meta.appointmentId
