@@ -134,12 +134,6 @@ export async function handleAlifWebhook(rawBody: Buffer, signatureHeader?: strin
         return { ok: false, status: 400, note: 'bad json' };
     }
 
-    // ROLLOUT DEBUG (remove once live): dump the FULL body so we can see the
-    // exact shape Alif sends (top-level keys + raw JSON).
-    console.log('[alif.webhook] IN sig=' + (signatureHeader ? 'present' : 'missing')
-        + ' keys=' + JSON.stringify(Object.keys(payload || {}))
-        + ' RAW=' + rawBody.toString('utf8').slice(0, 1500));
-
     // Alif's webhook wraps the invoice in an envelope { type, payload: {…invoice} },
     // while getInvoice returns the invoice directly. Unwrap so both shapes work.
     const inv = (payload && typeof payload.payload === 'object' && payload.payload) ? payload.payload : payload;
@@ -159,13 +153,7 @@ export async function handleAlifWebhook(rawBody: Buffer, signatureHeader?: strin
     if (!cfg) return { ok: false, status: 400, note: 'clinic alif config missing' };
 
     if (!verifySignature(rawBody, signatureHeader, cfg.key)) {
-        // ROLLOUT DEBUG (remove once live): dump what we got vs. what we expect
-        // so the first real webhook's encoding/key can be diagnosed at a glance.
-        console.warn('[alif.webhook] SIGNATURE MISMATCH for appt', appointmentId, JSON.stringify({
-            received: signatureHeader || null,
-            expectedBase64: crypto.createHmac('sha256', cfg.key).update(rawBody).digest('base64'),
-            expectedHex: crypto.createHmac('sha256', cfg.key).update(rawBody).digest('hex'),
-        }));
+        console.warn('[alif.webhook] bad signature for appt', appointmentId);
         return { ok: false, status: 401, note: 'bad signature' };
     }
 
