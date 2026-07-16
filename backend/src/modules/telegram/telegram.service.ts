@@ -72,6 +72,16 @@ function destinationButton(link: string): any {
     const botUsername = process.env.TELEGRAM_BOT_USERNAME || 'banisauzbot';
     const deep = (p: string) => ({ text: 'Ochish', url: `https://t.me/${botUsername}?startapp=${encodeURIComponent(p)}` });
 
+    // Auth / account-recovery links MUST stay plain URL buttons opening the web
+    // page. A Mini-App startapp deep-link silently drops the query string
+    // (Telegram only allows [A-Za-z0-9_-] in startapp), so the ?token=… on a
+    // password-reset link was lost → the page opened with no token → "link
+    // invalid/expired". The user is logged out here anyway, so there's no
+    // initData/cookie worth preserving via the Mini App.
+    if (path.startsWith('/user/reset-password') || path.startsWith('/user/forgot-password')) {
+        return { text: 'Parolni tiklash', url: absoluteLink(link) };
+    }
+
     if (path === '/user/appointments') return deep('appointments');
     if (path === '/user/cart' || path === '/user/cart/checkout') return deep(path.endsWith('checkout') ? 'checkout' : 'cart');
     if (path === '/user/notifications') return deep('notifications');

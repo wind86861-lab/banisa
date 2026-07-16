@@ -71,8 +71,8 @@ export async function requestPasswordReset(rawPhone: string, ipAddress?: string)
     if (tg && !tg.isBlocked) {
         const lang = tg.language === 'ru' ? 'ru' : 'uz';
         const body = lang === 'ru'
-            ? '🔐 *Сброс пароля*\n\nНажмите кнопку ниже, чтобы задать новый пароль. Срок действия — 15 минут.\n\nЕсли вы не запрашивали сброс, проигнорируйте это сообщение.'
-            : '🔐 *Parolni tiklash*\n\nYangi parol o\'rnatish uchun pastdagi tugmani bosing. Havola 15 daqiqa amal qiladi.\n\nAgar siz so\'ramagan bo\'lsangiz — e\'tibor bermang.';
+            ? '🔐 <b>Сброс пароля</b>\n\nНажмите кнопку ниже, чтобы задать новый пароль. Срок действия — 15 минут.\n\nЕсли вы не запрашивали сброс, проигнорируйте это сообщение.'
+            : '🔐 <b>Parolni tiklash</b>\n\nYangi parol o\'rnatish uchun pastdagi tugmani bosing. Havola 15 daqiqa amal qiladi.\n\nAgar siz so\'ramagan bo\'lsangiz — e\'tibor bermang.';
         await sendMessage(BigInt(tg.chatId), body, link);
         return { sent: true, channel: 'telegram' };
     }
