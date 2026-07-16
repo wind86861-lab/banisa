@@ -69,7 +69,7 @@ export async function createInvoice(appointmentId: string, patientId: string): P
         meta: { appointmentId: appointment.id, clinicId: appointment.clinicId },
     };
 
-    const resp = await fetch(`${cfg.baseUrl}/invoice`, {
+    const resp = await fetch(`${cfg.apiBaseUrl}/invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Token': cfg.token },
         body: JSON.stringify(body),
@@ -97,7 +97,7 @@ export async function createInvoice(appointmentId: string, patientId: string): P
     touchAlifLastUsed(cfg.configId);
 
     return {
-        checkoutUrl: `${cfg.baseUrl}/?invoice=${invoiceId}`,
+        checkoutUrl: `${cfg.checkoutBaseUrl}/?invoice=${invoiceId}`,
         invoiceId: String(invoiceId),
         amountTiyin: priceTiyin,
         isTestMode: cfg.isTestMode,
@@ -110,12 +110,20 @@ export async function createInvoice(appointmentId: string, patientId: string): P
 // order id in `meta` before verifying.
 function verifySignature(rawBody: Buffer, signatureHeader: string | undefined, key: string): boolean {
     if (!signatureHeader) return false;
-    const expected = crypto.createHmac('sha256', key).update(rawBody).digest('base64');
-    try {
-        const a = Buffer.from(expected);
-        const b = Buffer.from(signatureHeader);
-        return a.length === b.length && crypto.timingSafeEqual(a, b);
-    } catch { return false; }
+    // Docs specify base64(HMAC-SHA256(Key, rawBody)); accept hex too so the
+    // first live webhook can't fail on an encoding surprise. Constant-time.
+    const candidates = [
+        crypto.createHmac('sha256', key).update(rawBody).digest('base64'),
+        crypto.createHmac('sha256', key).update(rawBody).digest('hex'),
+    ];
+    for (const expected of candidates) {
+        try {
+            const a = Buffer.from(expected);
+            const b = Buffer.from(signatureHeader.trim());
+            if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
+        } catch { /* try next encoding */ }
+    }
+    return false;
 }
 
 export interface AlifWebhookResult { ok: boolean; status: number; note: string; }
@@ -147,7 +155,13 @@ export async function handleAlifWebhook(rawBody: Buffer, signatureHeader?: strin
     if (!cfg) return { ok: false, status: 400, note: 'clinic alif config missing' };
 
     if (!verifySignature(rawBody, signatureHeader, cfg.key)) {
-        console.warn('[alif.webhook] SIGNATURE MISMATCH for appt', appointmentId);
+        // ROLLOUT DEBUG (remove once live): dump what we got vs. what we expect
+        // so the first real webhook's encoding/key can be diagnosed at a glance.
+        console.warn('[alif.webhook] SIGNATURE MISMATCH for appt', appointmentId, JSON.stringify({
+            received: signatureHeader || null,
+            expectedBase64: crypto.createHmac('sha256', cfg.key).update(rawBody).digest('base64'),
+            expectedHex: crypto.createHmac('sha256', cfg.key).update(rawBody).digest('hex'),
+        }));
         return { ok: false, status: 401, note: 'bad signature' };
     }
 

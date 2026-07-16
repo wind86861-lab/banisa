@@ -1,11 +1,16 @@
 import prisma from '../../config/database';
 import { seal, open } from '../../utils/tenant-vault';
 
-// Alif checkout endpoints. The itemised invoice API doubles as the Alif Nasiya
-// (installment) entry point — the customer picks card or Nasiya on Alif's page.
-export const ALIF_CHECKOUT = {
-    PROD: 'https://checkout.alifpay.uz',
-    TEST: 'https://checkout-dev.alifpay.uz',
+// Alif has TWO distinct hosts per environment (verified against the live API):
+//   • api  — where WE create the invoice: POST {api}/invoice with header Token.
+//   • checkout — the customer-facing page we redirect the payer to:
+//     {checkout}/?invoice=<id> (they pick card OR Nasiya installment there).
+// These are different domains — do NOT post the invoice to the checkout host
+// (it's nginx GET-only and 405s every POST). The itemised invoice doubles as
+// the Alif Nasiya entry point.
+export const ALIF_HOSTS = {
+    PROD: { api: 'https://api.alifpay.uz', checkout: 'https://checkout.alifpay.uz' },
+    TEST: { api: 'https://api-dev.alifpay.uz', checkout: 'https://checkout-dev.alifpay.uz' },
 };
 
 export interface ResolvedAlifConfig {
@@ -15,7 +20,8 @@ export interface ResolvedAlifConfig {
     key: string;            // decrypted HMAC secret for webhook Signature
     isTestMode: boolean;
     isActive: boolean;
-    baseUrl: string;        // checkout host for the active mode
+    apiBaseUrl: string;      // create-invoice API host for the active mode
+    checkoutBaseUrl: string; // customer redirect page host for the active mode
 }
 
 const CACHE_TTL_MS = 60_000;
@@ -47,6 +53,7 @@ export async function getAlifConfigForClinic(clinicId: string): Promise<Resolved
         key = open({ ciphertext: row.testKeyCiphertext, iv: row.testKeyIv, tag: row.testKeyTag });
     }
 
+    const hosts = row.isTestMode ? ALIF_HOSTS.TEST : ALIF_HOSTS.PROD;
     const resolved: ResolvedAlifConfig = {
         configId: row.id,
         clinicId: row.clinicId,
@@ -54,7 +61,8 @@ export async function getAlifConfigForClinic(clinicId: string): Promise<Resolved
         key,
         isTestMode: row.isTestMode,
         isActive: row.isActive,
-        baseUrl: row.isTestMode ? ALIF_CHECKOUT.TEST : ALIF_CHECKOUT.PROD,
+        apiBaseUrl: hosts.api,
+        checkoutBaseUrl: hosts.checkout,
     };
     cache.set(clinicId, { value: resolved, expiresAt: now + CACHE_TTL_MS });
     return resolved;

@@ -178,6 +178,10 @@ export default function AppointmentDetailPage() {
     const payTarget = data.paymentMethod === 'CLICK' ? '/payment/click'
         : data.paymentMethod === 'ALIF' ? '/payment/alif'
         : '/payment';
+    // Human label of the online provider, for the helper texts below.
+    const payLabel = data.paymentMethod === 'CLICK' ? 'Click'
+        : data.paymentMethod === 'ALIF' ? 'Alif Nasiya'
+        : 'Payme';
     const payState = {
         bookingData: {
             skipCreate: true,
@@ -319,7 +323,7 @@ export default function AppointmentDetailPage() {
                                 <div className="apd-pay-card-emoji">⏳</div>
                                 <h3>Klinika tasdiqi kutilmoqda</h3>
                                 <p>
-                                    Klinika sizning bronni qabul qilgach, sizga {data.paymentMethod === 'CLICK' ? 'Click' : 'Payme'} orqali
+                                    Klinika sizning bronni qabul qilgach, sizga {payLabel} orqali
                                     <strong> "💳 To'lash"</strong> havolasi yuboriladi (Telegram + sayt).
                                     Hozirda to'lov amalga oshirib bo'lmaydi — klinika rad qilsa pul qaytarish muommosi yo'q.
                                 </p>
@@ -332,7 +336,7 @@ export default function AppointmentDetailPage() {
                                 <h3>HOZIR to'lash kerak</h3>
                                 <p>
                                     Siz klinikaga keldingiz va check-in qildingiz, lekin to'lov hali qilinmagan.
-                                    <strong> Xizmat boshlanmaydi</strong> — quyidagi {data.paymentMethod === 'CLICK' ? 'Click' : 'Payme'} tugmasi bilan
+                                    <strong> Xizmat boshlanmaydi</strong> — quyidagi {payLabel} tugmasi bilan
                                     hozir to'lang yoki kassaga borib naqd to'lashingiz mumkin (klinikaning ruxsati bo'lsa).
                                 </p>
                                 <button
