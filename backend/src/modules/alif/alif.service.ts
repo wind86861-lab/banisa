@@ -165,8 +165,11 @@ export async function handleAlifWebhook(rawBody: Buffer, signatureHeader?: strin
         return { ok: false, status: 401, note: 'bad signature' };
     }
 
-    const status = String(payload?.payment?.status || payload?.status || '').toUpperCase();
-    const paidAmountTiyin = Number(payload?.payment?.amount ?? 0);
+    // Alif's completed-invoice webhook carries the settlement under `charge`
+    // (v1 API, what /invoice returns) or `payment` (v2). Support both shapes.
+    const settlement = payload?.charge || payload?.payment || {};
+    const status = String(settlement.status || payload?.status || '').toUpperCase();
+    const paidAmountTiyin = Number(settlement.amount ?? 0);
 
     if (status !== 'SUCCEEDED') {
         // Non-success (cancelled/failed) — record but don't mark paid.

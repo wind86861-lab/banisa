@@ -102,6 +102,11 @@ app.set('trust proxy', 1);
 // Global rate limiter — 100 req / 15 min per IP (VULN-02)
 app.use('/api/', apiLimiter);
 
+// Alif webhook HMAC is computed over the EXACT request bytes — capture the raw
+// body here, before the global JSON parser consumes the stream (otherwise the
+// signature can never be verified and the body arrives re-serialized/empty).
+app.use('/api/alif/webhook', express.raw({ type: '*/*', limit: '1mb' }));
+
 // Logic Middleware — explicit body limits so a single oversized payload
 // can't tie up event loop / memory (uploads use multer, not express.json).
 app.use(express.json({ limit: '100kb' }));
