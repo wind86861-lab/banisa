@@ -45,6 +45,17 @@ export const update = async (req: AuthRequest, res: Response, next: NextFunction
     }
 };
 
+// Set the clinic's Banisa-commission percent (SHOP-SPLIT). Super-admin only.
+export const updateCommission = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const { commissionPercent } = req.body;
+        const clinic = await adminClinicsService.updateCommissionRate(req.params.id as string, commissionPercent);
+        sendSuccess(res, clinic, null, 'Komissiya foizi yangilandi');
+    } catch (error) {
+        next(error);
+    }
+};
+
 // 5. Soft delete (deactivate) clinic
 export const remove = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {

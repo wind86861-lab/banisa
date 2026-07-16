@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import {
     useClinicById, useClinicStats, useClinicServices,
-    useClinicDoctors, useClinicReviews,
+    useClinicDoctors, useClinicReviews, useUpdateClinicCommission,
 } from './hooks/useClinics';
 import './ClinicDetailPage.css';
 
@@ -49,6 +49,9 @@ export default function ClinicDetailPage() {
     const navigate = useNavigate();
     const [activeTopTab, setActiveTopTab] = useState('profile');
     const [svcSearch, setSvcSearch] = useState('');
+    // Banisa-commission editor (null draft = show the saved value).
+    const [commissionDraft, setCommissionDraft] = useState(null);
+    const commissionMut = useUpdateClinicCommission();
 
     const { data: clinic, isLoading, error } = useClinicById(id);
     const { data: stats } = useClinicStats(id);
@@ -97,6 +100,10 @@ export default function ClinicDetailPage() {
     );
 
     const status = STATUS_MAP[clinic.status] || STATUS_MAP.PENDING;
+    const currentCommissionPct = Math.round((clinic.commissionRate ?? 0) * 100);
+    const shownCommissionPct = commissionDraft !== null ? commissionDraft : String(currentCommissionPct);
+    const commissionPctNum = Number(shownCommissionPct);
+    const commissionValid = shownCommissionPct !== '' && Number.isFinite(commissionPctNum) && commissionPctNum >= 0 && commissionPctNum <= 100;
     const phones = Array.isArray(clinic.phones) ? clinic.phones : [];
     const emails = Array.isArray(clinic.emails) ? clinic.emails : [];
     const workingHours = normalizeWorkingHours(clinic.workingHours);
@@ -169,6 +176,46 @@ export default function ClinicDetailPage() {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                </div>
+
+                {/* Banisa commission (Click SHOP-SPLIT share) */}
+                <div className="cdp-section-card">
+                    <div className="cdp-section-label">💰 Banisa komissiyasi (Click SHOP-SPLIT)</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <input
+                                type="number" min={0} max={100} step={1}
+                                value={shownCommissionPct}
+                                onChange={e => setCommissionDraft(e.target.value)}
+                                style={{ width: 96, padding: '9px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 18, fontWeight: 800, textAlign: 'center' }}
+                            />
+                            <span style={{ fontWeight: 800, fontSize: 18 }}>%</span>
+                        </div>
+                        <button
+                            onClick={() => commissionMut.mutate(
+                                { id, commissionPercent: commissionPctNum },
+                                { onSuccess: () => setCommissionDraft(null) },
+                            )}
+                            disabled={commissionMut.isPending || !commissionValid || commissionPctNum === currentCommissionPct}
+                            style={{
+                                padding: '9px 18px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                                background: (commissionMut.isPending || !commissionValid || commissionPctNum === currentCommissionPct) ? '#cbd5e1' : '#dc2626',
+                                color: '#fff', fontWeight: 700, fontSize: 14,
+                            }}
+                        >
+                            {commissionMut.isPending ? 'Saqlanmoqda…' : 'Saqlash'}
+                        </button>
+                        {commissionMut.isSuccess && commissionDraft === null && (
+                            <span style={{ color: '#16a34a', fontSize: 13, fontWeight: 600 }}>✓ Saqlandi</span>
+                        )}
+                        {commissionMut.isError && (
+                            <span style={{ color: '#dc2626', fontSize: 13 }}>Xatolik — qayta urining</span>
+                        )}
+                    </div>
+                    <div style={{ marginTop: 10, fontSize: 13.5, color: '#475569' }}>
+                        Har onlayn to'lovda <b style={{ color: '#dc2626' }}>{commissionValid ? commissionPctNum : 0}%</b> Banisa hisobiga,
+                        {' '}<b style={{ color: '#0f766e' }}>{commissionValid ? 100 - commissionPctNum : 100}%</b> klinika hisobiga (branch) yo'naltiriladi.
                     </div>
                 </div>
 

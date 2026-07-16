@@ -282,7 +282,7 @@ model Clinic {
   oked                   String?
   vatNumber              String?
   invoiceEmail           String?
-  commissionRate         Float                     @default(0.10)
+  commissionRate         Float                     @default(0.20)
   defaultDiscountPercent Int                       @default(0)
   checkInSecret          String?                   @unique
   appointments           Appointment[]

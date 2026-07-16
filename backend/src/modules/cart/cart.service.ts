@@ -420,6 +420,11 @@ export class CartService {
                 qrToken,
                 ofertaVersionId,
                 ofertaAcceptedAt,
+                // Snapshot the clinic's Banisa-commission rate at booking time so
+                // the Click SHOP-SPLIT can carve the commission → Banisa share.
+                // Without this snapshot cart bookings had a null rate → 0
+                // commission → the whole payment went to the clinic.
+                commissionRate: cartItems[0].clinic.commissionRate ?? null,
             };
 
             // Set the appropriate service ID field

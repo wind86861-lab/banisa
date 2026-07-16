@@ -205,6 +205,21 @@ export const createClinic = async (data: any, adminId: string) => {
 };
 
 // 4. Update clinic
+// Set the clinic's Banisa-commission rate (super-admin only). Input is a percent
+// (0–100); persisted as a 0–1 fraction on Clinic.commissionRate, which new
+// bookings snapshot and the Click SHOP-SPLIT uses to carve the Banisa share.
+export const updateCommissionRate = async (id: string, commissionPercent: number) => {
+    const clinic = await prisma.clinic.findUnique({ where: { id }, select: { id: true } });
+    if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);
+    const rate = Math.round((commissionPercent / 100) * 10000) / 10000; // clamp to 4dp
+    const updated = await prisma.clinic.update({
+        where: { id },
+        data: { commissionRate: rate },
+        select: { id: true, commissionRate: true },
+    });
+    return updated;
+};
+
 export const updateClinic = async (id: string, data: any) => {
     const clinic = await prisma.clinic.findUnique({ where: { id } });
     if (!clinic) throw new AppError('Clinic not found', 404, ErrorCodes.NOT_FOUND);

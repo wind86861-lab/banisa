@@ -2,7 +2,7 @@ import { Router } from 'express';
 import * as adminClinicsController from './admin-clinics.controller';
 import { requireAuth, requireRole } from '../../middleware/auth.middleware';
 import { validate } from '../../middleware/validate.middleware';
-import { clinicCreateSchema, clinicUpdateSchema, bulkActionSchema, reviewModerationSchema } from './admin-clinics.validation';
+import { clinicCreateSchema, clinicUpdateSchema, bulkActionSchema, reviewModerationSchema, clinicCommissionSchema } from './admin-clinics.validation';
 
 const router = Router();
 
@@ -20,6 +20,9 @@ router.post('/', validate(clinicCreateSchema), adminClinicsController.create);
 
 // 4. Update clinic
 router.put('/:id', validate(clinicUpdateSchema), adminClinicsController.update);
+
+// 4b. Set Banisa commission percent (SHOP-SPLIT share)
+router.patch('/:id/commission', validate(clinicCommissionSchema), adminClinicsController.updateCommission);
 
 // 5. Soft delete clinic (deactivate)
 router.delete('/:id', adminClinicsController.remove);

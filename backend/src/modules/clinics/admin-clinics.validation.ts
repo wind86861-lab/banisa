@@ -152,3 +152,13 @@ export const reviewModerationSchema = z.object({
         reason: z.string().optional(),
     }),
 });
+
+// Banisa commission percent (0–100) the super-admin sets per clinic. Stored on
+// the clinic as a 0–1 fraction (commissionRate); the API speaks percent so the
+// admin UI is unambiguous. This is what the Click SHOP-SPLIT carves off to
+// Banisa (Medikal Navigator) with the remainder routed to the clinic branch.
+export const clinicCommissionSchema = z.object({
+    body: z.object({
+        commissionPercent: z.number().min(0).max(100),
+    }),
+});

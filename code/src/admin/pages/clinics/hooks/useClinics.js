@@ -98,6 +98,20 @@ export const useUpdateClinic = () => {
     });
 };
 
+// Set the clinic's Banisa-commission percent (SHOP-SPLIT share). Refreshes both
+// the list and this clinic's detail so the card shows the new value immediately.
+export const useUpdateClinicCommission = () => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, commissionPercent }) =>
+            axiosInstance.patch(`${BASE}/${id}/commission`, { commissionPercent }),
+        onSuccess: (_res, { id }) => {
+            qc.invalidateQueries({ queryKey: ['admin-clinics'] });
+            qc.invalidateQueries({ queryKey: ['admin-clinic', id] });
+        },
+    });
+};
+
 export const useDeleteClinic = () => {
     const qc = useQueryClient();
     return useMutation({
