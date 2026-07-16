@@ -18,14 +18,15 @@ router.post(
     handleClickWebhook,
 );
 
-// SHOP SPLIT webhook — one global Banisa service_id (106290). Paste
-// https://banisa.uz/api/click/split-webhook into the Split-Shop dashboard.
-router.post(
-    '/split-webhook',
-    express.urlencoded({ extended: true }),
-    express.json(),
-    handleClickSplitWebhook,
-);
+// SHOP SPLIT webhook — one global Banisa service_id (106290). Our single
+// handler dispatches by the `action` field, but Click's Split-Shop dashboard
+// asks for TWO addresses: Prepare URL (Адрес проверки) and Complete URL
+// (Адрес результата). Expose named aliases for each field plus the generic
+// /split-webhook — all three feed the same handler.
+const splitBody = [express.urlencoded({ extended: true }), express.json()];
+router.post('/split-webhook', ...splitBody, handleClickSplitWebhook);
+router.post('/split-prepare', ...splitBody, handleClickSplitWebhook);  // Адрес проверки
+router.post('/split-complete', ...splitBody, handleClickSplitWebhook); // Адрес результата
 
 // Patient-facing: returns the my.click.uz redirect URL for a given appointment.
 router.post('/initiate', requireAuth, initiateClickPayment);
