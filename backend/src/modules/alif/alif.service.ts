@@ -140,9 +140,13 @@ export async function handleAlifWebhook(rawBody: Buffer, signatureHeader?: strin
         + ' keys=' + JSON.stringify(Object.keys(payload || {}))
         + ' RAW=' + rawBody.toString('utf8').slice(0, 1500));
 
-    const meta = payload?.meta || {};
+    // Alif's webhook wraps the invoice in an envelope { type, payload: {…invoice} },
+    // while getInvoice returns the invoice directly. Unwrap so both shapes work.
+    const inv = (payload && typeof payload.payload === 'object' && payload.payload) ? payload.payload : payload;
+
+    const meta = inv?.meta || {};
     const appointmentId = meta.appointmentId
-        || payload?.payment?.meta?.appointmentId
+        || inv?.payment?.meta?.appointmentId
         || null;
     if (!appointmentId) return { ok: false, status: 400, note: 'no appointmentId in meta' };
 
@@ -167,8 +171,8 @@ export async function handleAlifWebhook(rawBody: Buffer, signatureHeader?: strin
 
     // Alif's completed-invoice webhook carries the settlement under `charge`
     // (v1 API, what /invoice returns) or `payment` (v2). Support both shapes.
-    const settlement = payload?.charge || payload?.payment || {};
-    const status = String(settlement.status || payload?.status || '').toUpperCase();
+    const settlement = inv?.charge || inv?.payment || {};
+    const status = String(settlement.status || inv?.status || '').toUpperCase();
     const paidAmountTiyin = Number(settlement.amount ?? 0);
 
     if (status !== 'SUCCEEDED') {
