@@ -281,7 +281,17 @@ async function confirm(req: SplitRequest, _cfg: ResolvedSplitGlobalConfig): Prom
     const merchantPrepareId = String(req.merchant_prepare_id ?? '');
     const upstreamError = Number(req.error ?? 0);
 
-    const txn = await prisma.clickTransaction.findUnique({ where: { id: merchantPrepareId } });
+    // The real Click Shop API correlates Prepare→Confirm by
+    // click_paydoc_id + attempt_trans_id and sends merchant_prepare_id back as
+    // the literal string "NULL" (it does NOT echo the id we returned in
+    // Prepare). So look the prepared row up by that composite key first, and
+    // only fall back to merchant_prepare_id for the older/doc flow (and our
+    // self-test) where it genuinely echoes our ClickTransaction id.
+    const txnKey = `${req.click_paydoc_id}:${req.attempt_trans_id}`;
+    let txn = await prisma.clickTransaction.findUnique({ where: { clickTransId: txnKey } });
+    if (!txn && merchantPrepareId && merchantPrepareId !== 'NULL') {
+        txn = await prisma.clickTransaction.findUnique({ where: { id: merchantPrepareId } });
+    }
     if (!txn) {
         return { body: err(req, SPLIT_ERROR.TRANSACTION_NOT_FOUND, merchantPrepareId), logMethod: 'confirm', logError: SPLIT_ERROR.TRANSACTION_NOT_FOUND.code, logErrMsg: 'prepare row not found' };
     }
