@@ -176,7 +176,7 @@ export default function ClinicDetailPage() {
     const handleBook = async (service, serviceType) => {
         const resolved = await waitForUser();
         if (!resolved) { setPendingBooking({ service, serviceType }); setShowAuthModal(true); return; }
-        navigate(`/xizmatlar/${service.id}`);
+        navigate(`/xizmatlar/${service.id}?clinicId=${clinic.id}`);
     };
 
     const handleViewService = (service) => {
@@ -943,7 +943,7 @@ export default function ClinicDetailPage() {
                                 setCartFeedback((p) => ({ ...p, [pendingBooking.service.id]: result?.success ? 'added' : 'error' }));
                                 setTimeout(() => setCartFeedback((p) => { const n = { ...p }; delete n[pendingBooking.service.id]; return n; }), 2000);
                             } else {
-                                navigate(`/xizmatlar/${pendingBooking.service.id}`);
+                                navigate(`/xizmatlar/${pendingBooking.service.id}?clinicId=${clinic.id}`);
                             }
                         }
                     }}

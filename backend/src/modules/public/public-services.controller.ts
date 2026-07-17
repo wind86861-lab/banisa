@@ -482,7 +482,10 @@ export const getPublicServiceFilters = async (_req: Request, res: Response, next
 export const getPublicServiceDetail = async (req: Request, res: Response, next: NextFunction) => {
     try {
         let id = String(req.params.id);
-        const clinicIdFilter = req.query.clinicId as string | undefined;
+        // ?clinicId=a&clinicId=b arrives as an array — passing that straight into
+        // a Prisma `where` throws and 500s. Take the first value.
+        const rawClinicId = req.query.clinicId;
+        const clinicIdFilter = (Array.isArray(rawClinicId) ? rawClinicId[0] : rawClinicId) as string | undefined;
 
         // Raw-ID rescue: shared / bookmarked / search-indexed URLs in the
         // wild sometimes point at the bare service UUID instead of the
@@ -882,8 +885,13 @@ export const getPublicServiceDetail = async (req: Request, res: Response, next: 
 
             return {
                 id: c.id,
-                name: cust?.customNameUz || c.nameUz,
-                nameRu: cust?.customNameRu || c.nameRu,
+                // The clinic's OWN name. customNameUz/customNameRu on the
+                // customization rename the SERVICE for this clinic — using them
+                // here relabelled the clinic with the service's name.
+                name: c.nameUz,
+                nameRu: c.nameRu,
+                serviceNameUz: cust?.customNameUz || service.nameUz,
+                serviceNameRu: cust?.customNameRu || service.nameRu,
 
                 // Clinic-specific descriptions (prioritize clinic's version)
                 shortDescription: cust?.customDescriptionUz || null,
