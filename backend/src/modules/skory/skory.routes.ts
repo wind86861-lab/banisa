@@ -7,6 +7,7 @@ import {
     cancelSkoryRequest,
     getSkoryPriceRange,
     getSkoryNearbyClinics,
+    getSkoryBands,
 } from './skory.controller';
 
 const router = Router();
@@ -14,6 +15,7 @@ const router = Router();
 // Public helpers — used by the wizard's price/clinic previews before submit.
 router.get('/price-range', getSkoryPriceRange);
 router.get('/nearby-clinics', getSkoryNearbyClinics);
+router.get('/bands', getSkoryBands);
 
 // Authenticated patient endpoints
 router.post('/request', requireAuth, requireRole(['PATIENT']), createSkoryRequest);

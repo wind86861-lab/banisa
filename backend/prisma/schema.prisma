@@ -1713,7 +1713,7 @@ model Ambulance {
   currentLongitude Float?
   liveLocationUntil DateTime?
   lastStatusAt     DateTime?
-  // Pricing (optional, info only)
+  // Legacy flat pricing (fallback when no per-band tariff is filled).
   baseFee         Int?             // som — chaqiruv narxi
   pricePerKm      Int?             // som per km
   // Dedicated dispatch phone (optional — falls back to clinic.phones)
@@ -1736,6 +1736,7 @@ model Ambulance {
   requests       AmbulanceRequest[]
   dispatchOffers DispatchOffer[]
   reviews        AmbulanceReview[]
+  bandTariffs    AmbulanceBandTariff[]
 
   @@index([clinicId])
   @@index([status])
@@ -1752,6 +1753,9 @@ model AmbulanceRequest {
   id                  String                @id @default(uuid())
   patientId           String
   status              AmbulanceRequestStatus @default(PENDING)
+  // Which service the patient asked for. Null on legacy rows created before
+  // the two-tier split; treated as BASIC everywhere.
+  type                AmbulanceType?
   pickupLat           Float
   pickupLng           Float
   pickupAddress       String?
@@ -1889,6 +1893,48 @@ model AmbulanceReview {
   @@index([clinicId])
   @@index([patientId])
   @@index([createdAt])
+}
+
+// ─── Tez-yordam distance-band pricing ────────────────────────────────────────
+// SUPER_ADMIN-managed distance bands. The patient's TRIP distance
+// (pickup→destination) selects exactly one band; the accepting ambulance's
+// per-band tariff (base + per-km) then prices that trip. Bands are dynamic:
+// admin adds/edits them as the market changes, and each ambulance fills one
+// tariff row per band. A tapering band table (cheaper per-km at longer
+// distances) keeps long trips fair without punishing the patient for how far
+// the ambulance had to travel to reach them.
+model AmbulancePricingBand {
+  id        String   @id @default(uuid())
+  label     String                       // "Yaqin", "O'rta", "Uzoq"
+  minKm     Float    @default(0)         // inclusive lower bound (km)
+  maxKm     Float?                        // exclusive upper bound; null = ∞
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tariffs AmbulanceBandTariff[]
+
+  @@index([isActive, sortOrder])
+}
+
+// One ambulance's price for one band. A missing row means the ambulance has
+// no price for that band → the vehicle's legacy flat baseFee/pricePerKm is
+// used as a fallback so pre-band ambulances keep working.
+model AmbulanceBandTariff {
+  id          String   @id @default(uuid())
+  ambulanceId String
+  bandId      String
+  baseFee     Int                          // som — boshlang'ich narx
+  pricePerKm  Int                          // som per km
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ambulance Ambulance            @relation(fields: [ambulanceId], references: [id], onDelete: Cascade)
+  band      AmbulancePricingBand @relation(fields: [bandId], references: [id], onDelete: Cascade)
+
+  @@unique([ambulanceId, bandId])
+  @@index([bandId])
 }
 
 // ─── Clinic team / RBAC ──────────────────────────────────────────────────────

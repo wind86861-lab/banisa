@@ -222,6 +222,47 @@ textarea.skoo__input { resize: vertical; min-height: 80px; }
     font-size: 12px;
     margin-bottom: 12px;
 }
+.skoo__notice--warn {
+    background: #fffbeb;
+    color: #78350f;
+    border-color: #fcd34d;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+.skoo__notice--warn svg { flex-shrink: 0; margin-top: 1px; }
+
+/* ─── Service-tier cards (step 1) ─── */
+.skoo__tier {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    width: 100%;
+    text-align: left;
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px;
+    cursor: pointer;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.skoo__tier:hover { border-color: #cbd5e1; }
+.skoo__tier--on {
+    border-color: #16a34a;
+    background: #f0fdf4;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, .12);
+}
+.skoo__tier__emoji { font-size: 30px; line-height: 1; }
+.skoo__tier__body { display: flex; flex-direction: column; gap: 4px; }
+.skoo__tier__title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 15px;
+    color: #0f172a;
+}
+.skoo__tier__desc { font-size: 12.5px; line-height: 1.5; color: #475569; }
 
 /* ─── Waiting / status screen ─── */
 .skoo__waiting {

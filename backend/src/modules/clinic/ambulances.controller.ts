@@ -54,6 +54,43 @@ async function resolvePricing(input: {
     };
 }
 
+/**
+ * Replace an ambulance's per-band tariffs with the submitted set. Accepts
+ * `[{ bandId, baseFee, pricePerKm }]`; ignores rows with an unknown band or
+ * non-numeric price. Rows omitted from the payload are deleted (full replace).
+ * When `rows` is undefined the tariffs are left untouched.
+ */
+async function saveBandTariffs(ambulanceId: string, rows: any): Promise<void> {
+    if (!Array.isArray(rows)) return;
+    const validBands = new Set(
+        (await prisma.ambulancePricingBand.findMany({ select: { id: true } })).map((b) => b.id),
+    );
+    const clean = rows
+        .map((r) => ({
+            bandId: String(r?.bandId || ''),
+            baseFee: Math.max(0, Math.round(Number(r?.baseFee))),
+            pricePerKm: Math.max(0, Math.round(Number(r?.pricePerKm))),
+        }))
+        .filter((r) => validBands.has(r.bandId) && Number.isFinite(r.baseFee) && Number.isFinite(r.pricePerKm));
+
+    await prisma.$transaction([
+        prisma.ambulanceBandTariff.deleteMany({ where: { ambulanceId } }),
+        ...(clean.length
+            ? [prisma.ambulanceBandTariff.createMany({
+                data: clean.map((r) => ({ ambulanceId, ...r })),
+                skipDuplicates: true,
+            })]
+            : []),
+    ]);
+}
+
+/** Does this ambulance have at least one usable price (legacy OR any band)? */
+async function hasAnyPrice(a: { pricePerKm: number | null }, ambulanceId: string): Promise<boolean> {
+    if (a.pricePerKm != null) return true;
+    const n = await prisma.ambulanceBandTariff.count({ where: { ambulanceId } });
+    return n > 0;
+}
+
 // ─── GET /api/clinic/ambulances ──────────────────────────────────────────────
 export const listAmbulances = async (req: AuthRequest, res: Response) => {
     const clinicId = await resolveClinicId(req.user!.id);
@@ -62,6 +99,7 @@ export const listAmbulances = async (req: AuthRequest, res: Response) => {
     const items = await prisma.ambulance.findMany({
         where: { clinicId },
         orderBy: [{ status: 'asc' }, { callSign: 'asc' }],
+        include: { bandTariffs: { select: { bandId: true, baseFee: true, pricePerKm: true } } },
     });
     return res.json({ success: true, data: { items } });
 };
@@ -74,7 +112,7 @@ export const createAmbulance = async (req: AuthRequest, res: Response) => {
     const {
         callSign, type, vehicleModel, licensePlate, capacity,
         equipment, baseLatitude, baseLongitude, baseFee, pricePerKm,
-        dispatchPhone, dispatcherPhone, photoUrl, notes, status,
+        dispatchPhone, dispatcherPhone, photoUrl, notes, status, bandTariffs,
     } = req.body || {};
 
     if (typeof callSign !== 'string' || callSign.trim().length < 1) {
@@ -95,11 +133,15 @@ export const createAmbulance = async (req: AuthRequest, res: Response) => {
         pricePerKm: Number.isFinite(pricePerKm) ? pricePerKm : null,
     });
 
+    // A per-band tariff counts as a valid price for activation, same as a
+    // legacy flat price. Reject AVAILABLE only when neither exists.
+    const hasBandTariff = Array.isArray(bandTariffs)
+        && bandTariffs.some((r: any) => Number.isFinite(Number(r?.pricePerKm)) && Number(r?.pricePerKm) >= 0 && r?.bandId);
     const requestedStatus = (status || 'OFFLINE') as AmbStatus;
-    if (requestedStatus === 'AVAILABLE' && pricing.pricePerKm == null) {
+    if (requestedStatus === 'AVAILABLE' && pricing.pricePerKm == null && !hasBandTariff) {
         return res.status(400).json({
             success: false,
-            message: '1 km narxini kiriting (yoki admin global default qo\'ymaguncha ambulansni AVAILABLE qila olmaysiz)',
+            message: 'Narx kiriting: poyaslar bo\'yicha tarif yoki 1 km narxi (aks holda ambulansni AVAILABLE qila olmaysiz)',
         });
     }
 
@@ -126,6 +168,7 @@ export const createAmbulance = async (req: AuthRequest, res: Response) => {
                 lastStatusAt: new Date(),
             },
         });
+        await saveBandTariffs(created.id, bandTariffs);
         return res.json({ success: true, data: created });
     } catch (err: any) {
         if (err.code === 'P2002') {
@@ -149,7 +192,7 @@ export const updateAmbulance = async (req: AuthRequest, res: Response) => {
     const {
         callSign, type, vehicleModel, licensePlate, capacity,
         equipment, baseLatitude, baseLongitude, baseFee, pricePerKm,
-        dispatchPhone, dispatcherPhone, photoUrl, notes, isActive,
+        dispatchPhone, dispatcherPhone, photoUrl, notes, isActive, bandTariffs,
     } = req.body || {};
     const data: any = {};
     if (typeof callSign === 'string' && callSign.trim().length >= 1) data.callSign = callSign.trim();
@@ -186,6 +229,7 @@ export const updateAmbulance = async (req: AuthRequest, res: Response) => {
 
     try {
         const updated = await prisma.ambulance.update({ where: { id }, data });
+        await saveBandTariffs(id, bandTariffs);
         return res.json({ success: true, data: updated });
     } catch (err: any) {
         if (err.code === 'P2002') {
@@ -217,10 +261,10 @@ export const changeStatus = async (req: AuthRequest, res: Response) => {
     // Activation guard: AVAILABLE requires a price (own override OR the
     // global admin default — which is auto-stamped onto baseFee/pricePerKm
     // at create/update time, so this should already be non-null by now).
-    if (status === 'AVAILABLE' && existing.pricePerKm == null) {
+    if (status === 'AVAILABLE' && !(await hasAnyPrice(existing, id))) {
         return res.status(400).json({
             success: false,
-            message: 'AVAILABLE qilish uchun 1 km narxi kerak. Ambulansni tahrirlab narxni kiriting.',
+            message: 'AVAILABLE qilish uchun narx kerak: poyas tarifi yoki 1 km narxi. Ambulansni tahrirlab narx kiriting.',
         });
     }
 

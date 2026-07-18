@@ -1,5 +1,6 @@
 import prisma from '../../config/database';
 import { AppError, ErrorCodes } from '../../utils/errors';
+import { getActiveBands, priceTrip, tariffMap, Band } from './ambulance-pricing';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Geo helpers (kept inline — module is self-contained)
@@ -104,6 +105,9 @@ export interface CreateRequestInput {
     destClinicId?: string | null;
     priceMaxSom?: number | null;
     description?: string | null;
+    // Service tier the patient asked for (BASIC / INTENSIVE_CARE). When set,
+    // fanout is restricted to ambulances of that exact type.
+    type?: string | null;
     // When set, restrict fanout to ONLY this ambulance (patient picked it
     // explicitly from the public map). Distance/price/eligibility checks
     // still run — if it fails them, the call ends with NO_CANDIDATES.
@@ -144,6 +148,7 @@ export async function findCandidates(input: CreateRequestInput): Promise<Candida
             isActive: true,
             status: 'AVAILABLE',
             dispatcherUserId: { not: null },
+            ...(input.type ? { type: input.type as any } : {}),
             ...(input.targetAmbulanceId ? { id: input.targetAmbulanceId } : {}),
         },
         include: {
@@ -156,8 +161,12 @@ export async function findCandidates(input: CreateRequestInput): Promise<Candida
                     telegramAccount: { select: { chatId: true, language: true } },
                 },
             },
+            bandTariffs: { select: { bandId: true, baseFee: true, pricePerKm: true } },
         },
     });
+
+    // Distance bands are shared across all candidates — load once.
+    const bands: Band[] = await getActiveBands();
 
     // Pre-filter: must have coordinates + telegram + within rough radius.
     const PREFILTER_RADIUS_KM = 25;
@@ -186,12 +195,19 @@ export async function findCandidates(input: CreateRequestInput): Promise<Candida
     const enriched = await Promise.all(rough.map(async ({ a, lat, lng, distanceKm, chatId }) => {
         const route = await osrmRoute(input.pickupLat, input.pickupLng, lat, lng)
             ?? { km: distanceKm, minutes: Math.max(1, Math.round(distanceKm * 2)) };
-        const baseFee = a.baseFee ?? 0;
-        const pricePerKm = a.pricePerKm ?? 0;
-        // If patient also gave a destination, factor in pickup→drop driving km
-        // for the price ceiling (more honest than ambulance→pickup alone).
+        // The patient pays for their OWN trip (pickup→drop), not the approach.
+        // Falls back to ambulance→pickup only when no destination was given.
         const billableKm = onwardKm ?? route.km;
-        const estimatedPrice = baseFee + Math.round(billableKm * pricePerKm);
+        const breakdown = priceTrip({
+            tripKm: billableKm,
+            bands,
+            tariffByBandId: tariffMap(a.bandTariffs),
+            legacyBaseFee: a.baseFee,
+            legacyPricePerKm: a.pricePerKm,
+        });
+        const baseFee = breakdown.baseFee;
+        const pricePerKm = breakdown.pricePerKm;
+        const estimatedPrice = breakdown.price;
 
         const candidate: CandidateAmbulance = {
             ambulanceId: a.id,
@@ -234,6 +250,7 @@ export async function createRequest(
     const request = await prisma.ambulanceRequest.create({
         data: {
             patientId: input.patientId,
+            type: (input.type ?? null) as any,
             pickupLat: input.pickupLat,
             pickupLng: input.pickupLng,
             pickupAddress: input.pickupAddress ?? null,
@@ -447,21 +464,23 @@ export async function getMarketPriceRange(input: {
     pickupLng: number;
     destLat?: number | null;
     destLng?: number | null;
+    type?: string | null;
 }): Promise<{ min: number; max: number; sampleCount: number; tripKm: number | null } | null> {
     const ambulances = await prisma.ambulance.findMany({
         where: {
             isActive: true,
-            baseFee: { not: null },
-            pricePerKm: { not: null },
+            ...(input.type ? { type: input.type as any } : {}),
         },
         select: {
             baseFee: true, pricePerKm: true,
             baseLatitude: true, baseLongitude: true,
             clinic: { select: { latitude: true, longitude: true } },
+            bandTariffs: { select: { bandId: true, baseFee: true, pricePerKm: true } },
         },
     });
     if (ambulances.length === 0) return null;
 
+    const bands = await getActiveBands();
     const RADIUS_KM = 25;
     const tripKm = input.destLat != null && input.destLng != null
         ? haversineKm(input.pickupLat, input.pickupLng, input.destLat, input.destLng)
@@ -475,8 +494,16 @@ export async function getMarketPriceRange(input: {
         const distToPickup = haversineKm(input.pickupLat, input.pickupLng, lat, lng);
         if (distToPickup > RADIUS_KM) continue;
         const billableKm = tripKm ?? distToPickup;
-        const price = (a.baseFee ?? 0) + Math.round(billableKm * (a.pricePerKm ?? 0));
-        prices.push(price);
+        const breakdown = priceTrip({
+            tripKm: billableKm,
+            bands,
+            tariffByBandId: tariffMap(a.bandTariffs),
+            legacyBaseFee: a.baseFee,
+            legacyPricePerKm: a.pricePerKm,
+        });
+        // Skip ambulances with no usable price at all (no band tariff + no legacy).
+        if (breakdown.baseFee === 0 && breakdown.pricePerKm === 0) continue;
+        prices.push(breakdown.price);
     }
     if (prices.length === 0) return null;
     prices.sort((a, b) => a - b);

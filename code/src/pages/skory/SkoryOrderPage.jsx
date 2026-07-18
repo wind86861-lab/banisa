@@ -164,7 +164,70 @@ async function reverseGeocode(lat, lng) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 1 — pickup
+// Step 1 — service tier (transport type)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Two patient-facing tiers with plain-language descriptions so someone who
+// doesn't know the difference from the name alone understands which to pick.
+const SKORY_TIERS = [
+    {
+        value: 'BASIC',
+        emoji: '🚐',
+        title: 'Oddiy tibbiy transport',
+        desc: "Ahvoli barqaror bemorni yotgan holda bir joydan ikkinchisiga xavfsiz olib o'tish uchun (masalan uydan klinikaga). Yo'lda maxsus tibbiy nazorat yoki jihoz yo'q — faqat qulay va xavfsiz tashish.",
+    },
+    {
+        value: 'INTENSIVE_CARE',
+        emoji: '🚑',
+        title: 'Reanimatsion tez yordam',
+        desc: "Ahvoli og'ir yoki doimiy nazorat talab qiladigan bemor uchun. Mashinada reanimatsiya jihozlari (kislorod, yurak monitori, sun'iy nafas) va tibbiy xodim bo'ladi — yo'l davomida bemor holati kuzatib boriladi.",
+    },
+];
+
+function TypeStep({ type, onChange, onNext }) {
+    return (
+        <div className="skoo__card">
+            <h2>Qanday yordam kerak?</h2>
+            <div className="skoo__sub">Bemorning ahvoliga qarab turni tanlang.</div>
+
+            <div className="skoo__notice skoo__notice--warn" style={{ marginBottom: 14 }}>
+                <AlertTriangle size={15} />
+                <div>
+                    Bu xizmat hozircha faqat bemorni <b>ko'chirib/tashib</b> o'tkazish uchun
+                    (joyida davolash emas). Xizmat <b>pullik</b> — narx yo'l masofasiga qarab
+                    hisoblanadi va tasdiqdan oldin ko'rsatiladi.
+                </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {SKORY_TIERS.map((t) => (
+                    <button
+                        key={t.value}
+                        type="button"
+                        className={`skoo__tier ${type === t.value ? 'skoo__tier--on' : ''}`}
+                        onClick={() => onChange(t.value)}
+                    >
+                        <span className="skoo__tier__emoji">{t.emoji}</span>
+                        <span className="skoo__tier__body">
+                            <span className="skoo__tier__title">
+                                {t.title}
+                                {type === t.value && <CheckCircle2 size={16} color="#16a34a" />}
+                            </span>
+                            <span className="skoo__tier__desc">{t.desc}</span>
+                        </span>
+                    </button>
+                ))}
+            </div>
+
+            <button className="skoo__btn skoo__btn--mt-16" disabled={!type} onClick={onNext}>
+                Davom etish
+            </button>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 2 — pickup
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PickupStep({ pickup, onChange, onNext }) {
@@ -371,6 +434,24 @@ function DescStep({ description, onChange, onNext }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ConfirmStep({ data, onEdit, onSubmit, submitting, error }) {
+    const tierTitle = SKORY_TIERS.find((t) => t.value === data.type)?.title || '—';
+    const tierEmoji = SKORY_TIERS.find((t) => t.value === data.type)?.emoji || '';
+
+    // Live market estimate for the chosen tier + trip. Only meaningful once a
+    // destination is set (otherwise there's no trip distance to price).
+    const { data: priceRange } = useQuery({
+        queryKey: ['skory', 'price-range', data.type, data.pickup?.lat, data.pickup?.lng, data.dest?.lat, data.dest?.lng],
+        queryFn: async () => (await api.get('/skory/price-range', {
+            params: {
+                lat: data.pickup.lat, lng: data.pickup.lng,
+                destLat: data.dest?.lat, destLng: data.dest?.lng,
+                type: data.type,
+            },
+        })).data?.data,
+        enabled: !!(data.pickup?.lat && data.dest?.lat),
+        staleTime: 30_000,
+    });
+
     const distanceKm = useMemo(() => {
         if (!data.dest?.lat || !data.pickup?.lat) return null;
         const R = 6371;
@@ -396,18 +477,29 @@ function ConfirmStep({ data, onEdit, onSubmit, submitting, error }) {
             <h2>✅ Hammasi tayyor — yuborilsinmi?</h2>
             {error && <div className="skoo__error"><AlertTriangle size={14} /> {error}</div>}
 
-            <Row label="📍 Joyim" value={coordLabel(data.pickup)} onEdit={() => onEdit(1)} />
+            <Row label="🚑 Xizmat turi" value={`${tierEmoji} ${tierTitle}`} onEdit={() => onEdit(1)} />
+            <Row label="📍 Joyim" value={coordLabel(data.pickup)} onEdit={() => onEdit(2)} />
             <Row
                 label="🏥 Manzil"
                 value={data.dest
                     ? coordLabel(data.dest)
                     : 'Belgilanmagan'}
-                onEdit={() => onEdit(2)}
+                onEdit={() => onEdit(3)}
             />
             {distanceKm != null && (
                 <Row label="📏 Masofa" value={`~${distanceKm.toFixed(1)} km · ~${Math.max(1, Math.round(distanceKm * 2))} daq`} />
             )}
-            <Row label="📝 Tafsilot" value={data.description || '—'} onEdit={() => onEdit(3)} />
+            <Row label="📝 Tafsilot" value={data.description || '—'} onEdit={() => onEdit(4)} />
+
+            {priceRange && (priceRange.min != null) && (
+                <div className="skoo__notice" style={{ marginTop: 6 }}>
+                    💳 <b>Taxminiy narx:</b>{' '}
+                    {priceRange.min === priceRange.max
+                        ? `${priceRange.min.toLocaleString('uz-UZ')} so'm`
+                        : `${priceRange.min.toLocaleString('uz-UZ')} – ${priceRange.max.toLocaleString('uz-UZ')} so'm`}
+                    {' '}— yo'l masofasiga qarab. Aniq narx ambulans qabul qilganda belgilanadi. Xizmat pullik.
+                </div>
+            )}
 
             <button className="skoo__btn skoo__btn--mt-16" onClick={onSubmit} disabled={submitting}>
                 {submitting ? <Loader2 size={16} className="skoo__spin" /> : <Ambulance size={16} />}
@@ -573,6 +665,7 @@ export default function SkoryOrderPage() {
     });
 
     const [step, setStep] = useState(1);
+    const [type, setType] = useState(null);
     const [pickup, setPickup] = useState(null);
     const [dest, setDest] = useState(null);
     const [description, setDescription] = useState(null);
@@ -583,7 +676,7 @@ export default function SkoryOrderPage() {
         // ambulances (priceMaxSom is intentionally null; the patient no longer
         // sets a budget).
         mutationFn: async () => (await api.post('/skory/request', {
-            pickup, dest, priceMaxSom: null, description, targetAmbulanceId,
+            type, pickup, dest, priceMaxSom: null, description, targetAmbulanceId,
         })).data,
         onSuccess: (res) => {
             if (res?.success) {
@@ -658,7 +751,7 @@ export default function SkoryOrderPage() {
                 </div>
 
                 <div className="skoo__steps">
-                    {[1, 2, 3, 4].map((n) => (
+                    {[1, 2, 3, 4, 5].map((n) => (
                         <div key={n} className={`skoo__step ${n === step ? 'skoo__step--active' : n < step ? 'skoo__step--done' : ''}`} />
                     ))}
                 </div>
@@ -673,24 +766,25 @@ export default function SkoryOrderPage() {
                     </div>
                 )}
 
-                {step === 1 && <PickupStep pickup={pickup} onChange={setPickup} onNext={() => goTo(2)} />}
-                {step === 2 && pickup && (
+                {step === 1 && <TypeStep type={type} onChange={setType} onNext={() => goTo(2)} />}
+                {step === 2 && <PickupStep pickup={pickup} onChange={setPickup} onNext={() => goTo(3)} />}
+                {step === 3 && pickup && (
                     <DestStep
                         pickup={pickup} dest={dest}
                         onChange={setDest}
-                        onNext={() => goTo(3)}
-                    />
-                )}
-                {step === 3 && (
-                    <DescStep
-                        description={description}
-                        onChange={setDescription}
                         onNext={() => goTo(4)}
                     />
                 )}
-                {step === 4 && pickup && (
+                {step === 4 && (
+                    <DescStep
+                        description={description}
+                        onChange={setDescription}
+                        onNext={() => goTo(5)}
+                    />
+                )}
+                {step === 5 && pickup && (
                     <ConfirmStep
-                        data={{ pickup, dest, description }}
+                        data={{ type, pickup, dest, description }}
                         onEdit={goTo}
                         onSubmit={() => submit.mutate()}
                         submitting={submit.isPending}

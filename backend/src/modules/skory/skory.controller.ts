@@ -10,10 +10,17 @@ import {
     getMarketPriceRange,
     getNearbyClinics,
 } from './skory.service';
+import { getActiveBands } from './ambulance-pricing';
 import { fanoutOffersViaTelegram } from '../telegram/skory.bot';
 import { getBot } from '../telegram/telegram.bot';
 
 const isNum = (v: any): v is number => typeof v === 'number' && Number.isFinite(v);
+
+// Patient-facing tez-yordam tiers. The enum has more (NEONATAL, CARDIAC…) but
+// the patient app offers only these two; anything else is rejected.
+const PATIENT_TYPES = ['BASIC', 'INTENSIVE_CARE'] as const;
+const normalizeType = (v: any): string | null =>
+    typeof v === 'string' && (PATIENT_TYPES as readonly string[]).includes(v) ? v : null;
 
 /**
  * POST /api/skory/request
@@ -36,6 +43,10 @@ export const createSkoryRequest = async (req: AuthRequest, res: Response) => {
     }
 
     const dest = b.dest && isNum(b.dest.lat) && isNum(b.dest.lng) ? b.dest : null;
+    const type = normalizeType(b.type);
+    if (b.type != null && !type) {
+        throw new AppError('Xizmat turi noto\'g\'ri', 400, ErrorCodes.VALIDATION_ERROR);
+    }
     const priceMaxSom = isNum(b.priceMaxSom) && b.priceMaxSom > 0 ? Math.round(b.priceMaxSom) : null;
     const description = typeof b.description === 'string' && b.description.trim()
         ? b.description.trim().slice(0, 500)
@@ -65,6 +76,7 @@ export const createSkoryRequest = async (req: AuthRequest, res: Response) => {
         destClinicId: dest?.clinicId ?? null,
         priceMaxSom,
         description,
+        type,
         targetAmbulanceId,
     });
 
@@ -88,6 +100,7 @@ export const createSkoryRequest = async (req: AuthRequest, res: Response) => {
             destClinicId: dest?.clinicId ?? null,
             priceMaxSom,
             description,
+            type,
         },
         candidates,
     );
@@ -212,6 +225,7 @@ export const getSkoryPriceRange = async (req: AuthRequest, res: Response) => {
         pickupLng: lng,
         destLat: Number.isFinite(destLat as number) ? destLat : null,
         destLng: Number.isFinite(destLng as number) ? destLng : null,
+        type: normalizeType(req.query.type),
     });
     return res.json({ success: true, data: range });
 };
@@ -229,4 +243,15 @@ export const getSkoryNearbyClinics = async (req: AuthRequest, res: Response) => 
     const take = Math.min(20, Math.max(1, parseInt(String(req.query.take || '10'), 10) || 10));
     const clinics = await getNearbyClinics(lat, lng, take);
     return res.json({ success: true, data: { items: clinics } });
+};
+
+/**
+ * GET /api/skory/bands
+ * Public — active distance bands (label + km range). Used by the clinic
+ * ambulance form to render a tariff row per band, and available to the
+ * patient app if it wants to show the band ladder.
+ */
+export const getSkoryBands = async (_req: AuthRequest, res: Response) => {
+    const bands = await getActiveBands();
+    return res.json({ success: true, data: { items: bands } });
 };
