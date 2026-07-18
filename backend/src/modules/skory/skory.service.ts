@@ -146,7 +146,9 @@ export async function findCandidates(input: CreateRequestInput): Promise<Candida
     const ambulances = await prisma.ambulance.findMany({
         where: {
             isActive: true,
-            status: 'AVAILABLE',
+            // Send to EVERY active ambulance of the right type, regardless of
+            // status (free/busy/offline) — the dispatcher decides. Status is
+            // not a gate; scarce ambulances often forget to flip it.
             dispatcherUserId: { not: null },
             ...(input.type ? { type: input.type as any } : {}),
             ...(input.targetAmbulanceId ? { id: input.targetAmbulanceId } : {}),
@@ -168,21 +170,25 @@ export async function findCandidates(input: CreateRequestInput): Promise<Candida
     // Distance bands are shared across all candidates — load once.
     const bands: Band[] = await getActiveBands();
 
-    // Pre-filter: must have coordinates + telegram + within rough radius.
-    const PREFILTER_RADIUS_KM = 25;
+    // The ONLY requirement is being reachable on Telegram to receive the offer.
+    // Location is NOT a gate — we never depend on a live-location share; coords
+    // (live → base → clinic → none) are used only to ORDER candidates by
+    // nearness when we happen to know them. Coordless ambulances still get the
+    // offer (sorted last).
     const rough = ambulances
         .map((a) => {
             const lat = a.currentLatitude ?? a.baseLatitude ?? a.clinic.latitude;
             const lng = a.currentLongitude ?? a.baseLongitude ?? a.clinic.longitude;
             const chatId = a.dispatcher?.telegramAccount?.chatId ?? null;
-            if (lat == null || lng == null || !a.dispatcherUserId || !chatId) return null;
-            const distanceKm = haversineKm(input.pickupLat, input.pickupLng, lat, lng);
-            if (distanceKm > PREFILTER_RADIUS_KM) return null;
+            if (!a.dispatcherUserId || !chatId) return null;
+            const distanceKm = (lat != null && lng != null)
+                ? haversineKm(input.pickupLat, input.pickupLng, lat, lng)
+                : Number.POSITIVE_INFINITY;
             return { a, lat, lng, distanceKm, chatId };
         })
         .filter((x): x is NonNullable<typeof x> => x !== null)
         .sort((x, y) => x.distanceKm - y.distanceKm)
-        .slice(0, 20);  // cap OSRM calls
+        .slice(0, 30);  // cap OSRM calls
 
     // pickup→destination is the SAME for every candidate — compute once.
     let onwardKm: number | null = null;
@@ -193,8 +199,11 @@ export async function findCandidates(input: CreateRequestInput): Promise<Candida
 
     // Real driving distance for each survivor.
     const enriched = await Promise.all(rough.map(async ({ a, lat, lng, distanceKm, chatId }) => {
-        const route = await osrmRoute(input.pickupLat, input.pickupLng, lat, lng)
-            ?? { km: distanceKm, minutes: Math.max(1, Math.round(distanceKm * 2)) };
+        const hasCoords = lat != null && lng != null;
+        const route = hasCoords
+            ? (await osrmRoute(input.pickupLat, input.pickupLng, lat, lng)
+                ?? { km: Number.isFinite(distanceKm) ? distanceKm : 0, minutes: Number.isFinite(distanceKm) ? Math.max(1, Math.round(distanceKm * 2)) : 0 })
+            : { km: 0, minutes: 0 };
         // The patient pays for their OWN trip (pickup→drop), not the approach.
         // Falls back to ambulance→pickup only when no destination was given.
         const billableKm = onwardKm ?? route.km;
@@ -218,8 +227,8 @@ export async function findCandidates(input: CreateRequestInput): Promise<Candida
             dispatcherUserId: a.dispatcherUserId!,
             dispatcherChatId: chatId,
             dispatcherLanguage: a.dispatcher?.telegramAccount?.language || 'uz',
-            ambulanceLat: lat,
-            ambulanceLng: lng,
+            ambulanceLat: lat ?? input.pickupLat,
+            ambulanceLng: lng ?? input.pickupLng,
             distanceKm: route.km,
             durationMin: route.minutes,
             estimatedPrice,
@@ -307,13 +316,9 @@ export async function acceptOffer(offerId: string, dispatcherUserId: string) {
     if (offer.request.status !== 'PENDING') {
         return { won: false as const, offer, request: offer.request, reason: 'not_pending' as const };
     }
-    if (offer.ambulance.status !== 'AVAILABLE') {
-        await prisma.dispatchOffer.update({
-            where: { id: offerId },
-            data: { status: 'LOST', respondedAt: new Date() },
-        });
-        return { won: false as const, offer, request: offer.request, reason: 'ambulance_busy' as const };
-    }
+    // No ambulance-status gate: a busy/offline ambulance may still accept — the
+    // dispatcher owns that call. Only the request race (first to accept wins)
+    // is enforced below.
 
     // We need the accepting candidate's own distance/duration so the patient
     // sees an honest ETA (not "fastest available" which may be a different
@@ -332,14 +337,14 @@ export async function acceptOffer(offerId: string, dispatcherUserId: string) {
 
     try {
         await prisma.$transaction(async (tx) => {
-            // 1. Claim the ambulance row (status guard)
-            const ambClaim = await tx.ambulance.updateMany({
-                where: { id: offer.ambulanceId, status: 'AVAILABLE' },
+            // 1. Mark the ambulance busy (no status precondition — it may have
+            //    been offline/busy; the dispatcher chose to take this call).
+            await tx.ambulance.updateMany({
+                where: { id: offer.ambulanceId },
                 data: { status: 'BUSY', lastStatusAt: new Date() },
             });
-            if (ambClaim.count === 0) throw new Error('__race_ambulance__');
 
-            // 2. Claim the request row (status guard)
+            // 2. Claim the request row (status guard — first accept wins)
             const reqClaim = await tx.ambulanceRequest.updateMany({
                 where: { id: offer.requestId, status: 'PENDING', acceptedAmbulanceId: null },
                 data: {
@@ -364,7 +369,7 @@ export async function acceptOffer(offerId: string, dispatcherUserId: string) {
             await tx.ambulanceStatusLog.create({
                 data: {
                     ambulanceId: offer.ambulanceId,
-                    fromStatus: 'AVAILABLE',
+                    fromStatus: offer.ambulance.status, // actual prior status (may be OFFLINE/BUSY)
                     toStatus: 'BUSY',
                     changedBy: dispatcherUserId,
                     reason: `skory accept: ${offer.requestId}`,

@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Ambulance, Phone, MapPin, X, AlertTriangle,
     Activity, CheckCircle2, Wrench, Power, Users, Heart, Baby,
-    Sparkles, Navigation as NavIcon, Wallet, Clock, Edit3, Crosshair,
+    Sparkles, Navigation as NavIcon, Clock, Edit3, Crosshair,
 } from 'lucide-react';
 import api from '../../shared/api/axios';
 import TopBar from './TopBar';
@@ -237,8 +237,6 @@ export default function SkoryPage() {
     const [geoDenied, setGeoDenied] = useState(false);
     const [manualLoc, setManualLoc] = useState(null);  // { lat, lng, label }
     const [pickerOpen, setPickerOpen] = useState(false);
-    const [radius, setRadius] = useState(0);          // km, 0 = no limit
-    const [maxBaseFee, setMaxBaseFee] = useState(0);  // som, 0 = no limit
     const [selected, setSelected] = useState(null);
 
     useEffect(() => {
@@ -261,15 +259,15 @@ export default function SkoryPage() {
         : userCoords;
 
     const queryParams = useMemo(() => {
-        const p = {};
+        // Show every active ambulance regardless of status — availability is not
+        // a gate (a busy/offline car is still real; the patient can still call).
+        const p = { status: 'all' };
         if (effectiveCoords) {
             p.lat = effectiveCoords.lat;
             p.lng = effectiveCoords.lng;
         }
-        if (radius > 0) p.radius = radius;
-        if (maxBaseFee > 0) p.maxBaseFee = maxBaseFee;
         return p;
-    }, [effectiveCoords?.lat, effectiveCoords?.lng, radius, maxBaseFee]);
+    }, [effectiveCoords?.lat, effectiveCoords?.lng]);
 
     const { data, isLoading } = useQuery({
         queryKey: ['public', 'ambulances', queryParams],
@@ -278,8 +276,6 @@ export default function SkoryPage() {
 
     const items = data?.items || [];
     const validForMap = items.filter((a) => a.latitude && a.longitude);
-    const hasFilters = radius > 0 || maxBaseFee > 0;
-    const clearAll = () => { setRadius(0); setMaxBaseFee(0); };
 
     return (
         <div className="sky-page-wrap">
@@ -304,22 +300,8 @@ export default function SkoryPage() {
                         <div className="sky-hero__body">
                             <h1 className="sky-hero__title">Tez yordam</h1>
                             <p className="sky-hero__sub">
-                                Eng yaqin va bo'sh ambulanslarni xaritada toping
+                                Ambulanslarni xaritada toping va chaqiring
                             </p>
-                        </div>
-
-                        <div className="sky-hero__stats">
-                            <div className="sky-hero__stat">
-                                <div className="sky-hero__stat-val">
-                                    <span className="sky-live-dot" />
-                                    {data?.availableCount ?? 0}
-                                </div>
-                                <div className="sky-hero__stat-lbl">Bo'sh ambulans</div>
-                            </div>
-                            <div className="sky-hero__stat">
-                                <div className="sky-hero__stat-val">{data?.total ?? 0}</div>
-                                <div className="sky-hero__stat-lbl">Jami</div>
-                            </div>
                         </div>
                     </div>
                 </motion.header>
@@ -371,60 +353,6 @@ export default function SkoryPage() {
                     </div>
                 </div>
 
-                <div className="sky-filters">
-                    <div className="sky-filters__group">
-                        <div className="sky-filters__label">
-                            <NavIcon size={11} /> Masofa
-                        </div>
-                        <div className="sky-chips">
-                            <button className={`sky-chip ${radius === 0 ? 'sky-chip--on' : ''}`} onClick={() => setRadius(0)}>
-                                Cheklovsiz
-                            </button>
-                            {[3, 5, 10, 20].map((r) => (
-                                <button
-                                    key={r}
-                                    className={`sky-chip ${radius === r ? 'sky-chip--on' : ''}`}
-                                    onClick={() => setRadius(r)}
-                                    disabled={!effectiveCoords}
-                                >
-                                    {r} km
-                                </button>
-                            ))}
-                        </div>
-                        {!effectiveCoords && (
-                            <div className="sky-filters__hint">
-                                Masofa filteri uchun joylashuvni yoqing yoki manzilni qo'lda tanlang
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="sky-filters__group">
-                        <div className="sky-filters__label">
-                            <Wallet size={11} /> Maksimal chaqiruv narxi
-                        </div>
-                        <div className="sky-chips">
-                            <button className={`sky-chip ${maxBaseFee === 0 ? 'sky-chip--on' : ''}`} onClick={() => setMaxBaseFee(0)}>
-                                Cheklovsiz
-                            </button>
-                            {[50000, 100000, 200000, 500000].map((p) => (
-                                <button
-                                    key={p}
-                                    className={`sky-chip ${maxBaseFee === p ? 'sky-chip--on' : ''}`}
-                                    onClick={() => setMaxBaseFee(p)}
-                                >
-                                    {(p / 1000)}K so'm
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {hasFilters && (
-                        <button className="sky-clear" onClick={clearAll}>
-                            <X size={12} /> Tozalash
-                        </button>
-                    )}
-                </div>
-
                 <div className="sky-grid">
                     <div className="sky-map-wrap">
                         <MapContainer
@@ -466,7 +394,7 @@ export default function SkoryPage() {
                             <div className="sky-list-empty">
                                 <Ambulance size={36} color="#cbd5e1" />
                                 <div className="sky-list-empty__title">Topilmadi</div>
-                                <div className="sky-list-empty__hint">Filterlarni o'zgartiring</div>
+                                <div className="sky-list-empty__hint">Hozircha ambulans qo'shilmagan</div>
                             </div>
                         ) : (
                             <div className="sky-list">
