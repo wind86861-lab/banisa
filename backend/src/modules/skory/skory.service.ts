@@ -652,6 +652,31 @@ export async function updateRequestStatus(
     return { ok: true as const, request: fresh! };
 }
 
+/**
+ * Backfill dispatcher links after a Telegram account is created/linked.
+ *
+ * A clinic can set an ambulance's dispatcherPhone BEFORE that person has ever
+ * opened the bot — at that moment there is no User to point at, so
+ * dispatcherUserId stays null and the ambulance receives no offers. When the
+ * person finally shares their contact / links via /start, this claims every
+ * ambulance still waiting on their phone number. Returns the ambulances linked
+ * so the caller can tell the dispatcher what they were assigned to.
+ */
+export async function backfillDispatcherLinks(userId: string): Promise<{ callSign: string; clinicName: string }[]> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { phone: true } });
+    if (!user?.phone) return [];
+    const targets = await prisma.ambulance.findMany({
+        where: { dispatcherPhone: user.phone, dispatcherUserId: null },
+        select: { id: true, callSign: true, clinic: { select: { nameUz: true } } },
+    });
+    if (targets.length === 0) return [];
+    await prisma.ambulance.updateMany({
+        where: { dispatcherPhone: user.phone, dispatcherUserId: null },
+        data: { dispatcherUserId: userId },
+    });
+    return targets.map((t) => ({ callSign: t.callSign, clinicName: t.clinic.nameUz }));
+}
+
 // ─── Waiting fee ────────────────────────────────────────────────────────────
 // The ambulance may stand by mid-trip (waits at a clinic while the patient is
 // seen, then returns them). The dispatcher starts/stops a timer from the bot;

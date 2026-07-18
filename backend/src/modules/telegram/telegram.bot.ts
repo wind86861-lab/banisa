@@ -1,6 +1,7 @@
 import { Bot, InlineKeyboard, InputFile, Keyboard } from 'grammy';
 import prisma from '../../config/database';
 import { registerOrLoginViaContact } from './telegram.register';
+import { backfillDispatcherLinks } from '../skory/skory.service';
 import {
     renderMyAppointments, renderAppointmentDetail,
     renderCart, renderCartItemDetail,
@@ -742,6 +743,25 @@ function registerHandlers(bot: Bot) {
     // priority over any catch-alls.
     registerSkoryHandlers(bot);
 
+    // After a Telegram account is linked, claim any ambulance whose
+    // dispatcherPhone matches this user but was set before they had an account
+    // (dispatcherUserId was null). Tells them what they're now responsible for.
+    const notifyDispatcherAssignments = async (ctx: any, userId: string | null | undefined, lang: Lang): Promise<void> => {
+        if (!userId) return;
+        try {
+            const links = await backfillDispatcherLinks(userId);
+            if (links.length === 0) return;
+            const e = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const list = links.map((l) => `🚑 <b>${e(l.callSign)}</b> — ${e(l.clinicName)}`).join('\n');
+            const msg = lang === 'ru'
+                ? `✅ <b>Вы назначены диспетчером скорой:</b>\n${list}\n\nЗапросы на скорую будут приходить в этот чат. Держите бот открытым и при выезде включайте Live Location (/livelocation).`
+                : `✅ <b>Siz tez yordam dispetcheri etib biriktirildingiz:</b>\n${list}\n\nTez yordam so'rovlari shu chatga keladi. Botni ochiq tuting; chiqishda Live Location'ni yoqing (/livelocation).`;
+            await ctx.reply(msg, { parse_mode: 'HTML' });
+        } catch (err) {
+            console.error('[telegram] dispatcher backfill failed', err);
+        }
+    };
+
     bot.command('start', async (ctx) => {
         const token = ctx.match?.trim();
         const tgUser = ctx.from;
@@ -765,6 +785,7 @@ function registerHandlers(bot: Bot) {
                 const kb = await smartKeyboard(existing!.userId!, lang, true, chatId);
                 await ctx.reply(intro, { reply_markup: kb });
                 await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
+                await notifyDispatcherAssignments(ctx, existing!.userId!, lang);
                 return;
             }
 
@@ -824,6 +845,7 @@ function registerHandlers(bot: Bot) {
             const kb = await smartKeyboard(justLinked?.userId ?? null, lang, true, chatId);
             await ctx.reply(LABELS[lang].replyHint, { reply_markup: kb });
             await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
+            await notifyDispatcherAssignments(ctx, justLinked?.userId, lang);
         } catch (e: any) {
             const reason = e?.message;
             if (reason === 'not_found') {
@@ -1113,6 +1135,7 @@ function registerHandlers(bot: Bot) {
         const kb = await smartKeyboard(result.user?.id ?? null, lang, true, chatId);
         await ctx.reply(welcome, { reply_markup: kb });
         await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
+        await notifyDispatcherAssignments(ctx, result.user?.id, lang);
 
         // Brand-new registrations get a follow-up nudge to set a real
         // login password. Without it they can only re-enter via the bot —
