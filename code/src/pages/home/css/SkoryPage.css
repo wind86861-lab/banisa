@@ -438,6 +438,27 @@
     box-shadow: 0 30px 80px rgba(15,23,42,0.3);
     overflow: hidden;
     position: relative;
+    /* Never exceed the viewport — the body scrolls instead of clipping. */
+    max-height: calc(100vh - 40px);
+    max-height: calc(100dvh - 40px);
+    display: flex;
+    flex-direction: column;
+}
+.sky-modal__body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+/* Mobile: slide up as a full-width bottom sheet so it always fits. */
+@media (max-width: 560px) {
+    .sky-modal-bg { place-items: end center; padding: 0; }
+    .sky-modal {
+        max-width: 100%;
+        border-radius: 20px 20px 0 0;
+        max-height: 92vh;
+        max-height: 92dvh;
+    }
 }
 .sky-modal__close {
     position: absolute;

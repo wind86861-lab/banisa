@@ -196,13 +196,10 @@ function AmbulanceDetailModal({ amb, onClose, onRequest }) {
 
                         <button
                             onClick={() => onRequest?.(amb)}
-                            disabled={amb.status !== 'AVAILABLE'}
-                            className={`sky-request-btn ${amb.status === 'AVAILABLE' ? 'sky-request-btn--ready' : 'sky-request-btn--off'}`}
+                            className="sky-request-btn sky-request-btn--ready"
                         >
                             <Ambulance size={16} />
-                            {amb.status === 'AVAILABLE'
-                                ? 'Shu ambulansga so\'rov yuborish'
-                                : 'Hozir bo\'sh emas'}
+                            Shu ambulansga so'rov yuborish
                         </button>
 
                         <div className="sky-cta-note">
