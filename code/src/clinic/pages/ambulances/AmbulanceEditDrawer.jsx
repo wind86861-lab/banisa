@@ -45,6 +45,7 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
     const [equipment, setEquipment] = useState(existing?.equipment || []);
     const [baseFee, setBaseFee] = useState(existing?.baseFee ?? '');
     const [pricePerKm, setPricePerKm] = useState(existing?.pricePerKm ?? '');
+    const [waitingRatePerMin, setWaitingRatePerMin] = useState(existing?.waitingRatePerMin ?? '');
 
     // Per-band tariff table (admin-defined bands × this vehicle's price).
     const { data: bands = [] } = useQuery({
@@ -80,6 +81,7 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
                 equipment,
                 baseFee: baseFee === '' ? null : Number(baseFee),
                 pricePerKm: pricePerKm === '' ? null : Number(pricePerKm),
+                waitingRatePerMin: waitingRatePerMin === '' ? null : Number(waitingRatePerMin),
                 bandTariffs: bands
                     .map((b) => ({
                         bandId: b.id,
@@ -266,6 +268,21 @@ export default function AmbulanceEditDrawer({ existing, onClose, onSaved }) {
                                 placeholder="50000"
                             />
                             {bands.length > 0 && <div className="cab-hint">Poyas narxi to'ldirilmagan holatda ishlatiladi</div>}
+                        </div>
+
+                        <div className="cab-field" style={{ gridColumn: 'span 2' }}>
+                            <label>Kutish haqi (so'm / daqiqa)</label>
+                            <input
+                                type="number" min={0}
+                                value={waitingRatePerMin}
+                                onChange={(e) => setWaitingRatePerMin(e.target.value)}
+                                placeholder="2000"
+                            />
+                            <div className="cab-hint">
+                                Ambulans bemorni kutib turgan vaqt uchun (masalan klinikada muolaja tugaguncha).
+                                Dispatcher botda «Kutishni boshlash/tugatish» ni bosadi; haq daqiqasiga hisoblanadi.
+                                Bo'sh qoldirsangiz — kutish haqi olinmaydi.
+                            </div>
                         </div>
                         <div className="cab-field">
                             <label>1 km narxi (so'm){bands.length > 0 ? ' — zaxira' : ''}</label>

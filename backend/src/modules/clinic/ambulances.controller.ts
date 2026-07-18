@@ -111,7 +111,7 @@ export const createAmbulance = async (req: AuthRequest, res: Response) => {
 
     const {
         callSign, type, vehicleModel, licensePlate, capacity,
-        equipment, baseLatitude, baseLongitude, baseFee, pricePerKm,
+        equipment, baseLatitude, baseLongitude, baseFee, pricePerKm, waitingRatePerMin,
         dispatchPhone, dispatcherPhone, photoUrl, notes, status, bandTariffs,
     } = req.body || {};
 
@@ -159,6 +159,7 @@ export const createAmbulance = async (req: AuthRequest, res: Response) => {
                 baseLongitude: Number.isFinite(baseLongitude) ? baseLongitude : null,
                 baseFee: pricing.baseFee,
                 pricePerKm: pricing.pricePerKm,
+                waitingRatePerMin: Number.isFinite(waitingRatePerMin) ? Math.max(0, Math.round(waitingRatePerMin)) : null,
                 dispatchPhone: dispatchPhone?.trim() || null,
                 dispatcherPhone: dispatcherPhoneNorm,
                 dispatcherUserId,
@@ -191,7 +192,7 @@ export const updateAmbulance = async (req: AuthRequest, res: Response) => {
 
     const {
         callSign, type, vehicleModel, licensePlate, capacity,
-        equipment, baseLatitude, baseLongitude, baseFee, pricePerKm,
+        equipment, baseLatitude, baseLongitude, baseFee, pricePerKm, waitingRatePerMin,
         dispatchPhone, dispatcherPhone, photoUrl, notes, isActive, bandTariffs,
     } = req.body || {};
     const data: any = {};
@@ -205,6 +206,8 @@ export const updateAmbulance = async (req: AuthRequest, res: Response) => {
     if (Number.isFinite(baseLongitude) || baseLongitude === null) data.baseLongitude = baseLongitude;
     if (Number.isFinite(baseFee) || baseFee === null) data.baseFee = baseFee;
     if (Number.isFinite(pricePerKm) || pricePerKm === null) data.pricePerKm = pricePerKm;
+    if (Number.isFinite(waitingRatePerMin)) data.waitingRatePerMin = Math.max(0, Math.round(waitingRatePerMin));
+    else if (waitingRatePerMin === null) data.waitingRatePerMin = null;
     // Auto-fill from global default whenever the caller cleared / didn't set
     // a price field on a row that also has no per-vehicle override.
     if (data.baseFee == null || data.pricePerKm == null) {

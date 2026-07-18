@@ -36,6 +36,9 @@ import {
     submitReview,
     getMarketPriceRange,
     getNearbyClinics,
+    startWaiting,
+    stopWaiting,
+    claimDueWaitingReminders,
     type CandidateAmbulance,
     type DispatcherStatus,
 } from '../skory/skory.service';
@@ -131,6 +134,13 @@ const L = {
         statusOnRoutePat: '🚦 <b>Ambulans yo\'lga chiqdi</b>\n\nKutib turing — yetib keladi.',
         statusArrivedPat: '📍 <b>Ambulans yetib keldi!</b>\n\nIltimos, tashqariga chiqing.',
         statusCompletedPat: '✅ <b>Chaqiruv yakunlandi.</b>\n\nTez tuzalishingizni tilaymiz!',
+        // Waiting timer (dispatcher)
+        waitStart: '⏱ Kutishni boshlash',
+        waitStop: '⏹ Kutishni tugatish',
+        waitStartedDisp: '⏱ <b>Kutish boshlandi.</b> Tugatganda «⏹ Kutishni tugatish» ni bosing.',
+        waitStoppedDisp: (m: number, fee: number) => `⏹ <b>Kutish tugadi.</b> ${m} daqiqa · ${fee.toLocaleString('uz-UZ')} so'm qo'shildi.`,
+        waitRemind: (m: number) => `⏱ Kutish davom etyapti (~${m} daq). Tugagan bo'lsa «⏹ Kutishni tugatish» ni bosing.`,
+        waitPat: (m: number, fee: number) => `⏱ Kutish: ${m} daqiqa — ${fee.toLocaleString('uz-UZ')} so'm`,
         // Reviews
         reviewAsk: '⭐ Iltimos, ambulansga baho bering:',
         reviewThanks: '🙏 Rahmat! Sharhingiz qabul qilindi.',
@@ -229,6 +239,13 @@ const L = {
         statusOnRoutePat: '🚦 <b>Машина выехала</b>\n\nПодождите — скоро прибудет.',
         statusArrivedPat: '📍 <b>Машина прибыла!</b>\n\nПожалуйста, выходите.',
         statusCompletedPat: '✅ <b>Вызов завершён.</b>\n\nСкорейшего выздоровления!',
+        // Waiting timer (dispatcher)
+        waitStart: '⏱ Начать ожидание',
+        waitStop: '⏹ Закончить ожидание',
+        waitStartedDisp: '⏱ <b>Ожидание начато.</b> По окончании нажмите «⏹ Закончить ожидание».',
+        waitStoppedDisp: (m: number, fee: number) => `⏹ <b>Ожидание завершено.</b> ${m} мин · +${fee.toLocaleString('ru-RU')} сум.`,
+        waitRemind: (m: number) => `⏱ Ожидание продолжается (~${m} мин). Если закончили — нажмите «⏹ Закончить ожидание».`,
+        waitPat: (m: number, fee: number) => `⏱ Ожидание: ${m} мин — ${fee.toLocaleString('ru-RU')} сум`,
         reviewAsk: '⭐ Пожалуйста, оцените машину скорой:',
         reviewThanks: '🙏 Спасибо! Ваш отзыв получен.',
         back: '⬅️ Назад',
@@ -810,6 +827,32 @@ function dispatcherStatusKeyboard(lang: Lang, requestId: string, next: Dispatche
     return kb;
 }
 
+/**
+ * Full dispatcher job keyboard: the next-status button plus a waiting-timer
+ * toggle. The wait toggle only shows mid-trip (ON_ROUTE / ARRIVED) and only
+ * when the ambulance advertises a per-minute wait rate.
+ */
+function jobKeyboard(lang: Lang, req: {
+    id: string;
+    status: string;
+    waitingStartedAt: Date | null;
+    waitingEndedAt: Date | null;
+    waitRatePerMin: number | null;
+}): InlineKeyboard {
+    const t = L[lang];
+    const kb = new InlineKeyboard();
+    const nxt = nextDispatcherStatus(req.status);
+    if (nxt === 'ON_ROUTE') kb.text(t.actOnRoute, `skory:status:ON_ROUTE:${req.id}`);
+    if (nxt === 'ARRIVED') kb.text(t.actArrived, `skory:status:ARRIVED:${req.id}`);
+    if (nxt === 'COMPLETED') kb.text(t.actCompleted, `skory:status:COMPLETED:${req.id}`);
+    if (['ON_ROUTE', 'ARRIVED'].includes(req.status) && (req.waitRatePerMin ?? 0) > 0) {
+        kb.row();
+        const waiting = req.waitingStartedAt && !req.waitingEndedAt;
+        kb.text(waiting ? t.waitStop : t.waitStart, `skory:wait${waiting ? 'stop' : 'start'}:${req.id}`);
+    }
+    return kb;
+}
+
 function nextDispatcherStatus(cur: string): DispatcherStatus | null {
     if (cur === 'DISPATCHED') return 'ON_ROUTE';
     if (cur === 'ON_ROUTE') return 'ARRIVED';
@@ -823,7 +866,12 @@ function reviewKeyboard(requestId: string): InlineKeyboard {
     return kb;
 }
 
-async function notifyPatientStatus(bot: Bot, requestId: string, status: DispatcherStatus): Promise<void> {
+async function notifyPatientStatus(
+    bot: Bot,
+    requestId: string,
+    status: DispatcherStatus,
+    autoWaitStopped?: { minutes: number; fee: number } | null,
+): Promise<void> {
     const req = await prisma.ambulanceRequest.findUnique({
         where: { id: requestId },
         include: { patient: { select: { telegramAccount: { select: { chatId: true, language: true } } } } },
@@ -832,9 +880,13 @@ async function notifyPatientStatus(bot: Bot, requestId: string, status: Dispatch
     if (!chatId) return;
     const lang: Lang = req!.patient.telegramAccount!.language === 'ru' ? 'ru' : 'uz';
     const t = L[lang];
-    const msg = status === 'ON_ROUTE' ? t.statusOnRoutePat
+    let msg = status === 'ON_ROUTE' ? t.statusOnRoutePat
         : status === 'ARRIVED' ? t.statusArrivedPat
         : t.statusCompletedPat;
+    // On completion, tell the patient the total waiting charge (if any).
+    if (status === 'COMPLETED' && (req!.waitingFee ?? 0) > 0) {
+        msg += `\n\n${t.waitPat(req!.waitingMinutes ?? 0, req!.waitingFee ?? 0)}`;
+    }
     try {
         await bot.api.sendMessage(Number(chatId), msg, { parse_mode: 'HTML' });
         // On COMPLETED, follow up with a review prompt — best-effort so we don't
@@ -975,8 +1027,41 @@ async function handleDispatcherLiveLocation(ctx: any): Promise<void> {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Waiting-reminder worker — nudges the dispatcher ("still waiting?") at 5/15/25
+// min then hourly so a running timer is never forgotten. Cluster-safe: the
+// claim in claimDueWaitingReminders() atomically bumps the stage, so only one
+// worker instance pings per threshold.
+// ─────────────────────────────────────────────────────────────────────────────
+
+let waitReminderWorkerStarted = false;
+function startWaitingReminderWorker(bot: Bot): void {
+    if (waitReminderWorkerStarted) return;
+    waitReminderWorkerStarted = true;
+    const tick = async () => {
+        try {
+            const due = await claimDueWaitingReminders();
+            for (const d of due) {
+                if (!d.chatId) continue;
+                const lang: Lang = d.language === 'ru' ? 'ru' : 'uz';
+                try {
+                    await bot.api.sendMessage(Number(d.chatId), L[lang].waitRemind(d.elapsedMin), {
+                        parse_mode: 'HTML',
+                        reply_markup: new InlineKeyboard().text(L[lang].waitStop, `skory:waitstop:${d.requestId}`),
+                    });
+                } catch { /* dispatcher blocked bot etc. — ignore */ }
+            }
+        } catch (e) {
+            console.error('[skory] waiting reminder tick failed', e);
+        }
+    };
+    setInterval(tick, 60_000);
+    setTimeout(tick, 10_000);
+}
+
 export function registerSkoryHandlers(bot: Bot): void {
     startPendingExpiryWorker(bot);
+    startWaitingReminderWorker(bot);
 
     // Dispatcher: short how-to for enabling Live Location share.
     bot.command('livelocation', async (ctx) => {
@@ -1378,6 +1463,15 @@ export function registerSkoryHandlers(bot: Bot): void {
         if (!acc?.userId) { await ctx.answerCallbackQuery(); return; }
         const newStatus = ctx.match![1] as DispatcherStatus;
         const requestId = ctx.match![2];
+        // Completing while the waiting timer still runs → auto-stop it first so
+        // the fee is banked (dispatcher forgot to press stop).
+        let autoWaitStopped: { minutes: number; fee: number } | null = null;
+        if (newStatus === 'COMPLETED') {
+            try {
+                const w = await stopWaiting(requestId, acc.userId);
+                if (w.ok) autoWaitStopped = { minutes: w.segmentMinutes, fee: w.fee };
+            } catch { /* not running / not owner — ignore */ }
+        }
         let result;
         try {
             result = await updateRequestStatus(requestId, acc.userId, newStatus);
@@ -1390,18 +1484,103 @@ export function registerSkoryHandlers(bot: Bot): void {
         const dispLine = newStatus === 'ON_ROUTE' ? t.statusOnRouteDisp
             : newStatus === 'ARRIVED' ? t.statusArrivedDisp
             : t.statusCompletedDisp;
-        const nxt = nextDispatcherStatus(newStatus);
+        const req = result.ok ? result.request : null;
+        // Build the keyboard; drop it entirely once the job is terminal
+        // (no next status, no waiting) so no dead buttons linger.
+        let kb: InlineKeyboard | undefined;
+        if (req) {
+            const built = jobKeyboard(lang, {
+                id: requestId,
+                status: req.status,
+                waitingStartedAt: (req as any).waitingStartedAt ?? null,
+                waitingEndedAt: (req as any).waitingEndedAt ?? null,
+                waitRatePerMin: (req as any).acceptedAmbulance?.waitingRatePerMin ?? null,
+            });
+            if (built.inline_keyboard.length > 0) kb = built;
+        }
         try {
             await ctx.editMessageText(
                 `${ctx.callbackQuery?.message?.text || ''}\n\n${dispLine}`,
                 {
                     parse_mode: 'HTML',
                     link_preview_options: { is_disabled: true },
-                    reply_markup: nxt ? dispatcherStatusKeyboard(lang, requestId, nxt) : undefined,
+                    reply_markup: kb,
                 },
             );
         } catch { /* */ }
-        if (result.ok) await notifyPatientStatus(bot, requestId, newStatus);
+        if (result.ok) await notifyPatientStatus(bot, requestId, newStatus, autoWaitStopped);
+    });
+
+    // Dispatcher: start the waiting timer mid-trip.
+    bot.callbackQuery(/^skory:waitstart:(.+)$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const lang = await lookupLang(chatId);
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { userId: true },
+        });
+        if (!acc?.userId) { await ctx.answerCallbackQuery(); return; }
+        const requestId = ctx.match![1];
+        let r;
+        try { r = await startWaiting(requestId, acc.userId); }
+        catch (e: any) { await ctx.answerCallbackQuery(e?.message || 'Xato'); return; }
+        if (!r.ok) { await ctx.answerCallbackQuery(); return; }
+        await ctx.answerCallbackQuery();
+        const t = L[lang];
+        const fresh = await prisma.ambulanceRequest.findUnique({
+            where: { id: requestId },
+            include: { acceptedAmbulance: { select: { waitingRatePerMin: true } } },
+        });
+        try {
+            await ctx.editMessageText(
+                `${ctx.callbackQuery?.message?.text || ''}\n\n${t.waitStartedDisp}`,
+                {
+                    parse_mode: 'HTML',
+                    link_preview_options: { is_disabled: true },
+                    reply_markup: jobKeyboard(lang, {
+                        id: requestId, status: fresh!.status,
+                        waitingStartedAt: fresh!.waitingStartedAt, waitingEndedAt: fresh!.waitingEndedAt,
+                        waitRatePerMin: fresh!.acceptedAmbulance?.waitingRatePerMin ?? null,
+                    }),
+                },
+            );
+        } catch { /* */ }
+    });
+
+    // Dispatcher: stop the waiting timer, bank the fee.
+    bot.callbackQuery(/^skory:waitstop:(.+)$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const lang = await lookupLang(chatId);
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { userId: true },
+        });
+        if (!acc?.userId) { await ctx.answerCallbackQuery(); return; }
+        const requestId = ctx.match![1];
+        let r;
+        try { r = await stopWaiting(requestId, acc.userId); }
+        catch (e: any) { await ctx.answerCallbackQuery(e?.message || 'Xato'); return; }
+        if (!r.ok) { await ctx.answerCallbackQuery(); return; }
+        await ctx.answerCallbackQuery();
+        const t = L[lang];
+        const fresh = await prisma.ambulanceRequest.findUnique({
+            where: { id: requestId },
+            include: { acceptedAmbulance: { select: { waitingRatePerMin: true } } },
+        });
+        try {
+            await ctx.editMessageText(
+                `${ctx.callbackQuery?.message?.text || ''}\n\n${t.waitStoppedDisp(r.segmentMinutes, r.fee)}`,
+                {
+                    parse_mode: 'HTML',
+                    link_preview_options: { is_disabled: true },
+                    reply_markup: jobKeyboard(lang, {
+                        id: requestId, status: fresh!.status,
+                        waitingStartedAt: fresh!.waitingStartedAt, waitingEndedAt: fresh!.waitingEndedAt,
+                        waitRatePerMin: fresh!.acceptedAmbulance?.waitingRatePerMin ?? null,
+                    }),
+                },
+            );
+        } catch { /* */ }
     });
 
     // Patient leaves a 1-5 star review on a completed request.

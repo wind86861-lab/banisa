@@ -1716,6 +1716,10 @@ model Ambulance {
   // Legacy flat pricing (fallback when no per-band tariff is filled).
   baseFee         Int?             // som — chaqiruv narxi
   pricePerKm      Int?             // som per km
+  // Waiting fee — charged per minute the ambulance stands by during a trip
+  // (e.g. waits at a clinic while the patient is seen, then returns them).
+  // The dispatcher starts/stops the timer from the bot; null = not offered.
+  waitingRatePerMin Int?           // som per minute
   // Dedicated dispatch phone (optional — falls back to clinic.phones)
   dispatchPhone   String?
   photoUrl        String?
@@ -1767,6 +1771,13 @@ model AmbulanceRequest {
   estimatedDistanceKm Float?
   estimatedDurationMin Int?
   description         String?
+  // Waiting timer (dispatcher-controlled from the bot). waitingFee =
+  // waitingMinutes × ambulance.waitingRatePerMin, added to the trip price.
+  waitingStartedAt    DateTime?
+  waitingEndedAt      DateTime?
+  waitingMinutes      Int?
+  waitingFee          Int?
+  waitingRemindStage  Int       @default(0)  // # of "still waiting?" pings sent
   acceptedAmbulanceId String?
   acceptedAt          DateTime?
   cancelledAt         DateTime?

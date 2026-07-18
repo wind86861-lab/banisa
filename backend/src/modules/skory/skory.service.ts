@@ -652,6 +652,105 @@ export async function updateRequestStatus(
     return { ok: true as const, request: fresh! };
 }
 
+// ─── Waiting fee ────────────────────────────────────────────────────────────
+// The ambulance may stand by mid-trip (waits at a clinic while the patient is
+// seen, then returns them). The dispatcher starts/stops a timer from the bot;
+// the fee is waitingMinutes × ambulance.waitingRatePerMin, added to the trip.
+
+// Reminder cadence (minutes elapsed): ping the dispatcher at 5, 15, 25, then
+// every 60 min, so they don't forget to stop the timer.
+const WAIT_REMIND_STEPS = [5, 15, 25];
+export function waitThresholdForStage(stage: number): number {
+    if (stage < WAIT_REMIND_STEPS.length) return WAIT_REMIND_STEPS[stage];
+    return 60 * (stage - WAIT_REMIND_STEPS.length + 1); // stage3→60, stage4→120…
+}
+
+/** Start the waiting timer. Only the accepting dispatcher, only mid-trip. */
+export async function startWaiting(requestId: string, dispatcherUserId: string) {
+    const req = await prisma.ambulanceRequest.findUnique({
+        where: { id: requestId },
+        include: { acceptedAmbulance: { select: { dispatcherUserId: true, waitingRatePerMin: true } } },
+    });
+    if (!req) throw new AppError('So\'rov topilmadi', 404, ErrorCodes.NOT_FOUND);
+    if (!req.acceptedAmbulance || req.acceptedAmbulance.dispatcherUserId !== dispatcherUserId) {
+        throw new AppError('Bu so\'rov sizniki emas', 403, ErrorCodes.FORBIDDEN);
+    }
+    if (!['DISPATCHED', 'ON_ROUTE', 'ARRIVED'].includes(req.status)) {
+        return { ok: false as const, reason: 'not_active' as const };
+    }
+    if (req.waitingStartedAt && !req.waitingEndedAt) {
+        return { ok: false as const, reason: 'already_running' as const };
+    }
+    await prisma.ambulanceRequest.update({
+        where: { id: requestId },
+        data: { waitingStartedAt: new Date(), waitingEndedAt: null, waitingRemindStage: 0 },
+    });
+    return { ok: true as const, ratePerMin: req.acceptedAmbulance.waitingRatePerMin ?? 0 };
+}
+
+/** Stop the timer and bank the fee (rounded up to whole minutes, min 1). */
+export async function stopWaiting(requestId: string, dispatcherUserId: string) {
+    const req = await prisma.ambulanceRequest.findUnique({
+        where: { id: requestId },
+        include: { acceptedAmbulance: { select: { dispatcherUserId: true, waitingRatePerMin: true } } },
+    });
+    if (!req) throw new AppError('So\'rov topilmadi', 404, ErrorCodes.NOT_FOUND);
+    if (!req.acceptedAmbulance || req.acceptedAmbulance.dispatcherUserId !== dispatcherUserId) {
+        throw new AppError('Bu so\'rov sizniki emas', 403, ErrorCodes.FORBIDDEN);
+    }
+    if (!req.waitingStartedAt || req.waitingEndedAt) {
+        return { ok: false as const, reason: 'not_running' as const };
+    }
+    const endedAt = new Date();
+    const minutes = Math.max(1, Math.ceil((endedAt.getTime() - req.waitingStartedAt.getTime()) / 60000));
+    const rate = req.acceptedAmbulance.waitingRatePerMin ?? 0;
+    // Sum onto any earlier waiting segments on the same trip.
+    const fee = (req.waitingFee ?? 0) + minutes * rate;
+    const totalMinutes = (req.waitingMinutes ?? 0) + minutes;
+    await prisma.ambulanceRequest.update({
+        where: { id: requestId },
+        data: { waitingEndedAt: endedAt, waitingMinutes: totalMinutes, waitingFee: fee },
+    });
+    return { ok: true as const, minutes, segmentMinutes: minutes, totalMinutes, fee, ratePerMin: rate };
+}
+
+/**
+ * Requests with a running waiting timer that have crossed their next reminder
+ * threshold. Atomically claims each (bumps waitingRemindStage) so in a
+ * clustered deployment only one worker sends the ping. Returns the ones to ping.
+ */
+export async function claimDueWaitingReminders(): Promise<Array<{
+    requestId: string; elapsedMin: number; chatId: bigint | null; language: string;
+}>> {
+    const running = await prisma.ambulanceRequest.findMany({
+        where: {
+            waitingStartedAt: { not: null },
+            waitingEndedAt: null,
+            status: { in: ['DISPATCHED', 'ON_ROUTE', 'ARRIVED'] },
+        },
+        include: {
+            acceptedAmbulance: {
+                select: { dispatcher: { select: { telegramAccount: { select: { chatId: true, language: true } } } } },
+            },
+        },
+    });
+    const due: Array<{ requestId: string; elapsedMin: number; chatId: bigint | null; language: string }> = [];
+    for (const r of running) {
+        const elapsedMin = Math.floor((Date.now() - r.waitingStartedAt!.getTime()) / 60000);
+        const threshold = waitThresholdForStage(r.waitingRemindStage);
+        if (elapsedMin < threshold) continue;
+        // Atomic claim: only the worker that flips the stage sends the ping.
+        const claim = await prisma.ambulanceRequest.updateMany({
+            where: { id: r.id, waitingRemindStage: r.waitingRemindStage, waitingEndedAt: null },
+            data: { waitingRemindStage: r.waitingRemindStage + 1 },
+        });
+        if (claim.count !== 1) continue;
+        const acc = r.acceptedAmbulance?.dispatcher?.telegramAccount;
+        due.push({ requestId: r.id, elapsedMin, chatId: acc?.chatId ?? null, language: acc?.language || 'uz' });
+    }
+    return due;
+}
+
 /**
  * Patient submits a 1-5 review after a COMPLETED request. One per request
  * (unique requestId); upsert on conflict so the patient can update their

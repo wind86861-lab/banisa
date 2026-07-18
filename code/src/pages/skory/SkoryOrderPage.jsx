@@ -574,6 +574,16 @@ function WaitingScreen({ active, onCancelled }) {
                     <div className="skoo__ambcard__row"><Ambulance size={16} /> {amb.callSign} {amb.vehicleModel && `· ${amb.vehicleModel}`}</div>
                     {amb.licensePlate && <div className="skoo__ambcard__row"><Flag size={16} /> {amb.licensePlate}</div>}
                     {active.estimatedDurationMin && <div className="skoo__ambcard__row"><Activity size={16} /> ~{active.estimatedDurationMin} daq</div>}
+                    {active.waitingStartedAt && !active.waitingEndedAt && (
+                        <div className="skoo__ambcard__row" style={{ color: '#b45309' }}>
+                            ⏱ Kutish davom etyapti — vaqt hisoblanmoqda
+                        </div>
+                    )}
+                    {(active.waitingFee ?? 0) > 0 && (
+                        <div className="skoo__ambcard__row" style={{ color: '#b45309' }}>
+                            ⏱ Kutish: {active.waitingMinutes} daq — {active.waitingFee.toLocaleString('uz-UZ')} so'm
+                        </div>
+                    )}
                     {phones.length > 0 && (
                         <div>
                             {phones.map((p) => (
