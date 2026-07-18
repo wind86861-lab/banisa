@@ -743,22 +743,33 @@ function registerHandlers(bot: Bot) {
     // priority over any catch-alls.
     registerSkoryHandlers(bot);
 
-    // After a Telegram account is linked, claim any ambulance whose
-    // dispatcherPhone matches this user but was set before they had an account
-    // (dispatcherUserId was null). Tells them what they're now responsible for.
+    // Show a linked user their dispatcher role. First claims any ambulance
+    // whose dispatcherPhone matches them but was assigned before they had an
+    // account (dispatcherUserId null) — the "linked-first, started-later" gap —
+    // then always lists every ambulance they dispatch so /start reliably shows
+    // "role info", not only on the very first link.
     const notifyDispatcherAssignments = async (ctx: any, userId: string | null | undefined, lang: Lang): Promise<void> => {
         if (!userId) return;
         try {
-            const links = await backfillDispatcherLinks(userId);
-            if (links.length === 0) return;
+            await backfillDispatcherLinks(userId);
+            const ambs = await prisma.ambulance.findMany({
+                where: { dispatcherUserId: userId, isActive: true },
+                select: { callSign: true, status: true, clinic: { select: { nameUz: true } } },
+                orderBy: { callSign: 'asc' },
+            });
+            if (ambs.length === 0) return;
             const e = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            const list = links.map((l) => `🚑 <b>${e(l.callSign)}</b> — ${e(l.clinicName)}`).join('\n');
+            const onl = (st: string) => st === 'AVAILABLE'
+                ? (lang === 'ru' ? '🟢 свободна' : '🟢 bo\'sh')
+                : st === 'BUSY' ? (lang === 'ru' ? '🔴 на вызове' : '🔴 chaqiruvda')
+                : (lang === 'ru' ? '⚪ офлайн' : '⚪ oflayn');
+            const list = ambs.map((a) => `🚑 <b>${e(a.callSign)}</b> — ${e(a.clinic.nameUz)} · ${onl(a.status)}`).join('\n');
             const msg = lang === 'ru'
-                ? `✅ <b>Вы назначены диспетчером скорой:</b>\n${list}\n\nЗапросы на скорую будут приходить в этот чат. Держите бот открытым и при выезде включайте Live Location (/livelocation).`
-                : `✅ <b>Siz tez yordam dispetcheri etib biriktirildingiz:</b>\n${list}\n\nTez yordam so'rovlari shu chatga keladi. Botni ochiq tuting; chiqishda Live Location'ni yoqing (/livelocation).`;
+                ? `🚑 <b>Вы диспетчер скорой:</b>\n${list}\n\nЗапросы на скорую приходят в этот чат. Держите бот открытым; при выезде включайте Live Location (/livelocation).`
+                : `🚑 <b>Siz tez yordam dispetcherisiz:</b>\n${list}\n\nTez yordam so'rovlari shu chatga keladi. Botni ochiq tuting; chiqishda Live Location'ni yoqing (/livelocation).`;
             await ctx.reply(msg, { parse_mode: 'HTML' });
         } catch (err) {
-            console.error('[telegram] dispatcher backfill failed', err);
+            console.error('[telegram] dispatcher info failed', err);
         }
     };
 
