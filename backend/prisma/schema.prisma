@@ -1826,7 +1826,9 @@ enum AmbulanceRequestStatus {
   DISPATCHED    // ambulans qabul qildi, yo'lda
   ON_ROUTE      // bemor tomon harakatda (manual update)
   ARRIVED       // bemor oldida
-  COMPLETED     // bemor manzilga yetkazildi
+  PICKED_UP     // bemorni oldi, manzilga olib ketyapti
+  DELIVERED     // bemorni manzilga yetkazdi (to'lov kutilmoqda)
+  COMPLETED     // yakunlandi (to'landi)
   CANCELLED     // bemor yoki dispatcher bekor qildi
 }
 

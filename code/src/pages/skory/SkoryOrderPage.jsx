@@ -534,6 +534,8 @@ const STATUS_FLOW = [
     { key: 'DISPATCHED', label: 'Ambulans qabul qildi' },
     { key: 'ON_ROUTE',   label: 'Ambulans yo\'lda' },
     { key: 'ARRIVED',    label: 'Yetib keldi' },
+    { key: 'PICKED_UP',  label: 'Bemor olindi' },
+    { key: 'DELIVERED',  label: 'Manzilga yetkazildi' },
     { key: 'COMPLETED',  label: 'Yakunlandi' },
 ];
 

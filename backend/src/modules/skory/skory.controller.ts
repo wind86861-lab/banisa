@@ -164,7 +164,7 @@ export const getActiveSkory = async (req: AuthRequest, res: Response) => {
     const active = await prisma.ambulanceRequest.findFirst({
         where: {
             patientId,
-            status: { in: ['PENDING', 'DISPATCHED', 'ON_ROUTE', 'ARRIVED'] },
+            status: { in: ['PENDING', 'DISPATCHED', 'ON_ROUTE', 'ARRIVED', 'PICKED_UP', 'DELIVERED'] },
         },
         orderBy: { createdAt: 'desc' },
         include: {

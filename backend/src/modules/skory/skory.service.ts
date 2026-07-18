@@ -589,14 +589,16 @@ export async function expirePendingRequest(requestId: string) {
  * On COMPLETED, releases the ambulance back to AVAILABLE and stamps
  * completedAt. All in a transaction so we never half-update on failure.
  */
-export type DispatcherStatus = 'ON_ROUTE' | 'ARRIVED' | 'COMPLETED';
+export type DispatcherStatus = 'ON_ROUTE' | 'ARRIVED' | 'PICKED_UP' | 'DELIVERED' | 'COMPLETED';
 
 const STATUS_ORDER: Record<string, number> = {
     PENDING: 0,
     DISPATCHED: 1,
     ON_ROUTE: 2,
     ARRIVED: 3,
-    COMPLETED: 4,
+    PICKED_UP: 4,
+    DELIVERED: 5,
+    COMPLETED: 6,
     CANCELLED: 99,
 };
 
@@ -705,7 +707,7 @@ export async function startWaiting(requestId: string, dispatcherUserId: string) 
     if (!req.acceptedAmbulance || req.acceptedAmbulance.dispatcherUserId !== dispatcherUserId) {
         throw new AppError('Bu so\'rov sizniki emas', 403, ErrorCodes.FORBIDDEN);
     }
-    if (!['DISPATCHED', 'ON_ROUTE', 'ARRIVED'].includes(req.status)) {
+    if (!['DISPATCHED', 'ON_ROUTE', 'ARRIVED', 'PICKED_UP', 'DELIVERED'].includes(req.status)) {
         return { ok: false as const, reason: 'not_active' as const };
     }
     if (req.waitingStartedAt && !req.waitingEndedAt) {
@@ -756,7 +758,7 @@ export async function claimDueWaitingReminders(): Promise<Array<{
         where: {
             waitingStartedAt: { not: null },
             waitingEndedAt: null,
-            status: { in: ['DISPATCHED', 'ON_ROUTE', 'ARRIVED'] },
+            status: { in: ['DISPATCHED', 'ON_ROUTE', 'ARRIVED', 'PICKED_UP', 'DELIVERED'] },
         },
         include: {
             acceptedAmbulance: {

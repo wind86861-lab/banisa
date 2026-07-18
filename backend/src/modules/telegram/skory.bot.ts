@@ -39,6 +39,7 @@ import {
     startWaiting,
     stopWaiting,
     claimDueWaitingReminders,
+    backfillDispatcherLinks,
     type CandidateAmbulance,
     type DispatcherStatus,
 } from '../skory/skory.service';
@@ -127,12 +128,18 @@ const L = {
         // Status update (dispatcher → patient)
         actOnRoute: '🚦 Yo\'lga chiqdim',
         actArrived: '📍 Yetib keldim',
-        actCompleted: '✅ Yakunlandi',
+        actPickedUp: '🧍 Bemorni oldim',
+        actDelivered: '📦 Yetkazdim',
+        actCompleted: '✅ Yakunlandi (to\'landi)',
         statusOnRouteDisp: '🚦 Holat: <b>YO\'LDA</b>. Bemorga xabar yuborildi.',
         statusArrivedDisp: '📍 Holat: <b>BEMOR OLDIDA</b>. Bemorga xabar yuborildi.',
+        statusPickedUpDisp: '🧍 Holat: <b>BEMOR OLINDI</b>. Manzilga harakatlanmoqda.',
+        statusDeliveredDisp: '📦 Holat: <b>YETKAZILDI</b>. Bemor to\'lovni QR orqali amalga oshiradi.',
         statusCompletedDisp: '✅ <b>Yakunlandi.</b> Ambulans yana bo\'shadi.',
         statusOnRoutePat: '🚦 <b>Ambulans yo\'lga chiqdi</b>\n\nKutib turing — yetib keladi.',
         statusArrivedPat: '📍 <b>Ambulans yetib keldi!</b>\n\nIltimos, tashqariga chiqing.',
+        statusPickedUpPat: '🧍 <b>Yo\'ldasiz</b>\n\nManzilga yetkazilmoqda.',
+        statusDeliveredPat: '📦 <b>Manzilga yetkazildingiz!</b>\n\nIltimos, to\'lovni amalga oshiring.',
         statusCompletedPat: '✅ <b>Chaqiruv yakunlandi.</b>\n\nTez tuzalishingizni tilaymiz!',
         // Waiting timer (dispatcher)
         waitStart: '⏱ Kutishni boshlash',
@@ -232,12 +239,18 @@ const L = {
         noneReceived: '😔 По техническим причинам ни одна машина не получила уведомление. Пожалуйста, звоните <b>103</b>.',
         actOnRoute: '🚦 В пути',
         actArrived: '📍 На месте',
-        actCompleted: '✅ Завершить',
+        actPickedUp: '🧍 Пациент в машине',
+        actDelivered: '📦 Доставил',
+        actCompleted: '✅ Завершить (оплачено)',
         statusOnRouteDisp: '🚦 Статус: <b>В ПУТИ</b>. Пациент уведомлён.',
         statusArrivedDisp: '📍 Статус: <b>НА МЕСТЕ</b>. Пациент уведомлён.',
+        statusPickedUpDisp: '🧍 Статус: <b>ПАЦИЕНТ В МАШИНЕ</b>. Едем к месту.',
+        statusDeliveredDisp: '📦 Статус: <b>ДОСТАВЛЕН</b>. Пациент оплачивает по QR.',
         statusCompletedDisp: '✅ <b>Завершено.</b> Машина снова свободна.',
         statusOnRoutePat: '🚦 <b>Машина выехала</b>\n\nПодождите — скоро прибудет.',
         statusArrivedPat: '📍 <b>Машина прибыла!</b>\n\nПожалуйста, выходите.',
+        statusPickedUpPat: '🧍 <b>Вы в пути</b>\n\nВас везут к месту назначения.',
+        statusDeliveredPat: '📦 <b>Вы доставлены!</b>\n\nПожалуйста, оплатите поездку.',
         statusCompletedPat: '✅ <b>Вызов завершён.</b>\n\nСкорейшего выздоровления!',
         // Waiting timer (dispatcher)
         waitStart: '⏱ Начать ожидание',
@@ -842,10 +855,11 @@ function jobKeyboard(lang: Lang, req: {
     const t = L[lang];
     const kb = new InlineKeyboard();
     const nxt = nextDispatcherStatus(req.status);
-    if (nxt === 'ON_ROUTE') kb.text(t.actOnRoute, `skory:status:ON_ROUTE:${req.id}`);
-    if (nxt === 'ARRIVED') kb.text(t.actArrived, `skory:status:ARRIVED:${req.id}`);
-    if (nxt === 'COMPLETED') kb.text(t.actCompleted, `skory:status:COMPLETED:${req.id}`);
-    if (['ON_ROUTE', 'ARRIVED'].includes(req.status) && (req.waitRatePerMin ?? 0) > 0) {
+    if (nxt) kb.text(statusActionLabel(lang, nxt), `skory:status:${nxt}:${req.id}`);
+    // Waiting toggle is always available mid-trip (arrived onward), regardless
+    // of whether a wait rate is set — no rate just means the time is recorded
+    // without a charge.
+    if (['ARRIVED', 'PICKED_UP', 'DELIVERED'].includes(req.status)) {
         kb.row();
         const waiting = req.waitingStartedAt && !req.waitingEndedAt;
         kb.text(waiting ? t.waitStop : t.waitStart, `skory:wait${waiting ? 'stop' : 'start'}:${req.id}`);
@@ -856,8 +870,19 @@ function jobKeyboard(lang: Lang, req: {
 function nextDispatcherStatus(cur: string): DispatcherStatus | null {
     if (cur === 'DISPATCHED') return 'ON_ROUTE';
     if (cur === 'ON_ROUTE') return 'ARRIVED';
-    if (cur === 'ARRIVED') return 'COMPLETED';
+    if (cur === 'ARRIVED') return 'PICKED_UP';
+    if (cur === 'PICKED_UP') return 'DELIVERED';
+    if (cur === 'DELIVERED') return 'COMPLETED';
     return null;
+}
+
+function statusActionLabel(lang: Lang, next: DispatcherStatus): string {
+    const t = L[lang];
+    return next === 'ON_ROUTE' ? t.actOnRoute
+        : next === 'ARRIVED' ? t.actArrived
+        : next === 'PICKED_UP' ? t.actPickedUp
+        : next === 'DELIVERED' ? t.actDelivered
+        : t.actCompleted;
 }
 
 function reviewKeyboard(requestId: string): InlineKeyboard {
@@ -882,6 +907,8 @@ async function notifyPatientStatus(
     const t = L[lang];
     let msg = status === 'ON_ROUTE' ? t.statusOnRoutePat
         : status === 'ARRIVED' ? t.statusArrivedPat
+        : status === 'PICKED_UP' ? t.statusPickedUpPat
+        : status === 'DELIVERED' ? t.statusDeliveredPat
         : t.statusCompletedPat;
     // On completion, tell the patient the total waiting charge (if any).
     if (status === 'COMPLETED' && (req!.waitingFee ?? 0) > 0) {
@@ -1452,7 +1479,7 @@ export function registerSkoryHandlers(bot: Bot): void {
     });
 
     // Dispatcher post-accept status updates (ON_ROUTE → ARRIVED → COMPLETED)
-    bot.callbackQuery(/^skory:status:(ON_ROUTE|ARRIVED|COMPLETED):(.+)$/, async (ctx) => {
+    bot.callbackQuery(/^skory:status:(ON_ROUTE|ARRIVED|PICKED_UP|DELIVERED|COMPLETED):(.+)$/, async (ctx) => {
         const chatId = ctx.chat?.id;
         if (!chatId) return;
         const lang = await lookupLang(chatId);
@@ -1483,6 +1510,8 @@ export function registerSkoryHandlers(bot: Bot): void {
         const t = L[lang];
         const dispLine = newStatus === 'ON_ROUTE' ? t.statusOnRouteDisp
             : newStatus === 'ARRIVED' ? t.statusArrivedDisp
+            : newStatus === 'PICKED_UP' ? t.statusPickedUpDisp
+            : newStatus === 'DELIVERED' ? t.statusDeliveredDisp
             : t.statusCompletedDisp;
         const req = result.ok ? result.request : null;
         // Build the keyboard; drop it entirely once the job is terminal
