@@ -167,6 +167,8 @@ const L = {
         paidPat: (total: number) => `✅ <b>To'lov qabul qilindi</b> — ${total.toLocaleString('uz-UZ')} so'm.\n\nTez tuzalishingizni tilaymiz!`,
         paidDisp: (total: number) => `✅ <b>To'lov yakunlandi</b> (${total.toLocaleString('uz-UZ')} so'm). Ishni muvaffaqiyatli tugatdingiz! Ambulans yana bo'shadi.`,
         cashInstructionPat: (total: number) => `💵 Naqd to'lov: <b>${total.toLocaleString('uz-UZ')} so'm</b>ni tez yordam xodimiga bering.`,
+        completeBlockedUnpaid: 'To\'lov hali amalga oshirilmagan. Naqd olgan bo\'lsangiz «Naqd qabul qildim» ni bosing.',
+        statusNotChanged: 'Holat o\'zgarmadi (allaqachon yangilangan).',
         // Reviews
         reviewAsk: '⭐ Iltimos, ambulansga baho bering:',
         reviewThanks: '🙏 Rahmat! Sharhingiz qabul qilindi.',
@@ -289,6 +291,8 @@ const L = {
         paidPat: (total: number) => `✅ <b>Оплата принята</b> — ${total.toLocaleString('ru-RU')} сум.\n\nСкорейшего выздоровления!`,
         paidDisp: (total: number) => `✅ <b>Оплата завершена</b> (${total.toLocaleString('ru-RU')} сум). Вы успешно завершили заказ! Машина снова свободна.`,
         cashInstructionPat: (total: number) => `💵 Оплата наличными: передайте <b>${total.toLocaleString('ru-RU')} сум</b> бригаде.`,
+        completeBlockedUnpaid: 'Оплата ещё не прошла. Если приняли наличные — нажмите «Принял наличные».',
+        statusNotChanged: 'Статус не изменился (уже обновлён).',
         reviewAsk: '⭐ Пожалуйста, оцените машину скорой:',
         reviewThanks: '🙏 Спасибо! Ваш отзыв получен.',
         back: '⬅️ Назад',
@@ -886,10 +890,11 @@ function jobKeyboard(lang: Lang, req: {
     const kb = new InlineKeyboard();
     const nxt = nextDispatcherStatus(req.status);
     if (nxt) kb.text(statusActionLabel(lang, nxt), `skory:status:${nxt}:${req.id}`);
-    // Waiting toggle is always available mid-trip (arrived onward), regardless
+    // Waiting toggle is available mid-trip (arrived until delivered) regardless
     // of whether a wait rate is set — no rate just means the time is recorded
-    // without a charge.
-    if (['ARRIVED', 'PICKED_UP', 'DELIVERED'].includes(req.status)) {
+    // without a charge. NOT after DELIVERED: the total is already computed by
+    // then, so a later stop would bank a fee the patient is never billed for.
+    if (['ARRIVED', 'PICKED_UP'].includes(req.status)) {
         kb.row();
         const waiting = req.waitingStartedAt && !req.waitingEndedAt;
         kb.text(waiting ? t.waitStop : t.waitStart, `skory:wait${waiting ? 'stop' : 'start'}:${req.id}`);
@@ -1633,10 +1638,12 @@ export function registerSkoryHandlers(bot: Bot): void {
         if (!acc?.userId) { await ctx.answerCallbackQuery(); return; }
         const newStatus = ctx.match![1] as DispatcherStatus;
         const requestId = ctx.match![2];
-        // Completing while the waiting timer still runs → auto-stop it first so
-        // the fee is banked (dispatcher forgot to press stop).
+        // Delivering while the waiting timer still runs → auto-stop it FIRST so
+        // the final segment is banked before the trip total is computed. (This
+        // used to hang off COMPLETED, but completion is payment-driven now, so
+        // the running segment would have been silently lost.)
         let autoWaitStopped: { minutes: number; fee: number } | null = null;
-        if (newStatus === 'COMPLETED') {
+        if (newStatus === 'DELIVERED' || newStatus === 'COMPLETED') {
             try {
                 const w = await stopWaiting(requestId, acc.userId);
                 if (w.ok) autoWaitStopped = { minutes: w.segmentMinutes, fee: w.fee };
@@ -1647,6 +1654,16 @@ export function registerSkoryHandlers(bot: Bot): void {
             result = await updateRequestStatus(requestId, acc.userId, newStatus);
         } catch (e: any) {
             await ctx.answerCallbackQuery(e?.message || 'Xato');
+            return;
+        }
+        // Nothing changed (already terminal / out of order / still unpaid) —
+        // tell the dispatcher why instead of editing the message to claim the
+        // step succeeded.
+        if (!result.ok) {
+            const why = (result as any).reason === 'unpaid'
+                ? L[lang].completeBlockedUnpaid
+                : L[lang].statusNotChanged;
+            await ctx.answerCallbackQuery({ text: why, show_alert: true });
             return;
         }
         await ctx.answerCallbackQuery();

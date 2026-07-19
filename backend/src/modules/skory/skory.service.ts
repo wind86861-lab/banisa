@@ -419,7 +419,19 @@ export async function cancelRequest(requestId: string, patientId: string, reason
     }
     if (['COMPLETED', 'CANCELLED'].includes(req.status)) return req;
 
-    const wasAccepted = req.status !== 'PENDING' && req.acceptedAmbulanceId;
+    // Only release the vehicle if this was its only live trip — with the
+    // status gate gone one ambulance can hold two jobs, and cancelling one
+    // must not advertise it as free while the other is still running.
+    const otherLiveTrips = req.acceptedAmbulanceId
+        ? await prisma.ambulanceRequest.count({
+            where: {
+                acceptedAmbulanceId: req.acceptedAmbulanceId,
+                id: { not: requestId },
+                status: { in: LIVE_TRIP_STATUSES as any },
+            },
+        })
+        : 0;
+    const wasAccepted = req.status !== 'PENDING' && req.acceptedAmbulanceId && otherLiveTrips === 0;
 
     await prisma.$transaction([
         prisma.ambulanceRequest.update({
@@ -625,6 +637,11 @@ export async function updateRequestStatus(
     if (nxt <= cur) {
         return { ok: false as const, reason: 'not_forward' as const, request: req };
     }
+    // Completion is payment-driven now. A stale "Yakunlandi" button left in a
+    // dispatcher's chat from before that change must not close an unpaid trip.
+    if (newStatus === 'COMPLETED' && req.paymentStatus === 'UNPAID' && (req.totalPrice ?? 0) > 0) {
+        return { ok: false as const, reason: 'unpaid' as const, request: req };
+    }
 
     await prisma.$transaction(async (tx) => {
         await tx.ambulanceRequest.update({
@@ -635,10 +652,7 @@ export async function updateRequestStatus(
             },
         });
         if (newStatus === 'COMPLETED' && req.acceptedAmbulance) {
-            await tx.ambulance.update({
-                where: { id: req.acceptedAmbulance.id },
-                data: { status: 'AVAILABLE', lastStatusAt: new Date() },
-            });
+            await freeAmbulanceIfIdle(tx, req.acceptedAmbulance.id, requestId);
             await tx.ambulanceStatusLog.create({
                 data: {
                     ambulanceId: req.acceptedAmbulance.id,
@@ -693,6 +707,29 @@ export async function backfillDispatcherLinks(userId: string): Promise<{ callSig
 // by the provider webhook. markSkoryPaid() completes the request either way.
 
 const SKORY_METHODS = ['CASH', 'CLICK', 'PAYME', 'ALIF'];
+
+/** Statuses that mean an ambulance is still committed to a trip. */
+const LIVE_TRIP_STATUSES = ['DISPATCHED', 'ON_ROUTE', 'ARRIVED', 'PICKED_UP', 'DELIVERED'];
+
+/**
+ * Release an ambulance back to AVAILABLE — but only when it has no OTHER live
+ * trip. Since fanout no longer gates on status, one vehicle can hold two jobs;
+ * finishing the first must not advertise it as free while the second runs.
+ */
+async function freeAmbulanceIfIdle(tx: any, ambulanceId: string, exceptRequestId: string): Promise<void> {
+    const stillBusy = await tx.ambulanceRequest.count({
+        where: {
+            acceptedAmbulanceId: ambulanceId,
+            id: { not: exceptRequestId },
+            status: { in: LIVE_TRIP_STATUSES },
+        },
+    });
+    if (stillBusy > 0) return;
+    await tx.ambulance.update({
+        where: { id: ambulanceId },
+        data: { status: 'AVAILABLE', lastStatusAt: new Date() },
+    });
+}
 
 /** Compute + store the trip total and open payment (UNPAID). Idempotent. */
 export async function openPaymentForRequest(requestId: string): Promise<{ tripFee: number; waitingFee: number; total: number } | null> {
@@ -758,8 +795,8 @@ export async function getSkoryPaymentInfo(requestId: string) {
         clinicName: clinic?.nameUz ?? '',
         callSign: req.acceptedAmbulance?.callSign ?? '',
         methods,
-        pickupAddress: req.pickupAddress,
-        destAddress: req.destAddress,
+        // Deliberately NOT exposing pickup/dest addresses: this endpoint is
+        // public (anyone with the QR/URL) and the page never shows them.
     };
 }
 
@@ -771,21 +808,26 @@ export async function markSkoryPaid(requestId: string, method: string, amount?: 
         return { ok: false as const, reason: 'already_paid' as const, requestId };
     }
     const paid = amount ?? req.totalPrice ?? ((req.tripFee ?? 0) + (req.waitingFee ?? 0));
+    let claimed = false;
     await prisma.$transaction(async (tx) => {
-        await tx.ambulanceRequest.update({
-            where: { id: requestId },
+        // Atomic claim — both pm2 instances run the reconcile sweep, and the
+        // pay page reconciles on read too. Without the UNPAID guard in the
+        // WHERE, two racing callers would each "succeed" and the patient +
+        // dispatcher would get duplicate "payment received" messages.
+        const res = await tx.ambulanceRequest.updateMany({
+            where: { id: requestId, paymentStatus: 'UNPAID' },
             data: {
                 paymentStatus: 'PAID', paymentMethod: method, paidAmount: paid, paidAt: new Date(),
                 status: 'COMPLETED', completedAt: new Date(),
             },
         });
+        if (res.count !== 1) return; // lost the race — someone else settled it
+        claimed = true;
         if (req.acceptedAmbulanceId) {
-            await tx.ambulance.update({
-                where: { id: req.acceptedAmbulanceId },
-                data: { status: 'AVAILABLE', lastStatusAt: new Date() },
-            });
+            await freeAmbulanceIfIdle(tx, req.acceptedAmbulanceId, requestId);
         }
     });
+    if (!claimed) return { ok: false as const, reason: 'already_paid' as const, requestId };
     return { ok: true as const, requestId, method, paid };
 }
 
@@ -848,7 +890,9 @@ export async function startWaiting(requestId: string, dispatcherUserId: string) 
     if (!req.acceptedAmbulance || req.acceptedAmbulance.dispatcherUserId !== dispatcherUserId) {
         throw new AppError('Bu so\'rov sizniki emas', 403, ErrorCodes.FORBIDDEN);
     }
-    if (!['DISPATCHED', 'ON_ROUTE', 'ARRIVED', 'PICKED_UP', 'DELIVERED'].includes(req.status)) {
+    // Not after DELIVERED — the trip total is already computed by then, so a
+    // wait started later would never make it onto the patient's bill.
+    if (!['DISPATCHED', 'ON_ROUTE', 'ARRIVED', 'PICKED_UP'].includes(req.status)) {
         return { ok: false as const, reason: 'not_active' as const };
     }
     if (req.waitingStartedAt && !req.waitingEndedAt) {
