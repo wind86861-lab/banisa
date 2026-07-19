@@ -33,6 +33,141 @@ const fmtCompact = (n) => {
     return fmt(num);
 };
 
+// \u2500\u2500\u2500 Schedule block \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// A flat 7-row grey list told the patient nothing at a glance. What they
+// actually want to know is "can I go now?" \u2014 so the block leads with a live
+// open/closed status (pinned to Asia/Tashkent, where the clinics are) and only
+// then lists the week, with today called out.
+
+const DAY_NAMES_UZ = {
+    monday: 'Dushanba', tuesday: 'Seshanba', wednesday: 'Chorshanba',
+    thursday: 'Payshanba', friday: 'Juma', saturday: 'Shanba', sunday: 'Yakshanba',
+};
+const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+function tashkentNow() {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+}
+function tashkentTodayKey() {
+    return ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][tashkentNow().getDay()];
+}
+const hhmmToMin = (v) => {
+    const [h, m] = String(v ?? '').split(':').map(Number);
+    return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+};
+const dayEntry = (info) => ({
+    off: info?.isDayOff ?? (info?.isWorking !== undefined ? !info.isWorking : false),
+    start: info?.start ?? info?.open ?? info?.openTime ?? null,
+    end: info?.end ?? info?.close ?? info?.closeTime ?? null,
+});
+
+/** { state: 'open'|'closed', note } \u2014 "closed" also says when it opens next. */
+function scheduleStatus(wh) {
+    const todayK = tashkentTodayKey();
+    const today = dayEntry(wh?.[todayK]);
+    const nowD = tashkentNow();
+    const now = nowD.getHours() * 60 + nowD.getMinutes();
+
+    if (!today.off && today.start && today.end) {
+        const s = hhmmToMin(today.start);
+        const e = hhmmToMin(today.end);
+        if (now >= s && now < e) return { state: 'open', note: `${today.end} gacha ochiq` };
+        if (now < s) return { state: 'closed', note: `Bugun ${today.start} da ochiladi` };
+    }
+    const idx = DAY_ORDER.indexOf(todayK);
+    for (let i = 1; i <= 7; i++) {
+        const k = DAY_ORDER[(idx + i) % 7];
+        const d = dayEntry(wh?.[k]);
+        if (!d.off && d.start) {
+            const label = i === 1 ? 'Ertaga' : DAY_NAMES_UZ[k];
+            return { state: 'closed', note: `${label} ${d.start} da ochiladi` };
+        }
+    }
+    return { state: 'closed', note: 'Ish vaqti ko\'rsatilmagan' };
+}
+
+function ScheduleBlock({ clinic }) {
+    const hasCustomSchedule = clinic.availableDays?.length > 0
+        || (clinic.availableTimeSlots && Object.keys(clinic.availableTimeSlots).length > 0);
+    const wh = clinic.workingHours?.schedule || clinic.workingHours;
+    const hasClinicHours = wh && typeof wh === 'object' && !Array.isArray(wh) && Object.keys(wh).length > 0;
+    if (!hasCustomSchedule && !hasClinicHours) return null;
+
+    const todayK = tashkentTodayKey();
+    const status = hasClinicHours ? scheduleStatus(wh) : null;
+    // Order the week properly instead of trusting object key order.
+    const rows = hasClinicHours
+        ? DAY_ORDER.filter((k) => wh[k]).map((k) => ({ key: k, ...dayEntry(wh[k]) }))
+        : [];
+
+    return (
+        <div className="xd-content-block">
+            <h2 className="xd-section-title"><Calendar size={22} /> Ish vaqti</h2>
+
+            {status && (
+                <div className={`xd-sched-status xd-sched-status--${status.state}`}>
+                    <span className="xd-sched-dot" />
+                    <strong>{status.state === 'open' ? 'Hozir ochiq' : 'Hozir yopiq'}</strong>
+                    <span className="xd-sched-note">{status.note}</span>
+                </div>
+            )}
+
+            {hasClinicHours && (
+                <div className="xd-sched-week">
+                    {rows.map((r) => {
+                        const isToday = r.key === todayK;
+                        return (
+                            <div key={r.key} className={`xd-sched-row${isToday ? ' is-today' : ''}${r.off ? ' is-off' : ''}`}>
+                                <span className="xd-sched-day">
+                                    {DAY_NAMES_UZ[r.key] || r.key}
+                                    {isToday && <span className="xd-sched-today">Bugun</span>}
+                                </span>
+                                <span className="xd-sched-hours">
+                                    {r.off ? 'Dam olish' : `${r.start} \u2013 ${r.end}`}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {hasCustomSchedule && (
+                <div className={hasClinicHours ? 'xd-sched-custom' : ''}>
+                    {clinic.availableDays?.length > 0 && (
+                        <>
+                            <div className="xd-sched-sub">Qabul kunlari</div>
+                            <div className="xd-sched-chips">
+                                {clinic.availableDays.map((d, i) => (
+                                    <span key={i} className={`xd-sched-chip${d === todayK ? ' is-today' : ''}`}>
+                                        {DAY_NAMES_UZ[d] || d}
+                                    </span>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                    {clinic.availableTimeSlots && Object.keys(clinic.availableTimeSlots).length > 0 && (
+                        <>
+                            <div className="xd-sched-sub">Vaqt oraliqlari</div>
+                            <div className="xd-sched-slots">
+                                {DAY_ORDER.filter((k) => clinic.availableTimeSlots[k]).map((k) => (
+                                    <div key={k} className={`xd-sched-slotrow${k === todayK ? ' is-today' : ''}`}>
+                                        <span className="xd-sched-day">{DAY_NAMES_UZ[k] || k}</span>
+                                        <span className="xd-sched-chips">
+                                            {clinic.availableTimeSlots[k].map((s, i) => (
+                                                <span key={i} className="xd-sched-slot">{s.start} \u2013 {s.end}</span>
+                                            ))}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function XizmatDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -496,70 +631,8 @@ export default function XizmatDetailPage() {
                             </div>
                         )}
 
-                        {/* Schedule Section — custom schedule or fallback to clinic workingHours */}
-                        {activeClinic && (() => {
-                            const dayNames = { monday: 'Dushanba', tuesday: 'Seshanba', wednesday: 'Chorshanba', thursday: 'Payshanba', friday: 'Juma', saturday: 'Shanba', sunday: 'Yakshanba' };
-                            const hasCustomSchedule = activeClinic.availableDays?.length > 0 || activeClinic.availableTimeSlots;
-                            const wh = activeClinic.workingHours?.schedule || activeClinic.workingHours;
-                            const hasClinicHours = wh && typeof wh === 'object' && !Array.isArray(wh) && Object.keys(wh).length > 0;
-
-                            if (!hasCustomSchedule && !hasClinicHours) return null;
-
-                            return (
-                                <div className="xd-content-block">
-                                    <h2 className="xd-section-title"><Calendar size={22} /> Ish vaqti</h2>
-
-                                    {hasCustomSchedule ? (
-                                        <>
-                                            {activeClinic.availableDays?.length > 0 && (
-                                                <div style={{ marginBottom: '16px' }}>
-                                                    <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: '#555' }}>Mavjud kunlar:</h4>
-                                                    <div className="xd-tag-list">
-                                                        {activeClinic.availableDays.map((day, i) => (
-                                                            <span key={i} className="xd-ind-tag blue">{dayNames[day] || day}</span>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {activeClinic.availableTimeSlots && Object.keys(activeClinic.availableTimeSlots).length > 0 && (
-                                                <div>
-                                                    <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: '#555' }}>Vaqt oraliklari:</h4>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                        {Object.entries(activeClinic.availableTimeSlots).map(([day, slots]) => (
-                                                            <div key={day} style={{ padding: '12px', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-                                                                <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '6px', color: '#333' }}>{dayNames[day] || day}</div>
-                                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                                                    {slots.map((slot, i) => (
-                                                                        <span key={i} style={{ padding: '4px 10px', background: '#e7f5ff', color: '#1971c2', borderRadius: '6px', fontSize: '12px', fontWeight: 500, border: '1px solid #a5d8ff' }}>
-                                                                            {slot.start} — {slot.end}
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                            {Object.entries(wh).map(([day, info]) => (
-                                                <div key={day} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: info.isDayOff ? '#fff5f5' : '#f8f9fa', borderRadius: '8px', border: `1px solid ${info.isDayOff ? '#ffe3e3' : '#e9ecef'}` }}>
-                                                    <span style={{ fontWeight: 600, fontSize: '13px', color: info.isDayOff ? '#c92a2a' : '#333' }}>{dayNames[day] || day}</span>
-                                                    {info.isDayOff ? (
-                                                        <span style={{ fontSize: '12px', color: '#c92a2a', fontWeight: 500 }}>Dam olish kuni</span>
-                                                    ) : (
-                                                        <span style={{ padding: '4px 10px', background: '#e7f5ff', color: '#1971c2', borderRadius: '6px', fontSize: '12px', fontWeight: 500, border: '1px solid #a5d8ff' }}>
-                                                            {info.start} — {info.end}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })()}
+                        {/* Schedule — live open/closed status + the week */}
+                        {activeClinic && <ScheduleBlock clinic={activeClinic} />}
 
                         {/* Checkup package items */}
                         {svc.items?.length > 0 && (

@@ -1870,3 +1870,155 @@
     font-size: 14px;
     color: #374151;
 }
+/* ─── Ish vaqti (schedule) ────────────────────────────────────────
+   Restrained, not flashy: one live status line up top, then a clean
+   week list with hairline separators and today called out. */
+.xd-sched-status {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    margin-bottom: 16px;
+    border: 1px solid;
+}
+.xd-sched-status strong { font-weight: 700; }
+.xd-sched-status--open {
+    background: linear-gradient(135deg, #f0fdf9, #ecfdf5);
+    border-color: #bbf7d0;
+    color: #065f46;
+}
+.xd-sched-status--closed {
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    border-color: #e2e8f0;
+    color: #475569;
+}
+.xd-sched-note { color: inherit; opacity: .75; font-size: 13px; }
+.xd-sched-note::before { content: '·'; margin-right: 7px; opacity: .6; }
+
+.xd-sched-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #94a3b8;
+}
+.xd-sched-status--open .xd-sched-dot {
+    background: #10b981;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, .55);
+    animation: xd-pulse 2.2s ease-out infinite;
+}
+@keyframes xd-pulse {
+    70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.xd-sched-week { display: flex; flex-direction: column; }
+.xd-sched-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 12px;
+    border-radius: 10px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background .15s;
+}
+.xd-sched-row:last-child { border-bottom: 0; }
+.xd-sched-row:hover { background: #fafbfc; }
+
+.xd-sched-day {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+}
+.xd-sched-hours {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .01em;
+}
+
+/* today */
+.xd-sched-row.is-today {
+    background: linear-gradient(100deg, rgba(0, 189, 224, .09), rgba(0, 189, 224, .02));
+    border-bottom-color: transparent;
+    box-shadow: inset 3px 0 0 #00BDE0;
+}
+.xd-sched-row.is-today .xd-sched-day { color: #031B4E; }
+.xd-sched-today {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #026e85;
+    background: rgba(0, 189, 224, .16);
+    padding: 3px 7px;
+    border-radius: 999px;
+}
+
+/* day off */
+.xd-sched-row.is-off .xd-sched-day { color: #94a3b8; font-weight: 500; }
+.xd-sched-row.is-off .xd-sched-hours { color: #94a3b8; font-weight: 500; }
+
+/* custom per-service schedule */
+.xd-sched-custom { margin-top: 20px; padding-top: 18px; border-top: 1px solid #f1f5f9; }
+.xd-sched-sub {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin: 0 0 10px;
+}
+.xd-sched-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.xd-sched-chip {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+.xd-sched-chip.is-today {
+    color: #026e85;
+    background: rgba(0, 189, 224, .10);
+    border-color: rgba(0, 189, 224, .30);
+}
+.xd-sched-slots { display: flex; flex-direction: column; gap: 8px; }
+.xd-sched-slotrow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #f1f5f9;
+}
+.xd-sched-slotrow.is-today { border-color: rgba(0, 189, 224, .28); background: rgba(0, 189, 224, .04); }
+.xd-sched-slot {
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #0f172a;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 480px) {
+    .xd-sched-row { padding: 11px 10px; }
+    .xd-sched-day { font-size: 13.5px; }
+    .xd-sched-status { font-size: 13.5px; flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .xd-sched-status--open .xd-sched-dot { animation: none; }
+}
