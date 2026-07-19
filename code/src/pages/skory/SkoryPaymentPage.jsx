@@ -42,12 +42,14 @@ export default function SkoryPaymentPage() {
     }, [load]);
 
     const pay = async (method) => {
+        // Cash needs no server call or login — the crew confirms receipt in the
+        // bot; the patient just needs to know how much to hand over.
+        if (method === 'CASH') { setCashChosen(true); return; }
         setBusyMethod(method);
         setError('');
         try {
             const res = await axios.post(`/api/skory/${id}/pay`, { method }, { withCredentials: true });
             const d = res.data?.data;
-            if (method === 'CASH') { setCashChosen(true); setBusyMethod(null); return; }
             // Online → hand off to the existing provider page with the bridge appointment.
             const target = method === 'CLICK' ? '/payment/click' : method === 'ALIF' ? '/payment/alif' : '/payment';
             navigate(target, {
