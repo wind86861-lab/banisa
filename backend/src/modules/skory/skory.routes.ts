@@ -8,6 +8,8 @@ import {
     getSkoryPriceRange,
     getSkoryNearbyClinics,
     getSkoryBands,
+    getSkoryPayment,
+    initiateSkoryPayment,
 } from './skory.controller';
 
 const router = Router();
@@ -16,11 +18,15 @@ const router = Router();
 router.get('/price-range', getSkoryPriceRange);
 router.get('/nearby-clinics', getSkoryNearbyClinics);
 router.get('/bands', getSkoryBands);
+// Public payment-page data (keyed by the hard-to-guess request UUID; also the
+// target the dispatcher's QR points at). Reconciles online payment on read.
+router.get('/:id/payment', getSkoryPayment);
 
 // Authenticated patient endpoints
 router.post('/request', requireAuth, requireRole(['PATIENT']), createSkoryRequest);
 router.get('/active', requireAuth, requireRole(['PATIENT']), getActiveSkory);
 router.get('/last', requireAuth, requireRole(['PATIENT']), getLastSkory);
 router.post('/:id/cancel', requireAuth, requireRole(['PATIENT']), cancelSkoryRequest);
+router.post('/:id/pay', requireAuth, requireRole(['PATIENT']), initiateSkoryPayment);
 
 export default router;

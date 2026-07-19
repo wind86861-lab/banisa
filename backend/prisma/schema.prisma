@@ -1778,6 +1778,19 @@ model AmbulanceRequest {
   waitingMinutes      Int?
   waitingFee          Int?
   waitingRemindStage  Int       @default(0)  // # of "still waiting?" pings sent
+  // Payment (opened when the dispatcher marks DELIVERED). tripFee + waitingFee
+  // = totalPrice. paymentStatus: UNPAID | PAID. paymentMethod: CASH | CLICK |
+  //  PAYME | ALIF (whichever the ambulance's clinic offers + patient picked).
+  tripFee             Int?
+  totalPrice          Int?
+  paymentStatus       String    @default("UNPAID")
+  paymentMethod       String?
+  paidAmount          Int?
+  paidAt              DateTime?
+  // Online payments reuse the existing per-clinic provider (Payme/Click/Alif)
+  // through a bridge Appointment; the skory page reconciles PAID from it. Kept
+  // out of clinic dashboards via the [SKORY] notes marker.
+  paymentAppointmentId String?
   acceptedAmbulanceId String?
   acceptedAt          DateTime?
   cancelledAt         DateTime?

@@ -684,6 +684,107 @@ export async function backfillDispatcherLinks(userId: string): Promise<{ callSig
     return targets.map((t) => ({ callSign: t.callSign, clinicName: t.clinic.nameUz }));
 }
 
+// ─── Skory trip payment ─────────────────────────────────────────────────────
+// Opened when the dispatcher marks DELIVERED: total = trip fee (band price for
+// the patient's own pickup→drop leg) + waiting fee. The patient pays via the
+// ambulance-clinic's own methods; cash is confirmed by the dispatcher, online
+// by the provider webhook. markSkoryPaid() completes the request either way.
+
+const SKORY_METHODS = ['CASH', 'CLICK', 'PAYME', 'ALIF'];
+
+/** Compute + store the trip total and open payment (UNPAID). Idempotent. */
+export async function openPaymentForRequest(requestId: string): Promise<{ tripFee: number; waitingFee: number; total: number } | null> {
+    const req = await prisma.ambulanceRequest.findUnique({
+        where: { id: requestId },
+        include: { acceptedAmbulance: { include: { bandTariffs: { select: { bandId: true, baseFee: true, pricePerKm: true } } } } },
+    });
+    if (!req || !req.acceptedAmbulance) return null;
+
+    // Patient's OWN leg: pickup→destination. Fall back to the stored estimate
+    // or 0 when no destination was captured.
+    let tripKm = 0;
+    if (req.destLat != null && req.destLng != null) {
+        const r = await osrmRoute(req.pickupLat, req.pickupLng, req.destLat, req.destLng);
+        tripKm = r?.km ?? haversineKm(req.pickupLat, req.pickupLng, req.destLat, req.destLng);
+    } else if (req.estimatedDistanceKm != null) {
+        tripKm = req.estimatedDistanceKm;
+    }
+
+    const bands = await getActiveBands();
+    const breakdown = priceTrip({
+        tripKm,
+        bands,
+        tariffByBandId: tariffMap(req.acceptedAmbulance.bandTariffs),
+        legacyBaseFee: req.acceptedAmbulance.baseFee,
+        legacyPricePerKm: req.acceptedAmbulance.pricePerKm,
+    });
+    const tripFee = breakdown.price;
+    const waitingFee = req.waitingFee ?? 0;
+    const total = tripFee + waitingFee;
+
+    if (req.paymentStatus !== 'PAID') {
+        await prisma.ambulanceRequest.update({
+            where: { id: requestId },
+            data: { tripFee, totalPrice: total },
+        });
+    }
+    return { tripFee, waitingFee, total };
+}
+
+/** Payment-page data (public — keyed by the hard-to-guess request UUID). */
+export async function getSkoryPaymentInfo(requestId: string) {
+    const req = await prisma.ambulanceRequest.findUnique({
+        where: { id: requestId },
+        include: { acceptedAmbulance: { include: { clinic: { select: { nameUz: true, paymentMethods: true } } } } },
+    });
+    if (!req) return null;
+    const clinic = req.acceptedAmbulance?.clinic;
+    const raw = Array.isArray(clinic?.paymentMethods) ? (clinic!.paymentMethods as any[]) : [];
+    // Cash is always offered; plus whatever online methods the clinic supports.
+    const methods = Array.from(new Set(['CASH', ...raw.filter((m) => SKORY_METHODS.includes(m))]));
+    return {
+        requestId: req.id,
+        status: req.status,
+        paymentStatus: req.paymentStatus,
+        paymentMethod: req.paymentMethod,
+        tripFee: req.tripFee ?? 0,
+        waitingFee: req.waitingFee ?? 0,
+        waitingMinutes: req.waitingMinutes ?? 0,
+        totalPrice: req.totalPrice ?? ((req.tripFee ?? 0) + (req.waitingFee ?? 0)),
+        clinicName: clinic?.nameUz ?? '',
+        callSign: req.acceptedAmbulance?.callSign ?? '',
+        methods,
+        pickupAddress: req.pickupAddress,
+        destAddress: req.destAddress,
+    };
+}
+
+/** Mark PAID + COMPLETE the request + free the ambulance. Idempotent. */
+export async function markSkoryPaid(requestId: string, method: string, amount?: number | null) {
+    const req = await prisma.ambulanceRequest.findUnique({ where: { id: requestId } });
+    if (!req) throw new AppError('So\'rov topilmadi', 404, ErrorCodes.NOT_FOUND);
+    if (req.paymentStatus === 'PAID') {
+        return { ok: false as const, reason: 'already_paid' as const, requestId };
+    }
+    const paid = amount ?? req.totalPrice ?? ((req.tripFee ?? 0) + (req.waitingFee ?? 0));
+    await prisma.$transaction(async (tx) => {
+        await tx.ambulanceRequest.update({
+            where: { id: requestId },
+            data: {
+                paymentStatus: 'PAID', paymentMethod: method, paidAmount: paid, paidAt: new Date(),
+                status: 'COMPLETED', completedAt: new Date(),
+            },
+        });
+        if (req.acceptedAmbulanceId) {
+            await tx.ambulance.update({
+                where: { id: req.acceptedAmbulanceId },
+                data: { status: 'AVAILABLE', lastStatusAt: new Date() },
+            });
+        }
+    });
+    return { ok: true as const, requestId, method, paid };
+}
+
 // ─── Waiting fee ────────────────────────────────────────────────────────────
 // The ambulance may stand by mid-trip (waits at a clinic while the patient is
 // seen, then returns them). The dispatcher starts/stops a timer from the bot;

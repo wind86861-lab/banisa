@@ -20,7 +20,7 @@
  * wizards in clinic.wizards.ts.
  */
 
-import { Bot, InlineKeyboard, Keyboard } from 'grammy';
+import { Bot, InlineKeyboard, Keyboard, InputFile } from 'grammy';
 import prisma from '../../config/database';
 import { setWizardState, getWizardState } from './clinic.wizards';
 import {
@@ -40,9 +40,15 @@ import {
     stopWaiting,
     claimDueWaitingReminders,
     backfillDispatcherLinks,
+    openPaymentForRequest,
+    markSkoryPaid,
     type CandidateAmbulance,
     type DispatcherStatus,
 } from '../skory/skory.service';
+import QRCode from 'qrcode';
+// Runtime-only use (getBot is called inside async handlers, never at module
+// eval), so this cycle with telegram.bot is safe.
+import { getBot } from './telegram.bot';
 
 type Lang = 'uz' | 'ru';
 
@@ -148,6 +154,18 @@ const L = {
         waitStoppedDisp: (m: number, fee: number) => `⏹ <b>Kutish tugadi.</b> ${m} daqiqa · ${fee.toLocaleString('uz-UZ')} so'm qo'shildi.`,
         waitRemind: (m: number) => `⏱ Kutish davom etyapti (~${m} daq). Tugagan bo'lsa «⏹ Kutishni tugatish» ni bosing.`,
         waitPat: (m: number, fee: number) => `⏱ Kutish: ${m} daqiqa — ${fee.toLocaleString('uz-UZ')} so'm`,
+        // Payment
+        payAskPat: (total: number, trip: number, wait: number) =>
+            `💳 <b>To'lov: ${total.toLocaleString('uz-UZ')} so'm</b>\n\nBorish: ${trip.toLocaleString('uz-UZ')} so'm` +
+            (wait > 0 ? ` · Kutish: ${wait.toLocaleString('uz-UZ')} so'm` : '') +
+            `\n\nPastdagi tugma orqali to'lang (yoki tez yordam ko'rsatgan QR'ni skan qiling).`,
+        payBtn: '💳 To\'lash',
+        payQrCaption: (total: number) =>
+            `💳 <b>Bemor to'lovi: ${total.toLocaleString('uz-UZ')} so'm</b>\n\nBemor QR'ni skan qilib to'laydi. Naqd bo'lsa, pulni olgach «💵 Naqd qabul qildim» ni bosing.`,
+        cashConfirm: '💵 Naqd qabul qildim',
+        paidPat: (total: number) => `✅ <b>To'lov qabul qilindi</b> — ${total.toLocaleString('uz-UZ')} so'm.\n\nTez tuzalishingizni tilaymiz!`,
+        paidDisp: (total: number) => `✅ <b>To'lov yakunlandi</b> (${total.toLocaleString('uz-UZ')} so'm). Ishni muvaffaqiyatli tugatdingiz! Ambulans yana bo'shadi.`,
+        cashInstructionPat: (total: number) => `💵 Naqd to'lov: <b>${total.toLocaleString('uz-UZ')} so'm</b>ni tez yordam xodimiga bering.`,
         // Reviews
         reviewAsk: '⭐ Iltimos, ambulansga baho bering:',
         reviewThanks: '🙏 Rahmat! Sharhingiz qabul qilindi.',
@@ -259,6 +277,17 @@ const L = {
         waitStoppedDisp: (m: number, fee: number) => `⏹ <b>Ожидание завершено.</b> ${m} мин · +${fee.toLocaleString('ru-RU')} сум.`,
         waitRemind: (m: number) => `⏱ Ожидание продолжается (~${m} мин). Если закончили — нажмите «⏹ Закончить ожидание».`,
         waitPat: (m: number, fee: number) => `⏱ Ожидание: ${m} мин — ${fee.toLocaleString('ru-RU')} сум`,
+        payAskPat: (total: number, trip: number, wait: number) =>
+            `💳 <b>Оплата: ${total.toLocaleString('ru-RU')} сум</b>\n\nПоездка: ${trip.toLocaleString('ru-RU')} сум` +
+            (wait > 0 ? ` · Ожидание: ${wait.toLocaleString('ru-RU')} сум` : '') +
+            `\n\nОплатите кнопкой ниже (или отсканируйте QR у бригады).`,
+        payBtn: '💳 Оплатить',
+        payQrCaption: (total: number) =>
+            `💳 <b>Оплата пациента: ${total.toLocaleString('ru-RU')} сум</b>\n\nПациент сканирует QR и платит. Наличными — после получения нажмите «💵 Принял наличные».`,
+        cashConfirm: '💵 Принял наличные',
+        paidPat: (total: number) => `✅ <b>Оплата принята</b> — ${total.toLocaleString('ru-RU')} сум.\n\nСкорейшего выздоровления!`,
+        paidDisp: (total: number) => `✅ <b>Оплата завершена</b> (${total.toLocaleString('ru-RU')} сум). Вы успешно завершили заказ! Машина снова свободна.`,
+        cashInstructionPat: (total: number) => `💵 Оплата наличными: передайте <b>${total.toLocaleString('ru-RU')} сум</b> бригаде.`,
         reviewAsk: '⭐ Пожалуйста, оцените машину скорой:',
         reviewThanks: '🙏 Спасибо! Ваш отзыв получен.',
         back: '⬅️ Назад',
@@ -872,7 +901,8 @@ function nextDispatcherStatus(cur: string): DispatcherStatus | null {
     if (cur === 'ON_ROUTE') return 'ARRIVED';
     if (cur === 'ARRIVED') return 'PICKED_UP';
     if (cur === 'PICKED_UP') return 'DELIVERED';
-    if (cur === 'DELIVERED') return 'COMPLETED';
+    // After DELIVERED there is no manual "complete" — the trip is completed by
+    // payment (cash confirmed by the dispatcher, or online reconciled).
     return null;
 }
 
@@ -928,6 +958,88 @@ async function notifyPatientStatus(
         }
     } catch (e) {
         console.error('[skory] notifyPatientStatus failed', { requestId, status }, e);
+    }
+}
+
+/**
+ * On DELIVERED: compute the trip total, then (a) DM the patient a "To'lash"
+ * button that opens the skory payment page, and (b) send the dispatcher a QR
+ * of that same page (patient scans it in person) plus a "Naqd qabul qildim"
+ * button for the cash path.
+ */
+async function openSkoryPayment(bot: Bot, requestId: string): Promise<void> {
+    const totals = await openPaymentForRequest(requestId);
+    if (!totals || totals.total <= 0) return;
+    const req = await prisma.ambulanceRequest.findUnique({
+        where: { id: requestId },
+        include: {
+            patient: { select: { telegramAccount: { select: { chatId: true, language: true } } } },
+            acceptedAmbulance: { select: { dispatcher: { select: { telegramAccount: { select: { chatId: true, language: true } } } } } },
+        },
+    });
+    const base = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').replace(/\/+$/, '');
+    const payUrl = `${base}/skory/pay/${requestId}`;
+
+    // Patient — pay button
+    const pchat = req?.patient.telegramAccount?.chatId;
+    if (pchat) {
+        const plang: Lang = req!.patient.telegramAccount!.language === 'ru' ? 'ru' : 'uz';
+        try {
+            await bot.api.sendMessage(Number(pchat), L[plang].payAskPat(totals.total, totals.tripFee, totals.waitingFee), {
+                parse_mode: 'HTML',
+                reply_markup: new InlineKeyboard().url(L[plang].payBtn, payUrl),
+            });
+        } catch (e) { console.error('[skory] pay msg to patient failed', e); }
+    }
+
+    // Dispatcher — QR of the pay page + cash-confirm button
+    const dchat = req?.acceptedAmbulance?.dispatcher?.telegramAccount?.chatId;
+    if (dchat) {
+        const dlang: Lang = req!.acceptedAmbulance!.dispatcher!.telegramAccount!.language === 'ru' ? 'ru' : 'uz';
+        try {
+            const png = await QRCode.toBuffer(payUrl, { width: 420, margin: 1 });
+            await bot.api.sendPhoto(Number(dchat), new InputFile(png, 'skory-qr.png'), {
+                caption: L[dlang].payQrCaption(totals.total),
+                parse_mode: 'HTML',
+                reply_markup: new InlineKeyboard().text(L[dlang].cashConfirm, `skory:cashpaid:${requestId}`),
+            });
+        } catch (e) { console.error('[skory] pay QR to dispatcher failed', e); }
+    }
+}
+
+/**
+ * Payment cleared (cash confirmed by dispatcher OR online reconciled): tell the
+ * patient "received" and the dispatcher "job done". Called from the bot cash
+ * handler and from the payment controller (via getBot()).
+ */
+export async function notifySkoryPaid(requestId: string): Promise<void> {
+    const bot = getBot();
+    if (!bot) return;
+    const req = await prisma.ambulanceRequest.findUnique({
+        where: { id: requestId },
+        include: {
+            patient: { select: { telegramAccount: { select: { chatId: true, language: true } } } },
+            acceptedAmbulance: { select: { dispatcher: { select: { telegramAccount: { select: { chatId: true, language: true } } } } } },
+        },
+    });
+    if (!req) return;
+    const total = req.paidAmount ?? req.totalPrice ?? 0;
+    const pchat = req.patient.telegramAccount?.chatId;
+    if (pchat) {
+        const plang: Lang = req.patient.telegramAccount!.language === 'ru' ? 'ru' : 'uz';
+        try {
+            await bot.api.sendMessage(Number(pchat), L[plang].paidPat(total), {
+                parse_mode: 'HTML',
+                reply_markup: reviewKeyboard(requestId),
+            });
+        } catch { /* */ }
+    }
+    const dchat = req.acceptedAmbulance?.dispatcher?.telegramAccount?.chatId;
+    if (dchat) {
+        const dlang: Lang = req.acceptedAmbulance!.dispatcher!.telegramAccount!.language === 'ru' ? 'ru' : 'uz';
+        try {
+            await bot.api.sendMessage(Number(dchat), L[dlang].paidDisp(total), { parse_mode: 'HTML' });
+        } catch { /* */ }
     }
 }
 
@@ -1538,6 +1650,45 @@ export function registerSkoryHandlers(bot: Bot): void {
             );
         } catch { /* */ }
         if (result.ok) await notifyPatientStatus(bot, requestId, newStatus, autoWaitStopped);
+        // On DELIVERED, open payment: patient gets a pay button, dispatcher a QR.
+        if (result.ok && newStatus === 'DELIVERED') {
+            await openSkoryPayment(bot, requestId).catch((e) => console.error('[skory] openSkoryPayment failed', e));
+        }
+    });
+
+    // Dispatcher: confirm they received cash → mark PAID + complete + notify.
+    bot.callbackQuery(/^skory:cashpaid:(.+)$/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const lang = await lookupLang(chatId);
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { userId: true },
+        });
+        if (!acc?.userId) { await ctx.answerCallbackQuery(); return; }
+        const requestId = ctx.match![1];
+        // Ownership: only the accepting dispatcher may confirm.
+        const reqRow = await prisma.ambulanceRequest.findUnique({
+            where: { id: requestId },
+            include: { acceptedAmbulance: { select: { dispatcherUserId: true } } },
+        });
+        if (!reqRow || reqRow.acceptedAmbulance?.dispatcherUserId !== acc.userId) {
+            await ctx.answerCallbackQuery('Bu so\'rov sizniki emas'); return;
+        }
+        let r;
+        try { r = await markSkoryPaid(requestId, 'CASH'); }
+        catch (e: any) { await ctx.answerCallbackQuery(e?.message || 'Xato'); return; }
+        await ctx.answerCallbackQuery();
+        if (!r.ok) return; // already paid
+        const t = L[lang];
+        try {
+            await ctx.editMessageCaption({
+                caption: `${ctx.callbackQuery?.message?.caption || ''}\n\n${t.paidDisp(r.paid)}`,
+                parse_mode: 'HTML',
+            });
+        } catch {
+            try { await ctx.reply(t.paidDisp(r.paid), { parse_mode: 'HTML' }); } catch { /* */ }
+        }
+        await notifySkoryPaid(requestId).catch((e) => console.error('[skory] notifySkoryPaid failed', e));
     });
 
     // Dispatcher: start the waiting timer mid-trip.

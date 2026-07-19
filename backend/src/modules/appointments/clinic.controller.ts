@@ -48,7 +48,12 @@ export const clinicAppointmentController = {
             const statusParam = String(req.query.status ?? 'ALL');
             const search = String(req.query.search ?? '');
 
-            const where: Prisma.AppointmentWhereInput = { clinicId };
+            // Exclude skory online-payment bridge appointments — they're a
+            // payment vehicle for tez-yordam trips, not real clinic bookings.
+            const where: Prisma.AppointmentWhereInput = {
+                clinicId,
+                NOT: { notes: { startsWith: '[SKORY]' } },
+            };
             // Stale bookmarks / cached URLs from before the 13→7 status
             // reduction can still carry old enum values (SENT_TO_CLINIC,
             // PENDING_ARRIVAL, …). Validate against the live enum and just

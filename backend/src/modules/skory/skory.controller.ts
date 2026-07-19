@@ -9,8 +9,11 @@ import {
     getActivePendingForPatient,
     getMarketPriceRange,
     getNearbyClinics,
+    getSkoryPaymentInfo,
 } from './skory.service';
 import { getActiveBands } from './ambulance-pricing';
+import { initiateSkoryPayment, reconcileSkoryPayment } from './skory-payment.controller';
+import { notifySkoryPaid } from '../telegram/skory.bot';
 import { fanoutOffersViaTelegram } from '../telegram/skory.bot';
 import { getBot } from '../telegram/telegram.bot';
 
@@ -255,3 +258,22 @@ export const getSkoryBands = async (_req: AuthRequest, res: Response) => {
     const bands = await getActiveBands();
     return res.json({ success: true, data: { items: bands } });
 };
+
+/**
+ * GET /api/skory/:id/payment — public payment-page data (keyed by the
+ * hard-to-guess request UUID). Drives banisa.uz/skory/pay/:id and the QR.
+ */
+export const getSkoryPayment = async (req: AuthRequest, res: Response) => {
+    const id = String(req.params.id || '');
+    // Flip to PAID + complete + notify the moment the linked online payment
+    // clears (provider webhook already marked the bridge appointment PAID).
+    const transitioned = await reconcileSkoryPayment(id).catch(() => false);
+    if (transitioned) {
+        try { await notifySkoryPaid(id); } catch { /* best-effort */ }
+    }
+    const info = await getSkoryPaymentInfo(id);
+    if (!info) return res.status(404).json({ success: false, message: 'So\'rov topilmadi' });
+    return res.json({ success: true, data: info });
+};
+
+export { initiateSkoryPayment };

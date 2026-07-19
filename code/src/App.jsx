@@ -67,6 +67,7 @@ import DoctorProfilePage from './pages/home/DoctorProfilePage';
 import DoctorBookingPage from './pages/home/DoctorBookingPage';
 import SkoryPage from './pages/home/SkoryPage';
 import SkoryOrderPage from './pages/skory/SkoryOrderPage';
+import SkoryPaymentPage from './pages/skory/SkoryPaymentPage';
 import MiniAppBindFirst from './pages/MiniAppBindFirst';
 import ClinicDetailPage from './pages/home/ClinicDetailPage';
 import UserLoginPage from './pages/user/UserLoginPage';
@@ -178,6 +179,7 @@ function App() {
                                     <Route path="/checkin/:clinicSecret" element={<PatientCheckInPage />} />
 
                                     {/* ─── PAYMENT (PAYME) ─────────────────────────── */}
+                                    <Route path="/skory/pay/:id" element={<SkoryPaymentPage />} />
                                     <Route path="/payment" element={<PaymePage />} />
                                     <Route path="/payment/click" element={<ClickPayPage />} />
                                     <Route path="/payment/alif" element={<AlifPayPage />} />
