@@ -184,6 +184,26 @@ export const getActiveSkory = async (req: AuthRequest, res: Response) => {
 };
 
 /**
+ * GET /api/skory/history — patient's tez-yordam trips for the bookings list.
+ */
+export const getSkoryHistory = async (req: AuthRequest, res: Response) => {
+    const patientId = req.user!.id;
+    const items = await prisma.ambulanceRequest.findMany({
+        where: { patientId, status: { in: ['DISPATCHED', 'ON_ROUTE', 'ARRIVED', 'PICKED_UP', 'DELIVERED', 'COMPLETED'] } },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+        select: {
+            id: true, type: true, status: true, createdAt: true,
+            pickupAddress: true, destAddress: true,
+            tripFee: true, waitingFee: true, totalPrice: true,
+            paymentStatus: true, paymentMethod: true, paidAmount: true,
+            acceptedAmbulance: { select: { callSign: true, clinic: { select: { nameUz: true } } } },
+        },
+    });
+    return res.json({ success: true, data: { items } });
+};
+
+/**
  * GET /api/skory/last
  * Latest request (any status) — for "review prompt after COMPLETED" UX.
  */

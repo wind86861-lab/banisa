@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
     Calendar, Clock, ChevronRight, ArrowRight, Search,
     Building2, CreditCard, Banknote, CheckCircle2, AlertCircle, Hourglass,
-    ChevronLeft, Camera, X, Loader2
+    ChevronLeft, Camera, X, Loader2, Ambulance
 } from 'lucide-react';
 import api from '../../shared/api/axios';
 import { statusLabel, canCheckIn, awaitingCashier, isReadyForService, serviceNameOf } from '../../shared/utils/appointmentStatus';
@@ -169,6 +169,8 @@ export default function UserAppointments() {
                         Yangi bron <ArrowRight size={16} />
                     </Link>
                 </div>
+
+                <SkorySection />
 
                 <div className="ua-toolbar">
                     <div className="ua-search-wrap">
@@ -390,6 +392,61 @@ function AppointmentCard({ a, onCheckIn, groupType = 'upcoming' }) {
             <div className="ua-card-right">
                 <div className="ua-card-price">{fmtSum(a.finalPrice || a.price)} <span>so'm</span></div>
                 <ChevronRight size={18} className="ua-card-chevron" />
+            </div>
+        </div>
+    );
+}
+
+// ─── Tez yordam (skory) trips in the patient's bookings ─────────────────────
+const SKORY_TYPE_LABEL = { BASIC: 'Oddiy transport', INTENSIVE_CARE: 'Reanimatsion' };
+const SKORY_STATUS_LABEL = {
+    DISPATCHED: 'Yo\'lda', ON_ROUTE: 'Yo\'lda', ARRIVED: 'Yetib keldi',
+    PICKED_UP: 'Yo\'lda', DELIVERED: 'To\'lov kutilmoqda', COMPLETED: 'Yakunlandi',
+};
+
+function SkorySection() {
+    const navigate = useNavigate();
+    const { data } = useQuery({
+        queryKey: ['skory', 'history'],
+        queryFn: async () => (await api.get('/skory/history')).data?.data?.items ?? [],
+        refetchInterval: 8000,
+    });
+    const items = data || [];
+    if (items.length === 0) return null;
+
+    return (
+        <div className="ua-skory-section">
+            <div className="ua-skory-head"><Ambulance size={16} /> Tez yordam chaqiruvlari</div>
+            <div className="ua-skory-list">
+                {items.map((s) => {
+                    const unpaid = s.status === 'DELIVERED' && s.paymentStatus !== 'PAID';
+                    const paid = s.paymentStatus === 'PAID';
+                    return (
+                        <button
+                            key={s.id}
+                            className="ua-skory-card"
+                            onClick={() => navigate(`/skory/pay/${s.id}`)}
+                        >
+                            <div className="ua-skory-card__icon"><Ambulance size={18} /></div>
+                            <div className="ua-skory-card__body">
+                                <div className="ua-skory-card__top">
+                                    <span className="ua-skory-card__clinic">{s.acceptedAmbulance?.clinic?.nameUz || 'Tez yordam'}</span>
+                                    <span className={`ua-skory-card__badge ${unpaid ? 'is-unpaid' : paid ? 'is-paid' : ''}`}>
+                                        {SKORY_STATUS_LABEL[s.status] || s.status}
+                                    </span>
+                                </div>
+                                <div className="ua-skory-card__sub">
+                                    {SKORY_TYPE_LABEL[s.type] || 'Transport'}
+                                    {s.totalPrice > 0 && <> · {(s.paidAmount || s.totalPrice).toLocaleString('uz-UZ')} so'm</>}
+                                    {s.destAddress && <> · {s.destAddress}</>}
+                                </div>
+                            </div>
+                            {unpaid
+                                ? <span className="ua-skory-card__pay">To'lash</span>
+                                : <ChevronRight size={16} className="ua-card-chevron" />}
+                        </button>
+                    );
+                })}
             </div>
         </div>
     );

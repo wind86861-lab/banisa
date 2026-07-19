@@ -10,6 +10,7 @@ import {
     getSkoryBands,
     getSkoryPayment,
     initiateSkoryPayment,
+    getSkoryHistory,
 } from './skory.controller';
 
 const router = Router();
@@ -26,6 +27,7 @@ router.get('/:id/payment', getSkoryPayment);
 router.post('/request', requireAuth, requireRole(['PATIENT']), createSkoryRequest);
 router.get('/active', requireAuth, requireRole(['PATIENT']), getActiveSkory);
 router.get('/last', requireAuth, requireRole(['PATIENT']), getLastSkory);
+router.get('/history', requireAuth, requireRole(['PATIENT']), getSkoryHistory);
 router.post('/:id/cancel', requireAuth, requireRole(['PATIENT']), cancelSkoryRequest);
 router.post('/:id/pay', requireAuth, requireRole(['PATIENT']), initiateSkoryPayment);
 
