@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../shared/api/axios';
 import {
     Ambulance, Loader2, CheckCircle2, AlertTriangle, Wallet, CreditCard, Banknote,
 } from 'lucide-react';
@@ -26,7 +26,7 @@ export default function SkoryPaymentPage() {
 
     const load = useCallback(async () => {
         try {
-            const res = await axios.get(`/api/skory/${id}/payment`);
+            const res = await api.get(`/skory/${id}/payment`);
             setInfo(res.data?.data || null);
         } catch {
             setError('To\'lov ma\'lumoti topilmadi');
@@ -34,12 +34,15 @@ export default function SkoryPaymentPage() {
     }, [id]);
 
     // Poll so the page flips to "paid" the moment cash is confirmed or the
-    // online payment clears (server reconciles on read).
+    // online payment clears (server reconciles on read). Stop once settled —
+    // otherwise a left-open tab hammers the endpoint forever.
+    const settled = info?.paymentStatus === 'PAID';
     useEffect(() => {
         load();
+        if (settled) return undefined;
         const t = setInterval(load, 4000);
         return () => clearInterval(t);
-    }, [load]);
+    }, [load, settled]);
 
     const pay = async (method) => {
         // Cash needs no server call or login — the crew confirms receipt in the
@@ -48,7 +51,7 @@ export default function SkoryPaymentPage() {
         setBusyMethod(method);
         setError('');
         try {
-            const res = await axios.post(`/api/skory/${id}/pay`, { method }, { withCredentials: true });
+            const res = await api.post(`/skory/${id}/pay`, { method });
             const d = res.data?.data;
             // Online → hand off to the existing provider page with the bridge appointment.
             const target = method === 'CLICK' ? '/payment/click' : method === 'ALIF' ? '/payment/alif' : '/payment';

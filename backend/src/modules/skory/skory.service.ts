@@ -204,9 +204,10 @@ export async function findCandidates(input: CreateRequestInput): Promise<Candida
             ? (await osrmRoute(input.pickupLat, input.pickupLng, lat, lng)
                 ?? { km: Number.isFinite(distanceKm) ? distanceKm : 0, minutes: Number.isFinite(distanceKm) ? Math.max(1, Math.round(distanceKm * 2)) : 0 })
             : { km: 0, minutes: 0 };
-        // The patient pays for their OWN trip (pickup→drop), not the approach.
-        // Falls back to ambulance→pickup only when no destination was given.
-        const billableKm = onwardKm ?? route.km;
+        // The patient pays for their OWN trip (pickup→drop), never the approach.
+        // With no destination the trip length is unknown → base fee only (0 km),
+        // which is what openPaymentForRequest will actually charge.
+        const billableKm = onwardKm ?? 0;
         const breakdown = priceTrip({
             tripKm: billableKm,
             bands,
@@ -498,7 +499,8 @@ export async function getMarketPriceRange(input: {
         if (lat == null || lng == null) continue;
         const distToPickup = haversineKm(input.pickupLat, input.pickupLng, lat, lng);
         if (distToPickup > RADIUS_KM) continue;
-        const billableKm = tripKm ?? distToPickup;
+        // Never price the approach — unknown trip length means base fee only.
+        const billableKm = tripKm ?? 0;
         const breakdown = priceTrip({
             tripKm: billableKm,
             bands,
@@ -700,14 +702,15 @@ export async function openPaymentForRequest(requestId: string): Promise<{ tripFe
     });
     if (!req || !req.acceptedAmbulance) return null;
 
-    // Patient's OWN leg: pickup→destination. Fall back to the stored estimate
-    // or 0 when no destination was captured.
+    // Patient's OWN leg: pickup→destination. When no destination was captured
+    // the travelled distance is unknown, so it stays 0 and only the band's base
+    // fee applies — we must NEVER fall back to estimatedDistanceKm, which holds
+    // the ambulance→pickup APPROACH distance (billing that is exactly the
+    // unfairness the band model exists to prevent).
     let tripKm = 0;
     if (req.destLat != null && req.destLng != null) {
         const r = await osrmRoute(req.pickupLat, req.pickupLng, req.destLat, req.destLng);
         tripKm = r?.km ?? haversineKm(req.pickupLat, req.pickupLng, req.destLat, req.destLng);
-    } else if (req.estimatedDistanceKm != null) {
-        tripKm = req.estimatedDistanceKm;
     }
 
     const bands = await getActiveBands();
@@ -747,6 +750,7 @@ export async function getSkoryPaymentInfo(requestId: string) {
         status: req.status,
         paymentStatus: req.paymentStatus,
         paymentMethod: req.paymentMethod,
+        paidAmount: req.paidAmount,
         tripFee: req.tripFee ?? 0,
         waitingFee: req.waitingFee ?? 0,
         waitingMinutes: req.waitingMinutes ?? 0,
@@ -783,6 +787,42 @@ export async function markSkoryPaid(requestId: string, method: string, amount?: 
         }
     });
     return { ok: true as const, requestId, method, paid };
+}
+
+/**
+ * Sweep every skory trip still waiting on an online payment and complete the
+ * ones whose bridge appointment the provider has since marked PAID.
+ *
+ * The payment page also reconciles on read, but that only fires while someone
+ * has it open — after paying, the provider drops the patient on
+ * /payment/result, so without this worker the trip would sit in DELIVERED and
+ * the dispatcher would never hear that the money arrived.
+ */
+export async function reconcilePendingSkoryPayments(): Promise<string[]> {
+    const pending = await prisma.ambulanceRequest.findMany({
+        where: {
+            paymentStatus: 'UNPAID',
+            paymentAppointmentId: { not: null },
+            status: { in: ['ARRIVED', 'PICKED_UP', 'DELIVERED'] },
+        },
+        select: { id: true, paymentAppointmentId: true, paymentMethod: true },
+        take: 100,
+    });
+    const done: string[] = [];
+    for (const p of pending) {
+        try {
+            const appt = await prisma.appointment.findUnique({
+                where: { id: p.paymentAppointmentId! },
+                select: { paymentStatus: true, paidAmount: true, paymentMethod: true },
+            });
+            if (!appt || appt.paymentStatus !== 'PAID') continue;
+            const r = await markSkoryPaid(p.id, p.paymentMethod || appt.paymentMethod || 'ONLINE', appt.paidAmount ?? null);
+            if (r.ok) done.push(p.id);
+        } catch (e) {
+            console.error('[skory] reconcile sweep failed for', p.id, e);
+        }
+    }
+    return done;
 }
 
 // ─── Waiting fee ────────────────────────────────────────────────────────────

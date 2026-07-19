@@ -42,6 +42,7 @@ import {
     backfillDispatcherLinks,
     openPaymentForRequest,
     markSkoryPaid,
+    reconcilePendingSkoryPayments,
     type CandidateAmbulance,
     type DispatcherStatus,
 } from '../skory/skory.service';
@@ -969,7 +970,15 @@ async function notifyPatientStatus(
  */
 async function openSkoryPayment(bot: Bot, requestId: string): Promise<void> {
     const totals = await openPaymentForRequest(requestId);
-    if (!totals || totals.total <= 0) return;
+    if (!totals) return;
+    // Nothing to charge (ambulance has no tariff at all). There's no manual
+    // "complete" button any more, so settle it right away — otherwise the trip
+    // would sit in DELIVERED forever with no way to finish it.
+    if (totals.total <= 0) {
+        await markSkoryPaid(requestId, 'CASH', 0).catch(() => null);
+        await notifySkoryPaid(requestId).catch(() => null);
+        return;
+    }
     const req = await prisma.ambulanceRequest.findUnique({
         where: { id: requestId },
         include: {
@@ -996,14 +1005,26 @@ async function openSkoryPayment(bot: Bot, requestId: string): Promise<void> {
     const dchat = req?.acceptedAmbulance?.dispatcher?.telegramAccount?.chatId;
     if (dchat) {
         const dlang: Lang = req!.acceptedAmbulance!.dispatcher!.telegramAccount!.language === 'ru' ? 'ru' : 'uz';
+        const cashKb = new InlineKeyboard().text(L[dlang].cashConfirm, `skory:cashpaid:${requestId}`);
         try {
             const png = await QRCode.toBuffer(payUrl, { width: 420, margin: 1 });
             await bot.api.sendPhoto(Number(dchat), new InputFile(png, 'skory-qr.png'), {
                 caption: L[dlang].payQrCaption(totals.total),
                 parse_mode: 'HTML',
-                reply_markup: new InlineKeyboard().text(L[dlang].cashConfirm, `skory:cashpaid:${requestId}`),
+                reply_markup: cashKb,
             });
-        } catch (e) { console.error('[skory] pay QR to dispatcher failed', e); }
+        } catch (e) {
+            console.error('[skory] pay QR to dispatcher failed', e);
+            // Fallback: without the photo the dispatcher would have no way to
+            // confirm cash — send the link + button as plain text instead.
+            try {
+                await bot.api.sendMessage(Number(dchat), `${L[dlang].payQrCaption(totals.total)}\n\n${payUrl}`, {
+                    parse_mode: 'HTML',
+                    link_preview_options: { is_disabled: true },
+                    reply_markup: cashKb,
+                });
+            } catch { /* */ }
+        }
     }
 }
 
@@ -1192,6 +1213,16 @@ function startWaitingReminderWorker(bot: Bot): void {
             }
         } catch (e) {
             console.error('[skory] waiting reminder tick failed', e);
+        }
+        // Complete trips whose online payment cleared while nobody had the pay
+        // page open (patient lands on /payment/result after paying).
+        try {
+            const settled = await reconcilePendingSkoryPayments();
+            for (const requestId of settled) {
+                await notifySkoryPaid(requestId).catch(() => null);
+            }
+        } catch (e) {
+            console.error('[skory] payment reconcile tick failed', e);
         }
     };
     setInterval(tick, 60_000);

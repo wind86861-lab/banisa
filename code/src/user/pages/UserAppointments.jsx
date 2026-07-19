@@ -409,7 +409,12 @@ function SkorySection() {
     const { data } = useQuery({
         queryKey: ['skory', 'history'],
         queryFn: async () => (await api.get('/skory/history')).data?.data?.items ?? [],
-        refetchInterval: 8000,
+        // Only keep polling while a trip is still running / awaiting payment —
+        // patients who never used skory shouldn't poll at all.
+        refetchInterval: (q) => {
+            const items = q.state.data || [];
+            return items.some((s) => s.status !== 'COMPLETED' || s.paymentStatus !== 'PAID') ? 8000 : false;
+        },
     });
     const items = data || [];
     if (items.length === 0) return null;

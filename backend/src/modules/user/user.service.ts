@@ -87,7 +87,10 @@ export class UserService {
         const limit = filters.limit || 10;
         const skip = (page - 1) * limit;
 
-        const where: any = { patientId: userId };
+        // Skory online-payment bridge appointments are a payment vehicle for a
+        // tez-yordam trip, not a clinic booking — the trip itself is already
+        // shown in the "Tez yordam chaqiruvlari" section, so hide the phantom.
+        const where: any = { patientId: userId, NOT: { notes: { startsWith: '[SKORY]' } } };
         if (filters.status) {
             where.status = filters.status;
         } else if (filters.statuses) {
