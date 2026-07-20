@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Building2, Calendar, CreditCard, ArrowRight, ArrowLeft, ShoppingCart, Package, AlertCircle, CheckCircle2, QrCode, FileText, X } from 'lucide-react';
+import { Building2, Calendar, CreditCard, ArrowRight, ArrowLeft, ShoppingCart, Package, AlertCircle, CheckCircle2, QrCode, FileText, X, ChevronRight, Clock, Info } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import axiosInstance from '../../shared/api/axios';
 import { fmtSum } from '../../shared/utils/format';
@@ -156,10 +156,15 @@ export default function CartCheckoutPage() {
         return (
             <div className="home-page">
                 <TopBar /><Navigation />
-                <div style={{ padding: '120px 20px', textAlign: 'center' }}>
-                    <ShoppingCart size={64} style={{ color: '#ccc', marginBottom: 16 }} />
-                    <h2>Savatingiz bo'sh</h2>
-                    <Link to="/xizmatlar" style={{ color: '#00BDE0' }}>Xizmatlarga qaytish</Link>
+                <div className="co-empty">
+                    <div className="co-empty__icon"><ShoppingCart size={30} /></div>
+                    <h2 className="co-empty__title">Savatingiz bo'sh</h2>
+                    <p className="co-empty__text">
+                        Kerakli tahlil yoki xizmatni tanlab savatga qo'shing — so'ngra bitta joyda bron qiling.
+                    </p>
+                    <Link to="/xizmatlar" className="co-empty__btn">
+                        Xizmatlarni ko'rish <ChevronRight size={16} />
+                    </Link>
                 </div>
                 <Footer />
             </div>
@@ -332,24 +337,32 @@ export default function CartCheckoutPage() {
                             <h3 className="co-card-title">
                                 <Package size={18} /> Buyurtma tarkibi
                             </h3>
-                            {cart.map((group) => (
-                                <div key={group.clinic.id} style={{ marginBottom: 16 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                        <h4 style={{ margin: 0, fontSize: 15, color: '#1a1a2e' }}>
-                                            <Building2 size={14} style={{ marginRight: 6 }} />
-                                            {group.clinic.nameUz}
-                                        </h4>
-                                        <span style={{ fontWeight: 600, color: '#00BDE0' }}>{fmt(group.totalPrice)} so'm</span>
-                                    </div>
-                                    {group.items.map((item) => (
-                                        <div key={item.id} style={{ padding: '6px 0 6px 20px', fontSize: 14, color: '#555', display: 'flex', justifyContent: 'space-between' }}>
-                                            <span>{item.service?.nameUz} {item.quantity > 1 ? `× ${item.quantity}` : ''}</span>
-                                            <span>{fmt((item.service?.priceRecommended || 0) * item.quantity)} so'm</span>
+                            <div className="co-groups">
+                                {cart.map((group) => (
+                                    <div key={group.clinic.id} className="co-group">
+                                        <div className="co-group__head">
+                                            <span className="co-group__clinic">
+                                                <span className="co-group__badge"><Building2 size={13} /></span>
+                                                {group.clinic.nameUz}
+                                            </span>
+                                            <span className="co-group__total">{fmt(group.totalPrice)} so'm</span>
                                         </div>
-                                    ))}
-                                    <div className="co-divider" />
-                                </div>
-                            ))}
+                                        <ul className="co-lines">
+                                            {group.items.map((item) => (
+                                                <li key={item.id} className="co-line">
+                                                    <span className="co-line__name">
+                                                        {item.service?.nameUz}
+                                                        {item.quantity > 1 && <span className="co-line__qty">× {item.quantity}</span>}
+                                                    </span>
+                                                    <span className="co-line__price">
+                                                        {fmt((item.service?.priceRecommended || 0) * item.quantity)} so'm
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
 
                         {/* Date Selection */}
@@ -357,93 +370,78 @@ export default function CartCheckoutPage() {
                             <h3 className="co-card-title">
                                 <Calendar size={18} /> Sana va vaqt
                             </h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div>
-                                    <label style={{ display: 'block', fontWeight: 500, marginBottom: 6, fontSize: 14 }}>Sana</label>
+                            <div className="co-field-grid">
+                                <div className="co-field">
+                                    <label className="co-label">Sana</label>
                                     <input
                                         type="date"
+                                        className="co-input"
                                         min={minDate}
                                         value={selectedDate}
                                         onChange={(e) => setSelectedDate(e.target.value)}
-                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 }}
                                     />
                                 </div>
-                                <div>
-                                    <label style={{ display: 'block', fontWeight: 500, marginBottom: 6, fontSize: 14 }}>Vaqt</label>
+                                <div className="co-field">
+                                    <label className="co-label">Vaqt</label>
                                     <input
                                         type="time"
+                                        className="co-input"
                                         min={effectiveMinTime}
                                         max={effectiveMaxTime}
                                         value={selectedTime}
                                         onChange={(e) => setSelectedTime(e.target.value)}
                                         disabled={!isClinicOpenOnDay}
-                                        style={{
-                                            width: '100%', padding: '10px 12px',
-                                            border: '1px solid #ddd', borderRadius: 8, fontSize: 14,
-                                            background: !isClinicOpenOnDay ? '#f1f5f9' : '#fff',
-                                            cursor: !isClinicOpenOnDay ? 'not-allowed' : 'auto',
-                                        }}
                                     />
                                 </div>
                             </div>
                             {selectedDate && !isClinicOpenOnDay && (
-                                <p style={{ marginTop: 8, fontSize: 13, color: '#dc2626', fontWeight: 500 }}>
-                                    ⚠️ Klinika {DAY_LABEL_UZ[selectedDayKey] || ''} kuni dam oladi. Iltimos, boshqa sanani tanlang.
-                                </p>
+                                <div className="co-note co-note--warn">
+                                    <AlertCircle size={15} />
+                                    <span>
+                                        Klinika <b>{DAY_LABEL_UZ[selectedDayKey] || ''}</b> kuni dam oladi — boshqa sanani tanlang.
+                                    </span>
+                                </div>
                             )}
                             {selectedDate && isClinicOpenOnDay && dayOpenTime && dayCloseTime && (
-                                <p style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>
-                                    🕐 Klinika ish vaqti: <b>{dayOpenTime} – {dayCloseTime}</b>
-                                    {isToday && minTimeIfToday > dayOpenTime && (
-                                        <> · bugungi kun uchun {minTimeIfToday} dan</>
-                                    )}
-                                </p>
+                                <div className="co-note co-note--info">
+                                    <Clock size={15} />
+                                    <span>
+                                        Klinika ish vaqti: <b>{dayOpenTime} – {dayCloseTime}</b>
+                                        {isToday && minTimeIfToday > dayOpenTime && (
+                                            <> · bugun uchun {minTimeIfToday} dan boshlab</>
+                                        )}
+                                    </span>
+                                </div>
                             )}
 
-                            <div style={{ marginTop: 16 }}>
-                                <label style={{ display: 'block', fontWeight: 500, marginBottom: 6, fontSize: 14 }}>Izoh (ixtiyoriy)</label>
+                            <div className="co-field co-field--stack">
+                                <label className="co-label">Izoh <span className="co-label__opt">ixtiyoriy</span></label>
                                 <textarea
+                                    className="co-input co-textarea"
                                     value={notes}
                                     onChange={(e) => setNotes(e.target.value)}
-                                    placeholder="Qo'shimcha ma'lumot..."
+                                    placeholder="Shifokorga qo'shimcha ma'lumot..."
                                     rows={3}
-                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14, resize: 'vertical' }}
                                 />
                             </div>
 
                             {oferta && (
-                                <div id="oferta-block" style={{ marginTop: 18 }}>
+                                <div id="oferta-block" className="co-oferta">
                                     {ofertaAgreed ? (
-                                        <div style={{
-                                            display: 'flex', alignItems: 'center', gap: 10,
-                                            padding: '12px 14px',
-                                            background: '#ecfeff', border: '2px solid #06b6d4',
-                                            borderRadius: 12, color: '#0e7490',
-                                            fontSize: 14, fontWeight: 600,
-                                        }}>
+                                        <div className="co-oferta__done">
                                             <CheckCircle2 size={18} />
                                             Ommaviy oferta (v{oferta.version}) qabul qilingan
                                         </div>
                                     ) : (
                                         <button
                                             type="button"
+                                            className="co-oferta__cta"
                                             onClick={() => { setOfertaModalChecked(false); setOfertaModalOpen(true); }}
-                                            style={{
-                                                width: '100%',
-                                                display: 'flex', alignItems: 'center', gap: 12,
-                                                padding: '14px 16px',
-                                                background: '#fff7ed', border: '2px solid #fb923c',
-                                                borderRadius: 12, color: '#9a3412',
-                                                fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                                                textAlign: 'left',
-                                            }}
                                         >
-                                            <FileText size={20} style={{ flexShrink: 0 }} />
-                                            <span style={{ flex: 1 }}>
+                                            <FileText size={20} />
+                                            <span className="co-oferta__body">
                                                 Ommaviy oferta (v{oferta.version}) bilan tanishish va qabul qilish
-                                                <span style={{ display: 'block', marginTop: 4, fontSize: 12, fontWeight: 600, color: '#c2410c' }}>
-                                                    * Buyurtma berishdan oldin shart
-                                                </span>
+                                                <span className="co-oferta__req">Buyurtma berishdan oldin shart</span>
                                             </span>
                                             <ArrowRight size={18} />
                                         </button>
@@ -538,42 +536,20 @@ export default function CartCheckoutPage() {
 
                             {/* Warning if online payment not available */}
                             {!supportsPayme && !supportsClick && !supportsAlif && (
-                                <div style={{
-                                    marginTop: 12,
-                                    padding: '10px 12px',
-                                    background: '#fff3cd',
-                                    border: '1px solid #ffc107',
-                                    borderRadius: 8,
-                                    fontSize: 13,
-                                    color: '#856404',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 8
-                                }}>
-                                    <AlertCircle size={16} />
+                                <div className="co-note co-note--warn co-note--mt">
+                                    <AlertCircle size={15} />
                                     <span>Onlayn to'lov hozircha faqat ba'zi klinikalarda mavjud. Naqd to'lov uchun klinikaga tashrif buyuring.</span>
                                 </div>
                             )}
 
                             {hasMultipleClinics && (
-                                <div style={{
-                                    marginTop: 12,
-                                    padding: '12px 14px',
-                                    background: '#fee2e2',
-                                    border: '1px solid #fca5a5',
-                                    borderRadius: 10,
-                                    fontSize: 13,
-                                    color: '#991b1b',
-                                    display: 'flex',
-                                    alignItems: 'flex-start',
-                                    gap: 8,
-                                    lineHeight: 1.5,
-                                }}>
-                                    <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+                                <div className="co-note co-note--danger co-note--mt">
+                                    <AlertCircle size={15} />
                                     <div>
                                         <strong>Bitta bron — bitta klinika</strong>
-                                        <div style={{ marginTop: 2 }}>
-                                            Savatingizda {cart.length} ta klinika xizmatlari bor. Hozircha bir vaqtning o'zida faqat bitta klinikadan bron qilish mumkin. <Link to="/user/cart" style={{ color: '#991b1b', textDecoration: 'underline', fontWeight: 600 }}>Savatga qaytish</Link> orqali boshqa klinika xizmatlarini olib tashlang.
+                                        <div className="co-note__body">
+                                            Savatingizda {cart.length} ta klinika xizmatlari bor. Hozircha bir vaqtda faqat bitta klinikadan bron qilish mumkin.{' '}
+                                            <Link to="/user/cart" className="co-note__link">Savatga qaytib</Link> boshqasini olib tashlang.
                                         </div>
                                     </div>
                                 </div>
@@ -583,27 +559,14 @@ export default function CartCheckoutPage() {
                                 <button
                                     type="button"
                                     onClick={() => { setOfertaModalChecked(false); setOfertaModalOpen(true); }}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                        padding: '10px 14px',
-                                        background: '#fff7ed', border: '1px solid #fdba74',
-                                        borderRadius: 10, color: '#9a3412',
-                                        fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                                        animation: 'co-pulse 1.8s ease-in-out infinite',
-                                    }}
+                                    className="co-oferta__mini"
                                 >
                                     <FileText size={15} />
                                     Ommaviy ofertani ochish va qabul qilish
                                 </button>
                             )}
                             {oferta && ofertaAgreed && (
-                                <div style={{
-                                    display: 'flex', alignItems: 'center', gap: 8,
-                                    padding: '8px 12px',
-                                    background: '#ecfeff', border: '1px solid #67e8f9',
-                                    borderRadius: 10, color: '#0e7490',
-                                    fontSize: 12, fontWeight: 600,
-                                }}>
+                                <div className="co-oferta__done co-oferta__done--sm">
                                     <CheckCircle2 size={14} />
                                     Oferta qabul qilingan (v{oferta.version})
                                 </div>
