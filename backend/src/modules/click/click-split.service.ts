@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import prisma from '../../config/database';
 import { dispatch as dispatchNotification } from '../notifications/notification.dispatcher';
+import { submitOfdItems } from './click-ofd.service';
 import { getGlobalSplitConfig, ResolvedSplitGlobalConfig } from './click-split-config.service';
 
 // ─── Click SHOP SPLIT API ───────────────────────────────────────────────────
@@ -333,6 +334,18 @@ async function confirm(req: SplitRequest, _cfg: ResolvedSplitGlobalConfig): Prom
         type: 'payment_received', clinicId: appointment.clinicId, appointmentId: appointment.id,
         amount: txn.amount, priority: 'HIGH', link: `/clinic/bookings?focus=${appointment.id}`,
     }).catch((e) => console.error('[click.split.confirm] notify clinic failed:', e));
+
+    // Fiscalization (Soliq/OFD) — a separate outbound call, deliberately NOT
+    // awaited: CLICK is waiting on this webhook's response and the money has
+    // already moved, so a slow or failing receipt submission must not delay or
+    // fail the Confirm. Failures are logged for retry.
+    if (req.click_paydoc_id != null) {
+        submitOfdItems({
+            appointmentId: appointment.id,
+            clickPaydocId: req.click_paydoc_id,
+            clinicId: appointment.clinicId,
+        }).catch((e) => console.error('[click.split.confirm] ofd submit failed:', e));
+    }
 
     return {
         body: {

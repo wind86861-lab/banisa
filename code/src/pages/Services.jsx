@@ -678,6 +678,11 @@ const Services = () => {
                                                     className="btn-add-cat-sidebar"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        // Must clear editCatId: without it, opening "add" right
+                                                        // after an edit submits through the update branch and
+                                                        // overwrites the previously-edited category — including
+                                                        // its fiscal codes — instead of creating a new one.
+                                                        setEditCatId(null);
                                                         setCatFormData({ nameUz: '', parentId: group.id, icon: '', level: 2 });
                                                         setShowCatForm(true);
                                                     }}
