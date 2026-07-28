@@ -4,13 +4,21 @@ import { z } from 'zod';
 // friendlier than a 500.
 const uuid = z.string().uuid('Identifikator noto\'g\'ri formatda');
 
+// A service id is NOT always a UUID: diagnostic/surgical/sanatorium/ambulance
+// use @default(uuid()), but checkup packages use @default(cuid()) (e.g.
+// "cmnvma2k200013ksxv1b6nayv"). Requiring uuid() here rejected every checkup
+// booking with a generic "Validation failed" 400. Accept either shape — an
+// unknown id is caught with a friendly 404 in the service layer, so a loose
+// charset/length guard is enough to reject obvious junk.
+const serviceId = z.string().regex(/^[a-z0-9-]{20,40}$/i, 'Xizmat identifikatori noto\'g\'ri formatda');
+
 const serviceType = z.enum(['DIAGNOSTIC', 'SURGICAL', 'SANATORIUM', 'CHECKUP', 'AMBULANCE']);
 
 export const addToCartSchema = z.object({
     body: z.object({
         clinicId: uuid,
         serviceType,
-        serviceId: uuid,
+        serviceId,
         // Allow up to a sane upper bound — anything past 99 of a single
         // service is almost certainly a typo or a script.
         quantity: z.number().int().min(1).max(99).optional(),
