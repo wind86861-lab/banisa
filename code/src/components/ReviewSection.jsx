@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Star, ThumbsUp, MessageSquare, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
-import { useServiceReviews, useMyReview, useSubmitReview } from '../hooks/useReviews';
+import { useServiceReviews, useMyReview, useSubmitReview, useReviewEligibility } from '../hooks/useReviews';
 import { useUserAuth } from '../shared/auth/UserAuthContext';
 import './ReviewSection.css';
 
@@ -211,6 +211,8 @@ export default function ReviewSection({ serviceId, serviceType }) {
     const location = useLocation();
     const { data: reviewsData, isLoading } = useServiceReviews(serviceId, serviceType);
     const { data: myReview } = useMyReview(serviceId, serviceType);
+    // Only patients who used the service (COMPLETED appointment) may write one.
+    const { data: eligibility } = useReviewEligibility(serviceId, serviceType);
 
     if (isLoading) {
         return (
@@ -265,6 +267,14 @@ export default function ReviewSection({ serviceId, serviceType }) {
                                         <strong>Sharhingiz qabul qilindi</strong>
                                         <p>Rahmat! Sizning sharhingiz quyida ko'rsatilgan.</p>
                                     </div>
+                                </div>
+                            </div>
+                        ) : eligibility && !eligibility.eligible ? (
+                            <div className="rs-alert rs-alert-info">
+                                <AlertCircle size={20} />
+                                <div>
+                                    <strong>Sharh xizmatdan keyin</strong>
+                                    <p>Sharh faqat ushbu xizmatdan foydalangan bemorlar tomonidan qoldiriladi. Xizmatdan so'ng bot orqali sharh qoldirish taklifi keladi.</p>
                                 </div>
                             </div>
                         ) : (

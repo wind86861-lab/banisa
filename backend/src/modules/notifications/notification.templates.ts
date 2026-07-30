@@ -72,6 +72,8 @@ const T = {
         remindTomorrow: 'Ertaga qabul',
         remind1h: '1 soatdan keyin qabul',
         paymentReceived: "To'lov qabul qilindi",
+        reviewTitle: "Sharhingiz muhim",
+        reviewBody: "Xizmatdan foydalandingiz. Tajribangiz boshqa bemorlarga to'g'ri tanlov qilishda yordam beradi \u2014 iltimos, baho bering.",
         queueIsYours: 'Navbat sizniki',
         newBooking: 'Yangi bron',
         cashPending: "Naqd to'lov kutilmoqda",
@@ -110,6 +112,8 @@ const T = {
         remindTomorrow: 'Завтра приём',
         remind1h: 'Приём через 1 час',
         paymentReceived: 'Оплата получена',
+        reviewTitle: 'Ваш отзыв важен',
+        reviewBody: 'Вы воспользовались услугой. Ваш опыт поможет другим пациентам сделать правильный выбор \u2014 пожалуйста, оцените.',
         queueIsYours: 'Ваша очередь',
         newBooking: 'Новая бронь',
         cashPending: 'Ожидается оплата наличными',
@@ -209,6 +213,15 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 body: `${fmtPrice(event.amount)} ${t.som}`,
                 sms: `${t.smsPrefix} ${fmtPrice(event.amount)} ${t.som} ${t.smsPaymentReceived}.`,
                 telegram: `✅ <b>${esc(t.paymentReceived)}</b>\n💵 ${esc(fmtPrice(event.amount))} ${esc(t.som)}`,
+            };
+        }
+        case 'review_request': {
+            const svc = event.serviceName || t.service;
+            return {
+                title: `⭐ ${t.reviewTitle}`,
+                body: `${svc} — ${t.reviewBody}`,
+                sms: `${t.smsPrefix} ${svc}: ${t.reviewBody}`,
+                telegram: `⭐ <b>${esc(t.reviewTitle)}</b>\n\n🩺 ${esc(svc)}\n\n${esc(t.reviewBody)}`,
             };
         }
         case 'queue_called': {

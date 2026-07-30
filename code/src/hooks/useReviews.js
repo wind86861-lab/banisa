@@ -32,6 +32,19 @@ export function useMyReview(serviceId, serviceType) {
     });
 }
 
+// Can the current patient review this service? { eligible, used, alreadyReviewed }
+export function useReviewEligibility(serviceId, serviceType) {
+    return useQuery({
+        queryKey: ['reviewEligibility', serviceId, serviceType],
+        queryFn: async () => {
+            const { data } = await api.get(`/reviews/eligibility?serviceId=${serviceId}&serviceType=${serviceType}`);
+            return data.data;
+        },
+        enabled: !!serviceId && !!serviceType && userTokenStorage.isLoggedIn(),
+        retry: false,
+    });
+}
+
 // Submit a review
 export function useSubmitReview() {
     const queryClient = useQueryClient();

@@ -24,6 +24,17 @@ function inlineActionsForEvent(event: NotificationEvent, lang: 'uz' | 'ru'): Inl
             },
         ];
     }
+    if (event.type === 'review_request' && (event as any).reviewServiceId) {
+        const st = (event as any).reviewServiceType;
+        const sid = (event as any).reviewServiceId;
+        // Single button in the notification; tapping it opens the star row
+        // (svcrev:open handler in telegram.bot.ts) so the patient rates +
+        // comments without leaving the chat.
+        return [{
+            text: lang === 'ru' ? '⭐ Оставить отзыв' : '⭐ Sharh qoldirish',
+            callback_data: `svcrev:open:${st}:${sid}`,
+        }];
+    }
     if (event.type === 'clinic_cash_pending' && (event as any).appointmentId) {
         const id = (event as any).appointmentId;
         return [{

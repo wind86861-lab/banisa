@@ -2,6 +2,42 @@ import prisma from '../../config/database';
 import { AppError, ErrorCodes } from '../../utils/errors';
 import { ReviewStatus } from '@prisma/client';
 
+// Map the public review serviceType to the cart AppointmentService enum.
+const CART_TYPE: Record<string, string> = {
+    diagnostic: 'DIAGNOSTIC', surgical: 'SURGICAL', sanatorium: 'SANATORIUM',
+};
+
+/**
+ * Has this patient actually USED this service? True only when they have a
+ * COMPLETED appointment that includes it — either as a solo booking (the
+ * appointment's own service field) or as a line in a cart booking
+ * (AppointmentService.originalServiceId). This is the gate that stops people
+ * who never received the service from reviewing it.
+ */
+export async function hasUsedService(
+    userId: string,
+    serviceId: string,
+    serviceType: 'diagnostic' | 'surgical' | 'sanatorium',
+): Promise<boolean> {
+    const soloField = serviceType === 'diagnostic'
+        ? { diagnosticServiceId: serviceId }
+        : serviceType === 'surgical'
+            ? { surgicalServiceId: serviceId }
+            : null; // sanatorium has no solo field on Appointment — cart only
+
+    const count = await prisma.appointment.count({
+        where: {
+            patientId: userId,
+            status: 'COMPLETED',
+            OR: [
+                ...(soloField ? [soloField] : []),
+                { services: { some: { serviceType: CART_TYPE[serviceType] as any, originalServiceId: serviceId } } },
+            ],
+        },
+    });
+    return count > 0;
+}
+
 export class ReviewsService {
     // ─── CREATE REVIEW ──────────────────────────────────────────────────────
     async createReview(
@@ -30,6 +66,16 @@ export class ReviewsService {
 
         if (!service) {
             throw new AppError('Xizmat topilmadi', 404, ErrorCodes.NOT_FOUND);
+        }
+
+        // Only patients who actually used the service may review it.
+        const used = await hasUsedService(userId, serviceId, serviceType);
+        if (!used) {
+            throw new AppError(
+                'Sharh faqat xizmatdan foydalangandan keyin qoldiriladi',
+                403,
+                ErrorCodes.FORBIDDEN,
+            );
         }
 
         // Check if user already reviewed this service
@@ -66,6 +112,19 @@ export class ReviewsService {
         });
 
         return review;
+    }
+
+    // ─── UPDATE OWN REVIEW COMMENT ──────────────────────────────────────────
+    // Used by the in-bot flow: the patient rates first (creating the review),
+    // then optionally sends a comment as a follow-up message.
+    async updateOwnComment(reviewId: string, userId: string, comment: string) {
+        const trimmed = (comment || '').trim().slice(0, 1000);
+        if (!trimmed) return null;
+        const res = await prisma.serviceReview.updateMany({
+            where: { id: reviewId, userId },
+            data: { comment: trimmed },
+        });
+        return res.count > 0;
     }
 
     // ─── GET REVIEWS BY SERVICE ─────────────────────────────────────────────

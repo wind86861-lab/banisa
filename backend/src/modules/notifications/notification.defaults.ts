@@ -17,6 +17,10 @@ export const DEFAULT_CHANNELS: Record<EventType, Channel[]> = {
     booking_reminder_24h: ['inapp', 'sms', 'telegram'],
     booking_reminder_1h: ['inapp', 'sms', 'telegram'],
     payment_received: ['inapp', 'sms', 'telegram'],
+    // Review request — in-app + the bot (the bot carries the star buttons so
+    // the patient rates + comments inside Telegram). No SMS: a star keyboard
+    // can't live in an SMS.
+    review_request: ['inapp', 'telegram'],
     queue_called: ['inapp', 'telegram'],
     // Clinic
     clinic_new_booking: ['inapp', 'telegram'],

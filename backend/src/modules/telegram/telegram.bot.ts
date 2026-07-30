@@ -35,6 +35,7 @@ import {
     handleSkoryDescription,
     handleSkoryPriceText,
 } from './skory.bot';
+import { reviewsService } from '../reviews/reviews.service';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const PUBLIC_BASE = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').replace(/\/+$/, '');
@@ -1187,6 +1188,68 @@ function registerHandlers(bot: Bot) {
         }
     };
 
+    // ─── Service review (in-bot) ───────────────────────────────────────────
+    // Star row: ⭐ … ⭐⭐⭐⭐⭐ in one row.
+    const svcStarKb = (st: string, sid: string) => {
+        const kb = new InlineKeyboard();
+        for (let n = 1; n <= 5; n++) kb.text('⭐'.repeat(n), `svcrev:rate:${n}:${st}:${sid}`);
+        return kb;
+    };
+
+    // Notification button tapped → show the star row.
+    bot.callbackQuery(/^svcrev:open:(diagnostic|surgical|sanatorium):(.+)$/, async (ctx) => {
+        const r = await resolveLinked(ctx); if (!r) return;
+        await ctx.answerCallbackQuery();
+        const st = ctx.match[1];
+        const sid = ctx.match[2];
+        const prompt = r.lang === 'ru' ? '⭐ Оцените услугу:' : '⭐ Xizmatga baho bering:';
+        try {
+            await ctx.editMessageReplyMarkup({ reply_markup: svcStarKb(st, sid) });
+            await ctx.reply(prompt, { reply_markup: svcStarKb(st, sid) });
+        } catch {
+            try { await ctx.reply(prompt, { reply_markup: svcStarKb(st, sid) }); } catch { /* */ }
+        }
+    });
+
+    // Star tapped → create the review, then invite an optional comment.
+    bot.callbackQuery(/^svcrev:rate:([1-5]):(diagnostic|surgical|sanatorium):(.+)$/, async (ctx) => {
+        const r = await resolveLinked(ctx); if (!r) return;
+        const rating = parseInt(ctx.match[1], 10);
+        const st = ctx.match[2] as 'diagnostic' | 'surgical' | 'sanatorium';
+        const sid = ctx.match[3];
+        const chatId = ctx.chat?.id;
+        let review;
+        try {
+            review = await reviewsService.createReview(r.userId, sid, st, rating);
+        } catch (e: any) {
+            // e.g. already reviewed / not eligible → show the reason, don't crash.
+            await ctx.answerCallbackQuery({ text: e?.message || 'Xato', show_alert: true });
+            return;
+        }
+        await ctx.answerCallbackQuery();
+        if (chatId) {
+            await setWizardState(chatId, { kind: 'svcreview', data: { reviewId: review.id } });
+        }
+        const done = r.lang === 'ru'
+            ? `Спасибо за оценку!\n\n${'⭐'.repeat(rating)}\n\nХотите добавить комментарий? Напишите его сообщением (или /skip).`
+            : `Baho uchun rahmat!\n\n${'⭐'.repeat(rating)}\n\nIzoh ham qo'shasizmi? Xabar qilib yozing (yoki /skip).`;
+        try { await ctx.editMessageText(done); } catch { try { await ctx.reply(done); } catch { /* */ } }
+    });
+
+    // Skip the optional comment.
+    bot.command('skip', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const wiz = await getWizardState(chatId);
+        if (wiz.kind !== 'svcreview') return;
+        await setWizardState(chatId, null);
+        const acc = await (prisma as any).telegramAccount.findUnique({
+            where: { chatId: BigInt(chatId) }, select: { language: true },
+        });
+        const lng: Lang = acc?.language === 'ru' ? 'ru' : 'uz';
+        await ctx.reply(lng === 'ru' ? '✅ Спасибо за отзыв!' : '✅ Sharhingiz uchun rahmat!');
+    });
+
     // ─── Appointment: open detail ──────────────────────────────────────────
     bot.callbackQuery(/^appt:show:(.+)$/, async (ctx) => {
         const r = await resolveLinked(ctx); if (!r) return;
@@ -1783,6 +1846,21 @@ function registerHandlers(bot: Bot) {
                         console.error('[bot] skory desc failed:', e);
                         await setWizardState(chatId, null);
                         await ctx.reply('Wizard xato — qaytadan boshlang');
+                    }
+                    return;
+                }
+                // Service-review comment step: the patient rated via the star
+                // buttons, then typed a comment. Save it onto their review.
+                if (wizard.kind === 'svcreview' && wizard.data?.reviewId && acc?.userId) {
+                    try {
+                        await reviewsService.updateOwnComment(wizard.data.reviewId, acc.userId, text);
+                        await setWizardState(chatId, null);
+                        await ctx.reply(lang === 'ru'
+                            ? '✅ Спасибо! Ваш отзыв с комментарием сохранён.'
+                            : '✅ Rahmat! Sharhingiz izoh bilan saqlandi.');
+                    } catch (e) {
+                        console.error('[bot] svcreview comment failed:', e);
+                        await setWizardState(chatId, null);
                     }
                     return;
                 }

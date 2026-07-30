@@ -55,6 +55,40 @@ type Actor = {
     name?: string;
 };
 
+// After a service is COMPLETED, ask the patient to review it — one notification
+// carrying star buttons (the bot lets them rate + comment in Telegram). Only
+// diagnostic/surgical/sanatorium services are reviewable; checkup/ambulance are
+// skipped. Best-effort: never blocks or fails the completion.
+async function requestReviewForCompleted(appt: any): Promise<void> {
+    let target: { id: string; type: 'diagnostic' | 'surgical' | 'sanatorium'; name: string } | null = null;
+    if (appt.diagnosticServiceId) {
+        target = { id: appt.diagnosticServiceId, type: 'diagnostic', name: appt.diagnosticService?.nameUz || 'Xizmat' };
+    } else if (appt.surgicalServiceId) {
+        target = { id: appt.surgicalServiceId, type: 'surgical', name: appt.surgicalService?.nameUz || 'Xizmat' };
+    } else {
+        const map: Record<string, 'diagnostic' | 'surgical' | 'sanatorium'> = {
+            DIAGNOSTIC: 'diagnostic', SURGICAL: 'surgical', SANATORIUM: 'sanatorium',
+        };
+        const line = (appt.services || []).find((s: any) => s.originalServiceId && map[s.serviceType]);
+        if (line) target = { id: line.originalServiceId, type: map[line.serviceType], name: line.serviceName || 'Xizmat' };
+    }
+    if (!target || !appt.patientId) return;
+    try {
+        await dispatchNotification({
+            type: 'review_request',
+            userId: appt.patientId,
+            appointmentId: appt.id,
+            serviceName: target.name,
+            reviewServiceId: target.id,
+            reviewServiceType: target.type,
+            priority: 'LOW',
+            link: `/xizmatlar/${target.id}`,
+        });
+    } catch (e) {
+        console.error('[review_request] dispatch failed:', e);
+    }
+}
+
 function assertStatus(
     current: AppointmentStatus,
     allowed: AppointmentStatus[],
@@ -600,6 +634,7 @@ export class AppointmentService {
             note: payload.note,
             metadata: { commissionAmount },
         });
+        await requestReviewForCompleted(updated);
         return updated;
     }
 
@@ -1007,6 +1042,7 @@ export class AppointmentService {
             console.error('[clinicConfirmCash] notify patient failed:', e);
         }
 
+        await requestReviewForCompleted(updated);
         return updated;
     }
 

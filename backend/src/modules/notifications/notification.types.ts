@@ -15,6 +15,7 @@ export type EventType =
     | 'booking_reminder_24h'
     | 'booking_reminder_1h'
     | 'payment_received'
+    | 'review_request'             // Service done → ask the patient to review it
     | 'queue_called'
     // Clinic-facing
     | 'clinic_new_booking'
@@ -64,6 +65,14 @@ export interface PaymentEvent extends BaseEvent<'payment_received'> {
     amount: number;
 }
 
+export interface ReviewRequestEvent extends BaseEvent<'review_request'> {
+    appointmentId: string;
+    serviceName?: string;
+    // The service to review — the bot star buttons carry these.
+    reviewServiceId: string;
+    reviewServiceType: 'diagnostic' | 'surgical' | 'sanatorium';
+}
+
 export interface GeneralEvent extends BaseEvent<'general'> {
     title: string;
     body: string;
@@ -80,4 +89,4 @@ export interface ClinicDailyReportEvent extends BaseEvent<'clinic_daily_report'>
     pending: number;
 }
 
-export type NotificationEvent = BookingEvent | PaymentEvent | GeneralEvent | ClinicDailyReportEvent;
+export type NotificationEvent = BookingEvent | PaymentEvent | ReviewRequestEvent | GeneralEvent | ClinicDailyReportEvent;

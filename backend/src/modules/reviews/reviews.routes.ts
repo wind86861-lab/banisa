@@ -27,6 +27,9 @@ router.post(
 // Get user's own review for a service
 router.get('/my-review/:serviceId', requireAuth, reviewsController.getUserReviewForService);
 
+// Can the current patient review this service? (used-service + not-yet-reviewed)
+router.get('/eligibility', requireAuth, requireRole(['PATIENT']), reviewsController.eligibility);
+
 // ─── ADMIN ROUTES ───────────────────────────────────────────────────────────
 // Get all reviews (with filters)
 router.get('/', requireAuth, requireRole(['SUPER_ADMIN']), reviewsController.getAllReviews);

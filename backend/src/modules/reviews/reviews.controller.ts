@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { reviewsService } from './reviews.service';
+import { reviewsService, hasUsedService } from './reviews.service';
 import { sendSuccess } from '../../utils/response';
 import { AuthRequest } from '../../middleware/auth.middleware';
 
@@ -135,6 +135,28 @@ export class ReviewsController {
             );
 
             sendSuccess(res, review);
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    // Can the current patient review this service? Drives the web form so the
+    // "Sharh qoldirish" button only appears to someone who used the service and
+    // hasn't already reviewed it.
+    eligibility = async (req: AuthRequest, res: Response, next: NextFunction) => {
+        try {
+            const serviceId = String(req.query.serviceId || '');
+            const serviceType = String(req.query.serviceType || '');
+            const userId = req.user!.id;
+            if (!serviceId || !['diagnostic', 'surgical', 'sanatorium'].includes(serviceType)) {
+                return res.status(400).json({ success: false, error: 'serviceId + valid serviceType required' });
+            }
+            const st = serviceType as 'diagnostic' | 'surgical' | 'sanatorium';
+            const [used, existing] = await Promise.all([
+                hasUsedService(userId, serviceId, st),
+                reviewsService.getUserReviewForService(userId, serviceId, st),
+            ]);
+            sendSuccess(res, { eligible: used && !existing, used, alreadyReviewed: !!existing });
         } catch (error) {
             next(error);
         }
