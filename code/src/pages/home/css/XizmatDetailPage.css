@@ -2022,3 +2022,16 @@
 @media (prefers-reduced-motion: reduce) {
     .xd-sched-status--open .xd-sched-dot { animation: none; }
 }
+
+.xd-sched-scope {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    color: #0e7490;
+    background: rgba(0, 189, 224, .08);
+    border: 1px solid rgba(0, 189, 224, .18);
+    border-radius: 8px;
+    padding: 7px 11px;
+    margin-bottom: 14px;
+    display: inline-block;
+}

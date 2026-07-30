@@ -61,48 +61,99 @@ const dayEntry = (info) => ({
     end: info?.end ?? info?.close ?? info?.closeTime ?? null,
 });
 
-/** { state: 'open'|'closed', note } \u2014 "closed" also says when it opens next. */
-function scheduleStatus(wh) {
+const minToHHMM = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+/**
+ * Live open/closed status from a normalized {dayKey: [[startMin,endMin],\u2026]}
+ * map. Missing/empty day = closed. Multi-range days ("open now" = within ANY
+ * range) are handled so per-service time slots work as well as clinic hours.
+ * "closed" also says when it next opens.
+ */
+function statusFromRanges(rangesByDay) {
     const todayK = tashkentTodayKey();
-    const today = dayEntry(wh?.[todayK]);
     const nowD = tashkentNow();
     const now = nowD.getHours() * 60 + nowD.getMinutes();
+    const today = (rangesByDay[todayK] || []).slice().sort((a, b) => a[0] - b[0]);
 
-    if (!today.off && today.start && today.end) {
-        const s = hhmmToMin(today.start);
-        const e = hhmmToMin(today.end);
-        if (now >= s && now < e) return { state: 'open', note: `${today.end} gacha ochiq` };
-        if (now < s) return { state: 'closed', note: `Bugun ${today.start} da ochiladi` };
-    }
+    for (const [s, e] of today) if (now >= s && now < e) return { state: 'open', note: `${minToHHMM(e)} gacha ochiq` };
+    const laterToday = today.find(([s]) => now < s);
+    if (laterToday) return { state: 'closed', note: `Bugun ${minToHHMM(laterToday[0])} da ochiladi` };
+
     const idx = DAY_ORDER.indexOf(todayK);
     for (let i = 1; i <= 7; i++) {
         const k = DAY_ORDER[(idx + i) % 7];
-        const d = dayEntry(wh?.[k]);
-        if (!d.off && d.start) {
+        const r = (rangesByDay[k] || []).slice().sort((a, b) => a[0] - b[0])[0];
+        if (r) {
             const label = i === 1 ? 'Ertaga' : DAY_NAMES_UZ[k];
-            return { state: 'closed', note: `${label} ${d.start} da ochiladi` };
+            return { state: 'closed', note: `${label} ${minToHHMM(r[0])} da ochiladi` };
         }
     }
-    return { state: 'closed', note: 'Ish vaqti ko\'rsatilmagan' };
+    return null;
+}
+
+// Build ONE weekly schedule, choosing a single source by priority so the block
+// never shows the same information twice:
+//   1. the service's OWN time slots (availableTimeSlots \u2014 days + times)
+//   2. the clinic's working hours, limited to the service's allowed days
+//      (availableDays) when the service restricts them
+//   3. the service's allowed days alone, when there are no times anywhere
+// Returns { source, rows:[{key,text,off}], status } or null when nothing is set.
+function buildSchedule(clinic) {
+    const slots = clinic.availableTimeSlots && Object.keys(clinic.availableTimeSlots).length
+        ? clinic.availableTimeSlots : null;
+    const allowedDays = clinic.availableDays?.length ? new Set(clinic.availableDays) : null;
+    const wh = clinic.workingHours?.schedule || clinic.workingHours;
+    const hasClinicHours = wh && typeof wh === 'object' && !Array.isArray(wh) && Object.keys(wh).length > 0;
+
+    // 1 \u2014 service's own per-day time slots
+    if (slots) {
+        const ranges = {};
+        const rows = DAY_ORDER.map((k) => {
+            const daySlots = Array.isArray(slots[k]) ? slots[k].filter((s) => s?.start && s?.end) : [];
+            if (daySlots.length) {
+                ranges[k] = daySlots.map((s) => [hhmmToMin(s.start), hhmmToMin(s.end)]);
+                return { key: k, off: false, text: daySlots.map((s) => `${s.start} \u2013 ${s.end}`).join(', ') };
+            }
+            return { key: k, off: true, text: 'Qabul yo\'q' };
+        });
+        return { source: 'service', rows, status: statusFromRanges(ranges) };
+    }
+
+    // 2 \u2014 clinic hours (optionally limited to the service's allowed days)
+    if (hasClinicHours) {
+        const ranges = {};
+        const rows = DAY_ORDER.filter((k) => wh[k]).map((k) => {
+            const e = dayEntry(wh[k]);
+            const dayAllowed = !allowedDays || allowedDays.has(k);
+            if (!dayAllowed) return { key: k, off: true, text: 'Qabul yo\'q' };
+            if (e.off || !e.start || !e.end) return { key: k, off: true, text: 'Dam olish' };
+            ranges[k] = [[hhmmToMin(e.start), hhmmToMin(e.end)]];
+            return { key: k, off: false, text: `${e.start} \u2013 ${e.end}` };
+        });
+        return { source: allowedDays ? 'clinic-limited' : 'clinic', rows, status: statusFromRanges(ranges) };
+    }
+
+    // 3 \u2014 allowed days only, no times known anywhere
+    if (allowedDays) {
+        const rows = DAY_ORDER.filter((k) => allowedDays.has(k)).map((k) => ({ key: k, off: false, text: 'Qabul kuni' }));
+        return { source: 'days', rows, status: null };
+    }
+    return null;
 }
 
 function ScheduleBlock({ clinic }) {
-    const hasCustomSchedule = clinic.availableDays?.length > 0
-        || (clinic.availableTimeSlots && Object.keys(clinic.availableTimeSlots).length > 0);
-    const wh = clinic.workingHours?.schedule || clinic.workingHours;
-    const hasClinicHours = wh && typeof wh === 'object' && !Array.isArray(wh) && Object.keys(wh).length > 0;
-    if (!hasCustomSchedule && !hasClinicHours) return null;
-
+    const sched = buildSchedule(clinic);
+    if (!sched) return null;
     const todayK = tashkentTodayKey();
-    const status = hasClinicHours ? scheduleStatus(wh) : null;
-    // Order the week properly instead of trusting object key order.
-    const rows = hasClinicHours
-        ? DAY_ORDER.filter((k) => wh[k]).map((k) => ({ key: k, ...dayEntry(wh[k]) }))
-        : [];
+    const { rows, status, source } = sched;
 
     return (
         <div className="xd-content-block">
             <h2 className="xd-section-title"><Calendar size={22} /> Ish vaqti</h2>
+
+            {source === 'service' && (
+                <div className="xd-sched-scope">Bu xizmat uchun qabul jadvali</div>
+            )}
 
             {status && (
                 <div className={`xd-sched-status xd-sched-status--${status.state}`}>
@@ -112,58 +163,20 @@ function ScheduleBlock({ clinic }) {
                 </div>
             )}
 
-            {hasClinicHours && (
-                <div className="xd-sched-week">
-                    {rows.map((r) => {
-                        const isToday = r.key === todayK;
-                        return (
-                            <div key={r.key} className={`xd-sched-row${isToday ? ' is-today' : ''}${r.off ? ' is-off' : ''}`}>
-                                <span className="xd-sched-day">
-                                    {DAY_NAMES_UZ[r.key] || r.key}
-                                    {isToday && <span className="xd-sched-today">Bugun</span>}
-                                </span>
-                                <span className="xd-sched-hours">
-                                    {r.off ? 'Dam olish' : `${r.start} \u2013 ${r.end}`}
-                                </span>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-
-            {hasCustomSchedule && (
-                <div className={hasClinicHours ? 'xd-sched-custom' : ''}>
-                    {clinic.availableDays?.length > 0 && (
-                        <>
-                            <div className="xd-sched-sub">Qabul kunlari</div>
-                            <div className="xd-sched-chips">
-                                {clinic.availableDays.map((d, i) => (
-                                    <span key={i} className={`xd-sched-chip${d === todayK ? ' is-today' : ''}`}>
-                                        {DAY_NAMES_UZ[d] || d}
-                                    </span>
-                                ))}
-                            </div>
-                        </>
-                    )}
-                    {clinic.availableTimeSlots && Object.keys(clinic.availableTimeSlots).length > 0 && (
-                        <>
-                            <div className="xd-sched-sub">Vaqt oraliqlari</div>
-                            <div className="xd-sched-slots">
-                                {DAY_ORDER.filter((k) => clinic.availableTimeSlots[k]).map((k) => (
-                                    <div key={k} className={`xd-sched-slotrow${k === todayK ? ' is-today' : ''}`}>
-                                        <span className="xd-sched-day">{DAY_NAMES_UZ[k] || k}</span>
-                                        <span className="xd-sched-chips">
-                                            {clinic.availableTimeSlots[k].map((s, i) => (
-                                                <span key={i} className="xd-sched-slot">{s.start} \u2013 {s.end}</span>
-                                            ))}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </>
-                    )}
-                </div>
-            )}
+            <div className="xd-sched-week">
+                {rows.map((r) => {
+                    const isToday = r.key === todayK;
+                    return (
+                        <div key={r.key} className={`xd-sched-row${isToday ? ' is-today' : ''}${r.off ? ' is-off' : ''}`}>
+                            <span className="xd-sched-day">
+                                {DAY_NAMES_UZ[r.key] || r.key}
+                                {isToday && <span className="xd-sched-today">Bugun</span>}
+                            </span>
+                            <span className="xd-sched-hours">{r.text}</span>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }
