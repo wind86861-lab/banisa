@@ -152,9 +152,8 @@ function ReviewForm({ serviceId, serviceType, onSuccess }) {
                     className="rs-form-textarea"
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
-                    placeholder="Xizmat haqida fikringizni yozing..."
+                    placeholder="Xizmat haqida fikringizni yozing... (ixtiyoriy)"
                     rows={4}
-                    minLength={10}
                     maxLength={1000}
                 />
                 {comment.length > 0 && (

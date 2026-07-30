@@ -6,7 +6,10 @@ export const createReviewSchema = z.object({
         serviceId: z.string().uuid(),
         serviceType: z.enum(['diagnostic', 'surgical', 'sanatorium']),
         rating: z.number().int().min(1).max(5),
-        comment: z.string().min(10).max(1000).optional(),
+        // Comment is optional — a rating alone is a valid review, and short
+        // genuine praise ("Zo'r", "Rahmat") must be accepted. The old min(10)
+        // rejected those with an opaque "Validation failed"; only cap the max.
+        comment: z.string().trim().min(1).max(1000).optional(),
     }),
 });
 
