@@ -150,6 +150,26 @@ function MapPicker({ lat, lng, onChange }) {
     );
 }
 
+// Read-only map: shows WHERE the shared device location landed, with no way to
+// change it — no address search, no click-to-move, a fixed (non-draggable)
+// marker. Used for the ambulance pickup, which must be the patient's real
+// current position so the crew isn't sent to a made-up spot.
+function MapPreview({ lat, lng }) {
+    if (lat == null || lng == null) return null;
+    return (
+        <div className="skoo__map">
+            <MapContainer center={[lat, lng]} zoom={16} scrollWheelZoom={false} dragging doubleClickZoom={false}>
+                <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; OpenStreetMap'
+                />
+                <Marker position={[lat, lng]} />
+                <FlyTo lat={lat} lng={lng} />
+            </MapContainer>
+        </div>
+    );
+}
+
 // Best-effort reverse geocode via OpenStreetMap Nominatim.
 async function reverseGeocode(lat, lng) {
     try {
@@ -233,60 +253,69 @@ function TypeStep({ type, onChange, onNext }) {
 function PickupStep({ pickup, onChange, onNext }) {
     const [busy, setBusy] = useState(false);
     // Surface geolocation failures inline instead of via alert() — native
-    // dialogs are blocked in some Telegram Mini App embeds and they
-    // distract a patient who's already in an emergency. The hint also
-    // makes it obvious the manual map below still works.
+    // dialogs are blocked in some Telegram Mini App embeds and they distract a
+    // patient who's already in an emergency.
     const [geoError, setGeoError] = useState('');
 
-    const useMyLocation = () => {
+    // Pickup is the patient's REAL current position only — device location, no
+    // manual map editing. This stops the crew being dispatched to a made-up
+    // point and keeps the ETA/pricing honest.
+    const shareLocation = () => {
         setGeoError('');
         if (!navigator.geolocation) {
-            setGeoError('Brauzeringiz joylashuvni qo\'llab-quvvatlamaydi. Xaritada nuqtani qo\'lda belgilang.');
+            setGeoError('Qurilmangiz joylashuvni qo\'llab-quvvatlamaydi. Iltimos, 103 ga qo\'ng\'iroq qiling.');
             return;
         }
         setBusy(true);
         navigator.geolocation.getCurrentPosition(
             async (pos) => {
                 const lat = pos.coords.latitude, lng = pos.coords.longitude;
+                onChange({ lat, lng, address: null });
                 const address = await reverseGeocode(lat, lng);
                 onChange({ lat, lng, address });
                 setBusy(false);
             },
             (err) => {
                 setBusy(false);
-                setGeoError(`Joylashuv olinmadi (${err.message || 'ruxsat berilmagan'}). Xaritada nuqtani qo'lda belgilang.`);
+                setGeoError(`Joylashuv olinmadi (${err.message || 'ruxsat berilmagan'}). Joylashuvga ruxsat bering va qaytadan urinib ko'ring.`);
             },
             { enableHighAccuracy: true, timeout: 8000 },
         );
     };
 
-    const handleMapChange = async (lat, lng) => {
-        onChange({ lat, lng, address: null });
-        const address = await reverseGeocode(lat, lng);
-        onChange({ lat, lng, address });
-    };
+    // Ask for the location the moment this step opens — one tap fewer for a
+    // patient in a hurry. (Only if we don't already have it.)
+    useEffect(() => {
+        if (!pickup) shareLocation();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <div className="skoo__card">
             <h2>📍 Sizni qayerdan olib ketamiz?</h2>
-            <div className="skoo__sub">Xaritada nuqtani belgilang yoki "Mening joyim" tugmasini bosing.</div>
+            <div className="skoo__sub">Xavfsizlik uchun ambulans faqat <b>sizning joriy joylashuvingiz</b>ga yuboriladi.</div>
 
-            <MapPicker lat={pickup?.lat} lng={pickup?.lng} onChange={handleMapChange} />
-
-            <button className="skoo__btn skoo__btn--ghost skoo__btn--mb-10" onClick={useMyLocation} disabled={busy}>
-                {busy ? <Loader2 size={16} className="skoo__spin" /> : <MapPin size={16} />}
-                Mening joyim
-            </button>
+            {pickup ? (
+                <>
+                    <MapPreview lat={pickup.lat} lng={pickup.lng} />
+                    <div className="skoo__address">
+                        <div className="skoo__address__label">📍 {pickup.address || `${pickup.lat.toFixed(5)}, ${pickup.lng.toFixed(5)}`}</div>
+                    </div>
+                    <button className="skoo__btn skoo__btn--ghost skoo__btn--mb-10" onClick={shareLocation} disabled={busy}>
+                        {busy ? <Loader2 size={16} className="skoo__spin" /> : <MapPin size={16} />}
+                        Joylashuvni yangilash
+                    </button>
+                </>
+            ) : (
+                <button className="skoo__btn skoo__btn--mb-10" onClick={shareLocation} disabled={busy}>
+                    {busy ? <Loader2 size={16} className="skoo__spin" /> : <MapPin size={16} />}
+                    {busy ? 'Aniqlanmoqda…' : 'Joylashuvimni ulashish'}
+                </button>
+            )}
 
             {geoError && (
                 <div className="skoo__error">
                     <AlertTriangle size={14} /> {geoError}
-                </div>
-            )}
-
-            {pickup && (
-                <div className="skoo__address">
-                    <div className="skoo__address__label">📍 {pickup.address || `${pickup.lat.toFixed(5)}, ${pickup.lng.toFixed(5)}`}</div>
                 </div>
             )}
 
