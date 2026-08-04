@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './shared/auth/AuthContext';
 import { UserAuthProvider } from './shared/auth/UserAuthContext';
 import { CartProvider } from './contexts/CartContext';
-import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect, UserGuard, UserPublicOnlyGuard, PatientSiteGuard } from './shared/auth/guards';
+import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect, UserGuard, UserPublicOnlyGuard, PatientPublic } from './shared/auth/guards';
 import ScrollToTop from './components/ScrollToTop';
 import BetaBanner from './components/BetaBanner';
 import MapSearchPage from './pages/MapSearchPage';
@@ -140,20 +140,21 @@ function App() {
 
                                     {/* ─── PUBLIC HOME PAGE ────────────────────────── */}
                                     <Route path="/" element={<Navigate to="/xizmatlar" replace />} />
-                                    <Route path="/home" element={<PatientSiteGuard><HomePage /></PatientSiteGuard>} />
+                                    <Route path="/home" element={<PatientPublic><HomePage /></PatientPublic>} />
 
-                                    {/* ─── PATIENT SITE (login required — Mini App auto-logins) ── */}
-                                    <Route path="/xizmatlar" element={<PatientSiteGuard><XizmatlarPage /></PatientSiteGuard>} />
-                                    <Route path="/xarita" element={<PatientSiteGuard><MapSearchPage /></PatientSiteGuard>} />
-                                    <Route path="/xizmatlar/category/:category" element={<PatientSiteGuard><XizmatlarCategoryPage /></PatientSiteGuard>} />
-                                    <Route path="/xizmatlar/:id" element={<PatientSiteGuard><XizmatDetailPage /></PatientSiteGuard>} />
-                                    <Route path="/klinikalar" element={<PatientSiteGuard><ClinicsPage /></PatientSiteGuard>} />
-                                    <Route path="/klinikalar/:id" element={<PatientSiteGuard><ClinicDetailPage /></PatientSiteGuard>} />
-                                    <Route path="/doktorlar" element={<PatientSiteGuard><DoctorsPage /></PatientSiteGuard>} />
-                                    <Route path="/doktorlar/:id" element={<PatientSiteGuard><DoctorProfilePage /></PatientSiteGuard>} />
-                                    <Route path="/doktorlar/:id/band/:clinicId" element={<PatientSiteGuard><DoctorBookingPage /></PatientSiteGuard>} />
-                                    <Route path="/skory" element={<PatientSiteGuard><SkoryPage /></PatientSiteGuard>} />
-                                    <Route path="/skory/order" element={<PatientSiteGuard><SkoryOrderPage /></PatientSiteGuard>} />
+                                    {/* ─── PATIENT SITE (PUBLIC browse — login only at action points) ── */}
+                                    <Route path="/xizmatlar" element={<PatientPublic><XizmatlarPage /></PatientPublic>} />
+                                    <Route path="/xarita" element={<PatientPublic><MapSearchPage /></PatientPublic>} />
+                                    <Route path="/xizmatlar/category/:category" element={<PatientPublic><XizmatlarCategoryPage /></PatientPublic>} />
+                                    <Route path="/xizmatlar/:id" element={<PatientPublic><XizmatDetailPage /></PatientPublic>} />
+                                    <Route path="/klinikalar" element={<PatientPublic><ClinicsPage /></PatientPublic>} />
+                                    <Route path="/klinikalar/:id" element={<PatientPublic><ClinicDetailPage /></PatientPublic>} />
+                                    <Route path="/doktorlar" element={<PatientPublic><DoctorsPage /></PatientPublic>} />
+                                    <Route path="/doktorlar/:id" element={<PatientPublic><DoctorProfilePage /></PatientPublic>} />
+                                    {/* Booking + calling an ambulance are ACTIONS → login required. */}
+                                    <Route path="/doktorlar/:id/band/:clinicId" element={<UserGuard><DoctorBookingPage /></UserGuard>} />
+                                    <Route path="/skory" element={<PatientPublic><SkoryPage /></PatientPublic>} />
+                                    <Route path="/skory/order" element={<UserGuard><SkoryOrderPage /></UserGuard>} />
                                     <Route path="/mini-app-bind" element={<MiniAppBindFirst />} />
 
                                     {/* ─── USER AUTH ROUTES (PATIENT) ──────────────── */}

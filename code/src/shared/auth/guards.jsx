@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useUserAuth } from './UserAuthContext';
@@ -138,6 +138,27 @@ export const UserGuard = ({ children }) => {
   }
   if (!user) return <AuthLoading />;
   if (user.role !== 'PATIENT') return <Navigate to="/403" replace />;
+  return children;
+};
+
+// ─── PATIENT PUBLIC (browse, no wall) ─────────────────────────────────────
+// Browse pages (catalog, clinics, doctors, service/clinic detail, skory map)
+// are PUBLIC: a logged-out visitor can freely explore. We still fire
+// ensurePatientAuth() best-effort so a Telegram Mini App user (or someone with
+// a live session) gets recognized and sees their name/cart — but we NEVER
+// redirect a guest away. Login is asked for only at action points (booking,
+// cart/checkout, calling an ambulance), which have their own gates.
+export const PatientPublic = ({ children }) => {
+  const { user, ensurePatientAuth } = useUserAuth();
+  const probed = useRef(false);
+
+  useEffect(() => {
+    if (user || probed.current || !ensurePatientAuth) return;
+    probed.current = true;
+    // Fire and forget — a failed/absent session must not block the page.
+    ensurePatientAuth().catch(() => {});
+  }, [user, ensurePatientAuth]);
+
   return children;
 };
 
