@@ -1986,6 +1986,29 @@
   padding-top: 4px;
 }
 
+/* Klinikalar band gets its own soft brand-cyan surface so it reads as a
+   distinct section and the white clinic cards pop instead of sitting
+   white-on-white against the page. */
+.xp-hub-carousel--clinics {
+  background: linear-gradient(135deg, #e6f4fb 0%, #eaf0fc 100%);
+  border: 1px solid #d5e8f7;
+  border-radius: 18px;
+  margin: 4px 12px 8px;
+  padding: 14px 0 10px;
+}
+
+.xp-hub-carousel--clinics .xp-hub-carousel-head {
+  padding: 0 14px;
+}
+
+.xp-hub-carousel--clinics .xp-hub-carousel-track {
+  padding: 4px 14px 6px;
+}
+
+.xp-hub-carousel--clinics .xp-hub-mini-card {
+  box-shadow: 0 4px 14px rgba(3, 27, 78, 0.10);
+}
+
 .xp-hub-carousel-head {
   display: flex;
   align-items: center;
