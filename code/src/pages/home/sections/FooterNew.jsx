@@ -2,6 +2,12 @@ import { Link } from 'react-router-dom';
 import { Send, Instagram, Youtube, Facebook } from 'lucide-react';
 
 export default function FooterNew() {
+    // Footer removed site-wide per request.
+    return null;
+}
+
+// eslint-disable-next-line no-unused-vars
+function FooterNewImpl() {
     return (
         <footer className="hn-footer">
             <div className="hn-foot-map">

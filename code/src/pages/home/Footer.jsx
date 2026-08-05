@@ -24,7 +24,14 @@ const QUICK_LINKS = [
     { label: 'Bronlarim', to: '/user/appointments' },
 ];
 
+// Footer removed site-wide per request. Kept as a no-op so the ~17 pages
+// that import it keep working without touching each one.
 export default function Footer() {
+    return null;
+}
+
+// eslint-disable-next-line no-unused-vars
+function FooterImpl() {
     const { data } = useHomepageSettings();
     const { docs: legalDocs } = useLegalDocs();
     const s = data?.footer || {};
