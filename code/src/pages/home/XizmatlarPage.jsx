@@ -1429,9 +1429,6 @@ export default function XizmatlarPage() {
                 </div>
             </div>
 
-            {/* ── PROMO SLIDER (super-admin uploaded) — adaptive carousel, top of content ── */}
-            {showBanner && <PromoSlider slides={bannerSlides} />}
-
             {/* ── MOBILE CATEGORY CARDS (mobile only) — Hidden when searching/filtering ── */}
             {!isSearchingOrFiltering && (
                 <div className="xp-mobile-cats-section">
@@ -1456,6 +1453,9 @@ export default function XizmatlarPage() {
                     </div>
                 </div>
             )}
+
+            {/* ── PROMO SLIDER (super-admin uploaded) — after filters + categories ── */}
+            {showBanner && <PromoSlider slides={bannerSlides} />}
 
             {/* ── HOME CAROUSELS (mobile only — quick discovery shortcuts) — Hidden when searching/filtering ── */}
             {!isSearchingOrFiltering && (
