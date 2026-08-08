@@ -11,6 +11,7 @@ import Navigation from './Navigation';
 import Footer from './Footer';
 import BanisaLoader from '../../shared/components/BanisaLoader';
 import { usePublicServices } from '../../hooks/usePublicServices';
+import { useHomepageSettings } from '../../hooks/useHomepageSettings';
 import { useCart } from '../../contexts/CartContext';
 import { useUserAuth } from '../../shared/auth/UserAuthContext';
 import { useFavoriteIds, useToggleFavorite } from '../../user/hooks/useFavorites';
@@ -979,6 +980,15 @@ export default function XizmatlarPage() {
         dynamicMetaActiveCount > 0
     );
 
+    // ── Promo banner (super-admin uploaded, homepage settings) ──
+    const { data: hpSettings } = useHomepageSettings();
+    const bannerCfg = hpSettings?.xizmatlar_banner || {};
+    const bannerImg = bannerCfg.enabled && bannerCfg.imageUrl ? imgUrl(bannerCfg.imageUrl) : null;
+    const bannerLink = (bannerCfg.linkUrl || '').trim();
+    const bannerAlt = bannerCfg.alt || 'Banner';
+    const bannerExternal = /^https?:\/\//i.test(bannerLink);
+    const showBanner = !!bannerImg && !isSearchingOrFiltering;
+
     /* ── Active filter chips ── */
     const activeFilters = [];
     if (searchQuery) activeFilters.push({ id: 'search', label: `"${searchQuery}"`, onRemove: () => { setSearchQuery(''); setCurrentPage(1); } });
@@ -1329,6 +1339,27 @@ export default function XizmatlarPage() {
                     </div>
                 </div>
             </div>
+
+            {/* ── PROMO BANNER (super-admin uploaded) — adaptive, top of content ── */}
+            {showBanner && (
+                <section className="xp-promo">
+                    {bannerLink ? (
+                        bannerExternal ? (
+                            <a className="xp-promo-card" href={bannerLink} target="_blank" rel="noreferrer">
+                                <img src={bannerImg} alt={bannerAlt} loading="eager" />
+                            </a>
+                        ) : (
+                            <Link className="xp-promo-card" to={bannerLink}>
+                                <img src={bannerImg} alt={bannerAlt} loading="eager" />
+                            </Link>
+                        )
+                    ) : (
+                        <div className="xp-promo-card xp-promo-card--static">
+                            <img src={bannerImg} alt={bannerAlt} loading="eager" />
+                        </div>
+                    )}
+                </section>
+            )}
 
             {/* ── MOBILE CATEGORY CARDS (mobile only) — Hidden when searching/filtering ── */}
             {!isSearchingOrFiltering && (

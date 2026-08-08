@@ -10,6 +10,7 @@ const SECTIONS = [
     { key: 'topbar', label: 'Top Bar', icon: <Phone size={16} />, color: '#06b6d4' },
     { key: 'hero', label: 'Hero', icon: <Layout size={16} />, color: '#3b82f6' },
     { key: 'services', label: 'Services', icon: <Grid size={16} />, color: '#10b981' },
+    { key: 'xizmatlar_banner', label: 'Xizmatlar Banner', icon: <ImageIcon size={16} />, color: '#0ea5e9' },
     { key: 'stats', label: 'Stats', icon: <Star size={16} />, color: '#f59e0b' },
     { key: 'why_choose_us', label: 'Why Choose Us', icon: <CheckCircle size={16} />, color: '#ef4444' },
     { key: 'doctors', label: 'Doctors', icon: <Users size={16} />, color: '#6366f1' },
@@ -240,6 +241,27 @@ const SectionForm = ({ section, data, onSave, saving }) => {
                 <Field label="Section Badge" name="badge" value={f.badge} onChange={handle} placeholder="Our Services" />
                 <Field label="Section Title" name="title" value={f.title} onChange={handle} placeholder="Start Feeling Your Best" />
                 <Field label="Section Subtitle" name="subtitle" value={f.subtitle} onChange={handle} placeholder="Explore Our Wellness Services" />
+            </>}
+
+            {section === 'xizmatlar_banner' && <>
+                <label className="hps-check-row" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', margin: '4px 0 12px' }}>
+                    <input
+                        type="checkbox"
+                        checked={!!f.enabled}
+                        onChange={e => setForm(p => ({ ...p, enabled: e.target.checked }))}
+                        style={{ width: 18, height: 18, accentColor: '#0ea5e9', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontWeight: 600 }}>Bannerni yoqish (Xizmatlar sahifasida ko'rsatish)</span>
+                </label>
+                <UploadField
+                    label="Banner rasmi"
+                    name="imageUrl"
+                    value={f.imageUrl}
+                    onValueChange={v => setForm(p => ({ ...p, imageUrl: v }))}
+                    hint="Keng (masalan 1600×500) rasm tavsiya etiladi. Rasm to'liq, kesilmasdan ko'rsatiladi."
+                />
+                <Field label="Havola (ixtiyoriy)" name="linkUrl" value={f.linkUrl} onChange={handle} placeholder="/klinikalar yoki https://..." hint="Bosilganda o'tadigan manzil. Bo'sh qoldirilsa banner bosilmaydi." />
+                <Field label="Alt matn (ixtiyoriy)" name="alt" value={f.alt} onChange={handle} placeholder="Banner tavsifi" />
             </>}
 
             {section === 'hero' && <>

@@ -2,9 +2,17 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const SECTIONS = ['topbar', 'navigation', 'hero', 'services', 'stats', 'why_choose_us', 'doctors', 'testimonials', 'how_it_works', 'faq', 'awards', 'blog', 'footer', 'legal_docs'];
+const SECTIONS = ['topbar', 'navigation', 'hero', 'services', 'stats', 'why_choose_us', 'doctors', 'testimonials', 'how_it_works', 'faq', 'awards', 'blog', 'footer', 'legal_docs', 'xizmatlar_banner'];
 
 const DEFAULTS: Record<string, object> = {
+    // Promo banner shown at the top of the /xizmatlar page. Super-admin uploads
+    // the image; empty/disabled by default so nothing shows until configured.
+    xizmatlar_banner: {
+        enabled: false,
+        imageUrl: '',
+        linkUrl: '',
+        alt: '',
+    },
     navigation: {
         siteName: 'BANISA',
         siteTagline: 'Tibbiy Xizmatlar Platformasi',

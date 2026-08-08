@@ -1878,6 +1878,48 @@
 }
 
 /* ── MOBILE CATEGORY CARDS ── */
+/* ── PROMO BANNER (super-admin uploaded, adaptive, premium) ── */
+.xp-promo {
+  padding: 14px 16px 2px;
+}
+
+.xp-promo-card {
+  display: block;
+  border-radius: 16px;
+  overflow: hidden;
+  line-height: 0;
+  background: #eef3fb;
+  box-shadow: 0 8px 24px rgba(3, 27, 78, 0.12);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s;
+}
+
+.xp-promo-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+a.xp-promo-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(3, 27, 78, 0.18);
+}
+
+.xp-promo-card--static {
+  cursor: default;
+}
+
+@media (min-width: 901px) {
+  .xp-promo {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 22px 24px 6px;
+  }
+
+  .xp-promo-card {
+    border-radius: 20px;
+  }
+}
+
 .xp-mobile-cats-section {
   display: block;
   padding: 0 16px 12px;
