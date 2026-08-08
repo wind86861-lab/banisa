@@ -255,7 +255,9 @@ const SectionForm = ({ section, data, onSave, saving }) => {
                 </label>
                 <ArrayField
                     label="Slaydlar (har biri alohida rasm va havola)"
-                    value={f.slides || []}
+                    value={(f.slides && f.slides.length)
+                        ? f.slides
+                        : (f.imageUrl ? [{ imageUrl: f.imageUrl, linkUrl: f.linkUrl || '', alt: f.alt || '' }] : [])}
                     onChange={handleArr('slides')}
                     fields={[
                         { name: 'imageUrl', label: 'Rasm (keng, masalan 1600×500 — to\'liq ko\'rsatiladi)', type: 'image' },
