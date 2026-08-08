@@ -5,13 +5,12 @@ const prisma = new PrismaClient();
 const SECTIONS = ['topbar', 'navigation', 'hero', 'services', 'stats', 'why_choose_us', 'doctors', 'testimonials', 'how_it_works', 'faq', 'awards', 'blog', 'footer', 'legal_docs', 'xizmatlar_banner'];
 
 const DEFAULTS: Record<string, object> = {
-    // Promo banner shown at the top of the /xizmatlar page. Super-admin uploads
-    // the image; empty/disabled by default so nothing shows until configured.
+    // Promo slider shown at the top of the /xizmatlar page. Super-admin adds
+    // one or more slides (each: image + optional link + alt). Empty/disabled by
+    // default so nothing shows until configured.
     xizmatlar_banner: {
         enabled: false,
-        imageUrl: '',
-        linkUrl: '',
-        alt: '',
+        slides: [] as Array<{ imageUrl: string; linkUrl: string; alt: string }>,
     },
     navigation: {
         siteName: 'BANISA',

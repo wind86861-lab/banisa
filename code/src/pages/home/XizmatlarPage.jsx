@@ -559,6 +559,89 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
     );
 }
 
+// ── PROMO SLIDER ────────────────────────────────────────────────────────────
+// Native scroll-snap carousel (smooth touch swipe, no deps). Auto-advances every
+// 5s, pauses while the pointer is over/pressing it. Dots reflect + drive the
+// active slide. Each slide links to its own destination (internal or external).
+function PromoSlider({ slides }) {
+    const trackRef = useRef(null);
+    const [active, setActive] = useState(0);
+    const n = slides.length;
+
+    useEffect(() => {
+        if (n <= 1) return;
+        const el = trackRef.current;
+        let paused = false;
+        const pause = () => { paused = true; };
+        const resume = () => { paused = false; };
+        if (el) {
+            el.addEventListener('pointerenter', pause);
+            el.addEventListener('pointerdown', pause);
+            el.addEventListener('pointerleave', resume);
+            el.addEventListener('pointerup', resume);
+        }
+        const id = setInterval(() => {
+            const t = trackRef.current;
+            if (!t || paused) return;
+            const cur = Math.round(t.scrollLeft / t.clientWidth);
+            const next = (cur + 1) % n;
+            t.scrollTo({ left: next * t.clientWidth, behavior: 'smooth' });
+        }, 5000);
+        return () => {
+            clearInterval(id);
+            if (el) {
+                el.removeEventListener('pointerenter', pause);
+                el.removeEventListener('pointerdown', pause);
+                el.removeEventListener('pointerleave', resume);
+                el.removeEventListener('pointerup', resume);
+            }
+        };
+    }, [n]);
+
+    const onScroll = () => {
+        const el = trackRef.current;
+        if (!el) return;
+        const i = Math.round(el.scrollLeft / el.clientWidth);
+        setActive(prev => (prev === i ? prev : i));
+    };
+
+    const goTo = (i) => {
+        const el = trackRef.current;
+        if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+    };
+
+    const renderSlide = (s, i) => {
+        const img = <img src={s.img} alt={s.alt} loading={i === 0 ? 'eager' : 'lazy'} draggable={false} />;
+        if (!s.link) return <div key={i} className="xp-slide">{img}</div>;
+        return /^https?:\/\//i.test(s.link)
+            ? <a key={i} className="xp-slide" href={s.link} target="_blank" rel="noreferrer">{img}</a>
+            : <Link key={i} className="xp-slide" to={s.link}>{img}</Link>;
+    };
+
+    return (
+        <section className="xp-promo">
+            <div className="xp-promo-viewport">
+                <div className="xp-promo-track" ref={trackRef} onScroll={onScroll}>
+                    {slides.map(renderSlide)}
+                </div>
+                {n > 1 && (
+                    <div className="xp-promo-dots">
+                        {slides.map((_, i) => (
+                            <button
+                                key={i}
+                                type="button"
+                                className={`xp-promo-dot${i === active ? ' active' : ''}`}
+                                onClick={() => goTo(i)}
+                                aria-label={`Slayd ${i + 1}`}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
+        </section>
+    );
+}
+
 export default function XizmatlarPage() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -980,14 +1063,20 @@ export default function XizmatlarPage() {
         dynamicMetaActiveCount > 0
     );
 
-    // ── Promo banner (super-admin uploaded, homepage settings) ──
+    // ── Promo slider (super-admin uploaded, homepage settings) ──
     const { data: hpSettings } = useHomepageSettings();
     const bannerCfg = hpSettings?.xizmatlar_banner || {};
-    const bannerImg = bannerCfg.enabled && bannerCfg.imageUrl ? imgUrl(bannerCfg.imageUrl) : null;
-    const bannerLink = (bannerCfg.linkUrl || '').trim();
-    const bannerAlt = bannerCfg.alt || 'Banner';
-    const bannerExternal = /^https?:\/\//i.test(bannerLink);
-    const showBanner = !!bannerImg && !isSearchingOrFiltering;
+    const bannerSlides = useMemo(() => {
+        // New shape: { enabled, slides:[{imageUrl,linkUrl,alt}] }. Back-compat with
+        // the old single-image shape { imageUrl, linkUrl, alt }.
+        const raw = Array.isArray(bannerCfg.slides)
+            ? bannerCfg.slides
+            : (bannerCfg.imageUrl ? [{ imageUrl: bannerCfg.imageUrl, linkUrl: bannerCfg.linkUrl, alt: bannerCfg.alt }] : []);
+        return raw
+            .filter(s => s && s.imageUrl)
+            .map(s => ({ img: imgUrl(s.imageUrl), link: (s.linkUrl || '').trim(), alt: s.alt || 'Banner' }));
+    }, [bannerCfg]);
+    const showBanner = !!bannerCfg.enabled && bannerSlides.length > 0 && !isSearchingOrFiltering;
 
     /* ── Active filter chips ── */
     const activeFilters = [];
@@ -1340,26 +1429,8 @@ export default function XizmatlarPage() {
                 </div>
             </div>
 
-            {/* ── PROMO BANNER (super-admin uploaded) — adaptive, top of content ── */}
-            {showBanner && (
-                <section className="xp-promo">
-                    {bannerLink ? (
-                        bannerExternal ? (
-                            <a className="xp-promo-card" href={bannerLink} target="_blank" rel="noreferrer">
-                                <img src={bannerImg} alt={bannerAlt} loading="eager" />
-                            </a>
-                        ) : (
-                            <Link className="xp-promo-card" to={bannerLink}>
-                                <img src={bannerImg} alt={bannerAlt} loading="eager" />
-                            </Link>
-                        )
-                    ) : (
-                        <div className="xp-promo-card xp-promo-card--static">
-                            <img src={bannerImg} alt={bannerAlt} loading="eager" />
-                        </div>
-                    )}
-                </section>
-            )}
+            {/* ── PROMO SLIDER (super-admin uploaded) — adaptive carousel, top of content ── */}
+            {showBanner && <PromoSlider slides={bannerSlides} />}
 
             {/* ── MOBILE CATEGORY CARDS (mobile only) — Hidden when searching/filtering ── */}
             {!isSearchingOrFiltering && (

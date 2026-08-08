@@ -251,17 +251,18 @@ const SectionForm = ({ section, data, onSave, saving }) => {
                         onChange={e => setForm(p => ({ ...p, enabled: e.target.checked }))}
                         style={{ width: 18, height: 18, accentColor: '#0ea5e9', cursor: 'pointer' }}
                     />
-                    <span style={{ fontWeight: 600 }}>Bannerni yoqish (Xizmatlar sahifasida ko'rsatish)</span>
+                    <span style={{ fontWeight: 600 }}>Slayderni yoqish (Xizmatlar sahifasi tepasida ko'rsatish)</span>
                 </label>
-                <UploadField
-                    label="Banner rasmi"
-                    name="imageUrl"
-                    value={f.imageUrl}
-                    onValueChange={v => setForm(p => ({ ...p, imageUrl: v }))}
-                    hint="Keng (masalan 1600×500) rasm tavsiya etiladi. Rasm to'liq, kesilmasdan ko'rsatiladi."
+                <ArrayField
+                    label="Slaydlar (har biri alohida rasm va havola)"
+                    value={f.slides || []}
+                    onChange={handleArr('slides')}
+                    fields={[
+                        { name: 'imageUrl', label: 'Rasm (keng, masalan 1600×500 — to\'liq ko\'rsatiladi)', type: 'image' },
+                        { name: 'linkUrl', label: 'Havola (ixtiyoriy) — /klinikalar yoki https://...' },
+                        { name: 'alt', label: 'Alt matn (ixtiyoriy)' },
+                    ]}
                 />
-                <Field label="Havola (ixtiyoriy)" name="linkUrl" value={f.linkUrl} onChange={handle} placeholder="/klinikalar yoki https://..." hint="Bosilganda o'tadigan manzil. Bo'sh qoldirilsa banner bosilmaydi." />
-                <Field label="Alt matn (ixtiyoriy)" name="alt" value={f.alt} onChange={handle} placeholder="Banner tavsifi" />
             </>}
 
             {section === 'hero' && <>
