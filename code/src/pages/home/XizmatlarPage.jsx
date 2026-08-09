@@ -1078,6 +1078,12 @@ export default function XizmatlarPage() {
         dynamicMetaActiveCount > 0
     );
 
+    // Discovery sections (banner, categories, carousels) only make sense on the
+    // default landing view. Hide them as soon as the user narrows down — by
+    // search, sidebar filters, OR picking a specific category (the common mobile
+    // action, which isn't a "filter" but should still collapse the shortcuts).
+    const showDiscovery = !isSearchingOrFiltering && activeCategory === 'all';
+
     // ── Promo slider (super-admin uploaded, homepage settings) ──
     const { data: hpSettings } = useHomepageSettings();
     const bannerCfg = hpSettings?.xizmatlar_banner || {};
@@ -1091,7 +1097,7 @@ export default function XizmatlarPage() {
             .filter(s => s && s.imageUrl)
             .map(s => ({ img: imgUrl(s.imageUrl), link: (s.linkUrl || '').trim(), alt: s.alt || 'Banner' }));
     }, [bannerCfg]);
-    const showBanner = !!bannerCfg.enabled && bannerSlides.length > 0 && !isSearchingOrFiltering;
+    const showBanner = !!bannerCfg.enabled && bannerSlides.length > 0 && showDiscovery;
 
     /* ── Active filter chips ── */
     const activeFilters = [];
@@ -1447,8 +1453,8 @@ export default function XizmatlarPage() {
             {/* ── PROMO SLIDER (super-admin uploaded) — top of content, above categories ── */}
             {showBanner && <PromoSlider slides={bannerSlides} />}
 
-            {/* ── MOBILE CATEGORY CARDS (mobile only) — Hidden when searching/filtering ── */}
-            {!isSearchingOrFiltering && (
+            {/* ── MOBILE CATEGORY CARDS (mobile only) — Hidden when searching/filtering/category ── */}
+            {showDiscovery && (
                 <div className="xp-mobile-cats-section">
                     <h2 className="xp-mobile-section-title">Kategoriyalar</h2>
                     <div className="xp-mobile-cats-grid">
@@ -1472,8 +1478,8 @@ export default function XizmatlarPage() {
                 </div>
             )}
 
-            {/* ── HOME CAROUSELS (mobile only — quick discovery shortcuts) — Hidden when searching/filtering ── */}
-            {!isSearchingOrFiltering && (
+            {/* ── HOME CAROUSELS (quick discovery shortcuts) — Hidden when searching/filtering/category ── */}
+            {showDiscovery && (
                 <HubCarousels services={SERVICES_DATA} isLoggedIn={!!user} onAddToCart={handleAddToCart} />
             )}
 
