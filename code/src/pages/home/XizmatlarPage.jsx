@@ -560,9 +560,29 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
 }
 
 // ── PROMO SLIDER ────────────────────────────────────────────────────────────
-// Native scroll-snap carousel (smooth touch swipe, no deps). Auto-advances every
-// 5s, pauses while the pointer is over/pressing it. Dots reflect + drive the
-// active slide. Each slide links to its own destination (internal or external).
+// Native scroll-snap "peek" carousel (smooth touch swipe, no deps). Slides are
+// <100% wide so the next slide peeks in; snap centers the active slide.
+// Auto-advances every 5s, pauses while the pointer is over/pressing it. Dots
+// reflect + drive the active slide. Each slide links to its own destination.
+
+// Index of the slide whose centre is closest to the viewport centre — works for
+// any slide width (peek layout), unlike scrollLeft/clientWidth rounding.
+function centeredIndex(el) {
+    const mid = el.scrollLeft + el.clientWidth / 2;
+    let best = 0, bestDist = Infinity;
+    for (let i = 0; i < el.children.length; i++) {
+        const c = el.children[i];
+        const d = Math.abs((c.offsetLeft + c.offsetWidth / 2) - mid);
+        if (d < bestDist) { bestDist = d; best = i; }
+    }
+    return best;
+}
+
+function scrollToSlide(el, i) {
+    const c = el && el.children[i];
+    if (c) c.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+}
+
 function PromoSlider({ slides }) {
     const trackRef = useRef(null);
     const [active, setActive] = useState(0);
@@ -583,9 +603,7 @@ function PromoSlider({ slides }) {
         const id = setInterval(() => {
             const t = trackRef.current;
             if (!t || paused) return;
-            const cur = Math.round(t.scrollLeft / t.clientWidth);
-            const next = (cur + 1) % n;
-            t.scrollTo({ left: next * t.clientWidth, behavior: 'smooth' });
+            scrollToSlide(t, (centeredIndex(t) + 1) % n);
         }, 5000);
         return () => {
             clearInterval(id);
@@ -601,14 +619,11 @@ function PromoSlider({ slides }) {
     const onScroll = () => {
         const el = trackRef.current;
         if (!el) return;
-        const i = Math.round(el.scrollLeft / el.clientWidth);
+        const i = centeredIndex(el);
         setActive(prev => (prev === i ? prev : i));
     };
 
-    const goTo = (i) => {
-        const el = trackRef.current;
-        if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
-    };
+    const goTo = (i) => scrollToSlide(trackRef.current, i);
 
     const renderSlide = (s, i) => {
         const img = <img src={s.img} alt={s.alt} loading={i === 0 ? 'eager' : 'lazy'} draggable={false} />;
@@ -1429,6 +1444,9 @@ export default function XizmatlarPage() {
                 </div>
             </div>
 
+            {/* ── PROMO SLIDER (super-admin uploaded) — top of content, above categories ── */}
+            {showBanner && <PromoSlider slides={bannerSlides} />}
+
             {/* ── MOBILE CATEGORY CARDS (mobile only) — Hidden when searching/filtering ── */}
             {!isSearchingOrFiltering && (
                 <div className="xp-mobile-cats-section">
@@ -1453,9 +1471,6 @@ export default function XizmatlarPage() {
                     </div>
                 </div>
             )}
-
-            {/* ── PROMO SLIDER (super-admin uploaded) — after filters + categories ── */}
-            {showBanner && <PromoSlider slides={bannerSlides} />}
 
             {/* ── HOME CAROUSELS (mobile only — quick discovery shortcuts) — Hidden when searching/filtering ── */}
             {!isSearchingOrFiltering && (

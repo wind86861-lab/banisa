@@ -1878,9 +1878,9 @@
 }
 
 /* ── MOBILE CATEGORY CARDS ── */
-/* ── PROMO SLIDER (super-admin uploaded, adaptive carousel) ── */
+/* ── PROMO SLIDER (super-admin uploaded, peek carousel) ── */
 .xp-promo {
-  padding: 14px 16px 2px;
+  padding: 12px 0 4px;
 }
 
 .xp-promo-viewport {
@@ -1889,13 +1889,16 @@
 
 .xp-promo-track {
   display: flex;
+  gap: 12px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(3, 27, 78, 0.12);
+  /* Side inset so the first/last slide sits away from the edge and the
+     neighbouring slide peeks in — never full-bleed. */
+  padding: 0 16px;
+  scroll-padding: 0 16px;
 }
 
 .xp-promo-track::-webkit-scrollbar {
@@ -1903,13 +1906,21 @@
 }
 
 .xp-slide {
-  flex: 0 0 100%;
-  scroll-snap-align: start;
+  /* <100% width → the next slide peeks in on the side. */
+  flex: 0 0 88%;
+  scroll-snap-align: center;
   display: block;
   line-height: 0;
   background: #eef3fb;
-  aspect-ratio: 5 / 2;
+  aspect-ratio: 2 / 1;
   overflow: hidden;
+  border-radius: 16px;
+  box-shadow: 0 8px 22px rgba(3, 27, 78, 0.14);
+  transition: transform 0.2s;
+}
+
+.xp-slide:active {
+  transform: scale(0.985);
 }
 
 .xp-slide img {
@@ -1922,47 +1933,45 @@
 }
 
 .xp-promo-dots {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 12px;
   display: flex;
   justify-content: center;
   gap: 7px;
-  pointer-events: none;
+  margin-top: 10px;
 }
 
 .xp-promo-dot {
-  pointer-events: auto;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   padding: 0;
   border: none;
   border-radius: 999px;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.55);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+  background: #cbd6e6;
   transition: width 0.25s, background 0.25s;
 }
 
 .xp-promo-dot.active {
-  width: 22px;
-  background: #fff;
+  width: 20px;
+  background: #00BDE0;
 }
 
 @media (min-width: 901px) {
   .xp-promo {
-    max-width: 1280px;
+    max-width: 1100px;
     margin: 0 auto;
-    padding: 22px 24px 6px;
+    padding: 20px 0 6px;
   }
 
   .xp-promo-track {
-    border-radius: 20px;
+    gap: 18px;
+    padding: 0 24px;
+    scroll-padding: 0 24px;
   }
 
   .xp-slide {
+    flex: 0 0 82%;
     aspect-ratio: 16 / 5;
+    border-radius: 20px;
   }
 }
 
