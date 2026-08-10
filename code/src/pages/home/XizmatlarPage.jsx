@@ -477,7 +477,6 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
             <div className="xp-hub-carousel">
                 <div className="xp-hub-carousel-head">
                     <h3 className="xp-hub-carousel-title">
-                        <span className="xp-hub-carousel-emoji" style={{ background: color + '20', color }}>{emoji}</span>
                         {title}
                     </h3>
                     <span className="xp-hub-carousel-count">{list.length}</span>
@@ -518,7 +517,6 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
             <div className="xp-hub-carousel xp-hub-carousel--clinics">
                 <div className="xp-hub-carousel-head">
                     <h3 className="xp-hub-carousel-title">
-                        <span className="xp-hub-carousel-emoji" style={{ background: '#ffffff', color: '#2563eb' }}>🏥</span>
                         Klinikalar
                     </h3>
                     <span className="xp-hub-carousel-count">{clinics.length}</span>
