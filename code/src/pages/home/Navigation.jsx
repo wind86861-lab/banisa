@@ -22,6 +22,15 @@ const NAV_LINKS = [
     { href: '#contact', label: 'Aloqa', isAnchor: true, icon: Phone },
 ];
 
+// Mobile bottom navigation — the 5 most-used destinations, always one tap away.
+const BOTTOM_TABS = [
+    { to: '/', label: 'Bosh sahifa', icon: Home },
+    { to: '/xizmatlar', label: 'Xizmatlar', icon: Stethoscope },
+    { to: '/klinikalar', label: 'Klinikalar', icon: Building2 },
+    { to: '/user/appointments', label: 'Bronlarim', icon: Calendar },
+    { to: '/user/dashboard', label: 'Profil', icon: User },
+];
+
 // Panel slides in as one piece; children stagger in just behind it so the menu
 // "assembles" instead of appearing all at once.
 const PANEL_VARIANTS = {
@@ -87,7 +96,36 @@ export default function Navigation() {
     const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Foydalanuvchi';
     const initials = (user?.firstName?.[0] || '') + (user?.lastName?.[0] || '') || 'B';
 
+    const isTabActive = (to) => {
+        if (to === '/') return pathname === '/';
+        // Profil tab covers the whole /user area except the Bronlarim sub-tree.
+        if (to === '/user/dashboard') return pathname.startsWith('/user') && !pathname.startsWith('/user/appointments');
+        return pathname === to || pathname.startsWith(to + '/');
+    };
+
+    // Hide the bottom nav on pages that already have their own fixed bottom
+    // action bar (service detail / booking / cart / checkout / ambulance order)
+    // so two bars never stack on top of each other.
+    const hideBotNav =
+        /^\/xizmatlar\/(?!category\/)[^/]+$/.test(pathname) ||
+        pathname.includes('/band/') ||
+        pathname.startsWith('/user/cart') ||
+        pathname.startsWith('/skory/order') ||
+        pathname.startsWith('/skory/pay') ||
+        pathname.startsWith('/user/scan-checkin') ||
+        pathname.startsWith('/checkin');
+
+    // Reserve space at the bottom (mobile only) so the fixed bottom nav never
+    // covers page content. Only patient pages mount <Navigation/>, so the class
+    // is scoped correctly.
+    useEffect(() => {
+        if (hideBotNav) { document.body.classList.remove('has-botnav'); return undefined; }
+        document.body.classList.add('has-botnav');
+        return () => document.body.classList.remove('has-botnav');
+    }, [hideBotNav]);
+
     return (
+        <>
         <nav className="cm-nav">
             <div className="home-container">
                 <div className="cm-nav-inner">
@@ -345,5 +383,27 @@ export default function Navigation() {
                 </AnimatePresence>
             </div>
         </nav>
+
+        {/* ── MOBILE BOTTOM NAV (patient pages, mobile only) ── */}
+        {!hideBotNav && (
+        <nav className="cm-botnav" aria-label="Asosiy navigatsiya">
+            {BOTTOM_TABS.map(t => {
+                const active = isTabActive(t.to);
+                const Icon = t.icon;
+                return (
+                    <Link
+                        key={t.to}
+                        to={t.to}
+                        className={`cm-botnav__item${active ? ' active' : ''}`}
+                        aria-current={active ? 'page' : undefined}
+                    >
+                        <Icon size={22} className="cm-botnav__icon" strokeWidth={active ? 2.4 : 1.9} />
+                        <span className="cm-botnav__label">{t.label}</span>
+                    </Link>
+                );
+            })}
+        </nav>
+        )}
+        </>
     );
 }
