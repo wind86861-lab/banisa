@@ -1250,7 +1250,9 @@
   position: fixed;
   inset: 0;
   background: rgba(3, 27, 78, 0.5);
-  z-index: 200;
+  /* Above the fixed bottom nav (z-index 9000) so the drawer + its
+     "show results" button are never hidden behind it. */
+  z-index: 9500;
   align-items: flex-end;
 }
 
