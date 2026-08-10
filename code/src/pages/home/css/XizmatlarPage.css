@@ -2263,10 +2263,10 @@
 }
 
 .xp-mcat-label {
-  font-size: 14px;
+  font-size: 15.5px;
   font-weight: 700;
   color: #031B4E;
-  line-height: 1.25;
+  line-height: 1.3;
   letter-spacing: -0.2px;
 }
 
@@ -2645,7 +2645,7 @@
   }
 
   .xp-mcat-label {
-    font-size: 13px;
+    font-size: 14.5px;
   }
 
   .xp-grid {

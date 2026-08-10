@@ -24,7 +24,6 @@ const NAV_LINKS = [
 
 // Mobile bottom navigation — the 5 most-used destinations, always one tap away.
 const BOTTOM_TABS = [
-    { to: '/', label: 'Bosh sahifa', icon: Home },
     { to: '/xizmatlar', label: 'Xizmatlar', icon: Stethoscope },
     { to: '/klinikalar', label: 'Klinikalar', icon: Building2 },
     { to: '/user/appointments', label: 'Bronlarim', icon: Calendar },

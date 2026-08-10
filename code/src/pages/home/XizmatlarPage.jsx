@@ -1469,7 +1469,6 @@ export default function XizmatlarPage() {
                                 </div>
                                 <div className="xp-mcat-text">
                                     <span className="xp-mcat-label">{cat.label}</span>
-                                    <span className="xp-mcat-count">{categoryCounts[cat.id] || 0} ta xizmat</span>
                                 </div>
                                 <ChevronRight size={16} className="xp-mcat-arrow" />
                             </Link>
