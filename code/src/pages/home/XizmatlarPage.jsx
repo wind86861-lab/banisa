@@ -521,13 +521,15 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
                 </div>
                 <div className="xp-hub-carousel-track" ref={clinicRef}>
                     {clinics.map(c => {
-                        // Clinic logo / cover only — never fall back to a service image
-                        let img = c.logo || c.coverImage || CLINIC_PLACEHOLDER;
+                        // Prefer the clinic's real cover photo (full-bleed). Fall back to
+                        // the logo (contained on white) only when there's no photo.
+                        const cover = c.coverImage;
+                        let img = cover || c.logo || CLINIC_PLACEHOLDER;
                         img = imgUrl(img) || img;
-                        const hasLogo = !!c.logo;
+                        const isLogo = !cover && !!c.logo;
                         return (
                             <Link key={c.id} to={`/klinikalar/${c.id}`} className="xp-hub-mini-card">
-                                <div className={`xp-hub-mini-img${hasLogo ? ' xp-hub-mini-img-logo' : ''}`}>
+                                <div className={`xp-hub-mini-img${isLogo ? ' xp-hub-mini-img-logo' : ''}`}>
                                     <img loading="lazy" src={img} alt={c.name} onError={e => { if (e.currentTarget.src !== CLINIC_PLACEHOLDER) e.currentTarget.src = CLINIC_PLACEHOLDER; }} />
                                 </div>
                                 <div className="xp-hub-mini-body">
