@@ -1465,7 +1465,7 @@ export default function XizmatlarPage() {
                                 <div className="xp-mcat-text">
                                     <span className="xp-mcat-label">{cat.label}</span>
                                 </div>
-                                <ChevronRight size={16} className="xp-mcat-arrow" />
+                                <span className="xp-mcat-arrow"><ChevronRight size={16} /></span>
                             </Link>
                         ))}
                     </div>
