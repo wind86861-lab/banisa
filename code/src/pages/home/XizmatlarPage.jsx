@@ -479,7 +479,6 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
                     <h3 className="xp-hub-carousel-title">
                         {title}
                     </h3>
-                    <span className="xp-hub-carousel-count">{list.length}</span>
                 </div>
                 <div className="xp-hub-carousel-track" ref={trackRef}>
                     {list.map(s => {
@@ -519,7 +518,6 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
                     <h3 className="xp-hub-carousel-title">
                         Klinikalar
                     </h3>
-                    <span className="xp-hub-carousel-count">{clinics.length}</span>
                 </div>
                 <div className="xp-hub-carousel-track" ref={clinicRef}>
                     {clinics.map(c => {
@@ -536,7 +534,6 @@ function HubCarousels({ services, isLoggedIn, onAddToCart }) {
                                     <h4 className="xp-hub-mini-title">{c.name}</h4>
                                     {c.region && <span className="xp-hub-mini-clinic">{c.region}</span>}
                                     <div className="xp-hub-mini-bottom">
-                                        <span className="xp-hub-mini-price">{c.serviceCount} ta xizmat</span>
                                         {c.avgRating > 0 && <span className="xp-hub-mini-rating">★ {c.avgRating}</span>}
                                     </div>
                                 </div>
