@@ -502,7 +502,14 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 2px;
+    gap: 3px;
+}
+
+/* Old price + discount badge share one line, above the big current price. */
+.cdp-price-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 .cdp-price-old {
     font-size: 12px;

@@ -633,11 +633,15 @@ export default function ClinicDetailPage() {
                                                                 </div>
                                                                 <div className="cdp-svc-right">
                                                                     <div className="cdp-svc-price">
-                                                                        {svc.originalPrice && (
-                                                                            <span className="cdp-price-old">{svc.originalPrice.toLocaleString('uz-UZ')} so'm</span>
+                                                                        {(svc.originalPrice || svc.discountPercent) && (
+                                                                            <div className="cdp-price-top">
+                                                                                {svc.originalPrice && (
+                                                                                    <span className="cdp-price-old">{svc.originalPrice.toLocaleString('uz-UZ')} so'm</span>
+                                                                                )}
+                                                                                {svc.discountPercent ? <span className="cdp-price-off">-{svc.discountPercent}%</span> : null}
+                                                                            </div>
                                                                         )}
                                                                         <span className="cdp-price-now">{(svc.price || 0).toLocaleString('uz-UZ')} so'm</span>
-                                                                        {svc.discountPercent && <span className="cdp-price-off">-{svc.discountPercent}%</span>}
                                                                     </div>
                                                                     <div className="cdp-svc-actions">
                                                                         <button
