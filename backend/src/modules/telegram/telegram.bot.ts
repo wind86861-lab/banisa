@@ -39,6 +39,10 @@ import { reviewsService } from '../reviews/reviews.service';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const PUBLIC_BASE = (process.env.PUBLIC_API_BASE_URL || 'https://banisa.uz').replace(/\/+$/, '');
+// Mini App entry URL carries a version tag: Telegram's in-app webview caches the
+// app aggressively (ignoring no-cache), so a plain URL leaves users stuck on a
+// stale/broken build. Bump this version to force every client to fetch fresh.
+const MINI_APP_URL = `${PUBLIC_BASE}/?v=2`;
 const BOT_USERNAME_ENV = process.env.TELEGRAM_BOT_USERNAME || 'banisauzbot';
 
 /**
@@ -689,7 +693,7 @@ export async function setupChatMenuButton(): Promise<void> {
             menu_button: {
                 type: 'web_app',
                 text: LABELS.uz.menuBtnLabel,
-                web_app: { url: PUBLIC_BASE },
+                web_app: { url: MINI_APP_URL },
             } as any,
         });
         console.log('[telegram] menu button set → web_app:', PUBLIC_BASE);
@@ -944,7 +948,7 @@ function registerHandlers(bot: Bot) {
                 menu_button: {
                     type: 'web_app',
                     text: lang === 'ru' ? '🏥 Баниса' : LABELS.uz.menuBtnLabel,
-                    web_app: { url: PUBLIC_BASE },
+                    web_app: { url: MINI_APP_URL },
                 } as any,
             });
         } catch (e) {
