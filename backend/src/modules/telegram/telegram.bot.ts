@@ -784,6 +784,18 @@ function registerHandlers(bot: Bot) {
         const chatId = ctx.chat?.id;
         if (!tgUser || !chatId) return;
 
+        // The registration flow sends a `request_contact` button, which Telegram
+        // only permits in PRIVATE chats. In a group/channel the send fails with
+        // 400 ("phone number can be requested in private chats only") and used to
+        // crash the webhook (→ 500 → Telegram retries → error spam). Point the
+        // user to a private chat instead and stop here.
+        if (ctx.chat?.type !== 'private') {
+            try {
+                await ctx.reply(`Iltimos, ro'yxatdan o'tish uchun menga shaxsiy chatда yozing: @${BOT_USERNAME_ENV}`);
+            } catch { /* ignore */ }
+            return;
+        }
+
         if (!token) {
             const existing = await (prisma as any).telegramAccount.findUnique({
                 where: { chatId: BigInt(chatId) },

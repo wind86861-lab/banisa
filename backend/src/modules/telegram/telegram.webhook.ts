@@ -32,9 +32,14 @@ telegramWebhookRouter.post('/webhook', async (req: Request, res: Response) => {
     // and writing the response. We instantiate per-request so config is fresh.
     try {
         const handler = webhookCallback(bot, 'express');
-        return handler(req, res);
+        // Await so async handler rejections are caught here — otherwise they
+        // escaped to Express and returned 500, making Telegram retry the same
+        // update forever (error-log spam).
+        await handler(req, res);
     } catch (e) {
         console.error('[telegram] webhook error:', e);
-        return res.status(200).json({ ok: false }); // 200 so Telegram doesn't retry forever
+        // 200 so Telegram doesn't retry forever. Guard headersSent — grammy may
+        // have already written the response before the error surfaced.
+        if (!res.headersSent) res.status(200).json({ ok: false });
     }
 });
