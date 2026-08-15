@@ -577,7 +577,12 @@ function centeredIndex(el) {
 
 function scrollToSlide(el, i) {
     const c = el && el.children[i];
-    if (c) c.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    if (!c) return;
+    // Scroll ONLY the track horizontally (set its scrollLeft) to center slide i.
+    // Never use scrollIntoView here — it also scrolls ancestor/vertical scroll
+    // containers, which yanked the whole page to the top on every auto-advance.
+    const left = c.offsetLeft - (el.clientWidth - c.offsetWidth) / 2;
+    el.scrollTo({ left, behavior: 'smooth' });
 }
 
 function PromoSlider({ slides }) {
