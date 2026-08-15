@@ -82,6 +82,10 @@ export const setIsPatientSession = (val) => { _isPatientSession = !!val; };
 const api = axios.create({
   baseURL: '/api',
   withCredentials: true, // send HttpOnly refresh-token cookie automatically
+  // Telegram Mini App webviews have flaky networking — without a timeout a
+  // single stalled request hangs the whole app on the loading screen forever.
+  // Fail after 25s so callers can recover / show an error instead.
+  timeout: 25000,
 });
 
 // ─── Request interceptor — attach the right access token per URL ─────────

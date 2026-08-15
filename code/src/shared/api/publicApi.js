@@ -7,6 +7,7 @@ import axios from 'axios';
 const publicApi = axios.create({
   baseURL: '/api',
   withCredentials: false, // no cookies needed for public endpoints
+  timeout: 25000, // flaky Mini App networking — never hang forever
 });
 
 export default publicApi;
