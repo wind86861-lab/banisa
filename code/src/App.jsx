@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './shared/auth/AuthContext';
@@ -7,91 +7,90 @@ import { CartProvider } from './contexts/CartContext';
 import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect, UserGuard, UserPublicOnlyGuard, PatientPublic } from './shared/auth/guards';
 import ScrollToTop from './components/ScrollToTop';
 import BetaBanner from './components/BetaBanner';
-import MapSearchPage from './pages/MapSearchPage';
 import { ToastProvider } from './shared/components/Toast';
 import ErrorBoundary from './shared/components/ErrorBoundary';
-
-// Admin pages
-import NotFoundPage from './shared/pages/NotFoundPage';
-import ForbiddenPage from './shared/pages/ForbiddenPage';
-import AdminLoginPage from './pages/AdminLoginPage';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
-import Dashboard from './pages/Dashboard';
-import Services from './pages/Services';
-import Clinics from './admin/pages/clinics/ClinicsPage';
-import CheckupPackages from './pages/CheckupPackages';
-import ClinicCheckupPackages from './pages/ClinicCheckupPackages';
-import PublicCheckupPackages from './pages/PublicCheckupPackages';
-import AdminProfile from './pages/AdminProfile';
-import AdminClinicDetailPage from './admin/pages/clinics/ClinicDetailPage';
-import HomepageSettings from './admin/pages/HomepageSettings';
-import AppointmentsPage from './admin/pages/AppointmentsPage';
-import Users from './pages/Users';
-import MetadataTemplates from './admin/pages/MetadataTemplates';
-import OfertaPage from './admin/pages/OfertaPage';
-
-// Clinic registration pages
-import RegisterPage from './clinic-registration/pages/RegisterPage';
-import RegisterSuccessPage from './clinic-registration/pages/RegisterSuccessPage';
-import ClinicLoginPage from './clinic-registration/pages/LoginPage';
-import StatusPage from './clinic-registration/pages/StatusPage';
-import WelcomePage from './clinic-registration/pages/WelcomePage';
-
-// Clinic admin panel
-import ClinicLayout from './clinic/layout/ClinicLayout';
-import ClinicDashboard from './clinic/pages/ClinicDashboard';
-import ClinicServices from './clinic/pages/ClinicServices';
-import ClinicProfile from './clinic/pages/ClinicProfile';
-import ClinicBookings from './clinic/pages/ClinicBookings';
-import ClinicPayments from './clinic/pages/ClinicPayments';
-import ClinicDoctors from './clinic/pages/ClinicDoctors';
-import ClinicAmbulances from './clinic/pages/ClinicAmbulances';
-import ClinicSkoryRequests from './clinic/pages/ClinicSkoryRequests';
-import AdminPaymeOversight from './admin/pages/AdminPaymeOversight';
-import AdminClickSplit from './admin/pages/AdminClickSplit';
-import AdminSpecialties from './admin/pages/AdminSpecialties';
-import FiscalSettings from './admin/pages/FiscalSettings';
-import AmbulanceSettings from './admin/pages/AmbulanceSettings';
-import ClinicTeam from './clinic/pages/ClinicTeam';
-import ClinicReports from './clinic/pages/ClinicReports';
-import ClinicNotifications from './clinic/pages/ClinicNotifications';
-
-import HomePage from './pages/home/HomePage';
-import XizmatlarPage from './pages/home/XizmatlarPage';
-import XizmatlarCategoryPage from './pages/home/XizmatlarCategoryPage';
-import XizmatDetailPage from './pages/home/XizmatDetailPage';
-import ClinicsPage from './pages/home/ClinicsPage';
-import DoctorsPage from './pages/home/DoctorsPage';
-import DoctorProfilePage from './pages/home/DoctorProfilePage';
-import DoctorBookingPage from './pages/home/DoctorBookingPage';
-import SkoryPage from './pages/home/SkoryPage';
-import SkoryOrderPage from './pages/skory/SkoryOrderPage';
-import SkoryPaymentPage from './pages/skory/SkoryPaymentPage';
-import MiniAppBindFirst from './pages/MiniAppBindFirst';
-import ClinicDetailPage from './pages/home/ClinicDetailPage';
-import UserLoginPage from './pages/user/UserLoginPage';
-import UserSignupPage from './pages/user/UserSignupPage';
-import UserForgotPasswordPage from './pages/user/UserForgotPasswordPage';
-import UserResetPasswordPage from './pages/user/UserResetPasswordPage';
-import UserDashboard from './user/pages/UserDashboard';
-import UserProfilePage from './user/pages/UserProfile';
-import UserAppointments from './user/pages/UserAppointments';
-import AppointmentDetailPage from './user/pages/AppointmentDetailPage';
-import ClinicCheckInQR from './clinic/pages/ClinicCheckInQR';
-import ClinicCashierQueue from './clinic/pages/ClinicCashierQueue';
 import CheckInFab from './user/components/CheckInFab';
-import UserFavoritesPage from './user/pages/UserFavoritesPage';
-import UserNotificationsPage from './user/pages/UserNotificationsPage';
-import UserNotificationSettings from './user/pages/UserNotificationSettings';
-import PatientCheckInPage from './pages/checkin/PatientCheckInPage';
-import ScanCheckInPage from './user/pages/ScanCheckInPage';
-import PaymePage from './pages/payment/PaymePage';
-import ClickPayPage from './pages/payment/ClickPayPage';
-import AlifPayPage from './pages/payment/AlifPayPage';
-import PaymentResultPage from './pages/payment/PaymentResultPage';
-import CartPage from './pages/CartPage';
-import CartCheckoutPage from './user/pages/CartCheckoutPage';
+import BanisaLoader from './shared/components/BanisaLoader';
+
+// ── Route pages are lazy-loaded → each area (patient / admin / clinic /
+// payments / maps) ships as its own on-demand chunk. A patient opening the
+// Mini App no longer downloads the admin & clinic panels; the initial payload
+// drops from one ~3.4MB bundle to a small patient chunk.
+const MapSearchPage = lazy(() => import('./pages/MapSearchPage'));
+const NotFoundPage = lazy(() => import('./shared/pages/NotFoundPage'));
+const ForbiddenPage = lazy(() => import('./shared/pages/ForbiddenPage'));
+const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Services = lazy(() => import('./pages/Services'));
+const Clinics = lazy(() => import('./admin/pages/clinics/ClinicsPage'));
+const CheckupPackages = lazy(() => import('./pages/CheckupPackages'));
+const ClinicCheckupPackages = lazy(() => import('./pages/ClinicCheckupPackages'));
+const PublicCheckupPackages = lazy(() => import('./pages/PublicCheckupPackages'));
+const AdminProfile = lazy(() => import('./pages/AdminProfile'));
+const AdminClinicDetailPage = lazy(() => import('./admin/pages/clinics/ClinicDetailPage'));
+const HomepageSettings = lazy(() => import('./admin/pages/HomepageSettings'));
+const AppointmentsPage = lazy(() => import('./admin/pages/AppointmentsPage'));
+const Users = lazy(() => import('./pages/Users'));
+const MetadataTemplates = lazy(() => import('./admin/pages/MetadataTemplates'));
+const OfertaPage = lazy(() => import('./admin/pages/OfertaPage'));
+const RegisterPage = lazy(() => import('./clinic-registration/pages/RegisterPage'));
+const RegisterSuccessPage = lazy(() => import('./clinic-registration/pages/RegisterSuccessPage'));
+const ClinicLoginPage = lazy(() => import('./clinic-registration/pages/LoginPage'));
+const StatusPage = lazy(() => import('./clinic-registration/pages/StatusPage'));
+const WelcomePage = lazy(() => import('./clinic-registration/pages/WelcomePage'));
+const ClinicLayout = lazy(() => import('./clinic/layout/ClinicLayout'));
+const ClinicDashboard = lazy(() => import('./clinic/pages/ClinicDashboard'));
+const ClinicServices = lazy(() => import('./clinic/pages/ClinicServices'));
+const ClinicProfile = lazy(() => import('./clinic/pages/ClinicProfile'));
+const ClinicBookings = lazy(() => import('./clinic/pages/ClinicBookings'));
+const ClinicPayments = lazy(() => import('./clinic/pages/ClinicPayments'));
+const ClinicDoctors = lazy(() => import('./clinic/pages/ClinicDoctors'));
+const ClinicAmbulances = lazy(() => import('./clinic/pages/ClinicAmbulances'));
+const ClinicSkoryRequests = lazy(() => import('./clinic/pages/ClinicSkoryRequests'));
+const AdminPaymeOversight = lazy(() => import('./admin/pages/AdminPaymeOversight'));
+const AdminClickSplit = lazy(() => import('./admin/pages/AdminClickSplit'));
+const AdminSpecialties = lazy(() => import('./admin/pages/AdminSpecialties'));
+const FiscalSettings = lazy(() => import('./admin/pages/FiscalSettings'));
+const AmbulanceSettings = lazy(() => import('./admin/pages/AmbulanceSettings'));
+const ClinicTeam = lazy(() => import('./clinic/pages/ClinicTeam'));
+const ClinicReports = lazy(() => import('./clinic/pages/ClinicReports'));
+const ClinicNotifications = lazy(() => import('./clinic/pages/ClinicNotifications'));
+const HomePage = lazy(() => import('./pages/home/HomePage'));
+const XizmatlarPage = lazy(() => import('./pages/home/XizmatlarPage'));
+const XizmatlarCategoryPage = lazy(() => import('./pages/home/XizmatlarCategoryPage'));
+const XizmatDetailPage = lazy(() => import('./pages/home/XizmatDetailPage'));
+const ClinicsPage = lazy(() => import('./pages/home/ClinicsPage'));
+const DoctorsPage = lazy(() => import('./pages/home/DoctorsPage'));
+const DoctorProfilePage = lazy(() => import('./pages/home/DoctorProfilePage'));
+const DoctorBookingPage = lazy(() => import('./pages/home/DoctorBookingPage'));
+const SkoryPage = lazy(() => import('./pages/home/SkoryPage'));
+const SkoryOrderPage = lazy(() => import('./pages/skory/SkoryOrderPage'));
+const SkoryPaymentPage = lazy(() => import('./pages/skory/SkoryPaymentPage'));
+const MiniAppBindFirst = lazy(() => import('./pages/MiniAppBindFirst'));
+const ClinicDetailPage = lazy(() => import('./pages/home/ClinicDetailPage'));
+const UserLoginPage = lazy(() => import('./pages/user/UserLoginPage'));
+const UserSignupPage = lazy(() => import('./pages/user/UserSignupPage'));
+const UserForgotPasswordPage = lazy(() => import('./pages/user/UserForgotPasswordPage'));
+const UserResetPasswordPage = lazy(() => import('./pages/user/UserResetPasswordPage'));
+const UserDashboard = lazy(() => import('./user/pages/UserDashboard'));
+const UserProfilePage = lazy(() => import('./user/pages/UserProfile'));
+const UserAppointments = lazy(() => import('./user/pages/UserAppointments'));
+const AppointmentDetailPage = lazy(() => import('./user/pages/AppointmentDetailPage'));
+const ClinicCheckInQR = lazy(() => import('./clinic/pages/ClinicCheckInQR'));
+const ClinicCashierQueue = lazy(() => import('./clinic/pages/ClinicCashierQueue'));
+const UserFavoritesPage = lazy(() => import('./user/pages/UserFavoritesPage'));
+const UserNotificationsPage = lazy(() => import('./user/pages/UserNotificationsPage'));
+const UserNotificationSettings = lazy(() => import('./user/pages/UserNotificationSettings'));
+const PatientCheckInPage = lazy(() => import('./pages/checkin/PatientCheckInPage'));
+const ScanCheckInPage = lazy(() => import('./user/pages/ScanCheckInPage'));
+const PaymePage = lazy(() => import('./pages/payment/PaymePage'));
+const ClickPayPage = lazy(() => import('./pages/payment/ClickPayPage'));
+const AlifPayPage = lazy(() => import('./pages/payment/AlifPayPage'));
+const PaymentResultPage = lazy(() => import('./pages/payment/PaymentResultPage'));
+const CartPage = lazy(() => import('./pages/CartPage'));
+const CartCheckoutPage = lazy(() => import('./user/pages/CartCheckoutPage'));
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -136,6 +135,7 @@ function App() {
                     <AuthProvider>
                         <UserAuthProvider>
                             <CartProvider>
+                                <Suspense fallback={<BanisaLoader message="Yuklanmoqda..." />}>
                                 <Routes>
 
                                     {/* ─── PUBLIC HOME PAGE ────────────────────────── */}
@@ -270,6 +270,7 @@ function App() {
                                     <Route path="*" element={<NotFoundPage />} />
 
                                 </Routes>
+                                </Suspense>
                                 <CheckInFab />
                             </CartProvider>
                         </UserAuthProvider>
