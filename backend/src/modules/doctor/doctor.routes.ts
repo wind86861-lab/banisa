@@ -10,6 +10,7 @@ doctorRouter.post('/register', ctrl.register);
 
 // Authenticated doctor.
 doctorRouter.get('/me', requireAuth, requireRole(['DOCTOR']), ctrl.me);
+doctorRouter.patch('/me', requireAuth, requireRole(['DOCTOR']), ctrl.updateMe);
 
 // ─── /api/admin/doctors — super-admin approval ───────────────────────────────
 export const adminDoctorRouter = Router();

@@ -141,6 +141,32 @@ export const UserGuard = ({ children }) => {
   return children;
 };
 
+// ─── DOCTOR GUARD ─────────────────────────────────────────────────────────
+// Doctor Mini App section. Requires a logged-in DOCTOR (any status — the page
+// itself shows pending/rejected). A logged-out visitor is sent to registration.
+export const DoctorGuard = ({ children }) => {
+  const { user, isLoading, ensurePatientAuth } = useUserAuth();
+  const [resolved, setResolved] = useState(null);
+
+  useEffect(() => {
+    if (user) { setResolved(true); return; }
+    if (isLoading || !ensurePatientAuth) return;
+    let cancelled = false;
+    (async () => {
+      let u = null;
+      try { u = await ensurePatientAuth(); } catch { /* swallow */ }
+      if (cancelled) return;
+      setResolved(u ? true : false);
+    })();
+    return () => { cancelled = true; };
+  }, [isLoading, user, ensurePatientAuth]);
+
+  if (isLoading || resolved === null) return <AuthLoading />;
+  if (!user) return <Navigate to="/doctor/register" replace />;
+  if (user.role !== 'DOCTOR') return <Navigate to="/403" replace />;
+  return children;
+};
+
 // ─── PATIENT PUBLIC (browse, no wall) ─────────────────────────────────────
 // Browse pages (catalog, clinics, doctors, service/clinic detail, skory map)
 // are PUBLIC: a logged-out visitor can freely explore. We still fire

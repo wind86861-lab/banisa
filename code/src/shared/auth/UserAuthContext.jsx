@@ -113,7 +113,7 @@ export const UserAuthProvider = ({ children }) => {
       );
       const token = data?.data?.accessToken ?? data?.accessToken;
       const u = data?.data?.user ?? data?.user;
-      if (token && u?.role === 'PATIENT') {
+      if (token && (u?.role === 'PATIENT' || u?.role === 'DOCTOR')) {
         applyAuthSuccess(token, u);
         return { user: u };
       }
@@ -130,7 +130,7 @@ export const UserAuthProvider = ({ children }) => {
       const { data } = await axiosInstance.post('/user/auth/refresh');
       const token = data?.data?.accessToken ?? data?.accessToken;
       const u = data?.data?.user ?? data?.user;
-      if (token && u?.role === 'PATIENT') {
+      if (token && (u?.role === 'PATIENT' || u?.role === 'DOCTOR')) {
         applyAuthSuccess(token, u);
         return u;
       }
@@ -248,7 +248,7 @@ export const UserAuthProvider = ({ children }) => {
         // empty during the auth roundtrip. State is overwritten below with
         // the server-verified user.
         const cached = userTokenStorage.getUser();
-        if (cached?.role === 'PATIENT') setUser(cached);
+        if (cached?.role === 'PATIENT' || cached?.role === 'DOCTOR') setUser(cached);
 
         await ensurePatientAuth();
         // start_param routing is handled in main.jsx before React mounts.

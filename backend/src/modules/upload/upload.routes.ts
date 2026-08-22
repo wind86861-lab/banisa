@@ -30,7 +30,7 @@ const upload = multer({ storage, fileFilter: imageFilter, limits: { fileSize: 5 
 router.post(
     '/image',
     requireAuth,
-    requireRole(['SUPER_ADMIN', 'CLINIC_ADMIN']),
+    requireRole(['SUPER_ADMIN', 'CLINIC_ADMIN', 'DOCTOR']),
     upload.single('image'),
     (req: Request, res: Response, next: NextFunction) => {
         if (!req.file) {

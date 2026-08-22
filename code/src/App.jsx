@@ -1,10 +1,10 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './shared/auth/AuthContext';
 import { UserAuthProvider } from './shared/auth/UserAuthContext';
 import { CartProvider } from './contexts/CartContext';
-import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect, UserGuard, UserPublicOnlyGuard, PatientPublic } from './shared/auth/guards';
+import { SuperAdminGuard, AdminPublicOnlyGuard, ClinicPublicOnlyGuard, ClinicGuard, StatusGuard, RootRedirect, UserGuard, UserPublicOnlyGuard, PatientPublic, DoctorGuard } from './shared/auth/guards';
 import ScrollToTop from './components/ScrollToTop';
 import BetaBanner from './components/BetaBanner';
 import { ToastProvider } from './shared/components/Toast';
@@ -32,6 +32,8 @@ const AdminProfile = lazy(() => import('./pages/AdminProfile'));
 const AdminClinicDetailPage = lazy(() => import('./admin/pages/clinics/ClinicDetailPage'));
 const HomepageSettings = lazy(() => import('./admin/pages/HomepageSettings'));
 const AdminDoctors = lazy(() => import('./admin/pages/AdminDoctors'));
+const DoctorRegisterPage = lazy(() => import('./doctor-portal/DoctorRegisterPage'));
+const DoctorHome = lazy(() => import('./doctor-portal/DoctorHome'));
 const AppointmentsPage = lazy(() => import('./admin/pages/AppointmentsPage'));
 const Users = lazy(() => import('./pages/Users'));
 const MetadataTemplates = lazy(() => import('./admin/pages/MetadataTemplates'));
@@ -125,6 +127,22 @@ function AdminLayout() {
     );
 }
 
+// Telegram deep-link `?startapp=doctor` opens the app at "/" — route such a
+// visitor into the doctor Mini App instead of the patient home.
+function DoctorStartParam() {
+    const navigate = useNavigate();
+    const location = useLocation();
+    useEffect(() => {
+        try {
+            const sp = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+            if (sp === 'doctor' && location.pathname === '/') navigate('/doctor', { replace: true });
+        } catch { /* ignore */ }
+        // once, on mount
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    return null;
+}
+
 function App() {
     return (
         <ErrorBoundary>
@@ -132,6 +150,7 @@ function App() {
             <ToastProvider>
                 <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                     <ScrollToTop />
+                    <DoctorStartParam />
                     <BetaBanner />
                     <AuthProvider>
                         <UserAuthProvider>
@@ -157,6 +176,10 @@ function App() {
                                     <Route path="/skory" element={<PatientPublic><SkoryPage /></PatientPublic>} />
                                     <Route path="/skory/order" element={<UserGuard><SkoryOrderPage /></UserGuard>} />
                                     <Route path="/mini-app-bind" element={<MiniAppBindFirst />} />
+
+                                    {/* ── Doctor Mini App ── */}
+                                    <Route path="/doctor/register" element={<DoctorRegisterPage />} />
+                                    <Route path="/doctor" element={<DoctorGuard><DoctorHome /></DoctorGuard>} />
 
                                     {/* ─── USER AUTH ROUTES (PATIENT) ──────────────── */}
                                     <Route path="/user/login" element={<UserPublicOnlyGuard><UserLoginPage /></UserPublicOnlyGuard>} />

@@ -34,6 +34,13 @@ export const me = async (req: AuthRequest, res: Response, next: NextFunction) =>
     } catch (e) { next(e); }
 };
 
+export const updateMe = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const { specialty, bio, documents, firstName, lastName } = req.body || {};
+        sendSuccess(res, await doctorService.updateMyDoctor(req.user!.id, { specialty, bio, documents, firstName, lastName }));
+    } catch (e) { next(e); }
+};
+
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
 export const adminList = async (req: Request, res: Response, next: NextFunction) => {

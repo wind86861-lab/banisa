@@ -119,6 +119,30 @@ export async function getMyDoctor(userId: string) {
     };
 }
 
+/** Doctor updates their own profile (specialty / bio / documents) — pre-approval. */
+export async function updateMyDoctor(userId: string, patch: { specialty?: string; bio?: string; documents?: any[]; firstName?: string; lastName?: string }) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== 'DOCTOR') throw new AppError('Shifokor topilmadi', 404, ErrorCodes.NOT_FOUND);
+
+    const userData: any = {};
+    if (patch.firstName !== undefined) userData.firstName = patch.firstName || null;
+    if (patch.lastName !== undefined) userData.lastName = patch.lastName || null;
+    if (Object.keys(userData).length) await prisma.user.update({ where: { id: userId }, data: userData });
+
+    const profData: any = {};
+    if (patch.specialty !== undefined) profData.specialty = patch.specialty || null;
+    if (patch.bio !== undefined) profData.bio = patch.bio || null;
+    if (patch.documents !== undefined) profData.documents = Array.isArray(patch.documents) ? patch.documents : [];
+    if (Object.keys(profData).length) {
+        await (prisma as any).doctorProfile.upsert({
+            where: { userId },
+            update: profData,
+            create: { userId, ...profData },
+        });
+    }
+    return getMyDoctor(userId);
+}
+
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
 export async function adminListDoctors(status?: string) {
