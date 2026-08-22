@@ -34,6 +34,8 @@ const HomepageSettings = lazy(() => import('./admin/pages/HomepageSettings'));
 const AdminDoctors = lazy(() => import('./admin/pages/AdminDoctors'));
 const DoctorRegisterPage = lazy(() => import('./doctor-portal/DoctorRegisterPage'));
 const DoctorHome = lazy(() => import('./doctor-portal/DoctorHome'));
+const DoctorRecommend = lazy(() => import('./doctor-portal/DoctorRecommend'));
+const DoctorRecommendations = lazy(() => import('./doctor-portal/DoctorRecommendations'));
 const AppointmentsPage = lazy(() => import('./admin/pages/AppointmentsPage'));
 const Users = lazy(() => import('./pages/Users'));
 const MetadataTemplates = lazy(() => import('./admin/pages/MetadataTemplates'));
@@ -180,6 +182,8 @@ function App() {
                                     {/* ── Doctor Mini App ── */}
                                     <Route path="/doctor/register" element={<DoctorRegisterPage />} />
                                     <Route path="/doctor" element={<DoctorGuard><DoctorHome /></DoctorGuard>} />
+                                    <Route path="/doctor/recommend" element={<DoctorGuard><DoctorRecommend /></DoctorGuard>} />
+                                    <Route path="/doctor/recommendations" element={<DoctorGuard><DoctorRecommendations /></DoctorGuard>} />
 
                                     {/* ─── USER AUTH ROUTES (PATIENT) ──────────────── */}
                                     <Route path="/user/login" element={<UserPublicOnlyGuard><UserLoginPage /></UserPublicOnlyGuard>} />

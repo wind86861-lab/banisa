@@ -41,6 +41,27 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
     } catch (e) { next(e); }
 };
 
+// ─── Recommendations ─────────────────────────────────────────────────────────
+
+export const patientLookup = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        sendSuccess(res, await doctorService.lookupPatient(String(req.query.phone || '')));
+    } catch (e) { next(e); }
+};
+
+export const createRecommendation = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const { patientPhone, clinicId, note, items } = req.body || {};
+        sendSuccess(res, await doctorService.createRecommendation(req.user!.id, { patientPhone, clinicId, note, items }), undefined, 'Tavsiya yuborildi', 201);
+    } catch (e) { next(e); }
+};
+
+export const listRecommendations = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        sendSuccess(res, await doctorService.listMyRecommendations(req.user!.id));
+    } catch (e) { next(e); }
+};
+
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
 export const adminList = async (req: Request, res: Response, next: NextFunction) => {

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Clock, CheckCircle2, XCircle, Upload, Loader2, FileText, X, Plus, LogOut } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle, Upload, Loader2, FileText, X, Plus, LogOut, ListChecks } from 'lucide-react';
 import { useUserAuth } from '../shared/auth/UserAuthContext';
 import { imgUrl } from '../shared/utils/format';
 import { useMyDoctor, updateMyDoctor, uploadDoctorImage } from './useDoctor';
@@ -63,6 +64,7 @@ function DocUploader({ documents, onChange }) {
 }
 
 export default function DoctorHome() {
+    const navigate = useNavigate();
     const { data: doc, isLoading } = useMyDoctor();
     const { logout } = useUserAuth();
     const qc = useQueryClient();
@@ -86,8 +88,11 @@ export default function DoctorHome() {
                     <div className="dp-state-ic"><CheckCircle2 size={40} /></div>
                     <h2>Tasdiqlandingiz 🎉</h2>
                     <p>Endi bemorlaringizga xizmat tavsiya qila olasiz.</p>
-                    <button className="dp-btn dp-btn--primary dp-btn--lg" disabled title="Tez orada">
-                        <Plus size={18} /> Bemor uchun tavsiya <span className="dp-soon">tez orada</span>
+                    <button className="dp-btn dp-btn--primary dp-btn--lg" onClick={() => navigate('/doctor/recommend')}>
+                        <Plus size={18} /> Bemor uchun tavsiya
+                    </button>
+                    <button className="dp-btn dp-btn--ghost dp-btn--lg" onClick={() => navigate('/doctor/recommendations')} style={{ marginTop: 8 }}>
+                        <ListChecks size={18} /> Tavsiyalarim
                     </button>
                 </div>
             ) : doc.status === 'REJECTED' ? (

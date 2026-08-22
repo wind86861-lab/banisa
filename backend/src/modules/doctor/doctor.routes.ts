@@ -12,6 +12,11 @@ doctorRouter.post('/register', ctrl.register);
 doctorRouter.get('/me', requireAuth, requireRole(['DOCTOR']), ctrl.me);
 doctorRouter.patch('/me', requireAuth, requireRole(['DOCTOR']), ctrl.updateMe);
 
+// Recommendation builder (approval enforced in the service).
+doctorRouter.get('/patient-lookup', requireAuth, requireRole(['DOCTOR']), ctrl.patientLookup);
+doctorRouter.post('/recommendations', requireAuth, requireRole(['DOCTOR']), ctrl.createRecommendation);
+doctorRouter.get('/recommendations', requireAuth, requireRole(['DOCTOR']), ctrl.listRecommendations);
+
 // ─── /api/admin/doctors — super-admin approval ───────────────────────────────
 export const adminDoctorRouter = Router();
 adminDoctorRouter.use(requireAuth, requireRole(['SUPER_ADMIN']));

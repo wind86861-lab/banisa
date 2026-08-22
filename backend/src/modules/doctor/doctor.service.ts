@@ -143,6 +143,94 @@ export async function updateMyDoctor(userId: string, patch: { specialty?: string
     return getMyDoctor(userId);
 }
 
+// ─── Recommendations (approved doctor) ───────────────────────────────────────
+
+/** Find a bot-bound PATIENT by phone (tolerant to formatting). */
+export async function lookupPatient(phone: string) {
+    const clean = String(phone || '').replace(/\s+/g, '');
+    const last9 = clean.replace(/\D/g, '').slice(-9);
+    if (last9.length < 7) return { found: false };
+    const user: any = await prisma.user.findFirst({
+        where: { role: 'PATIENT', OR: [{ phone: clean }, { phone: { endsWith: last9 } }] },
+        include: { telegramAccount: true } as any,
+    });
+    if (!user || !user.telegramAccount) return { found: false };
+    return {
+        found: true,
+        patientId: user.id,
+        name: [user.firstName, user.lastName].filter(Boolean).join(' ') || null,
+        phone: user.phone,
+    };
+}
+
+const VALID_TYPES = new Set(['DIAGNOSTIC', 'SURGICAL', 'SANATORIUM', 'CHECKUP']);
+
+export interface RecommendationInput {
+    patientPhone: string;
+    clinicId: string;
+    note?: string;
+    items: Array<{ serviceType: string; serviceId: string; name?: string; price?: number; quantity?: number }>;
+}
+
+export async function createRecommendation(doctorId: string, input: RecommendationInput) {
+    const doctor = await prisma.user.findUnique({ where: { id: doctorId } });
+    if (!doctor || doctor.role !== 'DOCTOR') throw new AppError('Shifokor topilmadi', 404, ErrorCodes.NOT_FOUND);
+    if (doctor.status !== 'APPROVED') throw new AppError('Avval admin arizangizni tasdiqlashi kerak', 403, ErrorCodes.FORBIDDEN);
+
+    const lk = await lookupPatient(input.patientPhone);
+    if (!lk.found) throw new AppError('Bu raqam bilan bemor botda topilmadi', 404, ErrorCodes.NOT_FOUND);
+
+    const clinic = await prisma.clinic.findUnique({ where: { id: input.clinicId } });
+    if (!clinic) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
+
+    const items = (input.items || []).filter(i => i && i.serviceId && VALID_TYPES.has(i.serviceType));
+    if (!items.length) throw new AppError('Kamida bitta xizmat qo\'shing', 400, ErrorCodes.VALIDATION_ERROR);
+
+    const total = items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0);
+    const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+
+    const rec = await prisma.$transaction(async (tx: any) => {
+        const r = await tx.recommendation.create({
+            data: {
+                doctorId, patientId: lk.patientId!, clinicId: clinic.id,
+                status: 'PENDING', totalAmount: total, note: input.note || null, expiresAt,
+            },
+        });
+        await tx.recommendationItem.createMany({
+            data: items.map(i => ({
+                recommendationId: r.id,
+                serviceType: i.serviceType as any,
+                serviceId: String(i.serviceId),
+                nameSnapshot: String(i.name || 'Xizmat'),
+                priceSnapshot: Number(i.price) || 0,
+                quantity: Number(i.quantity) || 1,
+            })),
+        });
+        return r;
+    });
+    // TODO(P3): dispatch `recommendation_received` to the patient's bot.
+    return { id: rec.id, status: rec.status, totalAmount: total, expiresAt, patientName: lk.name };
+}
+
+export async function listMyRecommendations(doctorId: string) {
+    const rows: any[] = await (prisma as any).recommendation.findMany({
+        where: { doctorId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+            clinic: { select: { nameUz: true } },
+            patient: { select: { firstName: true, lastName: true, phone: true } },
+            items: { select: { id: true } },
+        },
+    });
+    return rows.map(r => ({
+        id: r.id, status: r.status, total: r.totalAmount,
+        createdAt: r.createdAt, expiresAt: r.expiresAt,
+        clinicName: r.clinic?.nameUz ?? null,
+        patientName: [r.patient?.firstName, r.patient?.lastName].filter(Boolean).join(' ') || r.patient?.phone || '—',
+        itemCount: r.items.length,
+    }));
+}
+
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
 export async function adminListDoctors(status?: string) {
