@@ -31,6 +31,7 @@ const PublicCheckupPackages = lazy(() => import('./pages/PublicCheckupPackages')
 const AdminProfile = lazy(() => import('./pages/AdminProfile'));
 const AdminClinicDetailPage = lazy(() => import('./admin/pages/clinics/ClinicDetailPage'));
 const HomepageSettings = lazy(() => import('./admin/pages/HomepageSettings'));
+const AdminDoctors = lazy(() => import('./admin/pages/AdminDoctors'));
 const AppointmentsPage = lazy(() => import('./admin/pages/AppointmentsPage'));
 const Users = lazy(() => import('./pages/Users'));
 const MetadataTemplates = lazy(() => import('./admin/pages/MetadataTemplates'));
@@ -237,6 +238,7 @@ function App() {
                                         <Route path="users" element={<Users />} />
                                         <Route path="services" element={<Services />} />
                                         <Route path="clinics" element={<Clinics />} />
+                                        <Route path="doctors" element={<AdminDoctors />} />
                                         <Route path="appointments" element={<AppointmentsPage />} />
                                         <Route path="clinics/:id" element={<AdminClinicDetailPage />} />
                                         <Route path="packages" element={<CheckupPackages />} />

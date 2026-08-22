@@ -61,6 +61,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         {
             items: [
                 { key: 'clinics', icon: <Building2 size={20} />, label: 'Klinikalar', path: '/admin/clinics' },
+                { key: 'doctors', icon: <Stethoscope size={20} />, label: 'Shifokorlar', path: '/admin/doctors' },
                 { key: 'appointments', icon: <Calendar size={20} />, label: 'Bronlar', path: '/admin/appointments' },
                 { key: 'users', icon: <Users size={20} />, label: 'Patients', path: '/admin/users' },
                 { key: 'services', icon: <Briefcase size={20} />, label: 'Diagnostika', path: '/admin/services?root=diagnostics' },
