@@ -54,6 +54,7 @@ import telegramRoutes, { telegramPublicRouter } from './modules/telegram/telegra
 import { telegramWebhookRouter } from './modules/telegram/telegram.webhook';
 import metadataTemplateRoutes from './modules/metadata/metadata-template.routes';
 import appointmentMetadataRoutes from './modules/metadata/appointment-metadata.routes';
+import { doctorRouter, adminDoctorRouter } from './modules/doctor/doctor.routes';
 
 const app = express();
 
@@ -195,6 +196,8 @@ app.use('/api/checkup-packages', checkupPackageRoutes);
 app.use('/api/admin/checkup-packages', adminCheckupPackageRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/clinic', clinicAdminRoutes);
+app.use('/api/doctor', doctorRouter);
+app.use('/api/admin/doctors', adminDoctorRouter);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payme', paymeRoutes);
 app.use('/api/clinic/payments/payme', paymeClinicRoutes);
