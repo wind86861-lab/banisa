@@ -80,8 +80,30 @@ export async function respond(id: string, patientId: string, action: 'accept' | 
         await (prisma as any).recommendation.update({ where: { id }, data: { status: 'EXPIRED' } });
         throw new AppError('Tavsiya muddati o\'tgan', 400, ErrorCodes.VALIDATION_ERROR);
     }
-    const status = action === 'accept' ? 'ACCEPTED' : 'REJECTED';
-    await (prisma as any).recommendation.update({ where: { id }, data: { status, respondedAt: new Date() } });
-    // TODO(P4): on accept → seed the patient cart from items → existing checkout → BOOKED.
-    return { id, status };
+    if (action === 'reject') {
+        await (prisma as any).recommendation.update({ where: { id }, data: { status: 'REJECTED', respondedAt: new Date() } });
+        return { id, status: 'REJECTED' };
+    }
+
+    // Accept → seed the patient's cart from the recommended services (one clinic)
+    // so they continue through the existing checkout (time + payment). The
+    // booking is linked back + flipped to BOOKED inside cart checkout.
+    await prisma.$transaction(async (tx: any) => {
+        for (const it of rec.items) {
+            await tx.cartItem.upsert({
+                where: {
+                    userId_clinicId_serviceType_serviceId: {
+                        userId: patientId, clinicId: rec.clinicId, serviceType: it.serviceType, serviceId: it.serviceId,
+                    },
+                },
+                update: { quantity: it.quantity },
+                create: {
+                    userId: patientId, clinicId: rec.clinicId,
+                    serviceType: it.serviceType, serviceId: it.serviceId, quantity: it.quantity,
+                },
+            });
+        }
+        await tx.recommendation.update({ where: { id }, data: { status: 'ACCEPTED', respondedAt: new Date() } });
+    });
+    return { id, status: 'ACCEPTED' };
 }

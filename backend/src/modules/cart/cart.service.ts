@@ -434,6 +434,19 @@ export class CartService {
                 appointmentData.surgicalServiceId = primaryItem.serviceId;
             }
 
+            // Attribute the booking to an accepted doctor recommendation for
+            // this clinic (if any) → tag the appointment + flip the
+            // recommendation to BOOKED. Heuristic: the patient's most recently
+            // accepted recommendation at this clinic.
+            let linkedRecId: string | null = null;
+            try {
+                const rec = await (prisma as any).recommendation.findFirst({
+                    where: { patientId: userId, clinicId, status: 'ACCEPTED' },
+                    orderBy: { respondedAt: 'desc' },
+                });
+                if (rec) { linkedRecId = rec.id; appointmentData.recommendationId = rec.id; }
+            } catch { /* ignore */ }
+
             const appointment = await prisma.appointment.create({
                 data: appointmentData,
                 include: {
@@ -443,6 +456,15 @@ export class CartService {
                     surgicalService: { select: { nameUz: true } },
                 },
             });
+
+            if (linkedRecId) {
+                try {
+                    await (prisma as any).recommendation.update({
+                        where: { id: linkedRecId },
+                        data: { status: 'BOOKED', bookedAt: new Date() },
+                    });
+                } catch { /* ignore */ }
+            }
 
             // Persist every cart item as an AppointmentService row so the
             // admin drawer (and any future per-item reporting) sees the full
