@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ChevronLeft, Search, Phone, Check, Loader2, AlertCircle, Plus, Minus,
-    Building2, Send, CheckCircle2, X,
+    Building2, Send, CheckCircle2,
 } from 'lucide-react';
 import {
     lookupPatient, createRecommendation, usePublicServicesForBuilder, CATEGORY_TO_TYPE,

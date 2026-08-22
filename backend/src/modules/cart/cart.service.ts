@@ -96,6 +96,52 @@ function effectivePrice(basePrice: number, customization: { customPrice: number 
     return { customPrice, discount, finalPrice };
 }
 
+/**
+ * Resolve + re-price one clinic service the way checkout does, for callers
+ * outside the cart (e.g. doctor recommendations). Returns null when the
+ * service doesn't exist or isn't actually offered by that clinic — the caller
+ * can then reject the item instead of storing a dangling reference that would
+ * silently vanish at checkout.
+ */
+export async function priceClinicService(
+    clinicId: string,
+    serviceType: CartServiceType,
+    serviceId: string,
+): Promise<{ name: string; price: number } | null> {
+    const { service, customization } = await resolveCartLine(clinicId, serviceType, serviceId);
+    if (!service) return null;
+    // A base service can exist without this clinic offering it — resolveCartLine
+    // returns the service but a null customization link. For the recommendation
+    // builder we require the clinic to actually list it (a real link), except
+    // AMBULANCE which resolveCartLine already scopes to the clinic itself.
+    if (serviceType !== 'AMBULANCE' && !customization) {
+        // customization can legitimately be null when the clinic offers the
+        // service at the base price with no overrides — so re-check the link.
+        const linked = await clinicOffersService(clinicId, serviceType, serviceId);
+        if (!linked) return null;
+    }
+    const basePrice = service.priceRecommended ?? service.recommendedPrice ?? service.priceMin ?? 0;
+    const { finalPrice } = effectivePrice(basePrice, customization);
+    const name = service.nameUz || service.nameRu || service.title || 'Xizmat';
+    return { name, price: finalPrice };
+}
+
+/** Does this clinic actually offer (list) the given base service? */
+async function clinicOffersService(clinicId: string, serviceType: CartServiceType, serviceId: string): Promise<boolean> {
+    switch (serviceType) {
+        case 'DIAGNOSTIC':
+            return !!(await prisma.clinicDiagnosticService.findUnique({ where: { clinicId_diagnosticServiceId: { clinicId, diagnosticServiceId: serviceId } }, select: { id: true } }));
+        case 'SURGICAL':
+            return !!(await prisma.clinicSurgicalService.findUnique({ where: { clinicId_surgicalServiceId: { clinicId, surgicalServiceId: serviceId } }, select: { clinicId: true } }));
+        case 'SANATORIUM':
+            return !!(await prisma.clinicSanatoriumService.findUnique({ where: { clinicId_sanatoriumServiceId: { clinicId, sanatoriumServiceId: serviceId } }, select: { clinicId: true } }));
+        case 'CHECKUP':
+            return !!(await prisma.clinicCheckupPackage.findUnique({ where: { clinicId_packageId: { clinicId, packageId: serviceId } }, select: { id: true } }));
+        default:
+            return false;
+    }
+}
+
 export class CartService {
     async addToCart(userId: string, data: {
         clinicId: string;
@@ -440,11 +486,19 @@ export class CartService {
             // accepted recommendation at this clinic.
             let linkedRecId: string | null = null;
             try {
-                const rec = await (prisma as any).recommendation.findFirst({
+                // Only attribute the booking to a recommendation whose services
+                // actually overlap what's being booked — otherwise an unrelated
+                // accepted recommendation for this clinic would get mis-credited
+                // to a doctor in the referral report. Scan most-recent first.
+                const bookedKeys = new Set(items.map(it => `${it.serviceType}:${it.serviceId}`));
+                const candidates = await (prisma as any).recommendation.findMany({
                     where: { patientId: userId, clinicId, status: 'ACCEPTED' },
                     orderBy: { respondedAt: 'desc' },
+                    include: { items: { select: { serviceType: true, serviceId: true } } },
                 });
-                if (rec) { linkedRecId = rec.id; appointmentData.recommendationId = rec.id; }
+                const match = candidates.find((r: any) =>
+                    (r.items || []).some((ri: any) => bookedKeys.has(`${ri.serviceType}:${ri.serviceId}`)));
+                if (match) { linkedRecId = match.id; appointmentData.recommendationId = match.id; }
             } catch { /* ignore */ }
 
             const appointment = await prisma.appointment.create({

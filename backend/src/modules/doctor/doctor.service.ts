@@ -6,6 +6,7 @@ import { env } from '../../config/env';
 import { verifyInitData } from '../telegram/miniapp.auth';
 import { AppError, ErrorCodes } from '../../utils/errors';
 import { dispatch as dispatchNotification } from '../notifications/notification.dispatcher';
+import { priceClinicService } from '../cart/cart.service';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -184,10 +185,34 @@ export async function createRecommendation(doctorId: string, input: Recommendati
     const clinic = await prisma.clinic.findUnique({ where: { id: input.clinicId } });
     if (!clinic) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
 
-    const items = (input.items || []).filter(i => i && i.serviceId && VALID_TYPES.has(i.serviceType));
-    if (!items.length) throw new AppError('Kamida bitta xizmat qo\'shing', 400, ErrorCodes.VALIDATION_ERROR);
+    const rawItems = (input.items || []).filter(i => i && i.serviceId && VALID_TYPES.has(i.serviceType));
+    if (!rawItems.length) throw new AppError('Kamida bitta xizmat qo\'shing', 400, ErrorCodes.VALIDATION_ERROR);
 
-    const total = items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0);
+    // Server-side validation + re-pricing: never trust the client's price, and
+    // reject any service the clinic doesn't actually offer. Without this a stale
+    // or tampered client could store a dangling serviceId that silently vanishes
+    // at checkout (leaving the patient with an empty 0-som booking) or a fake
+    // price that misleads the patient on the review screen. Deduplicate on
+    // (type:id) so quantities merge instead of creating duplicate lines.
+    const merged = new Map<string, { serviceType: string; serviceId: string; quantity: number }>();
+    for (const i of rawItems) {
+        const key = `${i.serviceType}:${i.serviceId}`;
+        const qty = Math.max(1, Math.min(20, Math.floor(Number(i.quantity) || 1)));
+        const ex = merged.get(key);
+        if (ex) ex.quantity += qty;
+        else merged.set(key, { serviceType: i.serviceType, serviceId: String(i.serviceId), quantity: qty });
+    }
+
+    const priced = await Promise.all(
+        [...merged.values()].map(async (i) => {
+            const p = await priceClinicService(clinic.id, i.serviceType as any, i.serviceId);
+            return p ? { ...i, name: p.name, price: p.price } : null;
+        }),
+    );
+    const items = priced.filter((x): x is NonNullable<typeof x> => x !== null);
+    if (!items.length) throw new AppError('Tanlangan xizmatlar bu klinikada mavjud emas', 400, ErrorCodes.VALIDATION_ERROR);
+
+    const total = items.reduce((s, i) => s + i.price * i.quantity, 0);
     const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
     const rec = await prisma.$transaction(async (tx: any) => {
@@ -201,10 +226,10 @@ export async function createRecommendation(doctorId: string, input: Recommendati
             data: items.map(i => ({
                 recommendationId: r.id,
                 serviceType: i.serviceType as any,
-                serviceId: String(i.serviceId),
-                nameSnapshot: String(i.name || 'Xizmat'),
-                priceSnapshot: Number(i.price) || 0,
-                quantity: Number(i.quantity) || 1,
+                serviceId: i.serviceId,
+                nameSnapshot: i.name,
+                priceSnapshot: i.price,
+                quantity: i.quantity,
             })),
         });
         return r;
