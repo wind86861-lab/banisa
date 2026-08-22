@@ -44,6 +44,9 @@ model User {
   ambulanceRequests     AmbulanceRequest[] @relation("PatientAmbulanceRequests")
   ambulanceReviews      AmbulanceReview[]  @relation("PatientAmbulanceReviews")
   dispatchOffers        DispatchOffer[]    @relation("DispatcherOffers")
+  doctorProfile         DoctorProfile?
+  recommendationsGiven    Recommendation[] @relation("DoctorRecommendations")
+  recommendationsReceived Recommendation[] @relation("PatientRecommendations")
 
   @@index([phone])
   @@index([status])
@@ -311,6 +314,7 @@ model Clinic {
   memberships            ClinicMembership[]
   roles                  ClinicRole[]
   auditLog               ClinicAuditLog[]
+  recommendations        Recommendation[]
 
   @@index([status])
   @@index([source])
@@ -547,6 +551,8 @@ model Appointment {
   services              AppointmentService[]
   logs                  AppointmentLog[]
   metadata              AppointmentMetadata[]
+  recommendationId      String?
+  recommendation        Recommendation?        @relation(fields: [recommendationId], references: [id])
   doctorReview          DoctorReview?
 
   @@index([clinicId])
@@ -1328,6 +1334,16 @@ enum Role {
   CLINIC_ADMIN
   PATIENT
   PENDING_CLINIC
+  DOCTOR
+}
+
+// Lifecycle of a doctor's recommendation basket. See DoctorProfile / Recommendation.
+enum RecommendationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  BOOKED
 }
 
 enum UserStatus {
@@ -2066,4 +2082,66 @@ model ClinicAuditLog {
   @@index([clinicId, createdAt])
   @@index([actorId])
   @@index([action])
+}
+
+// ─── SHIFOKOR (doctor referral) ──────────────────────────────────────────────
+// A doctor is a User(role=DOCTOR); this holds their application profile +
+// uploaded documents. Approval state lives in User.status (PENDING/APPROVED/…),
+// mirroring the clinic flow. Independent from the catalog `Doctor` model.
+model DoctorProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  specialty      String?
+  bio            String?
+  documents      Json     @default("[]") // [{ url, name, type }]
+  rejectionReason String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// The core: a basket a doctor recommends to one patient from a single clinic.
+model Recommendation {
+  id            String               @id @default(uuid())
+  doctorId      String
+  patientId     String
+  clinicId      String
+  status        RecommendationStatus @default(PENDING)
+  totalAmount   Int                  @default(0)
+  note          String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  expiresAt     DateTime // createdAt + 3 days
+  respondedAt   DateTime?
+  bookedAt      DateTime?
+
+  doctor        User                 @relation("DoctorRecommendations", fields: [doctorId], references: [id])
+  patient       User                 @relation("PatientRecommendations", fields: [patientId], references: [id])
+  clinic        Clinic               @relation(fields: [clinicId], references: [id])
+  items         RecommendationItem[]
+  appointments  Appointment[]
+
+  @@index([doctorId])
+  @@index([patientId])
+  @@index([clinicId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+// One recommended service. Name + price are snapshotted so later clinic edits
+// don't rewrite an already-sent recommendation.
+model RecommendationItem {
+  id               String         @id @default(uuid())
+  recommendationId String
+  serviceType      ServiceType
+  serviceId        String
+  nameSnapshot     String
+  priceSnapshot    Int            @default(0)
+  quantity         Int            @default(1)
+  createdAt        DateTime       @default(now())
+  recommendation   Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+
+  @@index([recommendationId])
 }
