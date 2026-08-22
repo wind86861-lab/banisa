@@ -9,6 +9,7 @@ import {
     getByService,
     getTransactions,
     exportCsv,
+    getReferrals,
 } from './reports.controller';
 
 const router = Router();
@@ -21,6 +22,7 @@ router.get('/summary', VIEW, getSummary);
 router.get('/revenue', VIEW, getRevenueSeries);
 router.get('/by-method', VIEW, getByMethod);
 router.get('/by-service', VIEW, getByService);
+router.get('/referrals', VIEW, getReferrals);
 router.get('/transactions', VIEW, getTransactions);
 router.get('/export', requireClinicPermission(ClinicPermission.REPORTS_EXPORT), exportCsv);
 

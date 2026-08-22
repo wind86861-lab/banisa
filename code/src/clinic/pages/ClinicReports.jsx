@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     BarChart3, TrendingUp, TrendingDown, Minus, Download,
     DollarSign, Receipt, AlertCircle, Calculator,
-    Activity, PieChart as PieIcon, ListOrdered, ChevronLeft, ChevronRight,
+    Activity, PieChart as PieIcon, ListOrdered, ChevronLeft, ChevronRight, Stethoscope,
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -320,6 +320,11 @@ export default function ClinicReports() {
         queryFn: async () => (await api.get('/clinic/reports/by-service', { params: { range, limit: 6 } })).data?.data?.items ?? [],
     });
 
+    const { data: referrals, isLoading: referralsLoading } = useQuery({
+        queryKey: ['clinic', 'reports', 'referrals', range],
+        queryFn: async () => (await api.get('/clinic/reports/referrals', { params: { range } })).data?.data ?? { rows: [], totals: {} },
+    });
+
     const exportUrl = useMemo(() => {
         const token = localStorage.getItem('banisa-token') || '';
         // Build via API base. We rely on cookie/header auth on the same origin in prod.
@@ -450,6 +455,41 @@ export default function ClinicReports() {
                     </div>
                     <TopServices items={byService} isLoading={serviceLoading} />
                 </div>
+            </div>
+
+            {/* Doctor referrals — bookings that came from doctor recommendations */}
+            <div className="rep-card" style={{ marginTop: 18 }}>
+                <div className="rep-card__title"><Stethoscope size={14} /> Shifokor tavsiyalari</div>
+                {referralsLoading ? (
+                    <div style={{ padding: 30, textAlign: 'center', color: '#8093a8' }}>Yuklanmoqda...</div>
+                ) : !referrals?.rows?.length ? (
+                    <div style={{ padding: 30, textAlign: 'center', color: '#8093a8' }}>Bu davrda shifokor tavsiyasidan bron bo'lmagan.</div>
+                ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className="rep-tx-table">
+                            <thead>
+                                <tr>
+                                    <th>Shifokor</th>
+                                    <th style={{ textAlign: 'right' }}>Bemorlar</th>
+                                    <th style={{ textAlign: 'right' }}>Bronlar</th>
+                                    <th style={{ textAlign: 'right' }}>Xizmatlar</th>
+                                    <th style={{ textAlign: 'right' }}>Summa</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {referrals.rows.map((r) => (
+                                    <tr key={r.doctorId}>
+                                        <td>{r.doctorName}</td>
+                                        <td style={{ textAlign: 'right' }}>{r.patients}</td>
+                                        <td style={{ textAlign: 'right' }}>{r.bookings}</td>
+                                        <td style={{ textAlign: 'right' }}>{r.services}</td>
+                                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{fmtCompact(r.sum)} so'm</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         </div>
     );

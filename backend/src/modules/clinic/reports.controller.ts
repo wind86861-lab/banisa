@@ -336,3 +336,40 @@ export const exportCsv = async (req: AuthRequest, res: Response) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send('﻿' + csv); // BOM for Excel UTF-8
 };
+
+// ─── GET referrals — bookings that came from doctor recommendations ───────────
+export const getReferrals = async (req: AuthRequest, res: Response) => {
+    const clinicId = await resolveClinicId(req.user!.id);
+    if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
+    const { from, to } = rangeWindow(String(req.query.range || '30d'));
+
+    const recs: any[] = await (prisma as any).recommendation.findMany({
+        where: { clinicId, status: 'BOOKED', bookedAt: { gte: from, lte: to } },
+        include: {
+            doctor: { select: { id: true, firstName: true, lastName: true, phone: true } },
+            items: { select: { quantity: true } },
+        },
+    });
+
+    const map = new Map<string, any>();
+    for (const r of recs) {
+        const g = map.get(r.doctorId) || {
+            doctorId: r.doctorId,
+            doctorName: [r.doctor?.firstName, r.doctor?.lastName].filter(Boolean).join(' ') || r.doctor?.phone || 'Shifokor',
+            bookings: 0, patientSet: new Set<string>(), services: 0, sum: 0,
+        };
+        g.bookings += 1;
+        g.patientSet.add(r.patientId);
+        g.services += (r.items || []).reduce((s: number, i: any) => s + (i.quantity || 1), 0);
+        g.sum += r.totalAmount || 0;
+        map.set(r.doctorId, g);
+    }
+    const rows = [...map.values()]
+        .map(g => ({ doctorId: g.doctorId, doctorName: g.doctorName, bookings: g.bookings, patients: g.patientSet.size, services: g.services, sum: g.sum }))
+        .sort((a, b) => b.sum - a.sum);
+    const totals = rows.reduce((t, r) => ({
+        bookings: t.bookings + r.bookings, patients: t.patients + r.patients, services: t.services + r.services, sum: t.sum + r.sum,
+    }), { bookings: 0, patients: 0, services: 0, sum: 0 });
+
+    res.json({ success: true, data: { rows, totals } });
+};
