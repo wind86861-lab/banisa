@@ -29,6 +29,7 @@ export const DEFAULT_CHANNELS: Record<EventType, Channel[]> = {
     clinic_daily_report: ['inapp', 'telegram'],
     // Fallback
     general: ['inapp'],
+    recommendation_received: ['inapp', 'telegram'],
 };
 
 /**

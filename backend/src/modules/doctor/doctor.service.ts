@@ -5,6 +5,7 @@ import prisma from '../../config/database';
 import { env } from '../../config/env';
 import { verifyInitData } from '../telegram/miniapp.auth';
 import { AppError, ErrorCodes } from '../../utils/errors';
+import { dispatch as dispatchNotification } from '../notifications/notification.dispatcher';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -208,7 +209,24 @@ export async function createRecommendation(doctorId: string, input: Recommendati
         });
         return r;
     });
-    // TODO(P3): dispatch `recommendation_received` to the patient's bot.
+
+    // Notify the patient (in-app + bot). Best-effort — never block creation.
+    try {
+        await dispatchNotification({
+            type: 'recommendation_received',
+            userId: lk.patientId!,
+            recommendationId: rec.id,
+            doctorName: [doctor.firstName, doctor.lastName].filter(Boolean).join(' ') || 'Shifokor',
+            clinicName: clinic.nameUz,
+            itemCount: items.length,
+            total,
+            link: `/user/recommendation/${rec.id}`,
+            priority: 'HIGH',
+        } as any);
+    } catch (e) {
+        console.error('[recommendation] notify failed', e);
+    }
+
     return { id: rec.id, status: rec.status, totalAmount: total, expiresAt, patientName: lk.name };
 }
 

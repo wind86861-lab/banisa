@@ -55,6 +55,7 @@ import { telegramWebhookRouter } from './modules/telegram/telegram.webhook';
 import metadataTemplateRoutes from './modules/metadata/metadata-template.routes';
 import appointmentMetadataRoutes from './modules/metadata/appointment-metadata.routes';
 import { doctorRouter, adminDoctorRouter } from './modules/doctor/doctor.routes';
+import { patientRecommendationRouter } from './modules/recommendation/recommendation.patient.routes';
 
 const app = express();
 
@@ -183,6 +184,7 @@ app.use('/api/user/auth', userAuthRoutes);
 // miniapp-login + widget-login routes before they could ever run.
 app.use('/api/user/auth/telegram', telegramPublicRouter);
 app.use('/api/user/appointments', patientAppointmentRouter);
+app.use('/api/user/recommendations', patientRecommendationRouter);
 app.use('/api/user', userRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/diagnostics', diagnosticRoutes);

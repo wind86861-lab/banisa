@@ -16,6 +16,7 @@ export type EventType =
     | 'booking_reminder_1h'
     | 'payment_received'
     | 'review_request'             // Service done → ask the patient to review it
+    | 'recommendation_received'    // A doctor sent the patient a service recommendation
     | 'queue_called'
     // Clinic-facing
     | 'clinic_new_booking'
@@ -79,6 +80,14 @@ export interface GeneralEvent extends BaseEvent<'general'> {
     data?: Record<string, any>;
 }
 
+export interface RecommendationEvent extends BaseEvent<'recommendation_received'> {
+    recommendationId: string;
+    doctorName?: string;
+    clinicName?: string;
+    itemCount?: number;
+    total?: number;
+}
+
 export interface ClinicDailyReportEvent extends BaseEvent<'clinic_daily_report'> {
     /** Aggregated numbers the template renders into the body. */
     total: number;
@@ -89,4 +98,4 @@ export interface ClinicDailyReportEvent extends BaseEvent<'clinic_daily_report'>
     pending: number;
 }
 
-export type NotificationEvent = BookingEvent | PaymentEvent | ReviewRequestEvent | GeneralEvent | ClinicDailyReportEvent;
+export type NotificationEvent = BookingEvent | PaymentEvent | ReviewRequestEvent | GeneralEvent | ClinicDailyReportEvent | RecommendationEvent;

@@ -289,5 +289,19 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 telegram: `<b>${esc(event.title)}</b>\n${esc(event.body)}`,
             };
         }
+        case 'recommendation_received': {
+            const dr = event.doctorName || 'Shifokor';
+            const cl = event.clinicName ? ` (${event.clinicName})` : '';
+            const cnt = event.itemCount || 0;
+            const sum = event.total ? ` — ${fmtPrice(event.total)} ${t.som}` : '';
+            const title = 'Yangi tavsiya';
+            const body = `${dr} sizga ${cnt} ta xizmat tavsiya qildi${cl}${sum}. Ko'rib chiqing.`;
+            return {
+                title,
+                body,
+                sms: `${t.smsPrefix} ${body}`.slice(0, 160),
+                telegram: `<b>🩺 ${esc(title)}</b>\n${esc(body)}`,
+            };
+        }
     }
 }

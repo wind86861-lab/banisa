@@ -36,6 +36,7 @@ const DoctorRegisterPage = lazy(() => import('./doctor-portal/DoctorRegisterPage
 const DoctorHome = lazy(() => import('./doctor-portal/DoctorHome'));
 const DoctorRecommend = lazy(() => import('./doctor-portal/DoctorRecommend'));
 const DoctorRecommendations = lazy(() => import('./doctor-portal/DoctorRecommendations'));
+const RecommendationPage = lazy(() => import('./user/pages/RecommendationPage'));
 const AppointmentsPage = lazy(() => import('./admin/pages/AppointmentsPage'));
 const Users = lazy(() => import('./pages/Users'));
 const MetadataTemplates = lazy(() => import('./admin/pages/MetadataTemplates'));
@@ -198,6 +199,7 @@ function App() {
                                     <Route path="/user/notifications" element={<UserGuard><UserNotificationsPage /></UserGuard>} />
                                     <Route path="/user/notification-settings" element={<UserGuard><UserNotificationSettings /></UserGuard>} />
                                     <Route path="/user/appointments" element={<UserGuard><UserAppointments /></UserGuard>} />
+                                    <Route path="/user/recommendation/:id" element={<UserGuard><RecommendationPage /></UserGuard>} />
                                     <Route path="/user/appointments/:id" element={<UserGuard><AppointmentDetailPage /></UserGuard>} />
                                     <Route path="/user/cart" element={<UserGuard><CartPage /></UserGuard>} />
                                     <Route path="/cart" element={<Navigate to="/user/cart" replace />} />
