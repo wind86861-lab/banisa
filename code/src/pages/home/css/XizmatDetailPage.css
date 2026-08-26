@@ -98,6 +98,29 @@
     color: white;
 }
 
+/* Mobile back pill — desktop already has the top nav + breadcrumb, so it's
+   mobile-only. Sits on the dark header as a translucent white pill. */
+.xd-mobile-back {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 16px;
+    padding: 8px 14px 8px 11px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.18s ease, transform 0.12s ease;
+}
+.xd-mobile-back:active {
+    background: rgba(255, 255, 255, 0.22);
+    transform: scale(0.97);
+}
+
 .xd-title {
     font-size: 32px;
     font-weight: 700;
@@ -1717,6 +1740,11 @@
     /* Show mobile-only sections on mobile */
     .xd-mobile-only {
         display: block;
+    }
+
+    /* Back pill only on mobile */
+    .xd-mobile-back {
+        display: inline-flex;
     }
 
     /* Hide the desktop sidebar duplicates (booking card, tags, related) */

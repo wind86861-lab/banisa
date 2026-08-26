@@ -436,6 +436,10 @@ export default function XizmatDetailPage() {
             {/* ── PAGE HEADER (breadcrumb + title) ── */}
             <section className="xd-header">
                 <div className="xd-container">
+                    <button className="xd-mobile-back" onClick={() => navigate(-1)} aria-label="Orqaga">
+                        <ArrowLeft size={18} />
+                        <span>Orqaga</span>
+                    </button>
                     <h1 className="xd-title">{svc.nameUz}</h1>
                     <div className="xd-header-meta">
                         <Link to="/xizmatlar" className="xd-meta-link"><Beaker size={14} /> Xizmatlar</Link>
