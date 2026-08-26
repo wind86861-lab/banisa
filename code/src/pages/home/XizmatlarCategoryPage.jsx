@@ -210,6 +210,13 @@ export default function XizmatlarCategoryPage() {
     // and a click on either matched only part of the set.
     const normSpec = (s) => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim() : '');
 
+    // Region names come from free-form admin input, so the same place shows up
+    // as 'toshkent', 'Toshkent', 'Toshkent ' etc. and split into duplicate rows
+    // (each with its own partial count). Canonicalize to a lowercase key for
+    // grouping + matching, and Title-Case it for a clean display label.
+    const normRegion = (r) => (typeof r === 'string' ? r.replace(/\s+/g, ' ').trim().toLowerCase() : '');
+    const regionLabel = (key) => key.replace(/(^|[\s-])([\p{L}])/gu, (_, sep, ch) => sep + ch.toUpperCase());
+
     const subcategories = useMemo(() => {
         const map = {};
         categoryPool.forEach(s => {
@@ -226,12 +233,15 @@ export default function XizmatlarCategoryPage() {
     }, [categoryPool]);
 
     const dynamicRegions = useMemo(() => {
-        const map = {};
+        const map = new Map(); // canonical key -> count
         categoryPool.forEach(s => {
-            const r = s.clinic?.region;
-            if (r) map[r] = (map[r] || 0) + 1;
+            const key = normRegion(s.clinic?.region);
+            if (!key) return;
+            map.set(key, (map.get(key) || 0) + 1);
         });
-        return Object.entries(map).map(([id, count]) => ({ id, count })).sort((a, b) => b.count - a.count);
+        return [...map.entries()]
+            .map(([id, count]) => ({ id, label: regionLabel(id), count }))
+            .sort((a, b) => b.count - a.count);
     }, [categoryPool]);
 
     const filtered = useMemo(() => {
@@ -248,7 +258,7 @@ export default function XizmatlarCategoryPage() {
             );
         }
         if (minRating > 0) list = list.filter(s => (s.rating || 0) >= minRating);
-        if (selectedRegions.length) list = list.filter(s => selectedRegions.includes(s.clinic?.region));
+        if (selectedRegions.length) list = list.filter(s => selectedRegions.includes(normRegion(s.clinic?.region)));
 
         switch (sortBy) {
             case 'price_asc': list.sort((a, b) => a.price - b.price); break;
@@ -450,7 +460,7 @@ export default function XizmatlarCategoryPage() {
                                                 checked={selectedRegions.includes(r.id)}
                                                 onChange={() => toggleRegion(r.id)}
                                             />
-                                            <span>{r.id}</span>
+                                            <span>{r.label}</span>
                                             <span className="xc-region-count">{r.count}</span>
                                         </label>
                                     ))}

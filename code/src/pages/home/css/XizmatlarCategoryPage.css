@@ -692,7 +692,9 @@
   inset: 0;
   background: rgba(3, 27, 78, 0.5);
   backdrop-filter: blur(4px);
-  z-index: 999;
+  /* Above the fixed bottom nav (.cm-botnav z-index 9000) — otherwise the nav
+     rendered on top of the sheet and hid its Tozalash / Ko'rish actions. */
+  z-index: 9500;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -880,7 +882,15 @@
 .xc-drawer-actions {
   display: flex;
   gap: 10px;
-  margin-top: 8px;
+  /* Sticky footer inside the scrollable sheet — the actions stay reachable even
+     with a long region list, and the negative margins + padding let the white
+     bar span the sheet's full width and sit flush at its padded bottom edge. */
+  position: sticky;
+  bottom: calc(-1 * (24px + env(safe-area-inset-bottom, 0px)));
+  margin: 8px -20px calc(-1 * (24px + env(safe-area-inset-bottom, 0px)));
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: #fff;
+  border-top: 1px solid #eef2f8;
 }
 
 .xc-drawer-clear {
