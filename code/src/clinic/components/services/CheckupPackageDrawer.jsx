@@ -777,7 +777,14 @@ export default function CheckupPackageDrawer({
         };
         setForm(next);
         setInitialFormSnapshot(JSON.stringify(next));
-    }, [open, pkg]);
+        // Depend on pkg?.id, NOT the whole pkg object: react-query refetches
+        // (staleTime / refetchOnWindowFocus) hand us a NEW pkg object with the
+        // same id while the drawer is open. Depending on `pkg` re-ran this
+        // effect on every such refetch and wiped the admin's in-progress edits
+        // (e.g. a discount they'd just typed). Keyed on the id it only re-seeds
+        // on open or when a different package is opened.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, pkg?.id]);
 
     const tryClose = () => {
         if (saving) return;
@@ -986,8 +993,14 @@ export default function CheckupPackageDrawer({
                     {/* Unsaved-changes confirmation */}
                     {confirmClose && (
                         <div style={{
+                            // Must sit ABOVE the drawer (.ca-drawer z-index 1201)
+                            // and its backdrop (.ca-backdrop 1200) — at the old
+                            // 1001 this confirm dialog rendered BEHIND them, so it
+                            // looked broken (off to the side, dimmed) and its
+                            // buttons were unclickable: the drawer backdrop on top
+                            // swallowed the click and fired tryClose instead.
                             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300,
                         }}>
                             <div style={{
                                 background: 'var(--bg-card)', borderRadius: 12, padding: 24,
