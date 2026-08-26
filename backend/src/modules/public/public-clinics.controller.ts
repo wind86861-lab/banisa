@@ -346,6 +346,12 @@ export const getPublicClinicDetail = async (req: Request, res: Response, next: N
                 // the row directly. p.id (CheckupPackage source id) led to
                 // 404s because the detail endpoint looks up ClinicCheckupPackage.id.
                 id: link.id,
+                // …but add-to-cart + booking need the BASE CheckupPackage id
+                // (cart.addToCart / resolveCartLine look up CheckupPackage by
+                // serviceId). Without this the clinic page sent link.id and the
+                // checkout silently found no service. Mirrors the /public/services
+                // feed + service-detail shapes, which both expose serviceId.
+                serviceId: p.id,
                 type: 'CHECKUP',
                 nameUz: p.nameUz,
                 nameRu: p.nameRu,

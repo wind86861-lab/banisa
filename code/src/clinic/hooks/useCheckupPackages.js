@@ -14,13 +14,15 @@ export const useCheckupPackages = () => {
 export const useActivatePackage = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ packageId, itemPrices, clinicPrice, customNotes, customizationData }) => {
+        // Spread the whole payload so new fields (discountPercent, …) reach the
+        // API automatically. Previously this destructured a fixed set and
+        // silently dropped discountPercent → a discount set during first
+        // activation was never saved (only later edits, via useUpdatePackage,
+        // persisted it).
+        mutationFn: async ({ packageId, ...rest }) => {
             const { data } = await api.post('/clinic/checkup-packages/activate', {
                 packageId,
-                itemPrices,
-                clinicPrice,
-                customNotes,
-                customizationData,
+                ...rest,
             });
             return data.data;
         },

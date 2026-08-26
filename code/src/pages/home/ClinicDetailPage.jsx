@@ -188,7 +188,12 @@ export default function ClinicDetailPage() {
         const resolved = await waitForUser();
         if (!resolved) { setPendingBooking({ service: svc, serviceType, action: 'cart' }); setShowAuthModal(true); return; }
         const typeMap = { diagnostic: 'DIAGNOSTIC', surgical: 'SURGICAL', checkup: 'CHECKUP', sanatorium: 'SANATORIUM' };
-        const result = await addToCart?.(clinic.id, typeMap[serviceType] || 'DIAGNOSTIC', svc.id, 1);
+        // Cart + booking key off the BASE service id. Checkups expose it as
+        // serviceId (svc.id is the ClinicCheckupPackage link id, which the cart
+        // can't resolve); other types have serviceId === id, so this is safe
+        // for all of them.
+        const cartServiceId = svc.serviceId || svc.id;
+        const result = await addToCart?.(clinic.id, typeMap[serviceType] || 'DIAGNOSTIC', cartServiceId, 1);
         setCartFeedback((p) => ({ ...p, [svc.id]: result?.success ? 'added' : 'error' }));
         setTimeout(() => setCartFeedback((p) => { const n = { ...p }; delete n[svc.id]; return n; }), 2000);
     };
@@ -943,7 +948,8 @@ export default function ClinicDetailPage() {
                             if (pendingBooking.action === 'cart') {
                                 const typeMap = { diagnostic: 'DIAGNOSTIC', surgical: 'SURGICAL', checkup: 'CHECKUP', sanatorium: 'SANATORIUM' };
                                 const t = typeMap[pendingBooking.serviceType] || 'DIAGNOSTIC';
-                                const result = await addToCart?.(clinic.id, t, pendingBooking.service.id, 1);
+                                const psid = pendingBooking.service.serviceId || pendingBooking.service.id;
+                                const result = await addToCart?.(clinic.id, t, psid, 1);
                                 setCartFeedback((p) => ({ ...p, [pendingBooking.service.id]: result?.success ? 'added' : 'error' }));
                                 setTimeout(() => setCartFeedback((p) => { const n = { ...p }; delete n[pendingBooking.service.id]; return n; }), 2000);
                             } else {
