@@ -79,9 +79,35 @@ export default function PackageCard({ package: pkg }) {
                         </button>
 
                         {isActivated ? (
-                            <span style={{ fontSize: 12, fontWeight: 700, color: '#10b981' }}>
-                                Klinika narxi: {fmt(pkg.clinicPackage?.clinicPrice)} UZS
-                            </span>
+                            (() => {
+                                const base = pkg.clinicPackage?.clinicPrice || 0;
+                                const disc = pkg.clinicPackage?.discountPercent || 0;
+                                const final = disc > 0 ? Math.round(base * (1 - disc / 100)) : base;
+                                return (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                        {disc > 0 ? (
+                                            <>
+                                                <span style={{ fontSize: 11, textDecoration: 'line-through', color: 'var(--text-muted)' }}>
+                                                    {fmt(base)}
+                                                </span>
+                                                <span style={{ fontSize: 12, fontWeight: 700, color: '#10b981' }}>
+                                                    Klinika narxi: {fmt(final)} UZS
+                                                </span>
+                                                <span style={{
+                                                    fontSize: 10, fontWeight: 700, color: '#dc2626',
+                                                    background: '#fee2e2', padding: '1px 6px', borderRadius: 6,
+                                                }}>
+                                                    −{disc}%
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <span style={{ fontSize: 12, fontWeight: 700, color: '#10b981' }}>
+                                                Klinika narxi: {fmt(base)} UZS
+                                            </span>
+                                        )}
+                                    </span>
+                                );
+                            })()
                         ) : (
                             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                                 Narxni klinika belgilaydi

@@ -83,6 +83,10 @@ export class ClinicCheckupService {
                     ? {
                         id: cp.id,
                         clinicPrice: cp.clinicPrice,
+                        // Without this the admin UI never saw the saved discount:
+                        // the card couldn't show it and the edit drawer reset the
+                        // field to 0 on every open.
+                        discountPercent: cp.discountPercent ?? 0,
                         isActive: cp.isActive,
                         customNotes: cp.customNotes,
                         itemPrices: cp.itemPrices,

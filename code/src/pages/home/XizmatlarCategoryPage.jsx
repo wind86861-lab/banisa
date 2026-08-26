@@ -182,6 +182,14 @@ export default function XizmatlarCategoryPage() {
     // breakdown.
     const categoryPool = useMemo(() => {
         const filteredByCat = ALL_SERVICES.filter(s => s.category === category);
+        // Checkups are clinic-specific offers: each ClinicCheckupPackage has its
+        // own price/discount and the detail page keys off the clinic-package
+        // link id (s.id) — it can't merge clinics the way the diagnostic detail
+        // page merges by base serviceId. So deduping checkups by serviceId would
+        // silently drop every clinic but the cheapest (e.g. two clinics both
+        // offering "KARDIOLOGIK SKRINING №1" → only one shown, the other
+        // unreachable). Keep one card per clinic-checkup instead.
+        if (category === 'checkup') return filteredByCat;
         const byService = new Map();
         for (const s of filteredByCat) {
             const key = s.serviceId || s.id;
