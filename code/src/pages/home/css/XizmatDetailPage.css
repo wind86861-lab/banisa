@@ -1686,6 +1686,21 @@
     display: none;
 }
 
+/* Desktop-only sidebar blocks (booking card, tags, related) — hidden on mobile,
+   where the content column carries the hoisted booking card + tags + related. */
+.xd-only-desktop {
+    display: block;
+}
+
+/* The booking card hoisted to the top of the content column on mobile:
+   give it breathing room before the description + drop the sticky look. */
+.xd-mobile-booking {
+    margin-bottom: 24px;
+}
+.xd-mobile-booking .xd-sidebar-booking {
+    position: static;
+}
+
 @media (max-width: 960px) {
     .xd-layout {
         grid-template-columns: 1fr;
@@ -1702,6 +1717,11 @@
     /* Show mobile-only sections on mobile */
     .xd-mobile-only {
         display: block;
+    }
+
+    /* Hide the desktop sidebar duplicates (booking card, tags, related) */
+    .xd-only-desktop {
+        display: none;
     }
 }
 

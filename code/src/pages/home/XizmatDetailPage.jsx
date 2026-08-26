@@ -340,6 +340,94 @@ export default function XizmatDetailPage() {
     const hasPostOp = svc.postOpInstructions || svc.postOpDiet || svc.postOpActivityRestrictions || svc.postOpFollowUpDays;
     const hasSurgicalPrep = svc.preOpFastingHours != null || svc.preOpMedicationStop || svc.preOpTestsRequired;
 
+    // Price + booking CTA. Rendered in TWO slots: hoisted to the top of the
+    // content column on mobile (so the patient sees the price + book action
+    // immediately, not buried under every clinical detail), and in the sticky
+    // sidebar on desktop. Each slot's wrapper controls which breakpoint shows it.
+    const bookingCard = (
+        <div className="xd-sidebar-booking">
+            <div className="xd-sb-header">
+                {activeClinic?.discountPercent > 0 ? (
+                    <>
+                        {/* 1. ANCHOR — original price FIRST, BIG */}
+                        <div className="xd-sb-label" style={{ opacity: 0.9, marginBottom: 2 }}>Asl narxi</div>
+                        <div className="xd-sb-original-price" style={{ fontSize: 28, fontWeight: 700, textDecoration: 'line-through', opacity: 0.95, margin: '0 0 10px' }}>
+                            {fmt(activeClinic.originalPrice)} so'm
+                        </div>
+
+                        {/* 2. DISCOUNT BADGE — eye-catching */}
+                        <div className="xd-sb-discount-badge" style={{
+                            fontSize: 15,
+                            padding: '5px 12px',
+                            background: '#fff',
+                            color: '#e63946',
+                            borderRadius: 24,
+                            fontWeight: 800,
+                            marginBottom: 10,
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                        }}>
+                            <span style={{ fontSize: 18 }}>🔥</span> -{activeClinic.discountPercent}% CHEGIRMA
+                        </div>
+
+                        {/* 3. FINAL PRICE — looks cheap after anchor */}
+                        <div className="xd-sb-label" style={{ opacity: 0.9, marginBottom: 2 }}>Siz uchun</div>
+                        <div className="xd-sb-price" style={{ fontSize: 34, fontWeight: 800, margin: '0 0 4px' }}>
+                            {fmt(activeClinic.price)} so'm
+                        </div>
+
+                        {/* 4. SAVINGS — gold message, prominent */}
+                        <div style={{
+                            marginTop: 10,
+                            padding: '8px 12px',
+                            background: 'rgba(255,255,255,0.35)',
+                            borderRadius: 10,
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: '#fff',
+                            textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                        }}>
+                            <span style={{ fontSize: 16 }}>✓</span> Siz {fmt(activeClinic.originalPrice - activeClinic.price)} so'm tejaysiz
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <span className="xd-sb-label">Narxi</span>
+                        <div className="xd-sb-price">{clinics.length > 0 ? `${fmt(clinics[0].price)} so'm` : `${fmt(svc.priceRecommended || svc.priceMin)} so'm`}</div>
+                    </>
+                )}
+            </div>
+            <div className="xd-sb-body">
+                {bookingError && (
+                    <div style={{ padding: '8px 12px', background: '#FEE2E2', color: '#991B1B', borderRadius: 8, fontSize: 13, marginBottom: 8 }}>
+                        {bookingError}
+                    </div>
+                )}
+                <div className="xd-sb-main-actions">
+                    <button className="xd-sb-cart-btn" onClick={handleAddToCart} title="Savatga qo'shish">
+                        <ShoppingCart size={20} />
+                    </button>
+                    <button className="xd-sb-book-btn" onClick={handleBooking}>
+                        <Calendar size={20} /> Bron qilish
+                    </button>
+                </div>
+                <div className="xd-sb-actions">
+                    <button className={`xd-sb-action ${liked ? 'liked' : ''}`} onClick={() => setLiked(!liked)}>
+                        <Heart size={18} fill={liked ? '#e74c3c' : 'none'} />
+                    </button>
+                    <button className="xd-sb-action" onClick={() => navigator.clipboard?.writeText(window.location.href)}>
+                        <Share2 size={18} />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
     return (
         <div className="xd-page">
             <TopBar />
@@ -395,6 +483,10 @@ export default function XizmatDetailPage() {
                                 )}
                             </div>
                         )}
+
+                        {/* Booking card hoisted to the top on mobile — price + CTA
+                            right under the image, before all the clinical detail. */}
+                        <div className="xd-mobile-only xd-mobile-booking">{bookingCard}</div>
 
                         {/* Service Description */}
                         {activeDescription && (
@@ -850,88 +942,8 @@ export default function XizmatDetailPage() {
                     {/* ═══ RIGHT: SIDEBAR ═══ */}
                     <aside className="xd-sidebar">
 
-                        {/* Payment / Booking Card */}
-                        <div className="xd-sidebar-booking">
-                            <div className="xd-sb-header">
-                                {activeClinic?.discountPercent > 0 ? (
-                                    <>
-                                        {/* 1. ANCHOR — original price FIRST, BIG */}
-                                        <div className="xd-sb-label" style={{ opacity: 0.9, marginBottom: 2 }}>Asl narxi</div>
-                                        <div className="xd-sb-original-price" style={{ fontSize: 28, fontWeight: 700, textDecoration: 'line-through', opacity: 0.95, margin: '0 0 10px' }}>
-                                            {fmt(activeClinic.originalPrice)} so'm
-                                        </div>
-
-                                        {/* 2. DISCOUNT BADGE — eye-catching */}
-                                        <div className="xd-sb-discount-badge" style={{
-                                            fontSize: 15,
-                                            padding: '5px 12px',
-                                            background: '#fff',
-                                            color: '#e63946',
-                                            borderRadius: 24,
-                                            fontWeight: 800,
-                                            marginBottom: 10,
-                                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: 4,
-                                        }}>
-                                            <span style={{ fontSize: 18 }}>🔥</span> -{activeClinic.discountPercent}% CHEGIRMA
-                                        </div>
-
-                                        {/* 3. FINAL PRICE — looks cheap after anchor */}
-                                        <div className="xd-sb-label" style={{ opacity: 0.9, marginBottom: 2 }}>Siz uchun</div>
-                                        <div className="xd-sb-price" style={{ fontSize: 34, fontWeight: 800, margin: '0 0 4px' }}>
-                                            {fmt(activeClinic.price)} so'm
-                                        </div>
-
-                                        {/* 4. SAVINGS — gold message, prominent */}
-                                        <div style={{
-                                            marginTop: 10,
-                                            padding: '8px 12px',
-                                            background: 'rgba(255,255,255,0.35)',
-                                            borderRadius: 10,
-                                            fontSize: 14,
-                                            fontWeight: 700,
-                                            color: '#fff',
-                                            textShadow: '0 1px 2px rgba(0,0,0,0.2)',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                        }}>
-                                            <span style={{ fontSize: 16 }}>✓</span> Siz {fmt(activeClinic.originalPrice - activeClinic.price)} so'm tejaysiz
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <span className="xd-sb-label">Narxi</span>
-                                        <div className="xd-sb-price">{clinics.length > 0 ? `${fmt(clinics[0].price)} so'm` : `${fmt(svc.priceRecommended || svc.priceMin)} so'm`}</div>
-                                    </>
-                                )}
-                            </div>
-                            <div className="xd-sb-body">
-                                {bookingError && (
-                                    <div style={{ padding: '8px 12px', background: '#FEE2E2', color: '#991B1B', borderRadius: 8, fontSize: 13, marginBottom: 8 }}>
-                                        {bookingError}
-                                    </div>
-                                )}
-                                <div className="xd-sb-main-actions">
-                                    <button className="xd-sb-cart-btn" onClick={handleAddToCart} title="Savatga qo'shish">
-                                        <ShoppingCart size={20} />
-                                    </button>
-                                    <button className="xd-sb-book-btn" onClick={handleBooking}>
-                                        <Calendar size={20} /> Bron qilish
-                                    </button>
-                                </div>
-                                <div className="xd-sb-actions">
-                                    <button className={`xd-sb-action ${liked ? 'liked' : ''}`} onClick={() => setLiked(!liked)}>
-                                        <Heart size={18} fill={liked ? '#e74c3c' : 'none'} />
-                                    </button>
-                                    <button className="xd-sb-action" onClick={() => navigator.clipboard?.writeText(window.location.href)}>
-                                        <Share2 size={18} />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                        {/* Payment / Booking Card — desktop sidebar slot (mobile shows the hoisted copy up top) */}
+                        <div className="xd-only-desktop">{bookingCard}</div>
 
                         {/* General Information Box */}
                         <div className="xd-sidebar-box">
@@ -973,8 +985,8 @@ export default function XizmatDetailPage() {
                             </div>
                         )}
 
-                        {/* Tags */}
-                        <div className="xd-sidebar-box">
+                        {/* Tags — desktop only; the content column carries the mobile tags row */}
+                        <div className="xd-sidebar-box xd-only-desktop">
                             <h3 className="xd-sb-title">Teglar</h3>
                             <div className="xd-sb-tags">
                                 <span className="xd-stag">{catName}</span>
@@ -985,9 +997,10 @@ export default function XizmatDetailPage() {
                             </div>
                         </div>
 
-                        {/* Related Services sidebar (like "Latest Post") */}
+                        {/* Related Services sidebar — desktop only; the content column
+                            carries the mobile "O'xshash xizmatlar" grid */}
                         {related.length > 0 && (
-                            <div className="xd-sidebar-box">
+                            <div className="xd-sidebar-box xd-only-desktop">
                                 <h3 className="xd-sb-title">O'xshash xizmatlar</h3>
                                 <div className="xd-sb-related">
                                     {related.slice(0, 4).map(rel => (
