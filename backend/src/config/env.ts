@@ -59,6 +59,11 @@ export const env = {
     // feature. Discover the chat id by adding the bot to your
     // group and sending /chatid.
     SUPER_ADMIN_TG_GROUP_ID: process.env.SUPER_ADMIN_TG_GROUP_ID || '',
+    // Shared secret for the read-only Partner API (/api/partner/*) — lets a
+    // trusted external platform pull the operation (surgical) catalog. Empty
+    // disables the whole partner surface (every request 503). Generate with:
+    //   node -e "console.log('bnsa_'+require('crypto').randomBytes(24).toString('hex'))"
+    PARTNER_API_KEY: process.env.PARTNER_API_KEY || '',
 };
 
 // In production the master key must be present and the right length.
