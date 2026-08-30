@@ -33,7 +33,7 @@ function parseIds(raw: unknown, field: string): string[] {
  * Shape:
  *   {
  *     generatedAt: ISO,
- *     categories: [{ id, nameUz, nameRu, nameEn, slug, parentId, sortOrder }],
+ *     categories: [{ id, nameUz, nameRu, nameEn, slug, parentId, sortOrder, level }],  // full branch: root → soha → bo'lim
  *     operations: [{ id, nameUz, nameRu, nameEn, categoryId, isActive, updatedAt }],
  *     meta: { operationCount, categoryCount }
  *   }
@@ -70,20 +70,45 @@ export const getOperations = async (req: Request, res: Response, next: NextFunct
         // the distinct category ids from the operation set. When updatedSince
         // narrows the operations, still return the FULL active-operation category
         // set so a partner always has a name for every categoryId it may hold.
+        //
+        // Operations always live on the LEAF (level-2) category, but the partner
+        // needs the whole branch — soha (level 1) → bo'lim (level 2) — to group
+        // them, so walk parentId up to the root. Without this every returned
+        // category's parentId pointed at a row not in the response (all orphans).
+        const catSelect = {
+            id: true,
+            nameUz: true,
+            nameRu: true,
+            nameEn: true,
+            slug: true,
+            parentId: true,
+            sortOrder: true,
+            level: true,
+        };
         const catWhere: any = { surgicalServices: { some: includeInactive ? {} : { isActive: true } } };
-        const categories = await prisma.serviceCategory.findMany({
-            where: catWhere,
-            orderBy: [{ sortOrder: 'asc' }, { nameUz: 'asc' }],
-            select: {
-                id: true,
-                nameUz: true,
-                nameRu: true,
-                nameEn: true,
-                slug: true,
-                parentId: true,
-                sortOrder: true,
-            },
-        });
+        let categories = await prisma.serviceCategory.findMany({ where: catWhere, select: catSelect });
+
+        // Climb ancestor levels until every parentId resolves within the set.
+        // The tree is 3 deep, so this loops at most twice.
+        const seen = new Set(categories.map(c => c.id));
+        let missing = categories
+            .map(c => c.parentId)
+            .filter((id): id is string => typeof id === 'string' && !seen.has(id));
+        while (missing.length) {
+            const parents = await prisma.serviceCategory.findMany({
+                where: { id: { in: [...new Set(missing)] } },
+                select: catSelect,
+            });
+            if (!parents.length) break; // guard against a broken parent link / cycle
+            categories = categories.concat(parents);
+            parents.forEach(p => seen.add(p.id));
+            missing = parents
+                .map(p => p.parentId)
+                .filter((id): id is string => typeof id === 'string' && !seen.has(id));
+        }
+
+        categories.sort((a, b) =>
+            (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.nameUz.localeCompare(b.nameUz));
 
         res.set('Cache-Control', 'public, max-age=30');
         res.json({
