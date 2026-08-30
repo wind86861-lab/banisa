@@ -6,7 +6,7 @@ import {
     Home, Briefcase, Calendar, Tag,
     Building2, Users, BarChart2, Printer,
     LogOut, ChevronDown, Activity, Bell, Banknote,
-    CreditCard, Ambulance,
+    CreditCard, Ambulance, Link2, Loader2,
 } from 'lucide-react';
 import { useAuth } from '../../shared/auth/AuthContext';
 import { useMyClinicMembership } from '../hooks/useMyClinicMembership';
@@ -37,6 +37,10 @@ const NAV_GROUPS = [
             { key: 'team', label: 'Jamoa', path: '/clinic/team', icon: <Users size={20} /> },
             { key: 'reports', label: 'Hisobotlar', path: '/clinic/reports', icon: <BarChart2 size={20} /> },
             { key: 'notifications', label: 'Bildirishnomalar', path: '/clinic/notifications', icon: <Bell size={20} /> },
+            // External hand-off, not a route: mints a link ticket and redirects
+            // to KlinikaTop. Not in DIRECTOR_NAV_KEYS, so only CLINIC_ADMIN (who
+            // holds CLINIC_SETTINGS_EDIT) sees it — the backend enforces it too.
+            { key: 'klinikatop', label: "KlinikaTop'ga ulanish", action: 'connect-klinikatop', icon: <Link2 size={20} /> },
         ],
     },
 ];
@@ -76,7 +80,25 @@ export default function ClinicSidebar({ isOpen, toggleSidebar, onNavigate }) {
         })).filter(g => g.items.length > 0)
         : NAV_GROUPS;
 
-    const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
+    const isActive = (path) => path && (location.pathname === path || location.pathname.startsWith(path + '/'));
+
+    // "Connect to KlinikaTop": mint a short-lived link ticket, then follow the
+    // server-built redirect. The ticket is one-time + 60s, so we go straight to
+    // KlinikaTop while it's fresh.
+    const [connecting, setConnecting] = useState(false);
+    const handleConnectKlinikatop = async () => {
+        if (connecting) return;
+        setConnecting(true);
+        try {
+            const { data } = await api.post('/partner/link-ticket');
+            const url = data?.redirectUrl;
+            if (!url) throw new Error('no redirect url');
+            window.location.href = url;
+        } catch (e) {
+            setConnecting(false);
+            alert(e?.response?.data?.message || "KlinikaTop'ga ulanishда xatolik. Qayta urinib ko'ring.");
+        }
+    };
 
     const handleLogout = async () => {
         await logout();
@@ -170,11 +192,18 @@ export default function ClinicSidebar({ isOpen, toggleSidebar, onNavigate }) {
                                         <a
                                             href="#"
                                             className={`nav-link ${isActive(item.path) ? 'active' : ''}`}
-                                            onClick={(e) => { e.preventDefault(); navigate(item.path); onNavigate?.(); }}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                if (item.action === 'connect-klinikatop') { handleConnectKlinikatop(); return; }
+                                                navigate(item.path); onNavigate?.();
+                                            }}
                                             title={!isOpen ? item.label : undefined}
+                                            aria-busy={item.action === 'connect-klinikatop' && connecting ? true : undefined}
                                         >
                                             <span className="icon" style={{ position: 'relative' }}>
-                                                {item.icon}
+                                                {item.action === 'connect-klinikatop' && connecting
+                                                    ? <Loader2 size={20} className="ca-spin" />
+                                                    : item.icon}
                                                 {item.key === 'notifications' && unreadCount > 0 && (
                                                     <span style={{
                                                         position: 'absolute', top: -4, right: -4,

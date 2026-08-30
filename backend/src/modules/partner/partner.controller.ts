@@ -1,5 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
 import prisma from '../../config/database';
+import { env } from '../../config/env';
+import { AppError, ErrorCodes } from '../../utils/errors';
+import { ClinicRequest } from '../../middleware/clinic-permission.middleware';
+
+const MAX_IDS = 200;
+
+/** Parse a comma-separated id list from a query param; throws 400 if empty. */
+function parseIds(raw: unknown, field: string): string[] {
+    const ids = [...new Set(String(raw || '').split(',').map(s => s.trim()).filter(Boolean))];
+    if (!ids.length) throw new AppError(`${field} majburiy`, 400, ErrorCodes.VALIDATION_ERROR);
+    if (ids.length > MAX_IDS) throw new AppError(`Bir so'rovda ko'pi bilan ${MAX_IDS} ta`, 400, ErrorCodes.VALIDATION_ERROR);
+    return ids;
+}
 
 /**
  * GET /api/partner/operations
@@ -77,6 +92,112 @@ export const getOperations = async (req: Request, res: Response, next: NextFunct
             categories,
             operations,
             meta: { operationCount: operations.length, categoryCount: categories.length },
+        });
+    } catch (e) {
+        next(e);
+    }
+};
+
+/**
+ * POST /api/partner/link-ticket  (clinic session, not the partner key)
+ *
+ * The "Connect to KlinikaTop" button calls this. Returns a short-lived signed
+ * ticket that KlinikaTop verifies to identify the clinic — no form to fill in.
+ *
+ * Signed with LINK_TICKET_SECRET (HS256 = HMAC-SHA256), a SEPARATE secret from
+ * the JWT session secrets so one leak can't open both. 60s TTL because the
+ * ticket rides in a redirect URL, and a random jti so KlinikaTop can reject a
+ * replay (Banisa stores nothing). If the secret is unset/misconfigured the
+ * feature is disabled (503) rather than minting weak tickets.
+ */
+export const createLinkTicket = async (req: ClinicRequest, res: Response, next: NextFunction) => {
+    try {
+        const secret = env.LINK_TICKET_SECRET;
+        if (!secret || secret === env.JWT_ACCESS_SECRET || secret === env.JWT_SECRET) {
+            throw new AppError('KlinikaTop ulanishi sozlanmagan', 503, ErrorCodes.SERVER_ERROR);
+        }
+        const clinicId = req.clinicContext!.clinicId;
+        const userId = req.user!.id;
+        const user = await prisma.user.findUnique({ where: { id: userId }, select: { phone: true } });
+
+        const ticket = jwt.sign(
+            { clinicId, userId, phone: user?.phone ?? null },
+            secret,
+            { algorithm: 'HS256', expiresIn: '60s', jwtid: randomUUID() },
+        );
+        // Build the hand-off URL server-side so the redirect target stays a
+        // backend setting (KLINIKATOP_URL) — the panel just follows it.
+        const base = env.KLINIKATOP_URL.replace(/\/+$/, '');
+        const redirectUrl = `${base}/ulanish?ticket=${encodeURIComponent(ticket)}`;
+        // Never cache a credential.
+        res.set('Cache-Control', 'no-store');
+        res.json({ ticket, expiresIn: 60, redirectUrl });
+    } catch (e) {
+        next(e);
+    }
+};
+
+/**
+ * GET /api/partner/clinics?ids=a,b,c  (partner key)
+ *
+ * Clinic profiles so KlinikaTop can fill its own record without the clinic
+ * re-typing a form. `ids` is mandatory (400 if missing) and capped at 200 so a
+ * keyless-shaped mistake can't dump the whole clinic base.
+ */
+export const getClinics = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const ids = parseIds(req.query.ids, 'ids');
+        const rows = await prisma.clinic.findMany({
+            where: { id: { in: ids } },
+            select: {
+                id: true, nameUz: true, nameRu: true, region: true,
+                addressUz: true, addressRu: true, district: true, street: true,
+                phones: true, logo: true, status: true,
+                licenseNumber: true, licenseExpiresAt: true,
+            },
+        });
+        const clinics = rows.map(c => ({
+            id: c.id,
+            nameUz: c.nameUz,
+            nameRu: c.nameRu ?? null,
+            region: c.region,
+            // Prefer the explicit localized address; fall back to the composed
+            // region/district/street so a partner always has something to show.
+            addressUz: c.addressUz || [c.region, c.district, c.street].filter(Boolean).join(', '),
+            addressRu: c.addressRu ?? null,
+            phones: Array.isArray(c.phones) ? c.phones : [],
+            logo: c.logo ?? null,
+            status: c.status,
+            licenseNumber: c.licenseNumber ?? null,
+            licenseExpiresAt: c.licenseExpiresAt ?? null,
+        }));
+        res.set('Cache-Control', 'public, max-age=30');
+        res.json({ clinics });
+    } catch (e) {
+        next(e);
+    }
+};
+
+/**
+ * GET /api/partner/clinic-operations?clinicIds=a,b,c  (partner key)
+ *
+ * Which operations each clinic has enabled — the steady-state sync KlinikaTop
+ * pulls every ~10 min. Returns the FULL link set (active AND inactive) so a
+ * deactivation shows up as isActive:false; an incremental feed couldn't express
+ * a removal, and ClinicSurgicalService has no updatedAt to drive one anyway.
+ */
+export const getClinicOperations = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const ids = parseIds(req.query.clinicIds, 'clinicIds');
+        const links = await prisma.clinicSurgicalService.findMany({
+            where: { clinicId: { in: ids } },
+            orderBy: [{ clinicId: 'asc' }, { surgicalServiceId: 'asc' }],
+            select: { clinicId: true, surgicalServiceId: true, isActive: true },
+        });
+        res.set('Cache-Control', 'public, max-age=30');
+        res.json({
+            generatedAt: new Date().toISOString(),
+            links: links.map(l => ({ clinicId: l.clinicId, operationId: l.surgicalServiceId, isActive: l.isActive })),
         });
     } catch (e) {
         next(e);

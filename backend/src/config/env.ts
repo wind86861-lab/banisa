@@ -64,12 +64,32 @@ export const env = {
     // disables the whole partner surface (every request 503). Generate with:
     //   node -e "console.log('bnsa_'+require('crypto').randomBytes(24).toString('hex'))"
     PARTNER_API_KEY: process.env.PARTNER_API_KEY || '',
+    // Secret that signs the short-lived KlinikaTop link ticket (HMAC-SHA256).
+    // MUST be its own secret, never JWT_ACCESS_SECRET — one leaked secret must
+    // not open both the session tokens and the hand-off tickets. Empty disables
+    // the link-ticket endpoint (503). ≥32 random bytes. Generate with:
+    //   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+    LINK_TICKET_SECRET: process.env.LINK_TICKET_SECRET || '',
+    // Where the "connect to KlinikaTop" button hands the clinic off to.
+    KLINIKATOP_URL: process.env.KLINIKATOP_URL || 'https://klinikatop.uz',
 };
 
 // In production the master key must be present and the right length.
 if (IS_PROD) {
     if (!env.PAYME_MASTER_KEY || env.PAYME_MASTER_KEY.length !== 64) {
         throw new Error('[env] PAYME_MASTER_KEY must be 64 hex chars (32 bytes) in production');
+    }
+}
+
+// The link-ticket secret is optional (empty → feature disabled/503), but if it
+// IS set it must be strong and distinct from the session secret — a weak or
+// shared value would defeat the whole point of a separate hand-off secret.
+if (env.LINK_TICKET_SECRET) {
+    if (env.LINK_TICKET_SECRET.length < 32) {
+        throw new Error('[env] LINK_TICKET_SECRET must be at least 32 characters');
+    }
+    if (env.LINK_TICKET_SECRET === env.JWT_ACCESS_SECRET || env.LINK_TICKET_SECRET === env.JWT_SECRET) {
+        throw new Error('[env] LINK_TICKET_SECRET must differ from the JWT secrets');
     }
 }
 
