@@ -2007,8 +2007,8 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 18px 16px;
+  gap: 11px;
+  padding: 18px 14px;
   border: 1px solid #eef2f7;
   border-radius: 20px;
   background: #fff;
@@ -2055,9 +2055,9 @@
 }
 
 .xp-mcat-icon-wrap {
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2089,7 +2089,10 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  display: flex;
+  /* Hidden on the narrow 2-col mobile cards — icon + long label + arrow don't
+     fit, so the chevron overlapped the text. The whole card is a link anyway;
+     the arrow is decorative and returns on the wider desktop grid. */
+  display: none;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
@@ -2304,11 +2307,14 @@
 }
 
 .xp-mcat-label {
-  font-size: 15.5px;
+  font-size: 13.5px;
   font-weight: 700;
   color: #031B4E;
-  line-height: 1.3;
-  letter-spacing: -0.2px;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
+  /* Break only when a word genuinely can't fit the narrow 2-col column, so
+     multi-word labels wrap at the space and nothing overflows / clips. */
+  overflow-wrap: break-word;
 }
 
 .xp-mcat-count {
@@ -2617,6 +2623,20 @@
 
   .xp-mcat-card {
     padding: 22px 20px;
+    gap: 14px;
+  }
+
+  /* Wider desktop cards have room — bigger icon, larger label, chevron back */
+  .xp-mcat-icon-wrap {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+  }
+  .xp-mcat-label {
+    font-size: 16px;
+  }
+  .xp-mcat-arrow {
+    display: flex;
   }
 
   /* Carousels — wider container, larger mini cards */
@@ -2686,7 +2706,7 @@
   }
 
   .xp-mcat-label {
-    font-size: 14.5px;
+    font-size: 13px;
   }
 
   .xp-grid {
