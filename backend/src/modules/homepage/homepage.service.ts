@@ -24,11 +24,24 @@ const DEFAULTS: Record<string, object> = {
         subtitle: 'Explore Our Wellness Services',
     },
     topbar: {
+        // Each of the 5 items has its own label, value and enable flag so the
+        // super-admin can rename or hide any of them. A missing *Enabled flag is
+        // treated as enabled by the frontend (back-compat with older rows).
+        contactLabel: 'Aloqa',
         phone: '+998 71 123 45 67',
+        contactEnabled: true,
+        emailLabel: 'Email',
         email: 'info@banisa.uz',
+        emailEnabled: true,
         appointmentLabel: 'Onlayn Navbat',
         appointmentValue: 'Hozir Oling',
+        appointmentEnabled: true,
+        supportLabel: "Qo'llab-quvvatlash",
         workingHours: 'Dush–Juma: 09:00–18:00',
+        supportEnabled: true,
+        paymentLabel: "To'lov",
+        paymentValue: "Onlayn To'lov",
+        paymentEnabled: true,
     },
     hero: {
         badge: '24/7 EMERGENCY SERVICE',

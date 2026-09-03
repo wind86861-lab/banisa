@@ -35,6 +35,36 @@ const Field = ({ label, name, value, onChange, type = 'text', placeholder = '', 
     </div>
 );
 
+// One top-bar block: an enable toggle + its label + its value. A missing enable
+// flag counts as enabled (matches the public TopBar's back-compat default).
+const TopbarItem = ({ title, enableName, labelName, valueName, valueLabel, f, setForm, handle }) => {
+    const enabled = f[enableName] !== false;
+    return (
+        <div style={{
+            border: '1px solid rgba(148,163,184,0.28)', borderRadius: 12,
+            padding: '12px 14px', marginBottom: 12,
+            background: enabled ? 'transparent' : 'rgba(148,163,184,0.07)',
+        }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: enabled ? 12 : 0 }}>
+                <input
+                    type="checkbox"
+                    checked={enabled}
+                    onChange={e => setForm(p => ({ ...p, [enableName]: e.target.checked }))}
+                    style={{ width: 18, height: 18, accentColor: '#06b6d4', cursor: 'pointer' }}
+                />
+                <span style={{ fontWeight: 700 }}>{title}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 600, color: enabled ? '#10b981' : '#94a3b8' }}>
+                    {enabled ? "Ko'rinadi" : 'Yashirin'}
+                </span>
+            </label>
+            {enabled && <>
+                <Field label="Sarlavha (label)" name={labelName} value={f[labelName]} onChange={handle} />
+                <Field label={valueLabel} name={valueName} value={f[valueName]} onChange={handle} />
+            </>}
+        </div>
+    );
+};
+
 const UploadField = ({ label, name, value, onValueChange, hint = '' }) => {
     const [uploading, setUploading] = useState(false);
     const [showUrl, setShowUrl] = useState(false);
@@ -230,11 +260,14 @@ const SectionForm = ({ section, data, onSave, saving }) => {
             </>}
 
             {section === 'topbar' && <>
-                <Field label="Phone" name="phone" value={f.phone} onChange={handle} />
-                <Field label="Email" name="email" value={f.email} onChange={handle} />
-                <Field label="Appointment Label" name="appointmentLabel" value={f.appointmentLabel} onChange={handle} />
-                <Field label="Appointment Value" name="appointmentValue" value={f.appointmentValue} onChange={handle} />
-                <Field label="Working Hours" name="workingHours" value={f.workingHours} onChange={handle} />
+                <p className="hps-hint" style={{ margin: '0 0 4px' }}>
+                    Har bir blok uchun sarlavha (label) va qiymatni tahrirlang. Belgini olib tashlasangiz — o'sha blok saytda ko'rinmaydi.
+                </p>
+                <TopbarItem title="1-blok — Aloqa" enableName="contactEnabled" labelName="contactLabel" valueName="phone" valueLabel="Qiymat (telefon)" f={f} setForm={setForm} handle={handle} />
+                <TopbarItem title="2-blok — Email" enableName="emailEnabled" labelName="emailLabel" valueName="email" valueLabel="Qiymat (email)" f={f} setForm={setForm} handle={handle} />
+                <TopbarItem title="3-blok — Onlayn Navbat" enableName="appointmentEnabled" labelName="appointmentLabel" valueName="appointmentValue" valueLabel="Qiymat" f={f} setForm={setForm} handle={handle} />
+                <TopbarItem title="4-blok — Qo'llab-quvvatlash" enableName="supportEnabled" labelName="supportLabel" valueName="workingHours" valueLabel="Qiymat (ish vaqti)" f={f} setForm={setForm} handle={handle} />
+                <TopbarItem title="5-blok — To'lov" enableName="paymentEnabled" labelName="paymentLabel" valueName="paymentValue" valueLabel="Qiymat" f={f} setForm={setForm} handle={handle} />
             </>}
 
             {section === 'services' && <>
