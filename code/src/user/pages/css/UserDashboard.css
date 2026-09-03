@@ -358,25 +358,87 @@
 }
 
 @media (max-width: 640px) {
+    .ud-main {
+        padding-top: 84px;
+        padding-bottom: 96px;
+    }
+
+    /* Compact hero — small row, not a tall centered banner */
     .ud-hero {
-        padding: 32px 24px;
-        flex-direction: column;
-        text-align: center;
-        gap: 20px;
+        padding: 16px 18px;
+        margin-bottom: 16px;
+        border-radius: 18px;
+        gap: 12px;
     }
-    
     .ud-hero-content h1 {
-        font-size: 24px;
+        font-size: 18px;
+        margin-bottom: 2px;
     }
-    
-    .ud-stats,
-    .ud-actions {
-        grid-template-columns: 1fr;
+    .ud-hero-content p {
+        font-size: 12.5px;
     }
-    
-    .ud-recent-item {
+    .ud-hero-avatar {
+        width: 46px;
+        height: 46px;
+        font-size: 19px;
+    }
+    .ud-hero-circle-1 { width: 120px; height: 120px; top: -46px; right: 50px; }
+    .ud-hero-circle-2 { width: 70px; height: 70px; bottom: -30px; left: 40px; }
+    .ud-hero-circle-3 { width: 44px; height: 44px; top: 20px; right: 24px; }
+
+    /* Stats — 4 compact tiles in a single row (was one huge card each) */
+    .ud-stats {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+    .ud-stat-card {
         flex-direction: column;
         align-items: flex-start;
+        gap: 7px;
+        padding: 11px 9px;
+        border-radius: 13px;
+    }
+    .ud-stat-icon { width: 30px; height: 30px; border-radius: 9px; }
+    .ud-stat-icon svg { width: 17px; height: 17px; }
+    .ud-stat-value { font-size: 17px; margin-bottom: 0; }
+    .ud-stat-label { font-size: 10px; line-height: 1.2; }
+
+    /* Quick actions — 2-col compact tiles, verbose subtitle hidden */
+    .ud-actions {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-bottom: 22px;
+    }
+    .ud-action-card {
+        padding: 14px 12px;
+        gap: 10px;
+        border-radius: 14px;
+    }
+    .ud-action-icon { width: 42px; height: 42px; border-radius: 11px; }
+    .ud-action-icon svg { width: 22px; height: 22px; }
+    .ud-action-content h3 { font-size: 13.5px; margin: 0; line-height: 1.25; }
+    .ud-action-content p { display: none; }
+
+    /* Recent — tighter, stays a row */
+    .ud-recent { margin-bottom: 18px; }
+    .ud-recent-header { margin-bottom: 12px; }
+    .ud-recent-header h2 { font-size: 18px; }
+    .ud-recent-item {
+        flex-direction: row;
+        align-items: center;
         gap: 12px;
+        padding: 12px 14px;
+    }
+    .ud-recent-logo { width: 40px; height: 40px; font-size: 16px; }
+    .ud-recent-clinic { gap: 12px; }
+
+    .ud-empty { padding: 40px 20px; }
+    .ud-empty-icon { width: 46px; height: 46px; }
+
+    .ud-logout {
+        width: 100%;
+        justify-content: center;
+        padding: 13px;
     }
 }
