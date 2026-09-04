@@ -517,8 +517,13 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                 .surgical-form-wizard {
                     display: grid;
                     grid-template-columns: 280px 1fr;
-                    height: 600px;
+                    /* The modal is max-height:90vh with overflow:hidden; a fixed
+                       600px here overflowed it on shorter screens, clipping the
+                       footer (save button) and the 8th sidebar step. Bound the
+                       wizard to the viewport so header + wizard always fit. */
+                    height: min(600px, calc(90vh - 84px));
                     background: white;
+                    min-height: 0;
                 }
                 .wizard-sidebar {
                     background: var(--bg-hover);
@@ -527,6 +532,9 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                     display: flex;
                     flex-direction: column;
                     gap: 12px;
+                    /* Scroll so all 8 steps stay reachable when the wizard is short. */
+                    overflow-y: auto;
+                    min-height: 0;
                 }
                 .step-nav-item {
                     display: flex;
@@ -563,6 +571,7 @@ const SurgicalForm = ({ formData, handleFormChange, setFormData, onSave, onCance
                     display: flex;
                     flex-direction: column;
                     overflow: hidden;
+                    min-height: 0;
                 }
                 .wizard-body {
                     flex: 1;
