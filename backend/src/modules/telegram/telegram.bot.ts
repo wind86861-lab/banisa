@@ -719,6 +719,7 @@ export async function setupBotCommands(): Promise<void> {
             { command: 'lang', description: 'Til / Язык' },
             { command: 'status', description: 'Bog\'lanish holati / Статус' },
             { command: 'help', description: 'Yordam / Помощь' },
+            { command: 'shifokor', description: 'Shifokor kabineti / Кабинет врача' },
             { command: 'unlink', description: 'Botni uzish / Отвязать' },
         ]);
         console.log('[telegram] bot commands registered');
@@ -911,6 +912,27 @@ function registerHandlers(bot: Bot) {
               '• /unlink — botni hisobdan uzish\n\n' +
               'Savol bo\'lsa banisa.uz saytidan murojaat qiling.';
         await ctx.reply(text, { reply_markup: mainMenu(lang, linked) });
+    });
+
+    // Dedicated doctor-portal entry. Kept OUT of the patient menu on purpose:
+    // one Telegram = one role, so a patient tapping a menu button would just
+    // fail — doctors reach the portal via this command (shared at onboarding).
+    // Opens the Mini App at /doctor (startapp=doctor → DoctorStartParam).
+    bot.command('shifokor', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        const lang = chatId ? await lookupLang(chatId) : 'uz';
+        const text = lang === 'ru'
+            ? '🩺 *Кабинет врача*\n\n' +
+              'Здесь врач рекомендует пациенту услуги одной клиники — пациент ' +
+              'принимает и записывается. Комиссия не взимается.\n\n' +
+              'Откройте кабинет, чтобы зарегистрироваться или войти:'
+            : '🩺 *Shifokor kabineti*\n\n' +
+              'Bu yerda shifokor bemorga bitta klinika xizmatlarini tavsiya qiladi — ' +
+              'bemor qabul qilib bron qiladi. Komissiya olinmaydi.\n\n' +
+              'Ro\'yxatdan o\'tish yoki kirish uchun kabinetni oching:';
+        const btnLabel = lang === 'ru' ? '🩺 Открыть кабинет врача' : '🩺 Shifokor kabinetini ochish';
+        const kb = new InlineKeyboard().url(btnLabel, startApp('doctor'));
+        await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: kb });
     });
 
     bot.command('menu', async (ctx) => {
