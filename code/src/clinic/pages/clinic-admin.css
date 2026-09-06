@@ -1302,6 +1302,33 @@
     margin-bottom: 4px;
 }
 
+/* Service customization tabs — label → hint → input must STACK (they were
+   flowing inline: "Namuna hajmi  Sizning klinikangiz...  [input]" on one line).
+   A .row is a 2-column pair of .col groups. */
+.customization-tab-content .form-group.row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.customization-tab-content .col {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+.customization-tab-content label { display: block; }
+.customization-tab-content .field-hint { display: block; margin-bottom: 2px; }
+.customization-tab-content .col input,
+.customization-tab-content .col select,
+.customization-tab-content .form-group > input,
+.customization-tab-content .form-group > select,
+.customization-tab-content .form-group > textarea {
+    width: 100%;
+}
+@media (max-width: 640px) {
+    .customization-tab-content .form-group.row { grid-template-columns: 1fr; }
+}
+
 .info-box {
     padding: 14px 16px;
     background: rgba(99, 102, 241, 0.08);

@@ -10,6 +10,7 @@ import CustomizationPreparationTab from './CustomizationPreparationTab';
 import CustomizationImagesTab from './CustomizationImagesTab';
 import CustomizationScheduleTab from './CustomizationScheduleTab';
 import CustomizationExtrasTab from './CustomizationExtrasTab';
+import BlockedDatesPicker from '../BlockedDatesPicker';
 import {
     useServiceCustomization,
     useUpsertCustomization,
@@ -522,10 +523,15 @@ export default function ServiceCustomizationDrawer({ open, onClose, service, act
                                         />
                                     )}
                                     {activeTab === 5 && (
-                                        <CustomizationScheduleTab
-                                            formData={formData}
-                                            setFormData={setFormData}
-                                        />
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                            <CustomizationScheduleTab
+                                                formData={formData}
+                                                setFormData={setFormData}
+                                            />
+                                            {service?.id && (
+                                                <BlockedDatesPicker serviceType="DIAGNOSTIC" serviceId={service.id} />
+                                            )}
+                                        </div>
                                     )}
                                     {activeTab === 6 && (
                                         <CustomizationExtrasTab

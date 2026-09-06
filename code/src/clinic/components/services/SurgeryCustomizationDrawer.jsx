@@ -7,6 +7,7 @@ import {
     useDeleteSurgeryCustomization,
 } from '../../hooks/useSurgeryCustomization';
 import api from '../../../shared/api/axios';
+import BlockedDatesPicker from '../BlockedDatesPicker';
 import '../../pages/clinic-admin.css';
 
 const TABS = [
@@ -758,7 +759,12 @@ export default function SurgeryCustomizationDrawer({
                                     {activeTab === 1 && <DescriptionTab form={form} setForm={setForm} />}
                                     {activeTab === 2 && <PreparationTab form={form} setForm={setForm} />}
                                     {activeTab === 3 && <RecoveryTab form={form} setForm={setForm} />}
-                                    {activeTab === 4 && <ImagesTab form={form} setForm={setForm} />}
+                                    {activeTab === 4 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                            <ImagesTab form={form} setForm={setForm} />
+                                            {service?.id && <BlockedDatesPicker serviceType="SURGICAL" serviceId={service.id} />}
+                                        </div>
+                                    )}
                                 </>
                             )}
                         </div>
