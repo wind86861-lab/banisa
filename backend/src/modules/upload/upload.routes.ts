@@ -140,6 +140,25 @@ router.post(
     }
 );
 
+// ─── Doctor Credential Doc Upload (referral-doctor onboarding) ───────────────
+// PDF or image (diploma / certificate). requireAuth ONLY — no role gate — because
+// a doctor uploads these DURING onboarding, while their account is still the
+// contact-verified PATIENT (it only becomes DOCTOR after registerDoctor). Any
+// authenticated user may upload their own credential file to storage.
+router.post(
+    '/doctor-doc',
+    requireAuth,
+    uploadDoc.single('file'),
+    (req: Request, res: Response, _next: NextFunction) => {
+        if (!req.file) {
+            res.status(400).json({ success: false, message: 'No file uploaded' });
+            return;
+        }
+        const url = `/uploads/docs/${req.file.filename}`;
+        res.json({ success: true, data: { url } });
+    }
+);
+
 // ─── Service Images Upload (Multiple) ──────────────────────────────────────────
 router.post(
     '/service-images',

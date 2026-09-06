@@ -2092,8 +2092,9 @@ model DoctorProfile {
   id             String   @id @default(uuid())
   userId         String   @unique
   specialty      String?
+  workplace      String?  // ish joyi (klinika/kasalxona nomi)
   bio            String?
-  documents      Json     @default("[]") // [{ url, name, type }]
+  documents      Json     @default("[]") // [{ url, name, type: 'bakalavr'|'magistr'|... }]
   rejectionReason String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

@@ -163,7 +163,9 @@ export const DoctorGuard = ({ children }) => {
 
   if (isLoading || resolved === null) return <AuthLoading />;
   if (!user) return <Navigate to="/doctor/register" replace />;
-  if (user.role !== 'DOCTOR') return <Navigate to="/403" replace />;
+  // A contact-verified patient can BECOME a doctor — send them to the register
+  // form (which upgrades their account), not a dead-end 403.
+  if (user.role !== 'DOCTOR') return <Navigate to="/doctor/register" replace />;
   return children;
 };
 

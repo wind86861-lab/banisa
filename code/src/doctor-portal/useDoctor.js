@@ -13,6 +13,19 @@ export const CATEGORY_TO_TYPE = (cat) =>
 export const getInitData = () =>
     (typeof window !== 'undefined' && window.Telegram?.WebApp?.initData) || '';
 
+/** Parsed Telegram user (for prefilling name). No phone here — that comes from
+ *  the shared contact, read off the logged-in account. */
+export const getTelegramUser = () =>
+    (typeof window !== 'undefined' && window.Telegram?.WebApp?.initDataUnsafe?.user) || null;
+
+/** Upload one diploma/credential file (image or PDF). Returns its URL. */
+export async function uploadDoctorDoc(file) {
+    const fd = new FormData();
+    fd.append('file', file);
+    const { data } = await api.post('/upload/doctor-doc', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return data.data.url;
+}
+
 /** Register the current Telegram user as a doctor. Returns { accessToken, user }. */
 export async function registerDoctor(payload) {
     const { data } = await api.post('/doctor/register', { initData: getInitData(), ...payload });

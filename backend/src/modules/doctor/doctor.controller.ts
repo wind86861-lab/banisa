@@ -18,10 +18,10 @@ function setRefreshCookie(res: Response, token: string) {
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { initData, firstName, lastName, phone, specialty, bio, documents } = req.body;
+        const { initData, firstName, lastName, phone, specialty, workplace, bio, documents } = req.body;
         const result = await doctorService.registerDoctor({
             initDataRaw: String(initData || ''),
-            firstName, lastName, phone, specialty, bio, documents,
+            firstName, lastName, phone, specialty, workplace, bio, documents,
         });
         setRefreshCookie(res, result.refreshToken);
         sendSuccess(res, result, undefined, 'Ariza yuborildi', 201);
@@ -36,8 +36,8 @@ export const me = async (req: AuthRequest, res: Response, next: NextFunction) =>
 
 export const updateMe = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const { specialty, bio, documents, firstName, lastName } = req.body || {};
-        sendSuccess(res, await doctorService.updateMyDoctor(req.user!.id, { specialty, bio, documents, firstName, lastName }));
+        const { specialty, workplace, bio, documents, firstName, lastName } = req.body || {};
+        sendSuccess(res, await doctorService.updateMyDoctor(req.user!.id, { specialty, workplace, bio, documents, firstName, lastName }));
     } catch (e) { next(e); }
 };
 

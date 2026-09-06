@@ -147,3 +147,55 @@
 .dp-chip--rej  { color: #cc3a54; background: #fce9ed; }
 .dp-chip--exp  { color: #64768c; background: #eef2f6; }
 .dp-chip--book { color: #0782ab; background: #def3fa; }
+
+/* ── Doctor register: verified phone + diploma uploaders ── */
+.dp-phone-locked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: var(--dp-accent-soft);
+  border: 1px solid var(--dp-border);
+  color: var(--dp-ink);
+  font-weight: 600;
+  font-size: 15px;
+}
+.dp-phone-locked svg { color: var(--dp-accent); flex-shrink: 0; }
+
+.dp-doc-upload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1.5px dashed var(--dp-border);
+  border-radius: 12px;
+  background: var(--dp-surface-2);
+  color: var(--dp-accent);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color .18s, background .18s;
+}
+.dp-doc-upload:hover { border-color: var(--dp-accent); }
+.dp-doc-upload.is-busy { opacity: .7; cursor: default; }
+
+.dp-doc-done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: #e8f7ee;
+  border: 1px solid #bfe6cd;
+  color: #1c7a43;
+  font-weight: 600;
+  font-size: 14px;
+}
+.dp-doc-done a { margin-left: auto; color: var(--dp-accent); font-weight: 600; text-decoration: none; }
+.dp-doc-done button {
+  background: none; border: none; color: #b0392f; cursor: pointer;
+  display: inline-flex; padding: 2px;
+}
+.dp-error--sm { font-size: 12px; margin-top: 4px; }

@@ -1,5 +1,3 @@
-import bcrypt from 'bcrypt';
-import { randomBytes } from 'crypto';
 import jwt from 'jsonwebtoken';
 import prisma from '../../config/database';
 import { env } from '../../config/env';
@@ -7,8 +5,6 @@ import { verifyInitData } from '../telegram/miniapp.auth';
 import { AppError, ErrorCodes } from '../../utils/errors';
 import { dispatch as dispatchNotification } from '../notifications/notification.dispatcher';
 import { priceClinicService } from '../cart/cart.service';
-
-const BCRYPT_ROUNDS = 12;
 
 const signAccessToken = (payload: { id: string; role: string }) =>
     jwt.sign(payload, env.JWT_ACCESS_SECRET as jwt.Secret, {
@@ -35,76 +31,88 @@ export interface DoctorRegisterInput {
     initDataRaw: string;
     firstName?: string;
     lastName?: string;
-    phone: string;
+    // Phone is NOT typed — it comes from the Telegram-verified contact the user
+    // shared in the bot (/start → 📱). The field is kept for back-compat but
+    // ignored; the account's existing phone is authoritative.
+    phone?: string;
     specialty?: string;
+    workplace?: string;
     bio?: string;
     documents?: Array<{ url: string; name?: string; type?: string }>;
 }
 
 /**
- * Register a Telegram user as a DOCTOR (status=PENDING) from inside the Mini App.
- * Verifies the initData signature, then creates User(role=DOCTOR) + DoctorProfile
- * + TelegramAccount. MVP rule: one Telegram account = one role — a Telegram
- * already bound to a patient can't also become a doctor.
+ * Register the current Telegram user as a DOCTOR from inside the Mini App.
+ *
+ * The phone is never typed: the doctor must first share their contact in the bot
+ * (/start → 📱), which creates/links a phone-verified account. This endpoint then
+ * UPGRADES that contact-verified account to DOCTOR (role=DOCTOR, status=PENDING)
+ * — keeping the verified phone — and fills in the doctor profile (specialty,
+ * workplace, bio, diploma documents). A fresh Telegram with no shared contact is
+ * rejected with guidance to share the contact first.
  */
 export async function registerDoctor(input: DoctorRegisterInput) {
     const verify = verifyInitData(input.initDataRaw);
     if (!verify.ok) throw new AppError('Init data yaroqsiz', 401, ErrorCodes.UNAUTHORIZED);
 
     const tgUserId = BigInt(verify.user.id);
-    const phone = String(input.phone || '').replace(/\s+/g, '');
-    if (!phone) throw new AppError('Telefon raqami kerak', 400, ErrorCodes.VALIDATION_ERROR);
 
-    // Already bound? — one role per Telegram in MVP.
-    const existing = await (prisma as any).telegramAccount.findUnique({
+    const account = await (prisma as any).telegramAccount.findUnique({
         where: { telegramUserId: tgUserId },
         include: { user: true },
     });
-    if (existing?.user) {
-        if (existing.user.role === 'DOCTOR') return issueForUser(existing.user); // idempotent
-        throw new AppError('Bu Telegram allaqachon boshqa rol bilan band', 409, ErrorCodes.DUPLICATE_ERROR);
+
+    // No shared contact yet → no verified phone → can't onboard.
+    if (!account?.user) {
+        throw new AppError(
+            'Avval botda /start bosib 📱 telefon raqamingizni ulashing, keyin qayta urining.',
+            400,
+            ErrorCodes.VALIDATION_ERROR,
+        );
     }
 
-    const passwordHash = await bcrypt.hash(randomBytes(24).toString('base64url'), BCRYPT_ROUNDS);
-    let user: any;
-    try {
-        user = await prisma.$transaction(async (tx: any) => {
-            const u = await tx.user.create({
-                data: {
-                    phone,
-                    passwordHash,
-                    firstName: input.firstName || null,
-                    lastName: input.lastName || null,
-                    role: 'DOCTOR',
-                    status: 'PENDING',
-                    isActive: true,
-                },
+    const user = account.user;
+    const profileData = {
+        specialty: input.specialty || null,
+        workplace: input.workplace || null,
+        bio: input.bio || null,
+        documents: Array.isArray(input.documents) ? input.documents : [],
+    };
+    const nameData: any = {};
+    if (input.firstName !== undefined) nameData.firstName = input.firstName || user.firstName || null;
+    if (input.lastName !== undefined) nameData.lastName = input.lastName || user.lastName || null;
+
+    // Already a doctor → just refresh the profile (idempotent re-submit).
+    if (user.role === 'DOCTOR') {
+        await prisma.$transaction(async (tx: any) => {
+            if (Object.keys(nameData).length) await tx.user.update({ where: { id: user.id }, data: nameData });
+            await tx.doctorProfile.upsert({
+                where: { userId: user.id },
+                update: profileData,
+                create: { userId: user.id, ...profileData },
             });
-            await tx.doctorProfile.create({
-                data: {
-                    userId: u.id,
-                    specialty: input.specialty || null,
-                    bio: input.bio || null,
-                    documents: Array.isArray(input.documents) ? input.documents : [],
-                },
-            });
-            await tx.telegramAccount.create({
-                data: {
-                    userId: u.id,
-                    chatId: tgUserId, // private chat: chatId == user id
-                    telegramUserId: tgUserId,
-                    username: verify.user.username || null,
-                    firstName: verify.user.first_name || null,
-                    language: verify.user.language_code === 'ru' ? 'ru' : 'uz',
-                },
-            });
-            return u;
         });
-    } catch (e: any) {
-        if (e?.code === 'P2002') throw new AppError('Bu telefon allaqachon ro\'yxatda', 409, ErrorCodes.DUPLICATE_ERROR);
-        throw e;
+        return issueForUser({ ...user, ...nameData });
     }
-    return issueForUser(user);
+
+    // Only a plain patient may be upgraded — never a clinic admin / dispatcher / etc.
+    if (user.role !== 'PATIENT') {
+        throw new AppError('Bu Telegram boshqa rol bilan band', 409, ErrorCodes.DUPLICATE_ERROR);
+    }
+
+    const upgraded = await prisma.$transaction(async (tx: any) => {
+        const u = await tx.user.update({
+            where: { id: user.id },
+            data: { role: 'DOCTOR', status: 'PENDING', ...nameData },
+        });
+        await tx.doctorProfile.upsert({
+            where: { userId: user.id },
+            update: profileData,
+            create: { userId: user.id, ...profileData },
+        });
+        return u;
+    });
+    return issueForUser(upgraded);
 }
 
 /** Doctor's own profile + approval status (for the Mini App dashboard/pending screen). */
@@ -115,14 +123,15 @@ export async function getMyDoctor(userId: string) {
     return {
         ...publicUser(user),
         specialty: profile?.specialty ?? null,
+        workplace: profile?.workplace ?? null,
         bio: profile?.bio ?? null,
         documents: profile?.documents ?? [],
         rejectionReason: profile?.rejectionReason ?? null,
     };
 }
 
-/** Doctor updates their own profile (specialty / bio / documents) — pre-approval. */
-export async function updateMyDoctor(userId: string, patch: { specialty?: string; bio?: string; documents?: any[]; firstName?: string; lastName?: string }) {
+/** Doctor updates their own profile (specialty / workplace / bio / documents) — pre-approval. */
+export async function updateMyDoctor(userId: string, patch: { specialty?: string; workplace?: string; bio?: string; documents?: any[]; firstName?: string; lastName?: string }) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.role !== 'DOCTOR') throw new AppError('Shifokor topilmadi', 404, ErrorCodes.NOT_FOUND);
 
@@ -133,6 +142,7 @@ export async function updateMyDoctor(userId: string, patch: { specialty?: string
 
     const profData: any = {};
     if (patch.specialty !== undefined) profData.specialty = patch.specialty || null;
+    if (patch.workplace !== undefined) profData.workplace = patch.workplace || null;
     if (patch.bio !== undefined) profData.bio = patch.bio || null;
     if (patch.documents !== undefined) profData.documents = Array.isArray(patch.documents) ? patch.documents : [];
     if (Object.keys(profData).length) {
@@ -299,6 +309,7 @@ export async function adminGetDoctor(id: string) {
         id: u.id, firstName: u.firstName, lastName: u.lastName, phone: u.phone, email: u.email,
         status: u.status, createdAt: u.createdAt,
         specialty: u.doctorProfile?.specialty ?? null,
+        workplace: u.doctorProfile?.workplace ?? null,
         bio: u.doctorProfile?.bio ?? null,
         documents: u.doctorProfile?.documents ?? [],
         rejectionReason: u.doctorProfile?.rejectionReason ?? null,
