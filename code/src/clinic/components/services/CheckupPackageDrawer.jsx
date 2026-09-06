@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../../shared/api/axios';
+import BlockedDatesPicker from '../BlockedDatesPicker';
 import '../../pages/clinic-admin.css';
 
 const TABS = [
@@ -195,7 +196,7 @@ function DescriptionTab({ form, setForm, basePackage }) {
 }
 
 // ───────────────────────────── Tab: Narxlar ─────────────────────────────
-function PricesTab({ items, form, setForm, totalPrice }) {
+function PricesTab({ items, form, setForm, totalPrice, packageId }) {
     const [search, setSearch] = useState('');
 
     if (!items || items.length === 0) {
@@ -419,6 +420,8 @@ function PricesTab({ items, form, setForm, totalPrice }) {
                     </div>
                 )}
             </div>
+
+            {packageId && <BlockedDatesPicker serviceType="CHECKUP" serviceId={packageId} />}
         </div>
     );
 }
@@ -900,7 +903,7 @@ export default function CheckupPackageDrawer({
                         <div className="ca-drawer-body" style={{ flex: 1, overflowY: 'auto' }}>
                             {activeTab === 0 && <BasicTab form={form} setForm={setForm} basePackage={basePackage} />}
                             {activeTab === 1 && <DescriptionTab form={form} setForm={setForm} basePackage={basePackage} />}
-                            {activeTab === 2 && <PricesTab items={items} form={form} setForm={setForm} totalPrice={totalPrice} />}
+                            {activeTab === 2 && <PricesTab items={items} form={form} setForm={setForm} totalPrice={totalPrice} packageId={basePackage?.id} />}
                             {activeTab === 3 && <ImagesTab form={form} setForm={setForm} basePackage={basePackage} />}
                             {activeTab === 4 && <PreviewTab form={form} items={items} totalPrice={totalPrice} basePackage={basePackage} />}
                         </div>

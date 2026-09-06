@@ -3,6 +3,7 @@ import { AppError, ErrorCodes } from '../../utils/errors';
 import { dispatch as dispatchNotification } from '../notifications/notification.dispatcher';
 import { broadcastBookingById } from '../telegram/admin-broadcast.service';
 import { assertWithinWorkingHours } from '../clinics/working-hours.util';
+import { isDateBlocked, UNAVAIL_TYPES } from '../clinic/services/unavailable-dates.service';
 
 type CartServiceType = 'DIAGNOSTIC' | 'SURGICAL' | 'SANATORIUM' | 'CHECKUP' | 'AMBULANCE';
 
@@ -376,6 +377,23 @@ export class CartService {
         const hasAmbulance = cartItems.some(i => (i.serviceType as any) === 'AMBULANCE');
         if (!hasAmbulance) {
             assertWithinWorkingHours(cartItems[0].clinic, new Date(data.scheduledAt));
+        }
+
+        // Blocked-date gate (server-side defense): the clinic may have closed
+        // specific dates for a service. Reject if any cart item is blocked on
+        // the chosen date. AMBULANCE has no per-service blocked dates.
+        {
+            const when = new Date(data.scheduledAt);
+            for (const it of cartItems) {
+                const t = String(it.serviceType);
+                if (!UNAVAIL_TYPES.has(t)) continue;
+                if (await isDateBlocked(it.clinicId, t, it.serviceId, when)) {
+                    throw new AppError(
+                        'Tanlangan sana bu xizmat uchun band emas. Iltimos, boshqa sana tanlang.',
+                        400, ErrorCodes.VALIDATION_ERROR,
+                    );
+                }
+            }
         }
 
         // One-clinic policy: enforced both above (distinctClinicIds check)

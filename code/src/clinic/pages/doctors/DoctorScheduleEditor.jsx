@@ -6,6 +6,7 @@ import {
     CheckCircle2, AlertTriangle, Calendar,
 } from 'lucide-react';
 import api from '../../../shared/api/axios';
+import BlockedDatesPicker from '../../components/BlockedDatesPicker';
 
 const DAYS = [
     { idx: 1, label: 'Du', full: 'Dushanba' },
@@ -249,6 +250,12 @@ export default function DoctorScheduleEditor({ row, onClose, onSaved }) {
                             />
                         ))}
                     </div>
+
+                    {(row.doctor?.id || row.doctorId) && (
+                        <div style={{ marginTop: 16 }}>
+                            <BlockedDatesPicker serviceType="DOCTOR" serviceId={row.doctor?.id || row.doctorId} />
+                        </div>
+                    )}
 
                     {save.isError && (
                         <div className="cdocs-error" style={{ marginTop: 12 }}>

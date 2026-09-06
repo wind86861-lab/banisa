@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/database';
+import { isDateBlocked } from '../clinic/services/unavailable-dates.service';
 
 // Generate available time slots for (doctor, clinic, date).
 // Global slot lock: removes slots overlapping the doctor's bookings at ANY clinic,
@@ -36,6 +37,11 @@ export const getDoctorSlots = async (req: Request, res: Response) => {
     today.setHours(0, 0, 0, 0);
     if (date < today) {
         return res.json({ success: true, data: { date: dateStr, slots: [], reason: 'past' } });
+    }
+
+    // Clinic closed this doctor for this specific date → no slots.
+    if (await isDateBlocked(clinicId, 'DOCTOR', doctorId, new Date(dateStr + 'T09:00:00.000+05:00'))) {
+        return res.json({ success: true, data: { date: dateStr, slots: [], reason: 'unavailable' } });
     }
 
     const dayOfWeek = date.getDay(); // 0..6

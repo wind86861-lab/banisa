@@ -29,6 +29,32 @@ export default function CartCheckoutPage() {
     const [ofertaAgreed, setOfertaAgreed] = useState(false);
     const [ofertaModalOpen, setOfertaModalOpen] = useState(false);
     const [ofertaModalChecked, setOfertaModalChecked] = useState(false);
+    const [blockedDates, setBlockedDates] = useState([]); // 'YYYY-MM-DD' the clinic closed for cart services
+
+    // Fetch per-service blocked dates for everything in the cart (union). The
+    // server also rejects them at checkout — this just guides the picker.
+    useEffect(() => {
+        let cancelled = false;
+        const pairs = [];
+        (cart || []).forEach((g) => {
+            const clinicId = g.clinic?.id;
+            (g.items || []).forEach((it) => {
+                const type = it.serviceType;
+                const sid = it.service?.id || it.serviceId;
+                if (clinicId && sid && type && type !== 'AMBULANCE') pairs.push({ clinicId, type, sid });
+            });
+        });
+        if (!pairs.length) { setBlockedDates([]); return; }
+        Promise.all(pairs.map((p) =>
+            axiosInstance.get(`/public/services/${p.type}/${p.sid}/unavailable-dates`, { params: { clinicId: p.clinicId } })
+                .then((r) => r.data?.data?.dates || [])
+                .catch(() => [])
+        )).then((lists) => {
+            if (cancelled) return;
+            setBlockedDates([...new Set(lists.flat())]);
+        });
+        return () => { cancelled = true; };
+    }, [cart]);
 
     useEffect(() => {
         let cancelled = false;
@@ -227,6 +253,8 @@ export default function CartCheckoutPage() {
     const isClinicOpenOnDay = !workingHours || !selectedDayKey
         ? true // unknown hours → don't block, server validates
         : selectedDayHours?.isAroundClock || Boolean(selectedDayHours?.isOpen);
+    // Clinic closed this specific date for a cart service.
+    const selectedDateBlocked = !!selectedDate && blockedDates.includes(selectedDate);
     const dayOpenTime = selectedDayHours?.isAroundClock ? '00:00' : (selectedDayHours?.openTime || null);
     const dayCloseTime = selectedDayHours?.isAroundClock ? '23:59' : (selectedDayHours?.closeTime || null);
     // For today, clamp opening to "now + 30min" if it's after the clinic opens.
@@ -244,6 +272,10 @@ export default function CartCheckoutPage() {
         }
         if (oferta && !ofertaAgreed) {
             setError("Buyurtma berish uchun ommaviy oferta shartlariga rozi bo'ling.");
+            return;
+        }
+        if (selectedDateBlocked) {
+            setError('Bu sana bron uchun yopilgan. Iltimos, boshqa sanani tanlang.');
             return;
         }
         if (!selectedDate) {
@@ -390,7 +422,7 @@ export default function CartCheckoutPage() {
                                         max={effectiveMaxTime}
                                         value={selectedTime}
                                         onChange={(e) => setSelectedTime(e.target.value)}
-                                        disabled={!isClinicOpenOnDay}
+                                        disabled={!isClinicOpenOnDay || selectedDateBlocked}
                                     />
                                 </div>
                             </div>
@@ -400,6 +432,12 @@ export default function CartCheckoutPage() {
                                     <span>
                                         Klinika <b>{DAY_LABEL_UZ[selectedDayKey] || ''}</b> kuni dam oladi — boshqa sanani tanlang.
                                     </span>
+                                </div>
+                            )}
+                            {selectedDateBlocked && (
+                                <div className="co-note co-note--warn">
+                                    <AlertCircle size={15} />
+                                    <span>Bu sana bron uchun yopilgan — iltimos, boshqa sanani tanlang.</span>
                                 </div>
                             )}
                             {selectedDate && isClinicOpenOnDay && dayOpenTime && dayCloseTime && (
@@ -577,7 +615,7 @@ export default function CartCheckoutPage() {
                             <button
                                 className="co-confirm-btn"
                                 onClick={handleCheckout}
-                                disabled={submitting || hasMultipleClinics || (oferta && !ofertaAgreed)}
+                                disabled={submitting || hasMultipleClinics || (oferta && !ofertaAgreed) || selectedDateBlocked}
                                 style={(hasMultipleClinics || (oferta && !ofertaAgreed)) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                             >
                                 {submitting ? 'Saqlanmoqda...' : 'Buyurtma berish'}

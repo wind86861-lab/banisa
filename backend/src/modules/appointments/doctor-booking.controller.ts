@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import prisma from '../../config/database';
 import { AuthRequest } from '../../middleware/auth.middleware';
+import { isDateBlocked } from '../clinic/services/unavailable-dates.service';
 import crypto from 'crypto';
 
 // Generate a short booking number (legacy-compatible).
@@ -31,6 +32,11 @@ export const createDoctorBooking = async (req: AuthRequest, res: Response) => {
     }
     if (scheduledDate < new Date()) {
         return res.status(400).json({ success: false, message: 'O\'tgan vaqtga band qilib bo\'lmaydi' });
+    }
+
+    // Clinic closed this doctor for the chosen date.
+    if (await isDateBlocked(clinicId, 'DOCTOR', doctorId, scheduledDate)) {
+        return res.status(400).json({ success: false, message: 'Tanlangan sana bu doktor uchun band emas. Boshqa sana tanlang.' });
     }
 
     const dc = await prisma.doctorClinic.findFirst({

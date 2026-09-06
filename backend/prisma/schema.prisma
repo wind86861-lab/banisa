@@ -315,6 +315,7 @@ model Clinic {
   roles                  ClinicRole[]
   auditLog               ClinicAuditLog[]
   recommendations        Recommendation[]
+  unavailableDates       ServiceUnavailableDate[]
 
   @@index([status])
   @@index([source])
@@ -803,6 +804,24 @@ model ClinicCheckupPackage {
   @@index([clinicId])
   @@index([packageId])
   @@index([isActive])
+}
+
+// Per-service (and per-doctor) calendar dates a clinic has closed for booking.
+// serviceType: 'DIAGNOSTIC' | 'SURGICAL' | 'SANATORIUM' | 'CHECKUP' | 'DOCTOR'
+// (plain string, validated in code — avoids an enum migration). serviceId is
+// the base service id, or the doctor id for DOCTOR. `date` is a calendar date
+// (whole day blocked) interpreted in Asia/Tashkent.
+model ServiceUnavailableDate {
+  id          String   @id @default(cuid())
+  clinicId    String
+  serviceType String
+  serviceId   String
+  date        DateTime @db.Date
+  createdAt   DateTime @default(now())
+  clinic      Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, serviceType, serviceId, date])
+  @@index([clinicId, serviceType, serviceId])
 }
 
 model SanatoriumService {

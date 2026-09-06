@@ -5,6 +5,7 @@ import { getHome, autocomplete } from './public-home.controller';
 import { listDoctors, getDoctorDetail } from './public-doctors.controller';
 import { getDoctorSlots } from './public-doctor-slots.controller';
 import { listPublicAmbulances } from './public-ambulances.controller';
+import { publicGetDates } from '../clinic/services/unavailable-dates.controller';
 
 const router = Router();
 
@@ -12,6 +13,7 @@ router.get('/home', getHome);
 router.get('/search/autocomplete', autocomplete);
 router.get('/services', getPublicServices);
 router.get('/services/filters', getPublicServiceFilters);
+router.get('/services/:serviceType/:serviceId/unavailable-dates', publicGetDates);
 router.get('/services/:id', getPublicServiceDetail);
 router.get('/clinics', getPublicClinics);
 router.get('/clinics/:id', getPublicClinicDetail);
