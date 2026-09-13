@@ -25,6 +25,10 @@ const START_PARAM_TARGETS = {
     clinics:                '/klinikalar',
     doctors:                '/doktorlar',
     skory:                  '/skory',
+    // Doctor portal (bot's /shifokor command → startApp('doctor')). Note this
+    // is the REFERRING doctor's own Mini App — not `doctors`, which is the
+    // patient-facing directory of clinic doctors.
+    doctor:                 '/doctor',
     // Patient
     appointments:           '/user/appointments',
     cart:                   '/user/cart',
