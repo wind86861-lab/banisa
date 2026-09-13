@@ -2,19 +2,34 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Plus, Info, ChevronRight, ChevronLeft, Check, Beaker, Stethoscope, X, TrendingDown } from 'lucide-react';
+import { Plus, Info, ChevronRight, ChevronLeft, Check, Beaker, Stethoscope, X, TrendingDown, AlertTriangle } from 'lucide-react';
 import { useCreateCheckupPackage, useUpdateCheckupPackage } from '../hooks/useCheckupPackages';
 import { diagnosticsApi, categoriesApi } from '../../../services/api';
 import ImageUpload from '../../../shared/components/ImageUpload';
+import { panelApiError } from '../../../shared/utils/apiError';
+
+// Mirrors MAX_PACKAGE_ITEMS in checkup-packages.validation.ts. Kept in sync by
+// hand — the point is to stop the admin at the cap while adding, instead of
+// letting them build a 200+ item package and lose the whole save to a 400.
+const MAX_ITEMS = 200;
+
+// `register(..., { valueAsNumber: true })` yields NaN for an EMPTY number
+// input, and z.number() rejects NaN. Clearing a price field therefore made the
+// whole form invalid — and since handleSubmit silently refuses to run on an
+// invalid form, the Save button did nothing at all. Treat blank as 0 instead.
+const numberField = (msg) => z.preprocess(
+    (v) => (v === '' || v === null || v === undefined || Number.isNaN(v) ? 0 : v),
+    z.number({ message: msg }).min(0, msg),
+);
 
 const schema = z.object({
     nameUz: z.string().min(3, "Kamida 3 ta harf"),
     nameRu: z.string().optional(),
-    category: z.enum(['BASIC', 'SPECIALIZED', 'AGE_BASED']),
-    shortDescription: z.string().max(200).optional(),
-    recommendedPrice: z.number().min(0),
-    priceMin: z.number().min(0),
-    priceMax: z.number().min(0),
+    category: z.enum(['BASIC', 'SPECIALIZED', 'AGE_BASED'], { message: 'Kategoriyani tanlang' }),
+    shortDescription: z.string().max(200, 'Qisqa tavsif 200 belgidan oshmasligi kerak').optional(),
+    recommendedPrice: numberField("Paket narxini kiriting"),
+    priceMin: numberField("Minimal narx noto'g'ri"),
+    priceMax: numberField("Maksimal narx noto'g'ri"),
     discount: z.number().optional(),
     imageUrl: z.string().optional().nullable(),
 });
@@ -55,6 +70,12 @@ export default function CheckupPackageForm({ initialData, onClose }) {
     const [subCats, setSubCats] = useState([]);
     const [svcList, setSvcList] = useState([]);
     const [loadingSvc, setLoadingSvc] = useState(false);
+
+    // Server-side save failure (validation, duplicate slug, network). Shown in
+    // the footer next to Save — previously a 400 was swallowed and the button
+    // just snapped back to "Saqlash" with nothing explaining why.
+    const [saveError, setSaveError] = useState(null);
+    const [limitWarning, setLimitWarning] = useState(false);
 
     const createMutation = useCreateCheckupPackage();
     const updateMutation = useUpdateCheckupPackage();
@@ -188,6 +209,11 @@ export default function CheckupPackageForm({ initialData, onClose }) {
     /* ─── Add / remove service ─── */
     const addService = () => {
         if (!pickedSvcId) return;
+        // Stop at the server's cap rather than letting the save fail later.
+        if (selectedSvcs.length >= MAX_ITEMS) {
+            setLimitWarning(true);
+            return;
+        }
         const svc = svcList.find(s => s.id === pickedSvcId);
         if (!svc || selectedSvcs.find(s => s.id === svc.id)) return;
         const catName = allCats.find(c => c.id === subCatId)?.nameUz || '';
@@ -196,9 +222,13 @@ export default function CheckupPackageForm({ initialData, onClose }) {
             price: svc.priceRecommended || 0, catName, type: svcType,
         }]);
         setPickedSvcId('');
+        setLimitWarning(false);
     };
 
-    const removeService = (id) => setSelectedSvcs(prev => prev.filter(s => s.id !== id));
+    const removeService = (id) => {
+        setSelectedSvcs(prev => prev.filter(s => s.id !== id));
+        setLimitWarning(false);
+    };
 
     /* ─── Submit ─── */
     const onSubmit = (formData) => {
@@ -213,11 +243,43 @@ export default function CheckupPackageForm({ initialData, onClose }) {
                 isRequired: true,
             })),
         };
+        setSaveError(null);
+        const handlers = {
+            onSuccess: onClose,
+            onError: (err) => setSaveError(panelApiError(err)),
+        };
         if (initialData) {
-            updateMutation.mutate({ id: initialData.id, data: payload }, { onSuccess: onClose });
+            updateMutation.mutate({ id: initialData.id, data: payload }, handlers);
         } else {
-            createMutation.mutate(payload, { onSuccess: onClose });
+            createMutation.mutate(payload, handlers);
         }
+    };
+
+    /**
+     * Runs when react-hook-form refuses to submit. Without this the Save button
+     * was a dead end: handleSubmit swallows an invalid form, and only nameUz's
+     * error was ever rendered — so a blank price field three steps back left the
+     * admin clicking Save forever with nothing on screen. Name the offending
+     * fields and say which step to go back to.
+     */
+    const onInvalid = (formErrors) => {
+        const STEP_OF = {
+            nameUz: 0, nameRu: 0, category: 0, shortDescription: 0, imageUrl: 0,
+            recommendedPrice: 2, priceMin: 2, priceMax: 2, discount: 2,
+        };
+        const LABEL = {
+            nameUz: 'Paket nomi', nameRu: 'Ruscha nomi', category: 'Kategoriya',
+            shortDescription: 'Qisqa tavsif', imageUrl: 'Rasm',
+            recommendedPrice: 'Paket narxi', priceMin: 'Minimal narx',
+            priceMax: 'Maksimal narx', discount: 'Chegirma',
+        };
+        const keys = Object.keys(formErrors || {});
+        if (keys.length === 0) { setSaveError('Formani to\'ldirishda xatolik bor.'); return; }
+        const parts = keys.map((k) => `${LABEL[k] || k}: ${formErrors[k]?.message || "to'g'ri emas"}`);
+        setSaveError(`To'ldirilmagan maydonlar — ${parts.join('; ')}`);
+        // Jump to the earliest step that actually holds a broken field.
+        const target = Math.min(...keys.map((k) => STEP_OF[k] ?? 0));
+        if (Number.isFinite(target)) setStep(target);
     };
 
     const diagSvcs = selectedSvcs.filter(s => s.type === 'DIAGNOSTIC');
@@ -254,7 +316,7 @@ export default function CheckupPackageForm({ initialData, onClose }) {
 
             {/* ── Wizard Body ── */}
             <div className="wiz-body">
-                <form id="wiz-form" onSubmit={handleSubmit(onSubmit)}>
+                <form id="wiz-form" onSubmit={handleSubmit(onSubmit, onInvalid)}>
 
                     {/* STEP 1 ─ Basic Info */}
                     {step === 0 && (
@@ -300,6 +362,7 @@ export default function CheckupPackageForm({ initialData, onClose }) {
                                         maxLength={200}
                                     />
                                     <p className="wiz-char-count">{(watchAll.shortDescription || '').length}/200</p>
+                                    {errors.shortDescription && <p className="wiz-error-msg">{errors.shortDescription.message}</p>}
                                 </div>
                             </div>
 
@@ -379,13 +442,29 @@ export default function CheckupPackageForm({ initialData, onClose }) {
                                 </button>
                             </div>
 
+                            {/* Cap reached — say so here, where the admin is adding,
+                                rather than failing the save three steps later. */}
+                            {(limitWarning || selectedSvcs.length >= MAX_ITEMS) && (
+                                <div className="wiz-alert warn">
+                                    <AlertTriangle size={15} />
+                                    <span>
+                                        Bitta paketga eng ko'pi <b>{MAX_ITEMS} ta</b> tekshiruv qo'shish mumkin.
+                                        Yana qo'shish uchun avval keraksizlarini o'chirib tashlang.
+                                    </span>
+                                </div>
+                            )}
+
                             {/* Selected list */}
                             {selectedSvcs.length > 0 && (
                                 <>
                                     <div className="selected-svcs-header">
                                         Tanlangan xizmatlar
-                                        <span style={{ background: '#EFF6FF', color: '#2563EB', padding: '2px 8px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
-                                            {selectedSvcs.length}
+                                        <span style={{
+                                            background: selectedSvcs.length >= MAX_ITEMS ? '#FEF2F2' : '#EFF6FF',
+                                            color: selectedSvcs.length >= MAX_ITEMS ? '#DC2626' : '#2563EB',
+                                            padding: '2px 8px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                                        }}>
+                                            {selectedSvcs.length} / {MAX_ITEMS}
                                         </span>
                                     </div>
 
@@ -546,7 +625,8 @@ export default function CheckupPackageForm({ initialData, onClose }) {
                                             >{step.toLocaleString()}</button>
                                         ))}
                                         <input
-                                            type="number" className="wiz-input price-step-input"
+                                            type="number"
+                                            className={`wiz-input price-step-input${errors.recommendedPrice ? ' error' : ''}`}
                                             {...register('recommendedPrice', { valueAsNumber: true })}
                                             placeholder="0"
                                         />
@@ -562,22 +642,27 @@ export default function CheckupPackageForm({ initialData, onClose }) {
                                             >+{step.toLocaleString()}</button>
                                         ))}
                                     </div>
+                                    {errors.recommendedPrice && <p className="wiz-error-msg">{errors.recommendedPrice.message}</p>}
                                 </div>
                                 <div className="wiz-field">
                                     <label>Minimal narx (klinikalar uchun)</label>
                                     <input
-                                        type="number" className="wiz-input"
+                                        type="number"
+                                        className={`wiz-input${errors.priceMin ? ' error' : ''}`}
                                         {...register('priceMin', { valueAsNumber: true })}
                                         placeholder="0"
                                     />
+                                    {errors.priceMin && <p className="wiz-error-msg">{errors.priceMin.message}</p>}
                                 </div>
                                 <div className="wiz-field">
                                     <label>Maksimal narx (klinikalar uchun)</label>
                                     <input
-                                        type="number" className="wiz-input"
+                                        type="number"
+                                        className={`wiz-input${errors.priceMax ? ' error' : ''}`}
                                         {...register('priceMax', { valueAsNumber: true })}
                                         placeholder="0"
                                     />
+                                    {errors.priceMax && <p className="wiz-error-msg">{errors.priceMax.message}</p>}
                                 </div>
                             </div>
 
@@ -696,6 +781,14 @@ export default function CheckupPackageForm({ initialData, onClose }) {
                     )}
                 </form>
             </div>
+
+            {/* ── Save error ── */}
+            {saveError && (
+                <div className="wiz-alert error wiz-alert--footer">
+                    <AlertTriangle size={15} />
+                    <span>{saveError}</span>
+                </div>
+            )}
 
             {/* ── Wizard Footer ── */}
             <div className="wiz-footer">

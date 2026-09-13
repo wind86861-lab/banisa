@@ -1,6 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { checkupPackagesApi } from '../api/checkupPackagesApi';
 import { CheckupPackageFilters, PublicCheckupPackageFilters } from '../types/checkupPackage.types';
+import { toastBus } from '../../../shared/components/Toast';
+// @ts-ignore — plain-JS shared helper, no .d.ts
+import { panelApiError } from '../../../shared/utils/apiError';
+
+// Mutations fired straight from a list row have no form to render an error in,
+// so they toast. create/update are deliberately excluded: CheckupPackageForm
+// shows those inline next to the Save button, where a modal can't cover them.
+const toastOnError = (fallback: string) => (err: any) => toastBus.error(panelApiError(err, fallback));
 
 // SUPER ADMIN HOOKS
 export const useCheckupPackages = (filters: CheckupPackageFilters) => {
@@ -40,6 +48,7 @@ export const useDeleteCheckupPackage = () => {
     return useMutation({
         mutationFn: checkupPackagesApi.delete,
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-checkup-packages'] }),
+        onError: toastOnError("Paketni o'chirib bo'lmadi"),
     });
 };
 
@@ -48,6 +57,7 @@ export const useTogglePackageStatus = () => {
     return useMutation({
         mutationFn: ({ id, activate }: { id: string, activate: boolean }) => checkupPackagesApi.toggleStatus(id, activate),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-checkup-packages'] }),
+        onError: toastOnError("Paket holatini o'zgartirib bo'lmadi"),
     });
 };
 
@@ -76,6 +86,7 @@ export const useActivateClinicPackage = () => {
             queryClient.invalidateQueries({ queryKey: ['clinic-activated-packages'] });
             queryClient.invalidateQueries({ queryKey: ['clinic-available-packages'] });
         },
+        onError: toastOnError("Paketni faollashtirib bo'lmadi"),
     });
 };
 
@@ -86,6 +97,7 @@ export const useUpdateClinicPackage = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['clinic-activated-packages'] });
         },
+        onError: toastOnError('Paket sozlamalarini saqlab bo\'lmadi'),
     });
 };
 
