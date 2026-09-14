@@ -58,6 +58,15 @@ export async function createRecommendation(payload) {
     return data.data;
 }
 
+/** Referral statistics for the signed-in doctor: totals + per-clinic split. */
+export function useDoctorStats() {
+    return useQuery({
+        queryKey: ['doctor-stats'],
+        queryFn: async () => (await api.get('/doctor/stats')).data.data,
+        staleTime: 60_000,
+    });
+}
+
 export function useMyRecommendations() {
     return useQuery({
         queryKey: ['doctor-recommendations'],

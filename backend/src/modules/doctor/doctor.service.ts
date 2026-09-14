@@ -350,6 +350,52 @@ export async function claimRecommendationsByPhone(userId: string): Promise<numbe
     return res.count as number;
 }
 
+/**
+ * Referral statistics for one doctor, split by clinic.
+ *
+ * Two money figures, deliberately kept apart: `sum` is everything the doctor
+ * referred (what they proposed), `sumCompleted` is only the referrals that
+ * reached an attended, finished visit (what actually happened). Reporting the
+ * first alone would flatter the numbers — most of the lifecycle sits between
+ * the two.
+ */
+export async function getDoctorStats(doctorId: string) {
+    const rows: any[] = await (prisma as any).recommendation.findMany({
+        where: { doctorId },
+        select: {
+            status: true, totalAmount: true, clinicId: true,
+            clinic: { select: { nameUz: true } },
+        },
+    });
+
+    const STATUSES = ['PENDING', 'ACCEPTED', 'BOOKED', 'COMPLETED', 'REJECTED', 'EXPIRED'] as const;
+    const totals: any = { all: rows.length, sum: 0, sumCompleted: 0 };
+    for (const st of STATUSES) totals[st.toLowerCase()] = 0;
+
+    const byClinic = new Map<string, any>();
+    for (const r of rows) {
+        const amount = r.totalAmount || 0;
+        const done = r.status === 'COMPLETED';
+        totals.sum += amount;
+        if (done) totals.sumCompleted += amount;
+        if (totals[String(r.status).toLowerCase()] !== undefined) totals[String(r.status).toLowerCase()] += 1;
+
+        const g = byClinic.get(r.clinicId) || {
+            clinicId: r.clinicId,
+            clinicName: r.clinic?.nameUz ?? 'Klinika',
+            count: 0, completed: 0, sum: 0, sumCompleted: 0,
+        };
+        g.count += 1;
+        g.sum += amount;
+        if (done) { g.completed += 1; g.sumCompleted += amount; }
+        byClinic.set(r.clinicId, g);
+    }
+
+    // Busiest clinic first; the doctor reads this as "where my referrals land".
+    const clinics = [...byClinic.values()].sort((a, b) => b.sum - a.sum || b.count - a.count);
+    return { totals, clinics };
+}
+
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
 export async function adminListDoctors(status?: string) {

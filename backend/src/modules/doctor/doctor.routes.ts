@@ -16,6 +16,7 @@ doctorRouter.patch('/me', requireAuth, requireRole(['DOCTOR']), ctrl.updateMe);
 doctorRouter.get('/patient-lookup', requireAuth, requireRole(['DOCTOR']), ctrl.patientLookup);
 doctorRouter.post('/recommendations', requireAuth, requireRole(['DOCTOR']), ctrl.createRecommendation);
 doctorRouter.get('/recommendations', requireAuth, requireRole(['DOCTOR']), ctrl.listRecommendations);
+doctorRouter.get('/stats', requireAuth, requireRole(['DOCTOR']), ctrl.stats);
 
 // ─── /api/admin/doctors — super-admin approval ───────────────────────────────
 export const adminDoctorRouter = Router();

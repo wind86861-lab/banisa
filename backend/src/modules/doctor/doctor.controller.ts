@@ -62,6 +62,12 @@ export const listRecommendations = async (req: AuthRequest, res: Response, next:
     } catch (e) { next(e); }
 };
 
+export const stats = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        sendSuccess(res, await doctorService.getDoctorStats(req.user!.id));
+    } catch (e) { next(e); }
+};
+
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
 export const adminList = async (req: Request, res: Response, next: NextFunction) => {

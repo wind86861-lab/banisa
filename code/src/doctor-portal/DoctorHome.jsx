@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Clock, CheckCircle2, XCircle, Upload, Loader2, FileText, X, Plus, LogOut, ListChecks } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle, Upload, Loader2, FileText, X, Plus, LogOut, ListChecks, Building2 } from 'lucide-react';
 import { useUserAuth } from '../shared/auth/UserAuthContext';
 import { imgUrl } from '../shared/utils/format';
-import { useMyDoctor, updateMyDoctor, uploadDoctorImage } from './useDoctor';
+import { useMyDoctor, useDoctorStats, updateMyDoctor, uploadDoctorImage } from './useDoctor';
 import BanisaLoader from '../shared/components/BanisaLoader';
 import DoctorNav from './DoctorNav';
 import './doctor-portal.css';
@@ -64,6 +64,99 @@ function DocUploader({ documents, onChange }) {
     );
 }
 
+// Money is the headline here, and som figures run long — compact anything from a
+// million up so the hero figure never wraps on a 390px Mini App viewport.
+const som = (n) => {
+    const v = Number(n) || 0;
+    if (v >= 1e9) return `${(v / 1e9).toFixed(1).replace(/\.0$/, '')} mlrd`;
+    if (v >= 1e6) return `${(v / 1e6).toFixed(1).replace(/\.0$/, '')} mln`;
+    return v.toLocaleString('uz-UZ');
+};
+const plain = (n) => (Number(n) || 0).toLocaleString('uz-UZ');
+
+/**
+ * Referral statistics.
+ *
+ * Deliberately not a chart: these are headline numbers plus a short ranked list,
+ * which is what a stat tile and a meter are for — a bar chart of four totals
+ * would carry less and cost more space.
+ *
+ * Two money figures are kept apart on purpose. The hero is everything the doctor
+ * referred; the tiles below say how much of it actually reached a finished
+ * visit. Reporting only the first would flatter the numbers.
+ */
+function DoctorStats() {
+    const { data, isLoading } = useDoctorStats();
+    if (isLoading) return <div className="dp-card dp-stats-skel"><Loader2 size={18} className="dp-spin" /></div>;
+    const t = data?.totals;
+    if (!t || !t.all) {
+        return (
+            <div className="dp-card dp-stats-empty">
+                <p>Hali tavsiya yubormagansiz. Birinchi tavsiyangizdan keyin statistika shu yerda ko'rinadi.</p>
+            </div>
+        );
+    }
+    const clinics = data.clinics || [];
+
+    return (
+        <div className="dp-stats">
+            {/* Hero — exactly one per view. */}
+            <div className="dp-hero">
+                <span className="dp-hero-label">Umumiy tavsiya qilingan</span>
+                <b className="dp-hero-value">{som(t.sum)} <small>so'm</small></b>
+                <span className="dp-hero-sub">{plain(t.all)} ta tavsiya</span>
+            </div>
+
+            {/* KPI row — counts that say where those referrals ended up. */}
+            <div className="dp-tiles">
+                <div className="dp-tile">
+                    <span className="dp-tile-label">Yakunlangan</span>
+                    <b className="dp-tile-value">{plain(t.completed)}</b>
+                    <span className="dp-tile-sub">{som(t.sumCompleted)} so'm</span>
+                </div>
+                <div className="dp-tile">
+                    <span className="dp-tile-label">Bron qilingan</span>
+                    <b className="dp-tile-value">{plain(t.booked)}</b>
+                </div>
+                <div className="dp-tile">
+                    <span className="dp-tile-label">Kutilmoqda</span>
+                    <b className="dp-tile-value">{plain(t.pending + t.accepted)}</b>
+                </div>
+            </div>
+
+            {/* Per-clinic split. Each row is a meter: filled share = finished
+                visits, track = a lighter step of the same hue. Counts and sums
+                are direct-labelled, so nothing is carried by colour alone. */}
+            {clinics.length > 0 && (
+                <div className="dp-card">
+                    <div className="dp-card-title"><Building2 size={16} /> Klinikalar bo'yicha</div>
+                    <div className="dp-clinics">
+                        {clinics.map(c => {
+                            const pct = c.count ? Math.round((c.completed / c.count) * 100) : 0;
+                            return (
+                                <div key={c.clinicId} className="dp-clinic-row">
+                                    <div className="dp-clinic-top">
+                                        <b>{c.clinicName}</b>
+                                        <span>{som(c.sum)} so'm</span>
+                                    </div>
+                                    <div className="dp-meter" role="img"
+                                         aria-label={`${c.completed} / ${c.count} yakunlangan`}>
+                                        <span className="dp-meter-fill" style={{ width: `${pct}%` }} />
+                                    </div>
+                                    <div className="dp-clinic-bot">
+                                        <span>{plain(c.count)} tavsiya · {plain(c.completed)} yakunlangan</span>
+                                        <span>{som(c.sumCompleted)} so'm yakunlandi</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function DoctorHome() {
     const navigate = useNavigate();
     const { data: doc, isLoading } = useMyDoctor();
@@ -95,6 +188,7 @@ export default function DoctorHome() {
                     <button className="dp-btn dp-btn--ghost dp-btn--lg" onClick={() => navigate('/doctor/recommendations')} style={{ marginTop: 8 }}>
                         <ListChecks size={18} /> Tavsiyalarim
                     </button>
+                    <DoctorStats />
                 </div>
             ) : doc.status === 'REJECTED' ? (
                 <div className="dp-state dp-state--rej">
