@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Clock, CheckCircle2, XCircle, Upload, Loader2, FileText, X, Plus, LogOut, ListChecks, Building2 } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle, Upload, Loader2, FileText, X, Plus, LogOut, ListChecks, Building2, PartyPopper, ShieldCheck, Bell } from 'lucide-react';
 import { useUserAuth } from '../shared/auth/UserAuthContext';
 import { imgUrl } from '../shared/utils/format';
 import { useMyDoctor, useDoctorStats, updateMyDoctor, uploadDoctorImage } from './useDoctor';
@@ -178,6 +178,8 @@ function DoctorStats() {
 
 export default function DoctorHome() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const justRegistered = !!location.state?.justRegistered;
     const { data: doc, isLoading } = useMyDoctor();
     const { logout } = useUserAuth();
     const qc = useQueryClient();
@@ -190,7 +192,7 @@ export default function DoctorHome() {
     const name = [doc.firstName, doc.lastName].filter(Boolean).join(' ') || 'Shifokor';
 
     return (
-        <div className="dp dp--with-nav">
+        <div className={`dp${doc.status === 'APPROVED' ? ' dp--with-nav' : ''}`}>
             <header className="dp-top">
                 <div className="dp-top-id"><div className="dp-badge dp-badge--sm"><span>{name.charAt(0).toUpperCase()}</span></div><b>{name}</b></div>
                 <button className="dp-logout" onClick={() => logout?.()} aria-label="Chiqish"><LogOut size={17} /></button>
@@ -221,20 +223,49 @@ export default function DoctorHome() {
                     </div>
                 </div>
             ) : (
-                <div className="dp-state dp-state--pending">
-                    <div className="dp-state-ic"><Clock size={40} /></div>
-                    <h2>Arizangiz ko'rib chiqilmoqda</h2>
-                    <p>Hujjatlaringizni yuklang — admin tekshirib tasdiqlaydi.</p>
-                    <div className="dp-card">
-                        <div className="dp-card-title"><Upload size={16} /> Hujjatlar (diplom, sertifikat)</div>
-                        <DocUploader documents={documents} onChange={setDocuments} />
-                        <p className="dp-hint" style={{ marginTop: 10 }}>
-                            {documents.length ? `${documents.length} ta hujjat yuklandi` : 'Kamida bitta hujjat yuklang'}
-                        </p>
+                /* Pending. This is where a doctor lands the moment they register and
+                   where they stay until an admin decides — so it has to read as
+                   "done, now waiting", not as a form still asking for uploads (the
+                   old copy said "Hujjatlaringizni yuklang", which made a finished
+                   registration look incomplete). */
+                <div className="dp-state dp-state--pending dp-congrats">
+                    <div className="dp-state-ic dp-congrats-ic"><PartyPopper size={38} /></div>
+                    <h2>{justRegistered ? 'Tabriklaymiz!' : 'Ro\'yxatdan o\'tgansiz'}</h2>
+                    <p className="dp-congrats-lead">
+                        Siz shifokor sifatida ro'yxatdan o'tdingiz.
+                        <br /><b>Admin tasdig'i kutilmoqda.</b>
+                    </p>
+
+                    {/* Where the application is in its lifecycle. */}
+                    <ol className="dp-progress">
+                        <li className="done"><span><CheckCircle2 size={16} /></span>Ariza yuborildi</li>
+                        <li className="now"><span><Clock size={16} /></span>Admin tekshiruvi</li>
+                        <li><span><ShieldCheck size={16} /></span>Tasdiqlash — tavsiya yuborish ochiladi</li>
+                    </ol>
+
+                    <div className="dp-card dp-congrats-card">
+                        <div className="dp-card-title"><FileText size={16} /> Yuborilgan ma'lumotlar</div>
+                        <dl className="dp-kv">
+                            <div><dt>Ism</dt><dd>{name}</dd></div>
+                            {doc.specialty && <div><dt>Mutaxassislik</dt><dd>{doc.specialty}</dd></div>}
+                            {doc.workplace && <div><dt>Ish joyi</dt><dd>{doc.workplace}</dd></div>}
+                            <div><dt>Hujjatlar</dt><dd>{documents.length} ta yuklangan</dd></div>
+                        </dl>
                     </div>
+
+                    <p className="dp-congrats-note">
+                        <Bell size={15} /> Tasdiqlanganingizda botda xabar keladi.
+                    </p>
+
+                    {/* Still possible to add a certificate while waiting — but as
+                        an optional extra below the fold, not the headline. */}
+                    <details className="dp-card dp-congrats-more">
+                        <summary><Upload size={15} /> Qo'shimcha hujjat yuklash</summary>
+                        <DocUploader documents={documents} onChange={setDocuments} />
+                    </details>
                 </div>
             )}
-            <DoctorNav />
+            {doc.status === 'APPROVED' && <DoctorNav />}
         </div>
     );
 }

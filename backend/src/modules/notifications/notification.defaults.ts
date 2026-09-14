@@ -30,6 +30,9 @@ export const DEFAULT_CHANNELS: Record<EventType, Channel[]> = {
     // Fallback
     general: ['inapp'],
     recommendation_received: ['inapp', 'telegram'],
+    // Doctor onboarding outcome. The bot is the doctor's only surface, so
+    // telegram is what actually reaches them; no SMS (not money-bearing).
+    doctor_application_reviewed: ['inapp', 'telegram'],
 };
 
 /**

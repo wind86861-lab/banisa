@@ -303,5 +303,27 @@ export function renderTemplate(event: NotificationEvent, lang: TplLang = 'uz'): 
                 telegram: `<b>🩺 ${esc(title)}</b>\n${esc(body)}`,
             };
         }
+        case 'doctor_application_reviewed': {
+            // The pending screen promises this message ("Tasdiqlanganingizda
+            // botda xabar keladi"), so a doctor never has to keep reopening the
+            // portal to find out whether they were let in.
+            if (event.approved) {
+                const title = 'Arizangiz tasdiqlandi';
+                const body = "Tabriklaymiz! Endi bemorlaringizga klinika xizmatlarini tavsiya qila olasiz. Shifokor kabinetini oching.";
+                return {
+                    title, body,
+                    sms: `${t.smsPrefix} ${body}`.slice(0, 160),
+                    telegram: `<b>✅ ${esc(title)}</b>\n${esc(body)}`,
+                };
+            }
+            const title = 'Arizangiz rad etildi';
+            const why = event.reason ? ` Sabab: ${event.reason}.` : '';
+            const body = `Shifokor arizangiz tasdiqlanmadi.${why} Ma'lumotlarni tekshirib, qo'shimcha hujjat yuklashingiz mumkin.`;
+            return {
+                title, body,
+                sms: `${t.smsPrefix} ${body}`.slice(0, 160),
+                telegram: `<b>❌ ${esc(title)}</b>\n${esc(body)}`,
+            };
+        }
     }
 }

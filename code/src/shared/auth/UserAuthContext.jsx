@@ -359,6 +359,17 @@ export const UserAuthProvider = ({ children }) => {
     clearSession();
   };
 
+  // Adopt a session another endpoint has already issued. Doctor registration
+  // upgrades the account server-side and returns a fresh token + user, but none
+  // of the login helpers above could take them (they log in themselves, and
+  // refuse non-PATIENT roles). Without this the context kept the stale PATIENT
+  // user, DoctorGuard bounced a freshly registered doctor straight back to the
+  // registration form, and they submitted it a second time.
+  const applySession = (token, userData) => {
+    if (!token || !userData) return;
+    applyAuthSuccess(token, userData);
+  };
+
   const updateUserState = (partialUser) => {
     const updated = { ...user, ...partialUser };
     userTokenStorage.setUser(updated);
@@ -381,6 +392,7 @@ export const UserAuthProvider = ({ children }) => {
       register,
       logout,
       updateUserState,
+      applySession,
       expiringSoon,
       extendSession,
       ensurePatientAuth,

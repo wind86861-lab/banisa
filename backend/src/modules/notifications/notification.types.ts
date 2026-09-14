@@ -17,6 +17,7 @@ export type EventType =
     | 'payment_received'
     | 'review_request'             // Service done → ask the patient to review it
     | 'recommendation_received'    // A doctor sent the patient a service recommendation
+    | 'doctor_application_reviewed' // Admin approved / rejected a doctor's registration
     | 'queue_called'
     // Clinic-facing
     | 'clinic_new_booking'
@@ -88,6 +89,12 @@ export interface RecommendationEvent extends BaseEvent<'recommendation_received'
     total?: number;
 }
 
+export interface DoctorApplicationEvent extends BaseEvent<'doctor_application_reviewed'> {
+    approved: boolean;
+    /** Admin's reason, shown to the doctor on rejection. */
+    reason?: string | null;
+}
+
 export interface ClinicDailyReportEvent extends BaseEvent<'clinic_daily_report'> {
     /** Aggregated numbers the template renders into the body. */
     total: number;
@@ -98,4 +105,4 @@ export interface ClinicDailyReportEvent extends BaseEvent<'clinic_daily_report'>
     pending: number;
 }
 
-export type NotificationEvent = BookingEvent | PaymentEvent | ReviewRequestEvent | GeneralEvent | ClinicDailyReportEvent | RecommendationEvent;
+export type NotificationEvent = BookingEvent | PaymentEvent | ReviewRequestEvent | GeneralEvent | ClinicDailyReportEvent | RecommendationEvent | DoctorApplicationEvent;

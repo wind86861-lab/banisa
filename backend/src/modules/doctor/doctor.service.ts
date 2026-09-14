@@ -435,6 +435,7 @@ export async function adminApproveDoctor(id: string) {
         await tx.user.update({ where: { id }, data: { status: 'APPROVED' } });
         await tx.doctorProfile.updateMany({ where: { userId: id }, data: { rejectionReason: null } });
     });
+    await notifyApplicationReviewed(id, true);
     return { id, status: 'APPROVED' };
 }
 
@@ -445,5 +446,27 @@ export async function adminRejectDoctor(id: string, reason: string) {
         await tx.user.update({ where: { id }, data: { status: 'REJECTED' } });
         await tx.doctorProfile.updateMany({ where: { userId: id }, data: { rejectionReason: reason || null } });
     });
+    await notifyApplicationReviewed(id, false, reason);
     return { id, status: 'REJECTED' };
+}
+
+/**
+ * Tell the doctor how their application went. Sent AFTER the transaction commits
+ * and best-effort: a bot outage must not undo an admin's decision. The pending
+ * screen promises this message, so without it a doctor had no way to learn they
+ * were approved short of reopening the portal.
+ */
+async function notifyApplicationReviewed(userId: string, approved: boolean, reason?: string | null) {
+    try {
+        await dispatchNotification({
+            type: 'doctor_application_reviewed',
+            userId,
+            approved,
+            reason: reason || null,
+            link: '/doctor',
+            priority: 'HIGH',
+        } as any);
+    } catch (e) {
+        console.error('[doctor] application-reviewed notify failed', { userId, approved }, e);
+    }
 }

@@ -45,7 +45,7 @@ function DiplomaField({ label, required, value, onChange }) {
 
 export default function DoctorRegisterPage() {
     const navigate = useNavigate();
-    const { user, ensurePatientAuth } = useUserAuth();
+    const { user, ensurePatientAuth, applySession } = useUserAuth();
     const [form, setForm] = useState({ firstName: '', lastName: '', specialty: '', workplace: '', bio: '' });
     const [bakalavr, setBakalavr] = useState('');
     const [magistr, setMagistr] = useState('');
@@ -91,7 +91,7 @@ export default function DoctorRegisterPage() {
                 { url: bakalavr, name: 'Bakalavr diplomi', type: 'bakalavr' },
                 ...(magistr ? [{ url: magistr, name: 'Magistr diplomi', type: 'magistr' }] : []),
             ];
-            await registerDoctor({
+            const session = await registerDoctor({
                 firstName: form.firstName.trim(),
                 lastName: form.lastName.trim(),
                 specialty: form.specialty.trim(),
@@ -99,8 +99,11 @@ export default function DoctorRegisterPage() {
                 bio: form.bio.trim(),
                 documents,
             });
-            try { await ensurePatientAuth?.(); } catch { /* ignore */ }
-            navigate('/doctor', { replace: true });
+            // Take the session the server just issued. Re-resolving auth here
+            // returned the cached PATIENT user (its token was still fresh), so
+            // DoctorGuard sent the new doctor back to this form.
+            applySession?.(session?.accessToken, session?.user);
+            navigate('/doctor', { replace: true, state: { justRegistered: true } });
         } catch (err) {
             const code = err?.response?.status;
             const msg = err?.response?.data?.message
