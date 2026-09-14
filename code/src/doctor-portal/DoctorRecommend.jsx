@@ -13,22 +13,29 @@ import './doctor-portal.css';
 const fmt = (n) => (Number(n) || 0).toLocaleString('uz-UZ');
 
 // ── Phone ───────────────────────────────────────────────────────────────────
-// Uzbek subscriber numbers are exactly 9 national digits behind +998. The field
-// used to take anything at all, so "+656565652626522" sailed through to a
-// referral nobody could ever claim. Keep only digits, drop a typed 998/8 prefix,
-// hard-cap at 9, and render the familiar grouping.
-const NAT_LEN = 9;
-const natDigits = (v) => {
-    let d = String(v || '').replace(/\D/g, '');
-    if (d.startsWith('998')) d = d.slice(3);
-    else if (d.length > NAT_LEN && d.startsWith('8')) d = d.slice(1);
-    return d.slice(0, NAT_LEN);
+// The field used to take any string, so "+656565652626522" sailed through to a
+// referral nobody could ever claim. It now holds digits only, inside E.164's
+// 7–15 range. Foreign numbers are allowed — patients are not always on an UZ
+// SIM — so the country code is typed rather than pinned to 998.
+//
+// The one convenience: exactly 9 digits is unambiguous locally (an UZ national
+// number), so it gets +998. Anything else is taken as already carrying its
+// country code. The resolved number is echoed under the field so the doctor can
+// always see what will actually be saved.
+const E164_MIN = 7;
+const E164_MAX = 15;
+const UZ_NAT_LEN = 9;
+
+const phoneDigitsOf = (v) => String(v || '').replace(/\D/g, '').slice(0, E164_MAX);
+const isUzNational = (d) => d.length === UZ_NAT_LEN;
+const toE164 = (d) => (isUzNational(d) ? `+998${d}` : `+${d}`);
+
+/** Group for readability: UZ as 90 123 45 67, others in loose 3s after the CC. */
+const formatPhone = (d) => {
+    if (!d) return '';
+    if (isUzNational(d)) return [d.slice(0, 2), d.slice(2, 5), d.slice(5, 7), d.slice(7, 9)].filter(Boolean).join(' ');
+    return d.replace(/(\d{3})(?=\d)/g, '$1 ').trim();
 };
-const formatNat = (d) => {
-    const p = [d.slice(0, 2), d.slice(2, 5), d.slice(5, 7), d.slice(7, 9)].filter(Boolean);
-    return p.join(' ');
-};
-const toE164 = (d) => `+998${d}`;
 
 // ── Service sections ────────────────────────────────────────────────────────
 // The picker was one flat alphabetical list of every service a clinic offers —
@@ -118,8 +125,8 @@ export default function DoctorRecommend() {
     const basketArr = Object.values(basket);
     const total = basketArr.reduce((s, i) => s + i.price * i.quantity, 0);
 
-    // `phone` holds the 9 national digits only; the +998 is fixed UI furniture.
-    const phoneReady = phone.length === NAT_LEN;
+    // `phone` holds raw digits; the + is UI furniture.
+    const phoneReady = phone.length >= E164_MIN;
     const phoneE164 = toE164(phone);
 
     // The lookup is advisory ONLY. A doctor may refer someone who has never
@@ -222,19 +229,19 @@ export default function DoctorRecommend() {
                     <h3 className="dp-step-t">Bemor raqami</h3>
                     <p className="dp-step-hint">Tavsiya shu raqamga biriktiriladi.</p>
 
-                    <div className="dp-field">
-                        <span className="dp-field-ic"><Phone size={17} /></span>
-                        <span className="dp-field-prefix">+998</span>
+                    <div className="dp-inputbox">
+                        <span className="dp-inputbox-ic"><Phone size={17} /></span>
+                        <span className="dp-inputbox-prefix">+</span>
                         <input
-                            className="dp-field-input"
-                            value={formatNat(phone)}
-                            onChange={e => setPhone(natDigits(e.target.value))}
+                            className="dp-inputbox-input"
+                            value={formatPhone(phone)}
+                            onChange={e => setPhone(phoneDigitsOf(e.target.value))}
                             placeholder="90 123 45 67"
-                            inputMode="numeric"
-                            autoComplete="tel-national"
+                            inputMode="tel"
+                            autoComplete="tel"
                             autoFocus
                         />
-                        {checking && <Loader2 size={16} className="dp-spin dp-field-spin" />}
+                        {checking && <Loader2 size={16} className="dp-spin dp-inputbox-spin" />}
                     </div>
 
                     {/* Status is informational in both directions — neither state
@@ -260,11 +267,27 @@ export default function DoctorRecommend() {
                         </div>
                     )}
 
+                    {/* Always show what will be stored — with an optional country
+                        code the typed digits and the saved number can differ. */}
+                    {phoneReady && (
+                        <p className="dp-resolved">
+                            Saqlanadi: <b>{phoneE164}</b>
+                            {isUzNational(phone) && <span> (O'zbekiston)</span>}
+                        </p>
+                    )}
+
                     {!phoneReady && phone !== '' && (
                         <div className="dp-note dp-note--info">
                             <span className="dp-note-ic"><Info size={16} /></span>
-                            <div><span>Raqam {NAT_LEN} xonali bo'lishi kerak — yana {NAT_LEN - phone.length} ta raqam.</span></div>
+                            <div><span>Raqam juda qisqa — kamida {E164_MIN} ta raqam kiriting.</span></div>
                         </div>
+                    )}
+
+                    {phone === '' && (
+                        <p className="dp-resolved dp-resolved--hint">
+                            O'zbekiston raqami uchun 9 xonani kiriting (90 123 45 67).
+                            Chet el raqami bo'lsa, davlat kodi bilan yozing.
+                        </p>
                     )}
 
                     {err && <div className="dp-error"><AlertCircle size={15} /> {err}</div>}
@@ -304,9 +327,9 @@ export default function DoctorRecommend() {
                     <div className="dp-clinic-tag"><Building2 size={14} /> {clinic?.name}</div>
                     <h3 className="dp-step-t">Xizmatlarni qo'shing</h3>
 
-                    <div className="dp-field dp-field--sm">
-                        <span className="dp-field-ic"><Search size={16} /></span>
-                        <input className="dp-field-input" value={svcQ} onChange={e => setSvcQ(e.target.value)} placeholder="Xizmat nomi bo'yicha qidirish..." />
+                    <div className="dp-inputbox dp-inputbox--sm">
+                        <span className="dp-inputbox-ic"><Search size={16} /></span>
+                        <input className="dp-inputbox-input" value={svcQ} onChange={e => setSvcQ(e.target.value)} placeholder="Xizmat nomi bo'yicha qidirish..." />
                     </div>
 
                     {/* Breadcrumb of the open section / sub-category. */}

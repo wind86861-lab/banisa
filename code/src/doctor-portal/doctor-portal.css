@@ -252,7 +252,7 @@
    entry: the lookup runs on its own and only reports what will happen. */
 .dp-step-hint { margin: -4px 0 14px; font-size: 13.5px; color: var(--dp-soft); line-height: 1.45; }
 
-.dp-field {
+.dp-inputbox {
   display: flex; align-items: center; gap: 10px;
   padding: 0 14px;
   border-radius: 14px;
@@ -260,16 +260,16 @@
   background: var(--dp-surface);
   transition: border-color .16s ease, box-shadow .16s ease;
 }
-.dp-field:focus-within { border-color: var(--dp-accent-fill); box-shadow: 0 0 0 4px var(--dp-accent-soft); }
-.dp-field-ic { display: flex; color: var(--dp-muted); flex-shrink: 0; }
-.dp-field-input {
+.dp-inputbox:focus-within { border-color: var(--dp-accent-fill); box-shadow: 0 0 0 4px var(--dp-accent-soft); }
+.dp-inputbox-ic { display: flex; color: var(--dp-muted); flex-shrink: 0; }
+.dp-inputbox-input {
   flex: 1; min-width: 0;
   border: none; outline: none; background: transparent;
   padding: 14px 0;
   font-size: 16px; font-family: inherit; letter-spacing: .2px;
   color: var(--dp-ink);
 }
-.dp-field-spin { color: var(--dp-muted); flex-shrink: 0; }
+.dp-inputbox-spin { color: var(--dp-muted); flex-shrink: 0; }
 
 /* Advisory notes. Tone carries the meaning; none of them is an error. */
 .dp-note {
@@ -330,13 +330,17 @@
 }
 .dp-dot { flex: 1; max-width: 64px; height: 4px; }
 
-/* ── Phone prefix ────────────────────────────────────────────────────────── */
-.dp-field-prefix {
+/* ── Phone prefix ──────────────────────────────────────────────────────────
+   NB: these are .dp-inputbox-*, NOT .dp-field-*. .dp-field is already taken by
+   the registration form's stacked label+input pattern, which sets
+   flex-direction:column and borders its own inputs — reusing the name turned
+   this row into three stacked boxes. */
+.dp-inputbox-prefix {
   font-size: 16px; font-weight: 600; color: var(--dp-soft);
   flex-shrink: 0; letter-spacing: .2px;
   padding-right: 2px; border-right: 1px solid var(--dp-border); margin-right: 2px;
 }
-.dp-field--sm .dp-field-input { padding: 11px 0; font-size: 15px; }
+.dp-inputbox--sm .dp-inputbox-input { padding: 11px 0; font-size: 15px; }
 
 /* ── Service sections (drill-down picker) ─────────────────────────────────── */
 .dp-crumbs {
@@ -372,3 +376,10 @@
 .dp-section-body span { font-size: 12.5px; color: var(--dp-soft); }
 .dp-section-arrow { color: var(--dp-muted); flex-shrink: 0; }
 .dp-section--sub { padding: 13px 15px; }
+
+/* Echo of the number that will actually be stored — with an optional country
+   code, what the doctor typed and what we save are not always the same. */
+.dp-resolved { margin: 9px 2px 0; font-size: 12.5px; color: var(--dp-soft); line-height: 1.5; }
+.dp-resolved b { color: var(--dp-ink); letter-spacing: .2px; }
+.dp-resolved span { color: var(--dp-muted); }
+.dp-resolved--hint { color: var(--dp-muted); }

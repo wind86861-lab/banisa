@@ -198,12 +198,14 @@ export async function createRecommendation(doctorId: string, input: Recommendati
     // front of the patient, who often installs the bot afterwards; the row is
     // stored against the phone and claimed on that number's first /start
     // (claimRecommendationsByPhone). Only a plainly malformed number is refused.
-    // An UZ subscriber number is exactly 9 national digits. The client formats
-    // and caps the field, but this is the boundary that actually matters: a
-    // junk number would create a referral no patient could ever claim.
+    // E.164 allows 7-15 digits. Patients are not always on an UZ SIM, so we
+    // validate the range rather than pinning the country — but this is still the
+    // boundary that matters: a junk number would create a referral no patient
+    // could ever claim.
     const patientPhone = cleanPhone(input.patientPhone);
-    if (phoneKey(patientPhone).length !== 9) {
-        throw new AppError('Telefon raqami noto\'g\'ri — 9 xonali raqam kiriting', 400, ErrorCodes.VALIDATION_ERROR);
+    const digits = patientPhone.replace(/\D/g, '');
+    if (digits.length < 7 || digits.length > 15) {
+        throw new AppError('Telefon raqami noto\'g\'ri', 400, ErrorCodes.VALIDATION_ERROR);
     }
     const lk = await lookupPatient(patientPhone);
 
