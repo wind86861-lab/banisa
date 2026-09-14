@@ -342,40 +342,50 @@
 }
 .dp-inputbox--sm .dp-inputbox-input { padding: 11px 0; font-size: 15px; }
 
-/* ── Service sections (drill-down picker) ─────────────────────────────────── */
-.dp-crumbs {
-  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
-  margin: 14px 0 4px; font-size: 12.5px; color: var(--dp-muted);
-}
-.dp-crumbs button {
-  border: none; background: none; padding: 0; cursor: pointer;
-  font: inherit; color: var(--dp-accent);
-}
-.dp-crumbs .on { color: var(--dp-ink); font-weight: 600; }
+/* ── Service picker: accordion ───────────────────────────────────────────────
+   Was a drill-down that replaced the view on every tap, so picking from two
+   sub-categories meant walking back up the tree twice. Sections and their
+   sub-categories now expand in place; one open at each level keeps the list
+   scannable on a Mini App viewport. Search bypasses the tree entirely. */
+.dp-acc { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
 
-.dp-sections { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+.dp-acc-sec {
+  border: 1px solid var(--dp-border);
+  border-radius: 14px;
+  background: var(--dp-surface);
+  overflow: hidden;
+  transition: border-color .15s ease;
+}
+.dp-acc-sec.open { border-color: var(--dp-accent-fill); }
 
-.dp-section {
+.dp-acc-head, .dp-acc-subhead {
   display: flex; align-items: center; gap: 12px; width: 100%;
   padding: 14px 15px; cursor: pointer; text-align: left;
-  border: 1px solid var(--dp-border); border-radius: 14px;
-  background: var(--dp-surface); color: var(--dp-ink);
-  transition: border-color .15s ease, transform .1s ease;
+  border: none; background: none; color: var(--dp-ink); font: inherit;
 }
-.dp-section:active:not(:disabled) { transform: scale(.99); }
-.dp-section:not(:disabled):hover { border-color: var(--dp-accent-fill); }
-.dp-section:disabled { opacity: .5; cursor: not-allowed; }
+.dp-acc-head:disabled { opacity: .5; cursor: not-allowed; }
 
 .dp-section-ic {
-  width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   background: var(--dp-accent-soft); color: var(--dp-accent);
 }
 .dp-section-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.dp-section-body b { font-size: 15px; font-weight: 700; }
+.dp-section-body b { font-size: 15px; font-weight: 700; line-height: 1.3; }
 .dp-section-body span { font-size: 12.5px; color: var(--dp-soft); }
-.dp-section-arrow { color: var(--dp-muted); flex-shrink: 0; }
-.dp-section--sub { padding: 13px 15px; }
+
+.dp-acc-chev { color: var(--dp-muted); flex-shrink: 0; transition: transform .2s ease; }
+.dp-acc-sec.open > .dp-acc-head .dp-acc-chev,
+.dp-acc-sub.open > .dp-acc-subhead .dp-acc-chev { transform: rotate(180deg); color: var(--dp-accent); }
+
+.dp-acc-body { border-top: 1px solid var(--dp-border); background: var(--dp-bg); }
+
+.dp-acc-sub { border-bottom: 1px solid var(--dp-border); }
+.dp-acc-sub:last-child { border-bottom: none; }
+.dp-acc-subhead { padding: 12px 15px 12px 18px; }
+.dp-acc-sub.open > .dp-acc-subhead b { color: var(--dp-accent); }
+
+.dp-svc-list--nested { padding: 0 12px 12px 18px; }
 
 /* Echo of the number that will actually be stored — with an optional country
    code, what the doctor typed and what we save are not always the same. */

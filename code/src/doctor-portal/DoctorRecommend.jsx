@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ChevronLeft, Search, Phone, Check, Loader2, AlertCircle, Plus, Minus,
-    Building2, Send, CheckCircle2, Info, UserPlus, ChevronRight, Scissors,
+    Building2, Send, CheckCircle2, Info, UserPlus, ChevronDown, Scissors,
     ClipboardList, FlaskConical, Mountain,
 } from 'lucide-react';
 import {
@@ -62,8 +62,11 @@ export default function DoctorRecommend() {
     const [clinic, setClinic] = useState(null);
     const [clinicQ, setClinicQ] = useState('');
     const [svcQ, setSvcQ] = useState('');
-    const [section, setSection] = useState(null);   // 'operatsiya' | 'checkup' | ...
-    const [specialty, setSpecialty] = useState(null);
+    // Accordion, not navigation: a section expands in place and the sub-category
+    // expands under it. One open at each level keeps the list short enough to
+    // scan on a Mini App viewport.
+    const [openSection, setOpenSection] = useState(null);
+    const [openSpec, setOpenSpec] = useState(null);
     const [basket, setBasket] = useState({}); // key -> item
     const [sending, setSending] = useState(false);
     const [done, setDone] = useState(null);
@@ -93,34 +96,35 @@ export default function DoctorRecommend() {
         return m;
     }, [clinicAll]);
 
-    // Sub-categories inside the open section, by the payload's `specialty`.
-    const specialties = useMemo(() => {
-        if (!section) return [];
-        const m = new Map();
-        clinicAll.filter(s => s.category === section).forEach(s => {
-            const name = s.specialty || 'Boshqa';
-            m.set(name, (m.get(name) || 0) + 1);
-        });
-        return [...m.entries()]
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => a.name.localeCompare(b.name, 'uz'));
-    }, [clinicAll, section]);
+    // section → [{ name, count, services }] — built once, read by the accordion.
+    const bySection = useMemo(() => {
+        const out = {};
+        for (const { key } of SECTIONS) {
+            const m = new Map();
+            clinicAll.filter(s => s.category === key).forEach(s => {
+                const name = s.specialty || 'Boshqa';
+                if (!m.has(name)) m.set(name, []);
+                m.get(name).push(s);
+            });
+            out[key] = [...m.entries()]
+                .map(([name, list]) => ({
+                    name,
+                    count: list.length,
+                    services: list.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'uz')),
+                }))
+                .sort((a, b) => a.name.localeCompare(b.name, 'uz'));
+        }
+        return out;
+    }, [clinicAll]);
 
     // A search cuts across the whole clinic — when the doctor knows the name,
-    // making them pick a section first would be the slower path.
+    // making them open a section first would be the slower path.
     const searching = svcQ.trim().length > 0;
-    const visibleServices = useMemo(() => {
+    const searchResults = useMemo(() => {
         const q = svcQ.trim().toLowerCase();
-        if (q) {
-            return clinicAll
-                .filter(s => (s.title || '').toLowerCase().includes(q))
-                .slice(0, 80);
-        }
-        if (!section || !specialty) return [];
-        return clinicAll
-            .filter(s => s.category === section && (s.specialty || 'Boshqa') === specialty)
-            .sort((a, b) => (a.title || '').localeCompare(b.title || '', 'uz'));
-    }, [clinicAll, svcQ, section, specialty]);
+        if (!q) return [];
+        return clinicAll.filter(s => (s.title || '').toLowerCase().includes(q)).slice(0, 80);
+    }, [clinicAll, svcQ]);
 
     const basketArr = Object.values(basket);
     const total = basketArr.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -180,6 +184,27 @@ export default function DoctorRecommend() {
         } finally { setSending(false); }
     };
 
+    // One service line. Declared here (not at module scope) so it closes over the
+    // basket handlers — the accordion renders it from three different places.
+    const SvcRow = ({ s }) => {
+        const key = keyOf(s);
+        const inB = basket[key];
+        return (
+            <div className="dp-svc">
+                <div className="dp-svc-main"><b>{s.title}</b><span>{fmt(s.price)} so'm</span></div>
+                {inB ? (
+                    <div className="dp-qty">
+                        <button onClick={() => dec(key)}><Minus size={15} /></button>
+                        <span>{inB.quantity}</span>
+                        <button onClick={() => addSvc(s)}><Plus size={15} /></button>
+                    </div>
+                ) : (
+                    <button className="dp-add" onClick={() => addSvc(s)}><Plus size={16} /></button>
+                )}
+            </div>
+        );
+    };
+
     if (done) {
         return (
             <div className="dp dp--center">
@@ -204,17 +229,7 @@ export default function DoctorRecommend() {
     return (
         <div className="dp">
             <header className="dp-top">
-                <button
-                    className="dp-back"
-                    onClick={() => {
-                        // Inside step 3 the back button walks the section tree
-                        // first, so it never jumps out of the builder mid-pick.
-                        if (step === 3 && specialty) { setSpecialty(null); return; }
-                        if (step === 3 && section) { setSection(null); return; }
-                        if (step > 1) { setStep(step - 1); return; }
-                        navigate('/doctor');
-                    }}
-                ><ChevronLeft size={20} /></button>
+                <button className="dp-back" onClick={() => step > 1 ? setStep(step - 1) : navigate('/doctor')}><ChevronLeft size={20} /></button>
                 <b>Bemor uchun tavsiya</b>
                 <span style={{ width: 38 }} />
             </header>
@@ -332,80 +347,70 @@ export default function DoctorRecommend() {
                         <input className="dp-inputbox-input" value={svcQ} onChange={e => setSvcQ(e.target.value)} placeholder="Xizmat nomi bo'yicha qidirish..." />
                     </div>
 
-                    {/* Breadcrumb of the open section / sub-category. */}
-                    {!searching && (section || specialty) && (
-                        <div className="dp-crumbs">
-                            <button onClick={() => { setSection(null); setSpecialty(null); }}>Bo'limlar</button>
-                            {section && (
-                                <>
-                                    <ChevronRight size={13} />
-                                    <button onClick={() => setSpecialty(null)} className={!specialty ? 'on' : ''}>
-                                        {SECTIONS.find(x => x.key === section)?.label || section}
-                                    </button>
-                                </>
-                            )}
-                            {specialty && <><ChevronRight size={13} /><span className="on">{specialty}</span></>}
+                    {/* Search overrides the tree — flat results across the clinic. */}
+                    {searching && (
+                        <div className="dp-svc-list">
+                            {searchResults.map(s => <SvcRow key={keyOf(s)} s={s} />)}
+                            {!searchResults.length && <p className="dp-hint">Xizmat topilmadi</p>}
                         </div>
                     )}
 
-                    {/* Level 1 — the four big sections. */}
-                    {!searching && !section && (
-                        <div className="dp-sections">
+                    {/* Accordion: section → sub-category → services, all in place. */}
+                    {!searching && (
+                        <div className="dp-acc">
                             {SECTIONS.map(({ key, label, icon: Icon }) => {
-                                const n = sectionCounts[key] || 0;
+                                const groups = bySection[key] || [];
+                                const total = groups.reduce((n, g) => n + g.count, 0);
+                                const open = openSection === key;
                                 return (
-                                    <button
-                                        key={key}
-                                        className="dp-section"
-                                        disabled={n === 0}
-                                        onClick={() => { setSection(key); setSpecialty(null); }}
-                                    >
-                                        <span className="dp-section-ic"><Icon size={20} /></span>
-                                        <span className="dp-section-body">
-                                            <b>{label}</b>
-                                            <span>{n > 0 ? `${n} ta xizmat` : 'Bu klinikada yo\'q'}</span>
-                                        </span>
-                                        {n > 0 && <ChevronRight size={18} className="dp-section-arrow" />}
-                                    </button>
+                                    <div key={key} className={`dp-acc-sec${open ? ' open' : ''}`}>
+                                        <button
+                                            className="dp-acc-head"
+                                            disabled={total === 0}
+                                            aria-expanded={open}
+                                            onClick={() => { setOpenSection(open ? null : key); setOpenSpec(null); }}
+                                        >
+                                            <span className="dp-section-ic"><Icon size={19} /></span>
+                                            <span className="dp-section-body">
+                                                <b>{label}</b>
+                                                <span>{total > 0 ? `${total} ta xizmat` : 'Bu klinikada yo\'q'}</span>
+                                            </span>
+                                            {total > 0 && <ChevronDown size={18} className="dp-acc-chev" />}
+                                        </button>
+
+                                        {open && (
+                                            <div className="dp-acc-body">
+                                                {groups.map(g => {
+                                                    const gOpen = openSpec === `${key}:${g.name}`;
+                                                    return (
+                                                        <div key={g.name} className={`dp-acc-sub${gOpen ? ' open' : ''}`}>
+                                                            <button
+                                                                className="dp-acc-subhead"
+                                                                aria-expanded={gOpen}
+                                                                onClick={() => setOpenSpec(gOpen ? null : `${key}:${g.name}`)}
+                                                            >
+                                                                <span className="dp-section-body">
+                                                                    <b>{g.name}</b>
+                                                                    <span>{g.count} ta xizmat</span>
+                                                                </span>
+                                                                <ChevronDown size={16} className="dp-acc-chev" />
+                                                            </button>
+                                                            {gOpen && (
+                                                                <div className="dp-svc-list dp-svc-list--nested">
+                                                                    {g.services.map(s => <SvcRow key={keyOf(s)} s={s} />)}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                                {!groups.length && <p className="dp-hint">Bu bo'limda xizmat yo'q</p>}
+                                            </div>
+                                        )}
+                                    </div>
                                 );
                             })}
                         </div>
                     )}
-
-                    {/* Level 2 — sub-categories inside the section. */}
-                    {!searching && section && !specialty && (
-                        <div className="dp-sections">
-                            {specialties.map(sp => (
-                                <button key={sp.name} className="dp-section dp-section--sub" onClick={() => setSpecialty(sp.name)}>
-                                    <span className="dp-section-body"><b>{sp.name}</b><span>{sp.count} ta xizmat</span></span>
-                                    <ChevronRight size={18} className="dp-section-arrow" />
-                                </button>
-                            ))}
-                            {!specialties.length && <p className="dp-hint">Bu bo'limda xizmat yo'q</p>}
-                        </div>
-                    )}
-
-                    {/* Level 3 — the services themselves (or search results). */}
-                    <div className="dp-svc-list">
-                        {visibleServices.map(s => {
-                            const key = keyOf(s); const inB = basket[key];
-                            return (
-                                <div key={key} className="dp-svc">
-                                    <div className="dp-svc-main"><b>{s.title}</b><span>{fmt(s.price)} so'm</span></div>
-                                    {inB ? (
-                                        <div className="dp-qty">
-                                            <button onClick={() => dec(key)}><Minus size={15} /></button>
-                                            <span>{inB.quantity}</span>
-                                            <button onClick={() => addSvc(s)}><Plus size={15} /></button>
-                                        </div>
-                                    ) : (
-                                        <button className="dp-add" onClick={() => addSvc(s)}><Plus size={16} /></button>
-                                    )}
-                                </div>
-                            );
-                        })}
-                        {searching && !visibleServices.length && <p className="dp-hint">Xizmat topilmadi</p>}
-                    </div>
 
                     {err && <div className="dp-error"><AlertCircle size={15} /> {err}</div>}
 
