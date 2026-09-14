@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ChevronLeft, Search, Phone, Check, Loader2, AlertCircle, Plus, Minus,
-    Building2, Send, CheckCircle2, Info, UserPlus, ChevronDown, Scissors,
+    Building2, Send, CheckCircle2, Info, UserPlus, ChevronDown, ChevronRight, Scissors,
     ClipboardList, FlaskConical, Mountain,
 } from 'lucide-react';
 import {
@@ -62,10 +62,11 @@ export default function DoctorRecommend() {
     const [clinic, setClinic] = useState(null);
     const [clinicQ, setClinicQ] = useState('');
     const [svcQ, setSvcQ] = useState('');
-    // Accordion, not navigation: a section expands in place and the sub-category
-    // expands under it. One open at each level keeps the list short enough to
-    // scan on a Mini App viewport.
-    const [openSection, setOpenSection] = useState(null);
+    // Two different interactions on purpose: the four top sections are big,
+    // mutually exclusive destinations, so tapping one opens it as its own
+    // screen. The sub-categories inside are what the doctor compares while
+    // picking, so those fold open and shut in place instead.
+    const [section, setSection] = useState(null);
     const [openSpec, setOpenSpec] = useState(null);
     const [basket, setBasket] = useState({}); // key -> item
     const [sending, setSending] = useState(false);
@@ -229,7 +230,16 @@ export default function DoctorRecommend() {
     return (
         <div className="dp">
             <header className="dp-top">
-                <button className="dp-back" onClick={() => step > 1 ? setStep(step - 1) : navigate('/doctor')}><ChevronLeft size={20} /></button>
+                <button
+                    className="dp-back"
+                    onClick={() => {
+                        // Inside an open section, back returns to the section
+                        // list rather than dropping out of the builder.
+                        if (step === 3 && section) { setSection(null); setOpenSpec(null); return; }
+                        if (step > 1) { setStep(step - 1); return; }
+                        navigate('/doctor');
+                    }}
+                ><ChevronLeft size={20} /></button>
                 <b>Bemor uchun tavsiya</b>
                 <span style={{ width: 38 }} />
             </header>
@@ -355,61 +365,68 @@ export default function DoctorRecommend() {
                         </div>
                     )}
 
-                    {/* Accordion: section → sub-category → services, all in place. */}
-                    {!searching && (
-                        <div className="dp-acc">
+                    {/* Level 1 — the four sections, each its own destination. */}
+                    {!searching && !section && (
+                        <div className="dp-sections">
                             {SECTIONS.map(({ key, label, icon: Icon }) => {
-                                const groups = bySection[key] || [];
-                                const total = groups.reduce((n, g) => n + g.count, 0);
-                                const open = openSection === key;
+                                const total = (bySection[key] || []).reduce((n, g) => n + g.count, 0);
                                 return (
-                                    <div key={key} className={`dp-acc-sec${open ? ' open' : ''}`}>
-                                        <button
-                                            className="dp-acc-head"
-                                            disabled={total === 0}
-                                            aria-expanded={open}
-                                            onClick={() => { setOpenSection(open ? null : key); setOpenSpec(null); }}
-                                        >
-                                            <span className="dp-section-ic"><Icon size={19} /></span>
-                                            <span className="dp-section-body">
-                                                <b>{label}</b>
-                                                <span>{total > 0 ? `${total} ta xizmat` : 'Bu klinikada yo\'q'}</span>
-                                            </span>
-                                            {total > 0 && <ChevronDown size={18} className="dp-acc-chev" />}
-                                        </button>
-
-                                        {open && (
-                                            <div className="dp-acc-body">
-                                                {groups.map(g => {
-                                                    const gOpen = openSpec === `${key}:${g.name}`;
-                                                    return (
-                                                        <div key={g.name} className={`dp-acc-sub${gOpen ? ' open' : ''}`}>
-                                                            <button
-                                                                className="dp-acc-subhead"
-                                                                aria-expanded={gOpen}
-                                                                onClick={() => setOpenSpec(gOpen ? null : `${key}:${g.name}`)}
-                                                            >
-                                                                <span className="dp-section-body">
-                                                                    <b>{g.name}</b>
-                                                                    <span>{g.count} ta xizmat</span>
-                                                                </span>
-                                                                <ChevronDown size={16} className="dp-acc-chev" />
-                                                            </button>
-                                                            {gOpen && (
-                                                                <div className="dp-svc-list dp-svc-list--nested">
-                                                                    {g.services.map(s => <SvcRow key={keyOf(s)} s={s} />)}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                                {!groups.length && <p className="dp-hint">Bu bo'limda xizmat yo'q</p>}
-                                            </div>
-                                        )}
-                                    </div>
+                                    <button
+                                        key={key}
+                                        className="dp-section"
+                                        disabled={total === 0}
+                                        onClick={() => { setSection(key); setOpenSpec(null); }}
+                                    >
+                                        <span className="dp-section-ic"><Icon size={20} /></span>
+                                        <span className="dp-section-body">
+                                            <b>{label}</b>
+                                            <span>{total > 0 ? `${total} ta xizmat` : 'Bu klinikada yo\'q'}</span>
+                                        </span>
+                                        {total > 0 && <ChevronRight size={18} className="dp-section-arrow" />}
+                                    </button>
                                 );
                             })}
                         </div>
+                    )}
+
+                    {/* Level 2 — inside a section: sub-categories fold open. */}
+                    {!searching && section && (
+                        <>
+                            <div className="dp-crumbs">
+                                <button onClick={() => { setSection(null); setOpenSpec(null); }}>Bo'limlar</button>
+                                <ChevronRight size={13} />
+                                <span className="on">{SECTIONS.find(x => x.key === section)?.label || section}</span>
+                            </div>
+
+                            <div className="dp-acc">
+                                {(bySection[section] || []).map(g => {
+                                    const gOpen = openSpec === g.name;
+                                    return (
+                                        <div key={g.name} className={`dp-acc-sec${gOpen ? ' open' : ''}`}>
+                                            <button
+                                                className="dp-acc-head"
+                                                aria-expanded={gOpen}
+                                                onClick={() => setOpenSpec(gOpen ? null : g.name)}
+                                            >
+                                                <span className="dp-section-body">
+                                                    <b>{g.name}</b>
+                                                    <span>{g.count} ta xizmat</span>
+                                                </span>
+                                                <ChevronDown size={18} className="dp-acc-chev" />
+                                            </button>
+                                            {gOpen && (
+                                                <div className="dp-acc-body">
+                                                    <div className="dp-svc-list dp-svc-list--nested">
+                                                        {g.services.map(s => <SvcRow key={keyOf(s)} s={s} />)}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {!(bySection[section] || []).length && <p className="dp-hint">Bu bo'limda xizmat yo'q</p>}
+                            </div>
+                        </>
                     )}
 
                     {err && <div className="dp-error"><AlertCircle size={15} /> {err}</div>}
