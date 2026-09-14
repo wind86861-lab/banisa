@@ -329,3 +329,46 @@
   gap: 6px;
 }
 .dp-dot { flex: 1; max-width: 64px; height: 4px; }
+
+/* ── Phone prefix ────────────────────────────────────────────────────────── */
+.dp-field-prefix {
+  font-size: 16px; font-weight: 600; color: var(--dp-soft);
+  flex-shrink: 0; letter-spacing: .2px;
+  padding-right: 2px; border-right: 1px solid var(--dp-border); margin-right: 2px;
+}
+.dp-field--sm .dp-field-input { padding: 11px 0; font-size: 15px; }
+
+/* ── Service sections (drill-down picker) ─────────────────────────────────── */
+.dp-crumbs {
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  margin: 14px 0 4px; font-size: 12.5px; color: var(--dp-muted);
+}
+.dp-crumbs button {
+  border: none; background: none; padding: 0; cursor: pointer;
+  font: inherit; color: var(--dp-accent);
+}
+.dp-crumbs .on { color: var(--dp-ink); font-weight: 600; }
+
+.dp-sections { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+
+.dp-section {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 14px 15px; cursor: pointer; text-align: left;
+  border: 1px solid var(--dp-border); border-radius: 14px;
+  background: var(--dp-surface); color: var(--dp-ink);
+  transition: border-color .15s ease, transform .1s ease;
+}
+.dp-section:active:not(:disabled) { transform: scale(.99); }
+.dp-section:not(:disabled):hover { border-color: var(--dp-accent-fill); }
+.dp-section:disabled { opacity: .5; cursor: not-allowed; }
+
+.dp-section-ic {
+  width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--dp-accent-soft); color: var(--dp-accent);
+}
+.dp-section-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dp-section-body b { font-size: 15px; font-weight: 700; }
+.dp-section-body span { font-size: 12.5px; color: var(--dp-soft); }
+.dp-section-arrow { color: var(--dp-muted); flex-shrink: 0; }
+.dp-section--sub { padding: 13px 15px; }

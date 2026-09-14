@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ChevronLeft, Search, Phone, Check, Loader2, AlertCircle, Plus, Minus,
-    Building2, Send, CheckCircle2, Info, UserPlus,
+    Building2, Send, CheckCircle2, Info, UserPlus, ChevronRight, Scissors,
+    ClipboardList, FlaskConical, Mountain,
 } from 'lucide-react';
 import {
     lookupPatient, createRecommendation, usePublicServicesForBuilder, CATEGORY_TO_TYPE,
@@ -10,6 +11,36 @@ import {
 import './doctor-portal.css';
 
 const fmt = (n) => (Number(n) || 0).toLocaleString('uz-UZ');
+
+// ── Phone ───────────────────────────────────────────────────────────────────
+// Uzbek subscriber numbers are exactly 9 national digits behind +998. The field
+// used to take anything at all, so "+656565652626522" sailed through to a
+// referral nobody could ever claim. Keep only digits, drop a typed 998/8 prefix,
+// hard-cap at 9, and render the familiar grouping.
+const NAT_LEN = 9;
+const natDigits = (v) => {
+    let d = String(v || '').replace(/\D/g, '');
+    if (d.startsWith('998')) d = d.slice(3);
+    else if (d.length > NAT_LEN && d.startsWith('8')) d = d.slice(1);
+    return d.slice(0, NAT_LEN);
+};
+const formatNat = (d) => {
+    const p = [d.slice(0, 2), d.slice(2, 5), d.slice(5, 7), d.slice(7, 9)].filter(Boolean);
+    return p.join(' ');
+};
+const toE164 = (d) => `+998${d}`;
+
+// ── Service sections ────────────────────────────────────────────────────────
+// The picker was one flat alphabetical list of every service a clinic offers —
+// hundreds of rows for a lab, so finding anything meant scrolling or knowing the
+// exact name. Group by the payload's top-level `category`, then by `specialty`
+// (the sub-category), so the doctor drills down instead of hunting.
+const SECTIONS = [
+    { key: 'operatsiya',  label: 'Operatsiyalar', icon: Scissors },
+    { key: 'checkup',     label: 'Check-uplar',   icon: ClipboardList },
+    { key: 'diagnostika', label: 'Diagnostika',   icon: FlaskConical },
+    { key: 'sanatoriya',  label: 'Sanatoriyalar', icon: Mountain },
+];
 
 export default function DoctorRecommend() {
     const navigate = useNavigate();
@@ -24,6 +55,8 @@ export default function DoctorRecommend() {
     const [clinic, setClinic] = useState(null);
     const [clinicQ, setClinicQ] = useState('');
     const [svcQ, setSvcQ] = useState('');
+    const [section, setSection] = useState(null);   // 'operatsiya' | 'checkup' | ...
+    const [specialty, setSpecialty] = useState(null);
     const [basket, setBasket] = useState({}); // key -> item
     const [sending, setSending] = useState(false);
     const [done, setDone] = useState(null);
@@ -40,22 +73,54 @@ export default function DoctorRecommend() {
         return clinics.filter(c => !q || (c.name || '').toLowerCase().includes(q)).slice(0, 40);
     }, [clinics, clinicQ]);
 
-    const clinicServices = useMemo(() => {
-        if (!clinic) return [];
+    // Everything this clinic offers, before any drill-down.
+    const clinicAll = useMemo(
+        () => (clinic ? services.filter(s => s.clinic?.id === clinic.id) : []),
+        [services, clinic],
+    );
+
+    // Section (Operatsiyalar / Check-uplar / …) → how many services sit under it.
+    const sectionCounts = useMemo(() => {
+        const m = {};
+        clinicAll.forEach(s => { m[s.category] = (m[s.category] || 0) + 1; });
+        return m;
+    }, [clinicAll]);
+
+    // Sub-categories inside the open section, by the payload's `specialty`.
+    const specialties = useMemo(() => {
+        if (!section) return [];
+        const m = new Map();
+        clinicAll.filter(s => s.category === section).forEach(s => {
+            const name = s.specialty || 'Boshqa';
+            m.set(name, (m.get(name) || 0) + 1);
+        });
+        return [...m.entries()]
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'uz'));
+    }, [clinicAll, section]);
+
+    // A search cuts across the whole clinic — when the doctor knows the name,
+    // making them pick a section first would be the slower path.
+    const searching = svcQ.trim().length > 0;
+    const visibleServices = useMemo(() => {
         const q = svcQ.trim().toLowerCase();
-        return services
-            .filter(s => s.clinic?.id === clinic.id)
-            .filter(s => !q || (s.title || '').toLowerCase().includes(q))
-            .slice(0, 60);
-    }, [services, clinic, svcQ]);
+        if (q) {
+            return clinicAll
+                .filter(s => (s.title || '').toLowerCase().includes(q))
+                .slice(0, 80);
+        }
+        if (!section || !specialty) return [];
+        return clinicAll
+            .filter(s => s.category === section && (s.specialty || 'Boshqa') === specialty)
+            .sort((a, b) => (a.title || '').localeCompare(b.title || '', 'uz'));
+    }, [clinicAll, svcQ, section, specialty]);
 
     const basketArr = Object.values(basket);
     const total = basketArr.reduce((s, i) => s + i.price * i.quantity, 0);
 
-    // A phone is "usable" once it carries a full local number; the doctor types
-    // it by hand, so we count digits rather than demanding a fixed format.
-    const phoneDigits = phone.replace(/\D/g, '');
-    const phoneReady = phoneDigits.length >= 9;
+    // `phone` holds the 9 national digits only; the +998 is fixed UI furniture.
+    const phoneReady = phone.length === NAT_LEN;
+    const phoneE164 = toE164(phone);
 
     // The lookup is advisory ONLY. A doctor may refer someone who has never
     // opened the bot — the backend stores the referral against the phone and
@@ -67,7 +132,7 @@ export default function DoctorRecommend() {
         setChecking(true);
         const t = setTimeout(async () => {
             try {
-                const r = await lookupPatient(phone.trim());
+                const r = await lookupPatient(phoneE164);
                 if (!cancelled) setPatient(r?.found ? r : null);
             } catch {
                 if (!cancelled) setPatient(null);
@@ -76,7 +141,7 @@ export default function DoctorRecommend() {
             }
         }, 450);
         return () => { cancelled = true; clearTimeout(t); setChecking(false); };
-    }, [phone, phoneReady]);
+    }, [phone, phoneReady, phoneE164]);
 
     const keyOf = (s) => `${CATEGORY_TO_TYPE(s.category)}:${s.serviceId || s.id}`;
     const addSvc = (s) => {
@@ -98,7 +163,7 @@ export default function DoctorRecommend() {
         setErr(''); setSending(true);
         try {
             const res = await createRecommendation({
-                patientPhone: patient?.phone || phone.trim(),
+                patientPhone: patient?.phone || phoneE164,
                 clinicId: clinic.id,
                 items: basketArr.map(({ serviceType, serviceId, name, price, quantity }) => ({ serviceType, serviceId, name, price, quantity })),
             });
@@ -132,7 +197,17 @@ export default function DoctorRecommend() {
     return (
         <div className="dp">
             <header className="dp-top">
-                <button className="dp-back" onClick={() => step > 1 ? setStep(step - 1) : navigate('/doctor')}><ChevronLeft size={20} /></button>
+                <button
+                    className="dp-back"
+                    onClick={() => {
+                        // Inside step 3 the back button walks the section tree
+                        // first, so it never jumps out of the builder mid-pick.
+                        if (step === 3 && specialty) { setSpecialty(null); return; }
+                        if (step === 3 && section) { setSection(null); return; }
+                        if (step > 1) { setStep(step - 1); return; }
+                        navigate('/doctor');
+                    }}
+                ><ChevronLeft size={20} /></button>
                 <b>Bemor uchun tavsiya</b>
                 <span style={{ width: 38 }} />
             </header>
@@ -149,12 +224,14 @@ export default function DoctorRecommend() {
 
                     <div className="dp-field">
                         <span className="dp-field-ic"><Phone size={17} /></span>
+                        <span className="dp-field-prefix">+998</span>
                         <input
                             className="dp-field-input"
-                            value={phone}
-                            onChange={e => setPhone(e.target.value)}
-                            placeholder="+998 90 123 45 67"
-                            inputMode="tel"
+                            value={formatNat(phone)}
+                            onChange={e => setPhone(natDigits(e.target.value))}
+                            placeholder="90 123 45 67"
+                            inputMode="numeric"
+                            autoComplete="tel-national"
                             autoFocus
                         />
                         {checking && <Loader2 size={16} className="dp-spin dp-field-spin" />}
@@ -183,10 +260,10 @@ export default function DoctorRecommend() {
                         </div>
                     )}
 
-                    {!phoneReady && phone.trim() !== '' && (
+                    {!phoneReady && phone !== '' && (
                         <div className="dp-note dp-note--info">
                             <span className="dp-note-ic"><Info size={16} /></span>
-                            <div><span>Raqamni to'liq kiriting.</span></div>
+                            <div><span>Raqam {NAT_LEN} xonali bo'lishi kerak — yana {NAT_LEN - phone.length} ta raqam.</span></div>
                         </div>
                     )}
 
@@ -225,10 +302,69 @@ export default function DoctorRecommend() {
             {step === 3 && (
                 <div className="dp-step dp-step--pad">
                     <div className="dp-clinic-tag"><Building2 size={14} /> {clinic?.name}</div>
-                    <h3 className="dp-step-t">3. Xizmatlarni qo'shing</h3>
-                    <div className="dp-inline-input"><Search size={16} /><input value={svcQ} onChange={e => setSvcQ(e.target.value)} placeholder="Xizmat qidirish..." /></div>
+                    <h3 className="dp-step-t">Xizmatlarni qo'shing</h3>
+
+                    <div className="dp-field dp-field--sm">
+                        <span className="dp-field-ic"><Search size={16} /></span>
+                        <input className="dp-field-input" value={svcQ} onChange={e => setSvcQ(e.target.value)} placeholder="Xizmat nomi bo'yicha qidirish..." />
+                    </div>
+
+                    {/* Breadcrumb of the open section / sub-category. */}
+                    {!searching && (section || specialty) && (
+                        <div className="dp-crumbs">
+                            <button onClick={() => { setSection(null); setSpecialty(null); }}>Bo'limlar</button>
+                            {section && (
+                                <>
+                                    <ChevronRight size={13} />
+                                    <button onClick={() => setSpecialty(null)} className={!specialty ? 'on' : ''}>
+                                        {SECTIONS.find(x => x.key === section)?.label || section}
+                                    </button>
+                                </>
+                            )}
+                            {specialty && <><ChevronRight size={13} /><span className="on">{specialty}</span></>}
+                        </div>
+                    )}
+
+                    {/* Level 1 — the four big sections. */}
+                    {!searching && !section && (
+                        <div className="dp-sections">
+                            {SECTIONS.map(({ key, label, icon: Icon }) => {
+                                const n = sectionCounts[key] || 0;
+                                return (
+                                    <button
+                                        key={key}
+                                        className="dp-section"
+                                        disabled={n === 0}
+                                        onClick={() => { setSection(key); setSpecialty(null); }}
+                                    >
+                                        <span className="dp-section-ic"><Icon size={20} /></span>
+                                        <span className="dp-section-body">
+                                            <b>{label}</b>
+                                            <span>{n > 0 ? `${n} ta xizmat` : 'Bu klinikada yo\'q'}</span>
+                                        </span>
+                                        {n > 0 && <ChevronRight size={18} className="dp-section-arrow" />}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Level 2 — sub-categories inside the section. */}
+                    {!searching && section && !specialty && (
+                        <div className="dp-sections">
+                            {specialties.map(sp => (
+                                <button key={sp.name} className="dp-section dp-section--sub" onClick={() => setSpecialty(sp.name)}>
+                                    <span className="dp-section-body"><b>{sp.name}</b><span>{sp.count} ta xizmat</span></span>
+                                    <ChevronRight size={18} className="dp-section-arrow" />
+                                </button>
+                            ))}
+                            {!specialties.length && <p className="dp-hint">Bu bo'limda xizmat yo'q</p>}
+                        </div>
+                    )}
+
+                    {/* Level 3 — the services themselves (or search results). */}
                     <div className="dp-svc-list">
-                        {clinicServices.map(s => {
+                        {visibleServices.map(s => {
                             const key = keyOf(s); const inB = basket[key];
                             return (
                                 <div key={key} className="dp-svc">
@@ -245,7 +381,7 @@ export default function DoctorRecommend() {
                                 </div>
                             );
                         })}
-                        {!clinicServices.length && <p className="dp-hint">Xizmat topilmadi</p>}
+                        {searching && !visibleServices.length && <p className="dp-hint">Xizmat topilmadi</p>}
                     </div>
 
                     {err && <div className="dp-error"><AlertCircle size={15} /> {err}</div>}
