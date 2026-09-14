@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ChevronLeft, Search, Phone, Check, Loader2, AlertCircle, Plus, Minus,
-    Building2, Send, CheckCircle2,
+    Building2, Send, CheckCircle2, Info, UserPlus,
 } from 'lucide-react';
 import {
     lookupPatient, createRecommendation, usePublicServicesForBuilder, CATEGORY_TO_TYPE,
@@ -52,15 +52,31 @@ export default function DoctorRecommend() {
     const basketArr = Object.values(basket);
     const total = basketArr.reduce((s, i) => s + i.price * i.quantity, 0);
 
-    const checkPatient = async () => {
-        setErr(''); setChecking(true);
-        try {
-            const r = await lookupPatient(phone.trim());
-            if (r.found) { setPatient(r); }
-            else { setErr('Bu raqam bilan bemor botda topilmadi. Bemor avval botda ro\'yxatdan o\'tishi kerak.'); setPatient(null); }
-        } catch { setErr('Tekshirishda xatolik.'); }
-        finally { setChecking(false); }
-    };
+    // A phone is "usable" once it carries a full local number; the doctor types
+    // it by hand, so we count digits rather than demanding a fixed format.
+    const phoneDigits = phone.replace(/\D/g, '');
+    const phoneReady = phoneDigits.length >= 9;
+
+    // The lookup is advisory ONLY. A doctor may refer someone who has never
+    // opened the bot — the backend stores the referral against the phone and
+    // links it on that number's first /start. So this just tells the doctor
+    // whether the patient will see it now or once they join; it never blocks.
+    useEffect(() => {
+        if (!phoneReady) { setPatient(null); setErr(''); return; }
+        let cancelled = false;
+        setChecking(true);
+        const t = setTimeout(async () => {
+            try {
+                const r = await lookupPatient(phone.trim());
+                if (!cancelled) setPatient(r?.found ? r : null);
+            } catch {
+                if (!cancelled) setPatient(null);
+            } finally {
+                if (!cancelled) setChecking(false);
+            }
+        }, 450);
+        return () => { cancelled = true; clearTimeout(t); setChecking(false); };
+    }, [phone, phoneReady]);
 
     const keyOf = (s) => `${CATEGORY_TO_TYPE(s.category)}:${s.serviceId || s.id}`;
     const addSvc = (s) => {
@@ -82,7 +98,7 @@ export default function DoctorRecommend() {
         setErr(''); setSending(true);
         try {
             const res = await createRecommendation({
-                patientPhone: patient.phone || phone.trim(),
+                patientPhone: patient?.phone || phone.trim(),
                 clinicId: clinic.id,
                 items: basketArr.map(({ serviceType, serviceId, name, price, quantity }) => ({ serviceType, serviceId, name, price, quantity })),
             });
@@ -98,7 +114,14 @@ export default function DoctorRecommend() {
                 <div className="dp-state dp-state--ok" style={{ maxWidth: 420 }}>
                     <div className="dp-state-ic"><CheckCircle2 size={40} /></div>
                     <h2>Tavsiya yuborildi ✅</h2>
-                    <p>{done.patientName || 'Bemor'}ga {basketArr.length} ta xizmat tavsiya qilindi. Bemor botда ko'rib, qabul yoki rad qiladi.</p>
+                    {done.patientPending ? (
+                        <p>
+                            {done.patientPhone || 'Bemor'} uchun {basketArr.length} ta xizmat saqlandi.
+                            Bemor botga kirib <b>/start</b> bosishi bilan tavsiya unga avtomatik ko'rinadi.
+                        </p>
+                    ) : (
+                        <p>{done.patientName || 'Bemor'}ga {basketArr.length} ta xizmat tavsiya qilindi. Bemor botda ko'rib, qabul yoki rad qiladi.</p>
+                    )}
                     <button className="dp-btn dp-btn--primary dp-btn--lg" onClick={() => navigate('/doctor/recommendations')}>Tavsiyalarim</button>
                     <button className="dp-btn dp-btn--ghost dp-btn--lg" onClick={() => navigate('/doctor')} style={{ marginTop: 8 }}>Bosh sahifa</button>
                 </div>
@@ -121,21 +144,61 @@ export default function DoctorRecommend() {
             {/* Step 1 — patient */}
             {step === 1 && (
                 <div className="dp-step">
-                    <h3 className="dp-step-t">1. Bemor raqami</h3>
-                    <div className="dp-inline">
-                        <div className="dp-inline-input"><Phone size={16} /><input value={phone} onChange={e => { setPhone(e.target.value); setPatient(null); }} placeholder="+998 90 123 45 67" inputMode="tel" /></div>
-                        <button className="dp-btn dp-btn--primary" onClick={checkPatient} disabled={checking || !phone.trim()}>
-                            {checking ? <Loader2 size={16} className="dp-spin" /> : 'Tekshirish'}
-                        </button>
+                    <h3 className="dp-step-t">Bemor raqami</h3>
+                    <p className="dp-step-hint">Tavsiya shu raqamga biriktiriladi.</p>
+
+                    <div className="dp-field">
+                        <span className="dp-field-ic"><Phone size={17} /></span>
+                        <input
+                            className="dp-field-input"
+                            value={phone}
+                            onChange={e => setPhone(e.target.value)}
+                            placeholder="+998 90 123 45 67"
+                            inputMode="tel"
+                            autoFocus
+                        />
+                        {checking && <Loader2 size={16} className="dp-spin dp-field-spin" />}
                     </div>
-                    {err && <div className="dp-error"><AlertCircle size={15} /> {err}</div>}
-                    {patient && (
-                        <div className="dp-found">
-                            <div className="dp-found-ic"><Check size={18} /></div>
-                            <div><b>{patient.name || 'Bemor'}</b><span>{patient.phone}</span></div>
-                            <button className="dp-btn dp-btn--primary" onClick={() => setStep(2)}>Davom</button>
+
+                    {/* Status is informational in both directions — neither state
+                        stops the doctor from continuing. */}
+                    {phoneReady && !checking && patient && (
+                        <div className="dp-note dp-note--ok">
+                            <span className="dp-note-ic"><Check size={16} /></span>
+                            <div>
+                                <b>{patient.name || 'Bemor'}</b>
+                                <span>Botda ro'yxatdan o'tgan — tavsiyani darhol oladi.</span>
+                            </div>
                         </div>
                     )}
+
+                    {phoneReady && !checking && !patient && (
+                        <div className="dp-note dp-note--wait">
+                            <span className="dp-note-ic"><UserPlus size={16} /></span>
+                            <div>
+                                <b>Bu raqam hali botda yo'q</b>
+                                <span>Tavsiyani baribir yuborishingiz mumkin — bemor botga
+                                kirib <b>/start</b> bosishi bilan avtomatik ko'rinadi.</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {!phoneReady && phone.trim() !== '' && (
+                        <div className="dp-note dp-note--info">
+                            <span className="dp-note-ic"><Info size={16} /></span>
+                            <div><span>Raqamni to'liq kiriting.</span></div>
+                        </div>
+                    )}
+
+                    {err && <div className="dp-error"><AlertCircle size={15} /> {err}</div>}
+
+                    <button
+                        className="dp-btn dp-btn--primary dp-btn--lg dp-step-cta"
+                        disabled={!phoneReady}
+                        onClick={() => setStep(2)}
+                    >
+                        Davom etish
+                    </button>
                 </div>
             )}
 

@@ -2126,7 +2126,11 @@ model DoctorProfile {
 model Recommendation {
   id            String               @id @default(uuid())
   doctorId      String
-  patientId     String
+  // Null until the patient exists in our system. A doctor may write a
+  // recommendation for someone who has never opened the bot; `patientPhone` is
+  // the durable handle and the row is claimed on that phone's first /start.
+  patientId     String?
+  patientPhone  String?
   clinicId      String
   status        RecommendationStatus @default(PENDING)
   totalAmount   Int                  @default(0)
@@ -2138,13 +2142,14 @@ model Recommendation {
   bookedAt      DateTime?
 
   doctor        User                 @relation("DoctorRecommendations", fields: [doctorId], references: [id])
-  patient       User                 @relation("PatientRecommendations", fields: [patientId], references: [id])
+  patient       User?                @relation("PatientRecommendations", fields: [patientId], references: [id])
   clinic        Clinic               @relation(fields: [clinicId], references: [id])
   items         RecommendationItem[]
   appointments  Appointment[]
 
   @@index([doctorId])
   @@index([patientId])
+  @@index([patientPhone])
   @@index([clinicId])
   @@index([status])
   @@index([expiresAt])

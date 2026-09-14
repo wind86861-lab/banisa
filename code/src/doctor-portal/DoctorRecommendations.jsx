@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Building2, User, Loader2, Inbox } from 'lucide-react';
 import { useMyRecommendations } from './useDoctor';
+import DoctorNav from './DoctorNav';
 import './doctor-portal.css';
 
 const fmt = (n) => (Number(n) || 0).toLocaleString('uz-UZ');
@@ -23,7 +24,7 @@ export default function DoctorRecommendations() {
     const shown = useMemo(() => tab ? list.filter(r => r.status === tab) : list, [list, tab]);
 
     return (
-        <div className="dp">
+        <div className="dp dp--with-nav">
             <header className="dp-top">
                 <button className="dp-back" onClick={() => navigate('/doctor')}><ChevronLeft size={20} /></button>
                 <b>Tavsiyalarim</b>
@@ -60,6 +61,7 @@ export default function DoctorRecommendations() {
                     })}
                 </div>
             )}
+            <DoctorNav />
         </div>
     );
 }

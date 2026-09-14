@@ -6,6 +6,7 @@ import { useUserAuth } from '../shared/auth/UserAuthContext';
 import { imgUrl } from '../shared/utils/format';
 import { useMyDoctor, updateMyDoctor, uploadDoctorImage } from './useDoctor';
 import BanisaLoader from '../shared/components/BanisaLoader';
+import DoctorNav from './DoctorNav';
 import './doctor-portal.css';
 
 function DocUploader({ documents, onChange }) {
@@ -77,7 +78,7 @@ export default function DoctorHome() {
     const name = [doc.firstName, doc.lastName].filter(Boolean).join(' ') || 'Shifokor';
 
     return (
-        <div className="dp">
+        <div className="dp dp--with-nav">
             <header className="dp-top">
                 <div className="dp-top-id"><div className="dp-badge dp-badge--sm"><span>{name.charAt(0).toUpperCase()}</span></div><b>{name}</b></div>
                 <button className="dp-logout" onClick={() => logout?.()} aria-label="Chiqish"><LogOut size={17} /></button>
@@ -120,6 +121,7 @@ export default function DoctorHome() {
                     </div>
                 </div>
             )}
+            <DoctorNav />
         </div>
     );
 }

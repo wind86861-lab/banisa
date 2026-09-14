@@ -2,6 +2,7 @@ import { Bot, InlineKeyboard, InputFile, Keyboard } from 'grammy';
 import prisma from '../../config/database';
 import { registerOrLoginViaContact } from './telegram.register';
 import { backfillDispatcherLinks } from '../skory/skory.service';
+import { claimRecommendationsByPhone } from '../doctor/doctor.service';
 import {
     renderMyAppointments, renderAppointmentDetail,
     renderCart, renderCartItemDetail,
@@ -754,6 +755,26 @@ function registerHandlers(bot: Bot) {
     // account (dispatcherUserId null) — the "linked-first, started-later" gap —
     // then always lists every ambulance they dispatch so /start reliably shows
     // "role info", not only on the very first link.
+    /**
+     * Claim referrals a doctor wrote for this phone before the patient had an
+     * account, then tell them. Without this the doctor's "write it now, they'll
+     * install the bot later" flow would leave the referral invisible: the row
+     * carries only a phone until something links it to a user.
+     */
+    const notifyClaimedRecommendations = async (ctx: any, userId: string | null | undefined, lang: Lang): Promise<void> => {
+        if (!userId) return;
+        try {
+            const n = await claimRecommendationsByPhone(userId);
+            if (n <= 0) return;
+            const msg = lang === 'ru'
+                ? `🩺 <b>Вам оставлено ${n} назначение(й) от врача.</b>\n\nОткройте «🔔 Уведомления», чтобы посмотреть и принять.`
+                : `🩺 <b>Sizga shifokordan ${n} ta tavsiya qoldirilgan.</b>\n\nKo'rish va qabul qilish uchun «🔔 Bildirishnomalar» bo'limini oching.`;
+            await ctx.reply(msg, { parse_mode: 'HTML' });
+        } catch (e) {
+            console.error('[recommendation] claim on start failed', e);
+        }
+    };
+
     const notifyDispatcherAssignments = async (ctx: any, userId: string | null | undefined, lang: Lang): Promise<void> => {
         if (!userId) return;
         try {
@@ -815,6 +836,7 @@ function registerHandlers(bot: Bot) {
                 await ctx.reply(intro, { reply_markup: kb });
                 await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
                 await notifyDispatcherAssignments(ctx, existing!.userId!, lang);
+                await notifyClaimedRecommendations(ctx, existing!.userId!, lang);
                 return;
             }
 
@@ -875,6 +897,7 @@ function registerHandlers(bot: Bot) {
             await ctx.reply(LABELS[lang].replyHint, { reply_markup: kb });
             await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
             await notifyDispatcherAssignments(ctx, justLinked?.userId, lang);
+            await notifyClaimedRecommendations(ctx, justLinked?.userId, lang);
         } catch (e: any) {
             const reason = e?.message;
             if (reason === 'not_found') {
@@ -1186,6 +1209,7 @@ function registerHandlers(bot: Bot) {
         await ctx.reply(welcome, { reply_markup: kb });
         await ctx.reply(LABELS[lang].menuTitle, { reply_markup: mainMenu(lang, true) });
         await notifyDispatcherAssignments(ctx, result.user?.id, lang);
+        await notifyClaimedRecommendations(ctx, result.user?.id, lang);
 
         // Brand-new registrations get a follow-up nudge to set a real
         // login password. Without it they can only re-enter via the bot —

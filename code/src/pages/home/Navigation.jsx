@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
     Menu, X, User, LogOut, ChevronDown, Calendar, Heart, LayoutDashboard, ShoppingCart,
     Home, Stethoscope, Building2, UserRound, Ambulance, HelpCircle, Phone, ChevronRight,
+    ClipboardPlus, ListChecks,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,6 +29,17 @@ const BOTTOM_TABS = [
     { to: '/klinikalar', label: 'Klinikalar', icon: Building2 },
     { to: '/user/appointments', label: 'Bronlarim', icon: Calendar },
     { to: '/user/dashboard', label: 'Profil', icon: User },
+];
+
+// Doctors browse the same catalog pages, but /user/* is PATIENT-only — a doctor
+// tapping "Bronlarim" or "Profil" landed on /403. One Telegram is one role, so
+// give them their own destinations instead: the catalog they came to look at,
+// plus the portal actions they actually need.
+const DOCTOR_BOTTOM_TABS = [
+    { to: '/xizmatlar', label: 'Xizmatlar', icon: Stethoscope },
+    { to: '/doctor/recommend', label: 'Tavsiya', icon: ClipboardPlus },
+    { to: '/doctor/recommendations', label: 'Tavsiyalarim', icon: ListChecks },
+    { to: '/doctor', label: 'Kabinet', icon: UserRound },
 ];
 
 // Panel slides in as one piece; children stagger in just behind it so the menu
@@ -99,6 +111,10 @@ export default function Navigation() {
         if (to === '/') return pathname === '/';
         // Profil tab covers the whole /user area except the Bronlarim sub-tree.
         if (to === '/user/dashboard') return pathname.startsWith('/user') && !pathname.startsWith('/user/appointments');
+        // "Kabinet" is the portal root only — the prefix rule below would also
+        // light it up on /doctor/recommend and /doctor/recommendations, which
+        // have tabs of their own.
+        if (to === '/doctor') return pathname === '/doctor';
         return pathname === to || pathname.startsWith(to + '/');
     };
 
@@ -386,7 +402,7 @@ export default function Navigation() {
         {/* ── MOBILE BOTTOM NAV (patient pages, mobile only) ── */}
         {!hideBotNav && (
         <nav className="cm-botnav" aria-label="Asosiy navigatsiya">
-            {BOTTOM_TABS.map(t => {
+            {(user?.role === 'DOCTOR' ? DOCTOR_BOTTOM_TABS : BOTTOM_TABS).map(t => {
                 const active = isTabActive(t.to);
                 const Icon = t.icon;
                 return (

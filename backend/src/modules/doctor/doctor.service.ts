@@ -157,10 +157,15 @@ export async function updateMyDoctor(userId: string, patch: { specialty?: string
 
 // ─── Recommendations (approved doctor) ───────────────────────────────────────
 
+/** Strip spaces/punctuation noise but keep the leading +, as users type it. */
+export const cleanPhone = (phone: string) => String(phone || '').replace(/[\s()\-]/g, '');
+/** Last 9 digits — the part that identifies an UZ subscriber regardless of prefix. */
+export const phoneKey = (phone: string) => String(phone || '').replace(/\D/g, '').slice(-9);
+
 /** Find a bot-bound PATIENT by phone (tolerant to formatting). */
 export async function lookupPatient(phone: string) {
-    const clean = String(phone || '').replace(/\s+/g, '');
-    const last9 = clean.replace(/\D/g, '').slice(-9);
+    const clean = cleanPhone(phone);
+    const last9 = phoneKey(clean);
     if (last9.length < 7) return { found: false };
     const user: any = await prisma.user.findFirst({
         where: { role: 'PATIENT', OR: [{ phone: clean }, { phone: { endsWith: last9 } }] },
@@ -189,8 +194,15 @@ export async function createRecommendation(doctorId: string, input: Recommendati
     if (!doctor || doctor.role !== 'DOCTOR') throw new AppError('Shifokor topilmadi', 404, ErrorCodes.NOT_FOUND);
     if (doctor.status !== 'APPROVED') throw new AppError('Avval admin arizangizni tasdiqlashi kerak', 403, ErrorCodes.FORBIDDEN);
 
-    const lk = await lookupPatient(input.patientPhone);
-    if (!lk.found) throw new AppError('Bu raqam bilan bemor botda topilmadi', 404, ErrorCodes.NOT_FOUND);
+    // The patient does NOT have to exist yet. A doctor writes the referral in
+    // front of the patient, who often installs the bot afterwards; the row is
+    // stored against the phone and claimed on that number's first /start
+    // (claimRecommendationsByPhone). Only a plainly malformed number is refused.
+    const patientPhone = cleanPhone(input.patientPhone);
+    if (phoneKey(patientPhone).length < 7) {
+        throw new AppError('Telefon raqami noto\'g\'ri', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    const lk = await lookupPatient(patientPhone);
 
     const clinic = await prisma.clinic.findUnique({ where: { id: input.clinicId } });
     if (!clinic) throw new AppError('Klinika topilmadi', 404, ErrorCodes.NOT_FOUND);
@@ -228,7 +240,10 @@ export async function createRecommendation(doctorId: string, input: Recommendati
     const rec = await prisma.$transaction(async (tx: any) => {
         const r = await tx.recommendation.create({
             data: {
-                doctorId, patientId: lk.patientId!, clinicId: clinic.id,
+                doctorId,
+                patientId: lk.found ? lk.patientId! : null,
+                patientPhone,
+                clinicId: clinic.id,
                 status: 'PENDING', totalAmount: total, note: input.note || null, expiresAt,
             },
         });
@@ -246,8 +261,10 @@ export async function createRecommendation(doctorId: string, input: Recommendati
     });
 
     // Notify the patient (in-app + bot). Best-effort — never block creation.
+    // Skipped when the patient has no account yet: there is nobody to notify,
+    // and claimRecommendationsByPhone greets them when they do join.
     try {
-        await dispatchNotification({
+        if (lk.found) await dispatchNotification({
             type: 'recommendation_received',
             userId: lk.patientId!,
             recommendationId: rec.id,
@@ -262,7 +279,14 @@ export async function createRecommendation(doctorId: string, input: Recommendati
         console.error('[recommendation] notify failed', e);
     }
 
-    return { id: rec.id, status: rec.status, totalAmount: total, expiresAt, patientName: lk.name };
+    return {
+        id: rec.id, status: rec.status, totalAmount: total, expiresAt,
+        patientName: lk.found ? lk.name : null,
+        patientPhone,
+        // Tells the Mini App whether to show "sent" or "waiting for the patient
+        // to join the bot" on the success screen.
+        patientPending: !lk.found,
+    };
 }
 
 export async function listMyRecommendations(doctorId: string) {
@@ -279,9 +303,46 @@ export async function listMyRecommendations(doctorId: string) {
         id: r.id, status: r.status, total: r.totalAmount,
         createdAt: r.createdAt, expiresAt: r.expiresAt,
         clinicName: r.clinic?.nameUz ?? null,
-        patientName: [r.patient?.firstName, r.patient?.lastName].filter(Boolean).join(' ') || r.patient?.phone || '—',
+        patientName: [r.patient?.firstName, r.patient?.lastName].filter(Boolean).join(' ')
+            || r.patient?.phone || r.patientPhone || '—',
+        // No account behind the phone yet — the list marks these so the doctor
+        // knows the patient still has to open the bot before they can accept.
+        patientPending: !r.patientId,
+        patientPhone: r.patientPhone ?? r.patient?.phone ?? null,
         itemCount: r.items.length,
     }));
+}
+
+/**
+ * Attach every unclaimed recommendation written for this user's phone.
+ *
+ * Doctors can refer a patient who has no account yet (see createRecommendation),
+ * which leaves the row holding only `patientPhone`. The first time that number
+ * shows up as a real user — contact shared in the bot, or a web sign-up — this
+ * claims those rows so the referral simply appears in their list.
+ *
+ * Matching is on the last 9 digits: the doctor types the number by hand and
+ * formats it however they like (+998 90…, 8 90…, 90…), so an exact string
+ * compare would miss rows that clearly belong to the same subscriber.
+ * Expired rows are deliberately left alone — claiming them would surface a
+ * dead referral the patient can no longer act on.
+ */
+export async function claimRecommendationsByPhone(userId: string): Promise<number> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { phone: true, role: true } });
+    if (!user?.phone || user.role !== 'PATIENT') return 0;
+    const last9 = phoneKey(user.phone);
+    if (last9.length < 7) return 0;
+
+    const res = await (prisma as any).recommendation.updateMany({
+        where: {
+            patientId: null,
+            status: 'PENDING',
+            expiresAt: { gt: new Date() },
+            patientPhone: { endsWith: last9 },
+        },
+        data: { patientId: userId },
+    });
+    return res.count as number;
 }
 
 // ─── Admin ───────────────────────────────────────────────────────────────────
