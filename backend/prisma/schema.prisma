@@ -1363,6 +1363,10 @@ enum RecommendationStatus {
   REJECTED
   EXPIRED
   BOOKED
+  // The patient actually attended and the visit finished at the clinic. BOOKED
+  // only means they paid/reserved, which is not the same thing — a referral is
+  // only truly done once the service was delivered.
+  COMPLETED
 }
 
 enum UserStatus {
@@ -2140,6 +2144,7 @@ model Recommendation {
   expiresAt     DateTime // createdAt + 3 days
   respondedAt   DateTime?
   bookedAt      DateTime?
+  completedAt   DateTime?
 
   doctor        User                 @relation("DoctorRecommendations", fields: [doctorId], references: [id])
   patient       User?                @relation("PatientRecommendations", fields: [patientId], references: [id])

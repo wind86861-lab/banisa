@@ -147,6 +147,7 @@
 .dp-chip--rej  { color: #cc3a54; background: #fce9ed; }
 .dp-chip--exp  { color: #64768c; background: #eef2f6; }
 .dp-chip--book { color: #0782ab; background: #def3fa; }
+.dp-chip--done { color: #1c7a4c; background: #ddf1e5; }
 
 /* ── Doctor register: verified phone + diploma uploaders ── */
 .dp-phone-locked {

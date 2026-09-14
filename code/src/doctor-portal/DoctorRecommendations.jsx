@@ -13,8 +13,9 @@ const ST = {
     REJECTED: { label: 'Rad etildi', cls: 'dp-chip--rej' },
     EXPIRED:  { label: 'Muddati o\'tdi', cls: 'dp-chip--exp' },
     BOOKED:   { label: 'Bron qilindi', cls: 'dp-chip--book' },
+    COMPLETED:{ label: 'Yakunlandi', cls: 'dp-chip--done' },
 };
-const TABS = [['', 'Hammasi'], ['PENDING', 'Kutilmoqda'], ['BOOKED', 'Bron'], ['REJECTED', 'Rad']];
+const TABS = [['', 'Hammasi'], ['PENDING', 'Kutilmoqda'], ['BOOKED', 'Bron'], ['COMPLETED', 'Yakunlandi'], ['REJECTED', 'Rad']];
 
 export default function DoctorRecommendations() {
     const navigate = useNavigate();

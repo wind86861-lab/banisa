@@ -343,8 +343,11 @@ export const getReferrals = async (req: AuthRequest, res: Response) => {
     if (!clinicId) return res.status(404).json({ success: false, message: 'Klinika topilmadi' });
     const { from, to } = rangeWindow(String(req.query.range || '30d'));
 
+    // COMPLETED is BOOKED that went on to an attended visit — filtering on
+    // BOOKED alone would drop a referral from this report the moment the clinic
+    // finished the appointment, which is exactly when it counts most.
     const recs: any[] = await (prisma as any).recommendation.findMany({
-        where: { clinicId, status: 'BOOKED', bookedAt: { gte: from, lte: to } },
+        where: { clinicId, status: { in: ['BOOKED', 'COMPLETED'] }, bookedAt: { gte: from, lte: to } },
         include: {
             doctor: { select: { id: true, firstName: true, lastName: true, phone: true } },
             items: { select: { quantity: true } },
@@ -359,7 +362,9 @@ export const getReferrals = async (req: AuthRequest, res: Response) => {
             bookings: 0, patientSet: new Set<string>(), services: 0, sum: 0,
         };
         g.bookings += 1;
-        g.patientSet.add(r.patientId);
+        // patientId is null until an unregistered patient claims the referral;
+        // fall back to the phone so distinct-patient counts stay honest.
+        g.patientSet.add(r.patientId || `phone:${r.patientPhone || r.id}`);
         g.services += (r.items || []).reduce((s: number, i: any) => s + (i.quantity || 1), 0);
         g.sum += r.totalAmount || 0;
         map.set(r.doctorId, g);

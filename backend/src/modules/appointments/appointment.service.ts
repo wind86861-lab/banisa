@@ -1,4 +1,5 @@
 import prisma from '../../config/database';
+import { completeRecommendationForAppointment } from '../recommendation/recommendation.complete';
 import { AppError, ErrorCodes } from '../../utils/errors';
 import { AppointmentStatus, PaymentStatus, PaymentMethod, Prisma } from '@prisma/client';
 import {
@@ -634,6 +635,7 @@ export class AppointmentService {
             note: payload.note,
             metadata: { commissionAmount },
         });
+        await completeRecommendationForAppointment(appointmentId);
         await requestReviewForCompleted(updated);
         return updated;
     }
@@ -1027,6 +1029,8 @@ export class AppointmentService {
             userName: actor.name,
             metadata: { amount: payload.amount, expected, note: payload.note },
         });
+
+        await completeRecommendationForAppointment(appointmentId);
 
         // Notify patient that payment was received (best-effort).
         try {
