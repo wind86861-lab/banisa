@@ -181,8 +181,10 @@ export const CartProvider = ({ children }) => {
     };
 
     // ─── ON USER CHANGE: fetch cart from backend ──────────────────────
+    // PATIENT only — /cart is role-gated, so fetching for a DOCTOR (or any
+    // other role sharing the same Telegram account) just raises a 403 toast.
     useEffect(() => {
-        if (user?.id) {
+        if (user?.id && user.role === 'PATIENT') {
             fetchCart();
         } else {
             setCart([]);

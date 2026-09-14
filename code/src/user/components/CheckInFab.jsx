@@ -17,7 +17,13 @@ export default function CheckInFab() {
     const [dismissed, setDismissed] = useState(false);
 
     const HIDE_ON = ['/user/login', '/user/signup', '/user/scan-checkin', '/checkin/'];
-    const hidden = HIDE_ON.some(p => location.pathname.startsWith(p)) || !user || authLoading;
+    // Role gate matters as much as the login check: this component is mounted
+    // globally, and /user/appointments is PATIENT-only. A DOCTOR signed into the
+    // Mini App (same Telegram, upgraded account) kept this poll running once a
+    // minute, so the 403 interceptor raised "ruxsatingiz yo'q" on a 60s loop —
+    // on top of the doctor portal, where it read as the portal being broken.
+    const hidden = HIDE_ON.some(p => location.pathname.startsWith(p))
+        || !user || user.role !== 'PATIENT' || authLoading;
 
     const { data } = useQuery({
         queryKey: ['user', 'appointments', 'fab-snapshot'],
