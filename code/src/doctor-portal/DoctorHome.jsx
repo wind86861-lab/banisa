@@ -216,10 +216,19 @@ export default function DoctorHome() {
                     <div className="dp-state-ic"><XCircle size={40} /></div>
                     <h2>Ariza rad etildi</h2>
                     {doc.rejectionReason && <p className="dp-reason">“{doc.rejectionReason}”</p>}
-                    <p>Ma'lumotlaringizni tekshirib, qo'shimcha hujjat yuklang.</p>
+                    <p>
+                        Kamchilikni tuzatib, <b>yangi hujjat yuklang</b> — arizangiz
+                        avtomatik ravishda qayta ko'rib chiqishga yuboriladi va admin xabardor qilinadi.
+                    </p>
                     <div className="dp-card">
                         <div className="dp-card-title"><FileText size={16} /> Hujjatlar</div>
-                        <DocUploader documents={documents} onChange={setDocuments} />
+                        {/* A new file flips the account to IN_REVIEW server-side, so
+                            refetch the profile — the screen then moves to the
+                            re-review state instead of still saying "rad etildi". */}
+                        <DocUploader
+                            documents={documents}
+                            onChange={(next) => { setDocuments(next); qc.invalidateQueries({ queryKey: ['doctor-me'] }); }}
+                        />
                     </div>
                 </div>
             ) : (
@@ -230,16 +239,24 @@ export default function DoctorHome() {
                    registration look incomplete). */
                 <div className="dp-state dp-state--pending dp-congrats">
                     <div className="dp-state-ic dp-congrats-ic"><PartyPopper size={38} /></div>
-                    <h2>{justRegistered ? 'Tabriklaymiz!' : 'Ro\'yxatdan o\'tgansiz'}</h2>
+                    <h2>
+                        {doc.status === 'IN_REVIEW'
+                            ? 'Qayta ko\'rib chiqilmoqda'
+                            : justRegistered ? 'Tabriklaymiz!' : 'Ro\'yxatdan o\'tgansiz'}
+                    </h2>
                     <p className="dp-congrats-lead">
-                        Siz shifokor sifatida ro'yxatdan o'tdingiz.
+                        {doc.status === 'IN_REVIEW'
+                            ? 'Yangi hujjatlaringiz yuborildi.'
+                            : 'Siz shifokor sifatida ro\'yxatdan o\'tdingiz.'}
                         <br /><b>Admin tasdig'i kutilmoqda.</b>
                     </p>
 
                     {/* Where the application is in its lifecycle. */}
                     <ol className="dp-progress">
-                        <li className="done"><span><CheckCircle2 size={16} /></span>Ariza yuborildi</li>
-                        <li className="now"><span><Clock size={16} /></span>Admin tekshiruvi</li>
+                        <li className="done"><span><CheckCircle2 size={16} /></span>
+                            {doc.status === 'IN_REVIEW' ? 'Yangi hujjatlar yuborildi' : 'Ariza yuborildi'}</li>
+                        <li className="now"><span><Clock size={16} /></span>
+                            {doc.status === 'IN_REVIEW' ? 'Admin qayta tekshiruvi' : 'Admin tekshiruvi'}</li>
                         <li><span><ShieldCheck size={16} /></span>Tasdiqlash — tavsiya yuborish ochiladi</li>
                     </ol>
 

@@ -154,3 +154,38 @@ export async function broadcastBookingById(appointmentId: string): Promise<void>
         console.error('[adminBroadcast] broadcastBookingById failed:', e);
     }
 }
+
+/**
+ * Plain operational notice for the platform admins (not tied to a booking).
+ *
+ * Goes to the super-admin Telegram group when one is configured; otherwise it
+ * DMs every super-admin who has bound the bot, so the notice still reaches a
+ * person on installs that never set SUPER_ADMIN_TG_GROUP_ID. Best-effort.
+ */
+export async function broadcastAdminNotice(text: string, button?: { text: string; path: string }): Promise<void> {
+    const bot = getBot();
+    if (!bot) return;
+    const reply_markup = button
+        ? { inline_keyboard: [[{ text: button.text, url: `${PUBLIC_BASE}${button.path}` }]] }
+        : undefined;
+    const body = text.slice(0, 4000);
+    try {
+        if (env.SUPER_ADMIN_TG_GROUP_ID) {
+            await bot.api.sendMessage(Number(env.SUPER_ADMIN_TG_GROUP_ID), body, { parse_mode: 'HTML', reply_markup });
+            return;
+        }
+        const admins = await prisma.user.findMany({ where: { role: 'SUPER_ADMIN' as any, isActive: true }, select: { id: true } });
+        if (!admins.length) return;
+        const accs = await (prisma as any).telegramAccount.findMany({
+            where: { userId: { in: admins.map(a => a.id) }, isBlocked: false },
+            select: { chatId: true },
+        });
+        for (const a of accs) {
+            try { await bot.api.sendMessage(Number(a.chatId), body, { parse_mode: 'HTML', reply_markup }); } catch { /* per-chat */ }
+        }
+    } catch (e: any) {
+        console.error('[adminBroadcast] notice failed:', e?.description || e?.message || e);
+    }
+}
+
+export { esc as escAdminHtml };

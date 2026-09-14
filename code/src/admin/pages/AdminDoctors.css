@@ -118,3 +118,16 @@
 .adr-reject-input { width: 100%; padding: 11px 13px; border-radius: 11px; border: 1px solid var(--adr-border); background: var(--adr-surface); color: var(--adr-ink); font-family: inherit; font-size: 14px; resize: vertical; }
 .adr-reject-input:focus { outline: none; border-color: var(--adr-accent); }
 .adr-reject-row { display: flex; gap: 10px; }
+
+/* Resubmitted after rejection — distinct from a first-time PENDING so the admin
+   knows this one has history (and a previous reason) behind it. */
+.adr-st--review { background: #efe9fd; color: #5b3fc4; }
+.adr-resubmit dd { color: #3f2f8a; }
+
+.adr-tab-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px;
+  border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 1;
+  background: #f59e0b; color: #fff;
+}
+.adr-tab-count--review { background: #6d4fd8; }

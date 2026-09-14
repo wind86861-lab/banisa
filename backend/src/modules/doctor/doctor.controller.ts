@@ -70,6 +70,12 @@ export const stats = async (req: AuthRequest, res: Response, next: NextFunction)
 
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
+export const adminCounts = async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        sendSuccess(res, await doctorService.adminDoctorCounts());
+    } catch (e) { next(e); }
+};
+
 export const adminList = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const status = req.query.status ? String(req.query.status) : undefined;

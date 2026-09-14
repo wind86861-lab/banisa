@@ -145,6 +145,18 @@ export async function updateMyDoctor(userId: string, patch: { specialty?: string
     if (patch.workplace !== undefined) profData.workplace = patch.workplace || null;
     if (patch.bio !== undefined) profData.bio = patch.bio || null;
     if (patch.documents !== undefined) profData.documents = Array.isArray(patch.documents) ? patch.documents : [];
+
+    // A rejected doctor uploading something NEW is a resubmission. Before this
+    // the upload just sat on a REJECTED profile: the admin list filters by
+    // status, so nobody ever looked again. Flip to IN_REVIEW and tell the admins.
+    // Only new files count — reordering or deleting is not a resubmission.
+    let resubmitted = false;
+    if (user.status === 'REJECTED' && Array.isArray(patch.documents)) {
+        const before = await (prisma as any).doctorProfile.findUnique({ where: { userId }, select: { documents: true } });
+        const oldUrls = new Set(((before?.documents as any[]) || []).map((d: any) => d?.url));
+        resubmitted = patch.documents.some((d: any) => d?.url && !oldUrls.has(d.url));
+    }
+
     if (Object.keys(profData).length) {
         await (prisma as any).doctorProfile.upsert({
             where: { userId },
@@ -152,7 +164,40 @@ export async function updateMyDoctor(userId: string, patch: { specialty?: string
             create: { userId, ...profData },
         });
     }
+    if (resubmitted) {
+        // rejectionReason is kept on purpose: the admin sees what was wrong last time.
+        await prisma.user.update({ where: { id: userId }, data: { status: 'IN_REVIEW' as any } });
+        await notifyAdminsResubmitted(userId);
+    }
     return getMyDoctor(userId);
+}
+
+async function notifyAdminsResubmitted(userId: string) {
+    try {
+        const { broadcastAdminNotice, escAdminHtml } = await import('../telegram/admin-broadcast.service');
+        const u = await prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true, phone: true } });
+        const p = await (prisma as any).doctorProfile.findUnique({ where: { userId }, select: { specialty: true, rejectionReason: true, documents: true } });
+        const name = [u?.firstName, u?.lastName].filter(Boolean).join(' ') || u?.phone || 'Shifokor';
+        const lines = [
+            '🔁 <b>Shifokor arizasi qayta ko\'rib chiqishga yuborildi</b>',
+            '',
+            `👤 ${escAdminHtml(name)}${p?.specialty ? ` — ${escAdminHtml(p.specialty)}` : ''}`,
+            `📞 ${escAdminHtml(u?.phone || '—')}`,
+            `📎 Hujjatlar: ${Array.isArray(p?.documents) ? p.documents.length : 0} ta (yangi yuklandi)`,
+        ];
+        if (p?.rejectionReason) lines.push(`❌ Oldingi rad sababi: ${escAdminHtml(p.rejectionReason)}`);
+        await broadcastAdminNotice(lines.join('\n'), { text: '🔎 Arizani ko\'rish', path: '/admin/doctors' });
+    } catch (e) {
+        console.error('[doctor] resubmission admin notice failed', { userId }, e);
+    }
+}
+
+/** Per-status counts for the admin tabs + the sidebar badge. */
+export async function adminDoctorCounts() {
+    const rows = await prisma.user.groupBy({ by: ['status'], where: { role: 'DOCTOR' as any }, _count: { _all: true } });
+    const out: Record<string, number> = { PENDING: 0, IN_REVIEW: 0, APPROVED: 0, REJECTED: 0 };
+    for (const r of rows as any[]) out[r.status] = r._count._all;
+    return { ...out, needsReview: out.PENDING + out.IN_REVIEW };
 }
 
 // ─── Recommendations (approved doctor) ───────────────────────────────────────

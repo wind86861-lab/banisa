@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import api from '../shared/api/axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import './Sidebar.css';
 
@@ -51,6 +53,17 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         return isPathMatch;
     };
 
+    // Doctor applications waiting on a decision (new + resubmitted after a
+    // rejection). The admin bell is mock-only, so this badge is how the panel
+    // tells an admin there is something to review.
+    const { data: doctorCounts } = useQuery({
+        queryKey: ['admin-doctor-counts'],
+        queryFn: async () => (await api.get('/admin/doctors/counts')).data.data,
+        enabled: location.pathname.startsWith('/admin'),
+        refetchInterval: 60_000,
+        retry: false,
+    });
+
     const menuGroups = [
         {
             title: 'DASHBOARD',
@@ -61,7 +74,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         {
             items: [
                 { key: 'clinics', icon: <Building2 size={20} />, label: 'Klinikalar', path: '/admin/clinics' },
-                { key: 'doctors', icon: <Stethoscope size={20} />, label: 'Shifokorlar', path: '/admin/doctors' },
+                { key: 'doctors', icon: <Stethoscope size={20} />, label: 'Shifokorlar', path: '/admin/doctors', badge: doctorCounts?.needsReview || 0 },
                 { key: 'appointments', icon: <Calendar size={20} />, label: 'Bronlar', path: '/admin/appointments' },
                 { key: 'users', icon: <Users size={20} />, label: 'Patients', path: '/admin/users' },
                 { key: 'services', icon: <Briefcase size={20} />, label: 'Diagnostika', path: '/admin/services?root=diagnostics' },
@@ -223,6 +236,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                                             >
                                                 <span className="icon">{item.icon}</span>
                                                 {isOpen && <span className="label text-truncate">{item.label}</span>}
+                                                {item.badge > 0 && (
+                                                    <span className={`nav-badge${isOpen ? '' : ' nav-badge--dot'}`} aria-label={`${item.badge} ta ko'rib chiqilishi kerak`}>
+                                                        {isOpen ? item.badge : ''}
+                                                    </span>
+                                                )}
                                             </a>
                                         )}
                                     </li>

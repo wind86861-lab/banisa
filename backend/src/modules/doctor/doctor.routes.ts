@@ -22,6 +22,7 @@ doctorRouter.get('/stats', requireAuth, requireRole(['DOCTOR']), ctrl.stats);
 export const adminDoctorRouter = Router();
 adminDoctorRouter.use(requireAuth, requireRole(['SUPER_ADMIN']));
 adminDoctorRouter.get('/', ctrl.adminList);
+adminDoctorRouter.get('/counts', ctrl.adminCounts); // before /:id, or "counts" is read as an id
 adminDoctorRouter.get('/:id', ctrl.adminGet);
 adminDoctorRouter.post('/:id/approve', ctrl.adminApprove);
 adminDoctorRouter.post('/:id/reject', ctrl.adminReject);

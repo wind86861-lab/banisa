@@ -8,16 +8,21 @@ import { imgUrl } from '../../shared/utils/format';
 import './AdminDoctors.css';
 
 const STATUS = {
-    PENDING:  { label: 'Kutilmoqda',   cls: 'adr-st--pending' },
-    APPROVED: { label: 'Tasdiqlangan', cls: 'adr-st--approved' },
-    REJECTED: { label: 'Rad etilgan',  cls: 'adr-st--rejected' },
+    PENDING:   { label: 'Kutilmoqda',          cls: 'adr-st--pending' },
+    IN_REVIEW: { label: 'Qayta ko\'rib chiqish', cls: 'adr-st--review' },
+    APPROVED:  { label: 'Tasdiqlangan',        cls: 'adr-st--approved' },
+    REJECTED:  { label: 'Rad etilgan',         cls: 'adr-st--rejected' },
 };
+// IN_REVIEW = a rejected doctor uploaded new documents. It sits next to
+// "Kutilmoqda" because both are decisions waiting on the admin.
 const TABS = [
-    { key: '',         label: 'Hammasi' },
-    { key: 'PENDING',  label: 'Kutilmoqda' },
-    { key: 'APPROVED', label: 'Tasdiqlangan' },
-    { key: 'REJECTED', label: 'Rad etilgan' },
+    { key: '',          label: 'Hammasi' },
+    { key: 'PENDING',   label: 'Kutilmoqda' },
+    { key: 'IN_REVIEW', label: 'Qayta ko\'rib chiqish' },
+    { key: 'APPROVED',  label: 'Tasdiqlangan' },
+    { key: 'REJECTED',  label: 'Rad etilgan' },
 ];
+const DECIDABLE = ['PENDING', 'IN_REVIEW'];
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('uz-UZ', { year: 'numeric', month: 'short', day: 'numeric' });
 const fullName = (x) => [x.firstName, x.lastName].filter(Boolean).join(' ') || 'Ismsiz';
@@ -75,6 +80,15 @@ function DoctorDrawer({ id, onClose }) {
                             {d.status === 'REJECTED' && d.rejectionReason && (
                                 <div className="adr-facts-wide"><dt>Rad sababi</dt><dd>{d.rejectionReason}</dd></div>
                             )}
+                            {d.status === 'IN_REVIEW' && (
+                                <div className="adr-facts-wide adr-resubmit">
+                                    <dt>Qayta yuborilgan</dt>
+                                    <dd>
+                                        Oldin rad etilgan, shifokor yangi hujjat yukladi.
+                                        {d.rejectionReason && <><br /><b>Oldingi sabab:</b> {d.rejectionReason}</>}
+                                    </dd>
+                                </div>
+                            )}
                         </dl>
 
                         <div className="adr-docs">
@@ -97,7 +111,7 @@ function DoctorDrawer({ id, onClose }) {
                             ) : <p className="adr-empty-sm">Hujjat yuklanmagan</p>}
                         </div>
 
-                        {d.status === 'PENDING' && (
+                        {DECIDABLE.includes(d.status) && (
                             <div className="adr-actions">
                                 {!rejecting ? (
                                     <>
@@ -142,6 +156,13 @@ export default function AdminDoctors() {
         queryKey: ['admin-doctors', tab],
         queryFn: async () => (await api.get('/admin/doctors', { params: tab ? { status: tab } : {} })).data.data,
     });
+    // Tab counts. Refetched when the drawer closes (a decision just changed
+    // them) and on an interval, so a resubmission shows up without a reload.
+    const { data: counts, refetch: refetchCounts } = useQuery({
+        queryKey: ['admin-doctor-counts'],
+        queryFn: async () => (await api.get('/admin/doctors/counts')).data.data,
+        refetchInterval: 60_000,
+    });
 
     return (
         <div className="adr">
@@ -157,6 +178,9 @@ export default function AdminDoctors() {
                 {TABS.map(t => (
                     <button key={t.key} className={`adr-tab${tab === t.key ? ' active' : ''}`} onClick={() => setTab(t.key)}>
                         {t.label}
+                        {DECIDABLE.includes(t.key) && counts?.[t.key] > 0 && (
+                            <span className={`adr-tab-count${t.key === 'IN_REVIEW' ? ' adr-tab-count--review' : ''}`}>{counts[t.key]}</span>
+                        )}
                     </button>
                 ))}
             </div>
@@ -186,7 +210,7 @@ export default function AdminDoctors() {
                 </div>
             )}
 
-            {openId && <DoctorDrawer id={openId} onClose={() => setOpenId(null)} />}
+            {openId && <DoctorDrawer id={openId} onClose={() => { setOpenId(null); refetchCounts(); }} />}
         </div>
     );
 }
