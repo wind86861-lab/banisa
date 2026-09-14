@@ -432,8 +432,10 @@
 .dp-hero-value small { font-size: 15px; font-weight: 600; opacity: .85; }
 .dp-hero-sub { font-size: 12.5px; opacity: .85; }
 
-/* KPI row. */
-.dp-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+/* KPI row — two columns, because four stage labels do not fit across three
+   at 390px without abbreviating, and abbreviating is what lost ACCEPTED in the
+   first place. */
+.dp-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
 .dp-tile {
   display: flex; flex-direction: column; gap: 2px;
   padding: 12px 11px;
@@ -459,6 +461,14 @@
 
 .dp-meter { height: 6px; border-radius: 4px; background: var(--dp-accent-soft); overflow: hidden; }
 .dp-meter-fill { display: block; height: 100%; border-radius: 4px; background: var(--dp-accent); }
+
+/* The finished stage is the one worth spotting at a glance. */
+.dp-tile--done { border-color: #bfe4cd; background: #f2fbf5; }
+.dp-tile--done .dp-tile-value { color: #15683c; }
+.dp-tile--done .dp-tile-sub { color: #2f7f54; }
+
+.dp-stats-tail { margin: 0; font-size: 12.5px; color: var(--dp-muted); line-height: 1.5; }
+.dp-stats-tail b { color: var(--dp-soft); font-weight: 700; }
 
 .dp-stats-skel { display: flex; justify-content: center; padding: 26px; margin-top: 22px; }
 .dp-stats-empty { margin-top: 22px; }

@@ -107,22 +107,41 @@ function DoctorStats() {
                 <span className="dp-hero-sub">{plain(t.all)} ta tavsiya</span>
             </div>
 
-            {/* KPI row — counts that say where those referrals ended up. */}
+            {/* The lifecycle, one tile per stage — these are four distinct things
+                the doctor acts on differently, so none of them is folded into
+                another. "Qabul qilingan" in particular is its own stage: the
+                patient said yes but has not booked yet, which is where a nudge
+                actually helps. Two columns so every label fits unabbreviated at
+                390px. */}
             <div className="dp-tiles">
                 <div className="dp-tile">
-                    <span className="dp-tile-label">Yakunlangan</span>
-                    <b className="dp-tile-value">{plain(t.completed)}</b>
-                    <span className="dp-tile-sub">{som(t.sumCompleted)} so'm</span>
+                    <span className="dp-tile-label">Javob kutilmoqda</span>
+                    <b className="dp-tile-value">{plain(t.pending)}</b>
+                </div>
+                <div className="dp-tile">
+                    <span className="dp-tile-label">Qabul qilingan</span>
+                    <b className="dp-tile-value">{plain(t.accepted)}</b>
+                    <span className="dp-tile-sub">hali bron qilinmagan</span>
                 </div>
                 <div className="dp-tile">
                     <span className="dp-tile-label">Bron qilingan</span>
                     <b className="dp-tile-value">{plain(t.booked)}</b>
+                    <span className="dp-tile-sub">tashrif kutilmoqda</span>
                 </div>
-                <div className="dp-tile">
-                    <span className="dp-tile-label">Kutilmoqda</span>
-                    <b className="dp-tile-value">{plain(t.pending + t.accepted)}</b>
+                <div className="dp-tile dp-tile--done">
+                    <span className="dp-tile-label">Yakunlangan</span>
+                    <b className="dp-tile-value">{plain(t.completed)}</b>
+                    <span className="dp-tile-sub">{som(t.sumCompleted)} so'm</span>
                 </div>
             </div>
+
+            {/* Terminal states. Real, but not the story — kept off the tile grid
+                so they never outweigh the four live stages. */}
+            {(t.rejected > 0 || t.expired > 0) && (
+                <p className="dp-stats-tail">
+                    Rad etilgan: <b>{plain(t.rejected)}</b> · Muddati o'tgan: <b>{plain(t.expired)}</b>
+                </p>
+            )}
 
             {/* Per-clinic split. Each row is a meter: filled share = finished
                 visits, track = a lighter step of the same hue. Counts and sums
