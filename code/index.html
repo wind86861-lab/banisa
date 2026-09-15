@@ -1,11 +1,61 @@
 <!doctype html>
-<html lang="en">
+<html lang="uz">
 
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="/images/banisa-logo.png" />
+  <link rel="apple-touch-icon" href="/images/banisa-logo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Banisa Admin</title>
+
+  <!-- ── SEO ──────────────────────────────────────────────────────────────
+       This single index.html is served for EVERY route (SPA fallback in
+       backend/src/app.ts), so these tags are what Google shows for the site.
+       Previously the title read "Banisa Admin" — the internal panel's name —
+       which is what search results displayed to patients. -->
+  <title>Banisa.uz — Hospital Booking System</title>
+  <meta name="description"
+    content="Banisa.uz — klinikalar, shifokorlar va tibbiy xizmatlarga onlayn navbat olish tizimi. Tahlil, tekshiruv, check-up paketlari, operatsiyalar va tez yordam chaqiruvi bir joyda." />
+  <meta name="robots" content="index, follow" />
+  <!-- No static canonical / og:url here on purpose. This file is served for
+       EVERY route, so a fixed canonical would tell Google that every clinic,
+       doctor and service page is a duplicate of one URL and drop them from the
+       index. PageTitle (App.jsx) sets a self-referencing one per route. -->
+
+  <!-- Open Graph (Telegram / Facebook link previews) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Banisa.uz" />
+  <meta property="og:title" content="Banisa.uz — Hospital Booking System" />
+  <meta property="og:description"
+    content="Klinikalar, shifokorlar va tibbiy xizmatlarga onlayn navbat oling. Tahlil, tekshiruv, check-up va tez yordam — bir joyda." />
+  <meta property="og:image" content="https://banisa.uz/images/banisa-logo.png" />
+  <meta property="og:locale" content="uz_UZ" />
+
+  <!-- Twitter/X -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Banisa.uz — Hospital Booking System" />
+  <meta name="twitter:description"
+    content="Klinikalar, shifokorlar va tibbiy xizmatlarga onlayn navbat oling." />
+  <meta name="twitter:image" content="https://banisa.uz/images/banisa-logo.png" />
+
+  <!-- Rich result: names the site "Banisa.uz" and gives Google the search
+       action, so the result reads as the patient product, not a panel. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Banisa.uz",
+    "alternateName": "Banisa.uz — Hospital Booking System",
+    "url": "https://banisa.uz/",
+    "description": "Klinikalar, shifokorlar va tibbiy xizmatlarga onlayn navbat olish tizimi.",
+    "inLanguage": "uz",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://banisa.uz/xizmatlar?search={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 

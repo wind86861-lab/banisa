@@ -130,6 +130,47 @@ function AdminLayout() {
     );
 }
 
+// Per-route document.title. The SPA serves ONE index.html for every route, so
+// without this every page inherits the same tag and search results describe the
+// whole site with a single title. Patient-facing routes get a descriptive title;
+// panels keep a neutral one (they are Disallow-ed in robots.txt anyway).
+const PAGE_TITLES = [
+    [/^\/xizmatlar(\/|$)/, 'Tibbiy xizmatlar — Banisa.uz'],
+    [/^\/klinikalar(\/|$)/, 'Klinikalar — Banisa.uz'],
+    [/^\/doktorlar(\/|$)/, 'Shifokorlar — Banisa.uz'],
+    [/^\/skory(\/|$)/,     'Tez yordam chaqirish — Banisa.uz'],
+    [/^\/xarita(\/|$)/,    'Xaritada qidirish — Banisa.uz'],
+    [/^\/user\/cart/,       'Savat — Banisa.uz'],
+    [/^\/user(\/|$)/,      'Shaxsiy kabinet — Banisa.uz'],
+    [/^\/doctor(\/|$)/,    'Shifokor portali — Banisa.uz'],
+    [/^\/admin(\/|$)/,     'Banisa'],
+    [/^\/clinic(\/|$)/,    'Banisa'],
+];
+const DEFAULT_TITLE = 'Banisa.uz — Hospital Booking System';
+
+// Upsert a <head> tag so route changes update it instead of stacking copies.
+function setHeadTag(selector, create, attr, value) {
+    let el = document.head.querySelector(selector);
+    if (!el) { el = create(); document.head.appendChild(el); }
+    el.setAttribute(attr, value);
+}
+
+function PageTitle() {
+    const { pathname } = useLocation();
+    useEffect(() => {
+        const hit = PAGE_TITLES.find(([re]) => re.test(pathname));
+        document.title = hit ? hit[1] : DEFAULT_TITLE;
+
+        // Self-referencing canonical per route (path only — query strings are
+        // filters, not distinct pages). index.html deliberately ships none: one
+        // fixed canonical there would mark every page a duplicate of that URL.
+        const url = `https://banisa.uz${pathname === '/' ? '/xizmatlar' : pathname}`;
+        setHeadTag('link[rel="canonical"]', () => Object.assign(document.createElement('link'), { rel: 'canonical' }), 'href', url);
+        setHeadTag('meta[property="og:url"]', () => { const m = document.createElement('meta'); m.setAttribute('property', 'og:url'); return m; }, 'content', url);
+    }, [pathname]);
+    return null;
+}
+
 // Telegram deep-link `?startapp=doctor` opens the app at "/" — route such a
 // visitor into the doctor Mini App instead of the patient home.
 function DoctorStartParam() {
@@ -153,6 +194,7 @@ function App() {
             <ToastProvider>
                 <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                     <ScrollToTop />
+                    <PageTitle />
                     <DoctorStartParam />
                     <BetaBanner />
                     <AuthProvider>

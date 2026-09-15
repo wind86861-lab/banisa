@@ -1,0 +1,35 @@
+# Banisa.uz — Hospital Booking System
+# Patient-facing catalog is indexable; every panel and private area is not.
+
+User-agent: *
+Allow: /$
+Allow: /xizmatlar
+Allow: /klinikalar
+Allow: /doktorlar
+Allow: /skory
+Allow: /xarita
+Allow: /home
+
+# Internal panels — these are why search results showed "Banisa Admin".
+Disallow: /admin
+Disallow: /clinic
+Disallow: /doctor
+Disallow: /login
+Disallow: /register
+Disallow: /status
+Disallow: /welcome
+
+# Private / per-user areas — nothing here is useful in search.
+Disallow: /user/
+Disallow: /cart
+Disallow: /checkin/
+Disallow: /payment
+Disallow: /mini-app-bind
+Disallow: /403
+
+# Booking actions behind login — no crawl value.
+Disallow: /*/band/
+Disallow: /skory/order
+Disallow: /skory/pay/
+
+Sitemap: https://banisa.uz/sitemap.xml

@@ -35,7 +35,10 @@ export default function BetaBanner() {
     if (!visible) return null;
 
     return (
-        <div className="beta-banner" role="alert">
+        // data-nosnippet: Google was quoting this banner as the site's search
+        // description ("Sayt sinov rejimida ishlamoqda…"). It is operational
+        // chrome, never a summary of the site.
+        <div className="beta-banner" role="alert" data-nosnippet="">
             <div className="beta-banner__inner">
                 <AlertTriangle size={16} className="beta-banner__icon" />
                 <span className="beta-banner__text">
